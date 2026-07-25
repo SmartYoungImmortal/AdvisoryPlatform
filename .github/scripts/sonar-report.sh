@@ -1,19 +1,24 @@
 #!/usr/bin/env bash
 # ─────────────────────────────────────────────────────────────────────
-# SonarQube Analysis Report → posts a sticky comment on the PR.
-# Reads results from the SonarCloud public API (no token needed for a
-# public project) and does NOT run a scanner, so it never conflicts with
+# SonarQube Analysis Report.
+#   • pull_request → sticky comment on the PR + rename PR title.
+#   • push (branch) → comment on the commit.
+# Both set the job exit code from the Quality Gate (green ✓ / red ✗).
+# Reads results from the SonarCloud public API (no token for a public
+# project) and does NOT run a scanner, so it never conflicts with
 # Automatic Analysis. ESLint / TypeCheck results are passed in via env.
 # ─────────────────────────────────────────────────────────────────────
 set -uo pipefail
 
 API="https://sonarcloud.io/api"
 PROJECT="${SONAR_PROJECT:?set SONAR_PROJECT}"
-PR="${PR_NUMBER:?set PR_NUMBER}"
+PR="${PR_NUMBER:-}"                       # empty on push events
 REPO="${GITHUB_REPOSITORY:?}"
-COMMIT_SHORT="$(echo "${HEAD_SHA:-}" | cut -c1-7)"
+HEAD_SHA="${HEAD_SHA:-}"
+COMMIT_SHORT="$(echo "${HEAD_SHA}" | cut -c1-7)"
 BRANCH="${HEAD_REF:-}"
-DASH="https://sonarcloud.io/summary/new_code?id=${PROJECT}&pullRequest=${PR}"
+
+if [ -n "${PR}" ]; then MODE="pr"; else MODE="branch"; fi
 
 # ── helpers ──────────────────────────────────────────────────────────
 rating() { case "${1%%.*}" in 1) echo A;; 2) echo B;; 3) echo C;; 4) echo D;; 5) echo E;; *) echo "?";; esac; }
@@ -24,22 +29,36 @@ debt() { # minutes -> "2d 3h", "24m", "0m"
 }
 mval() { jq -r --arg k "$1" '.component.measures[]? | select(.metric==$k) | .value' "$2" 2>/dev/null; }
 
-# ── 1. wait for the PR to be analysed (Automatic Analysis runs on push) ─
-echo "Waiting for SonarCloud PR analysis…"
-PR_OK=""
-for i in $(seq 1 18); do
-  curl -sf "${API}/project_pull_requests/list?project=${PROJECT}" -o /tmp/prs.json || true
-  if jq -e --arg pr "$PR" '.pullRequests[]? | select(.key==$pr)' /tmp/prs.json >/dev/null 2>&1; then
-    PR_OK=1; echo "PR #$PR analysis found."; break
-  fi
-  echo "  …not ready yet ($i/18)"; sleep 10
-done
-PR_Q=""; [ -n "$PR_OK" ] && PR_Q="&pullRequest=${PR}"
+# ── 1. wait for analysis, then decide the API scope ──────────────────
+if [ "$MODE" = "pr" ]; then
+  echo "Waiting for SonarCloud PR #${PR} analysis…"
+  OK=""
+  for i in $(seq 1 18); do
+    curl -sf "${API}/project_pull_requests/list?project=${PROJECT}" -o /tmp/prs.json || true
+    if jq -e --arg pr "$PR" '.pullRequests[]? | select(.key==$pr)' /tmp/prs.json >/dev/null 2>&1; then
+      OK=1; echo "PR #$PR analysis found."; break
+    fi
+    echo "  …not ready yet ($i/18)"; sleep 10
+  done
+  SCOPE=""; [ -n "$OK" ] && SCOPE="&pullRequest=${PR}"
+  DASH="https://sonarcloud.io/summary/new_code?id=${PROJECT}&pullRequest=${PR}"
+else
+  echo "Waiting for SonarCloud branch analysis (${BRANCH})…"
+  for i in $(seq 1 18); do
+    curl -sf "${API}/measures/component?component=${PROJECT}&branch=${BRANCH}&metricKeys=alert_status" -o /tmp/chk.json || true
+    if jq -e '.component.measures[]? | select(.metric=="alert_status")' /tmp/chk.json >/dev/null 2>&1; then
+      echo "Branch analysis found."; break
+    fi
+    echo "  …not ready yet ($i/18)"; sleep 10
+  done
+  SCOPE="&branch=${BRANCH}"
+  DASH="https://sonarcloud.io/summary/new_code?id=${PROJECT}&branch=${BRANCH}"
+fi
 
 # ── 2. fetch measures / quality gate / issues ────────────────────────
 METRICS="alert_status,bugs,vulnerabilities,code_smells,security_hotspots,coverage,duplicated_lines_density,ncloc,statements,functions,sqale_index,sqale_rating,reliability_rating,security_rating,security_review_rating"
-curl -sf "${API}/measures/component?component=${PROJECT}${PR_Q}&metricKeys=${METRICS}" -o /tmp/m.json || echo '{}' >/tmp/m.json
-curl -sf "${API}/issues/search?componentKeys=${PROJECT}${PR_Q}&resolved=false&facets=severities&ps=10&s=SEVERITY&asc=false" -o /tmp/i.json || echo '{}' >/tmp/i.json
+curl -sf "${API}/measures/component?component=${PROJECT}${SCOPE}&metricKeys=${METRICS}" -o /tmp/m.json || echo '{}' >/tmp/m.json
+curl -sf "${API}/issues/search?componentKeys=${PROJECT}${SCOPE}&resolved=false&facets=severities&ps=10&s=SEVERITY&asc=false" -o /tmp/i.json || echo '{}' >/tmp/i.json
 
 NCLOC=$(mval ncloc /tmp/m.json);           NCLOC=${NCLOC:-0}
 STMT=$(mval statements /tmp/m.json);        STMT=${STMT:-0}
@@ -67,7 +86,6 @@ ISSUE_TOTAL=$(jq -r '.total // 0' /tmp/i.json)
 rscore() { case "$1" in A) echo 10;; B) echo 8;; C) echo 6;; D) echo 4;; E) echo 2;; *) echo 0;; esac; }
 OVERALL=$(( ( $(rscore "$REL") + $(rscore "$SEC") + $(rscore "$MNT") ) / 3 ))
 
-# gate / eslint / tsc icons
 if [ "$GATE" = "OK" ]; then GATE_ICON="🟢"; GATE_TXT="✅ PASSED"; else GATE_ICON="🔴"; GATE_TXT="❌ FAILED"; fi
 ESLINT_STATUS="${ESLINT_STATUS:-"⏭️ Skipped"}"; ESLINT_DETAIL="${ESLINT_DETAIL:-"—"}"
 TSC_STATUS="${TSC_STATUS:-"⏭️ Skipped"}";       TSC_DETAIL="${TSC_DETAIL:-"—"}"
@@ -109,7 +127,7 @@ echo ""
 echo "<details><summary>📋 All Issues (${ISSUE_TOTAL})</summary>"
 echo ""
 if [ "${ISSUE_TOTAL}" = "0" ]; then
-  echo "No open issues on this pull request. 🎉"
+  echo "No open issues on this analysis. 🎉"
 else
   echo "| Severity | Rule | File | Message |"
   echo "|---|---|---|---|"
@@ -123,39 +141,43 @@ echo "🔗 [Dashboard](${DASH}) · Branch: \`${BRANCH}\` · Commit: \`${COMMIT_S
 
 echo "----- report preview -----"; cat /tmp/report.md
 
-# ── 4. post or update the sticky comment ─────────────────────────────
-CID=$(gh api "repos/${REPO}/issues/${PR}/comments" --paginate \
-        --jq '.[] | select(.body | contains("<!-- sonar-report -->")) | .id' 2>/dev/null | head -1)
-if [ -n "${CID}" ]; then
-  gh api -X PATCH "repos/${REPO}/issues/comments/${CID}" -F body=@/tmp/report.md >/dev/null && echo "Updated comment ${CID}"
-else
-  gh api -X POST "repos/${REPO}/issues/${PR}/comments" -F body=@/tmp/report.md >/dev/null && echo "Created new comment"
-fi
-
-# ── 5. rename the PR title with a status tag ([DONE] → PASSED/FAILED) ─
-case "${GATE}" in
-  OK)    STATUS_TAG="[🟢 PASSED]" ;;
-  ERROR) STATUS_TAG="[🔴 FAILED]" ;;
-  *)     STATUS_TAG="[🔍 CHECKING]" ;;
-esac
-CUR_TITLE=$(gh api "repos/${REPO}/pulls/${PR}" --jq '.title' 2>/dev/null)
-if [ -n "${CUR_TITLE}" ]; then
-  # strip ONE leading [..] tag (e.g. [DONE], [🟢 PASSED]) then prepend the new one — idempotent
-  REST=$(printf '%s' "${CUR_TITLE}" | sed -E 's/^[[:space:]]*\[[^]]*\][[:space:]]*//')
-  NEW_TITLE="${STATUS_TAG} ${REST}"
-  if [ "${NEW_TITLE}" != "${CUR_TITLE}" ]; then
-    gh api -X PATCH "repos/${REPO}/pulls/${PR}" -f title="${NEW_TITLE}" >/dev/null \
-      && echo "PR title → ${NEW_TITLE}"
+# ── 4. post the report (PR sticky comment, or commit comment) ─────────
+if [ "$MODE" = "pr" ]; then
+  CID=$(gh api "repos/${REPO}/issues/${PR}/comments" --paginate \
+          --jq '.[] | select(.body | contains("<!-- sonar-report -->")) | .id' 2>/dev/null | head -1)
+  if [ -n "${CID}" ]; then
+    gh api -X PATCH "repos/${REPO}/issues/comments/${CID}" -F body=@/tmp/report.md >/dev/null && echo "Updated PR comment ${CID}"
+  else
+    gh api -X POST "repos/${REPO}/issues/${PR}/comments" -F body=@/tmp/report.md >/dev/null && echo "Created PR comment"
   fi
+
+  # rename the PR title with a status tag ([DONE] → PASSED/FAILED) — idempotent
+  case "${GATE}" in
+    OK)    STATUS_TAG="[🟢 PASSED]" ;;
+    ERROR) STATUS_TAG="[🔴 FAILED]" ;;
+    *)     STATUS_TAG="[🔍 CHECKING]" ;;
+  esac
+  CUR_TITLE=$(gh api "repos/${REPO}/pulls/${PR}" --jq '.title' 2>/dev/null)
+  if [ -n "${CUR_TITLE}" ]; then
+    REST=$(printf '%s' "${CUR_TITLE}" | sed -E 's/^[[:space:]]*\[[^]]*\][[:space:]]*//')
+    NEW_TITLE="${STATUS_TAG} ${REST}"
+    if [ "${NEW_TITLE}" != "${CUR_TITLE}" ]; then
+      gh api -X PATCH "repos/${REPO}/pulls/${PR}" -f title="${NEW_TITLE}" >/dev/null \
+        && echo "PR title → ${NEW_TITLE}"
+    fi
+  fi
+else
+  # push event → comment on the commit
+  gh api -X POST "repos/${REPO}/commits/${HEAD_SHA}/comments" -F body=@/tmp/report.md >/dev/null \
+    && echo "Commented on commit ${COMMIT_SHORT}"
 fi
 
-# ── 6. reflect Quality Gate as the job status (green ✓ / red ✗) ───────
+# ── 5. reflect Quality Gate as the job status (green ✓ / red ✗) ───────
 case "${GATE}" in
   OK)
     echo "::notice::Quality Gate PASSED"; exit 0 ;;
   ERROR)
     echo "::error::Quality Gate FAILED"; exit 1 ;;
   *)
-    # no gate computed (PR not analysed yet / NONE) — stay neutral, don't false-fail
     echo "::warning::Quality Gate status unavailable (${GATE}) — not failing the build"; exit 0 ;;
 esac
