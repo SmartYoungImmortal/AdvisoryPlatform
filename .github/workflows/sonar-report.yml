@@ -23,7 +23,7 @@ jobs:
         with:
           fetch-depth: 0
 
-      - uses: pnpm/action-setup@v4
+      - uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1 # v4
         with:
           version: 10
 
@@ -35,7 +35,7 @@ jobs:
       - name: Install dependencies
         id: install
         continue-on-error: true
-        run: pnpm install --frozen-lockfile
+        run: pnpm install --frozen-lockfile --ignore-scripts
 
       # ── ESLint (only if deps installed) ─────────────────────────────
       - name: ESLint
@@ -56,7 +56,7 @@ jobs:
         continue-on-error: true
         run: |
           set +e
-          npx tsc --noEmit > tsc.log 2>&1
+          pnpm exec tsc --noEmit > tsc.log 2>&1
           echo "code=$?" >> "$GITHUB_OUTPUT"
           echo "errors=$(grep -cE 'error TS' tsc.log || true)" >> "$GITHUB_OUTPUT"
           cat tsc.log
