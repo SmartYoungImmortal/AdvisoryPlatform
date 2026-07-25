@@ -132,7 +132,24 @@ else
   gh api -X POST "repos/${REPO}/issues/${PR}/comments" -F body=@/tmp/report.md >/dev/null && echo "Created new comment"
 fi
 
-# ── 5. reflect Quality Gate as the job status (green ✓ / red ✗) ───────
+# ── 5. rename the PR title with a status tag ([DONE] → PASSED/FAILED) ─
+case "${GATE}" in
+  OK)    STATUS_TAG="[🟢 PASSED]" ;;
+  ERROR) STATUS_TAG="[🔴 FAILED]" ;;
+  *)     STATUS_TAG="[🔍 CHECKING]" ;;
+esac
+CUR_TITLE=$(gh api "repos/${REPO}/pulls/${PR}" --jq '.title' 2>/dev/null)
+if [ -n "${CUR_TITLE}" ]; then
+  # strip ONE leading [..] tag (e.g. [DONE], [🟢 PASSED]) then prepend the new one — idempotent
+  REST=$(printf '%s' "${CUR_TITLE}" | sed -E 's/^[[:space:]]*\[[^]]*\][[:space:]]*//')
+  NEW_TITLE="${STATUS_TAG} ${REST}"
+  if [ "${NEW_TITLE}" != "${CUR_TITLE}" ]; then
+    gh api -X PATCH "repos/${REPO}/pulls/${PR}" -f title="${NEW_TITLE}" >/dev/null \
+      && echo "PR title → ${NEW_TITLE}"
+  fi
+fi
+
+# ── 6. reflect Quality Gate as the job status (green ✓ / red ✗) ───────
 case "${GATE}" in
   OK)
     echo "::notice::Quality Gate PASSED"; exit 0 ;;
