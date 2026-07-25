@@ -1,0 +1,76 @@
+name: SonarQube Report
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+    branches:
+      - dev
+      - main
+
+permissions:
+  contents: read
+  pull-requests: write
+
+concurrency:
+  group: sonar-report-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  report:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      # ── ESLint ──────────────────────────────────────────────────────
+      - name: ESLint
+        id: eslint
+        continue-on-error: true
+        run: |
+          set +e
+          pnpm lint > eslint.log 2>&1
+          code=$?
+          errors=$(grep -cE "error" eslint.log || true)
+          echo "code=$code"    >> "$GITHUB_OUTPUT"
+          echo "errors=$errors" >> "$GITHUB_OUTPUT"
+          cat eslint.log
+
+      # ── TypeCheck ───────────────────────────────────────────────────
+      - name: TypeCheck
+        id: tsc
+        continue-on-error: true
+        run: |
+          set +e
+          npx tsc --noEmit > tsc.log 2>&1
+          code=$?
+          errors=$(grep -cE "error TS" tsc.log || true)
+          echo "code=$code"    >> "$GITHUB_OUTPUT"
+          echo "errors=$errors" >> "$GITHUB_OUTPUT"
+          cat tsc.log
+
+      # ── Build report + post PR comment ──────────────────────────────
+      - name: SonarQube Report
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          SONAR_PROJECT: SmartYoungImmortal_AdvisoryPlatform
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          HEAD_REF: ${{ github.event.pull_request.head.ref }}
+          ESLINT_STATUS: ${{ steps.eslint.outputs.code == '0' && '✅ Passed' || '❌ Failed' }}
+          ESLINT_DETAIL: ${{ steps.eslint.outputs.errors }} problems
+          TSC_STATUS: ${{ steps.tsc.outputs.code == '0' && '✅ Passed' || '❌ Failed' }}
+          TSC_DETAIL: ${{ steps.tsc.outputs.errors }} errors
+        run: bash .github/scripts/sonar-report.sh
