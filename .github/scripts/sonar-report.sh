@@ -131,3 +131,14 @@ if [ -n "${CID}" ]; then
 else
   gh api -X POST "repos/${REPO}/issues/${PR}/comments" -F body=@/tmp/report.md >/dev/null && echo "Created new comment"
 fi
+
+# ── 5. reflect Quality Gate as the job status (green ✓ / red ✗) ───────
+case "${GATE}" in
+  OK)
+    echo "::notice::Quality Gate PASSED"; exit 0 ;;
+  ERROR)
+    echo "::error::Quality Gate FAILED"; exit 1 ;;
+  *)
+    # no gate computed (PR not analysed yet / NONE) — stay neutral, don't false-fail
+    echo "::warning::Quality Gate status unavailable (${GATE}) — not failing the build"; exit 0 ;;
+esac
