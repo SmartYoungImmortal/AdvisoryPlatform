@@ -1,0 +1,77 @@
+name: SonarQube Report
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+    branches:
+      - dev
+      - main
+
+permissions:
+  contents: read
+  pull-requests: write
+
+concurrency:
+  group: sonar-report-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  report:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1 # v4
+        with:
+          version: 10
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      # install is best-effort: even if it fails, we still post the Sonar report
+      - name: Install dependencies
+        id: install
+        continue-on-error: true
+        run: pnpm install --frozen-lockfile --ignore-scripts
+
+      # ── ESLint (only if deps installed) ─────────────────────────────
+      - name: ESLint
+        id: eslint
+        if: steps.install.outcome == 'success'
+        continue-on-error: true
+        run: |
+          set +e
+          pnpm lint > eslint.log 2>&1
+          echo "code=$?" >> "$GITHUB_OUTPUT"
+          echo "errors=$(grep -cE '(^|[[:space:]])error' eslint.log || true)" >> "$GITHUB_OUTPUT"
+          cat eslint.log
+
+      # ── TypeCheck (only if deps installed) ──────────────────────────
+      - name: TypeCheck
+        id: tsc
+        if: steps.install.outcome == 'success'
+        continue-on-error: true
+        run: |
+          set +e
+          pnpm exec tsc --noEmit > tsc.log 2>&1
+          echo "code=$?" >> "$GITHUB_OUTPUT"
+          echo "errors=$(grep -cE 'error TS' tsc.log || true)" >> "$GITHUB_OUTPUT"
+          cat tsc.log
+
+      # ── Build report + post PR comment (ALWAYS runs) ────────────────
+      - name: SonarQube Report
+        if: always()
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          SONAR_PROJECT: SmartYoungImmortal_AdvisoryPlatform
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          HEAD_REF: ${{ github.event.pull_request.head.ref }}
+          ESLINT_STATUS: ${{ steps.eslint.outcome == 'success' && '✅ Passed' || (steps.eslint.outcome == 'skipped' && '⏭️ Skipped' || '❌ Failed') }}
+          ESLINT_DETAIL: ${{ steps.eslint.outputs.errors != '' && format('{0} problems', steps.eslint.outputs.errors) || '—' }}
+          TSC_STATUS: ${{ steps.tsc.outcome == 'success' && '✅ Passed' || (steps.tsc.outcome == 'skipped' && '⏭️ Skipped' || '❌ Failed') }}
+          TSC_DETAIL: ${{ steps.tsc.outputs.errors != '' && format('{0} errors', steps.tsc.outputs.errors) || '—' }}
+        run: bash .github/scripts/sonar-report.sh
