@@ -12,6 +12,17 @@
   "assets": {
     "directory": ".open-next/assets",
     "binding": "ASSETS"
-  }
+  },
   // Add bindings here as the app grows (D1/KV/R2/Durable Objects, env vars, etc.)
+
+  // Environments: `main` deploys prod (top-level), `dev` deploys qa (env.qa)
+  "env": {
+    "qa": {
+      "name": "advisory-platform-qa",
+      "assets": {
+        "directory": ".open-next/assets",
+        "binding": "ASSETS"
+      }
+    }
+  }
 }

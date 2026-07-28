@@ -6,13 +6,17 @@ on:
     branches:
       - dev
       - main
+  push:
+    branches:
+      - dev
+      - main
 
 permissions:
-  contents: read
+  contents: write
   pull-requests: write
 
 concurrency:
-  group: sonar-report-${{ github.event.pull_request.number }}
+  group: sonar-report-${{ github.event.pull_request.number || github.ref_name }}
   cancel-in-progress: true
 
 jobs:
@@ -68,8 +72,8 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           SONAR_PROJECT: SmartYoungImmortal_AdvisoryPlatform
           PR_NUMBER: ${{ github.event.pull_request.number }}
-          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
-          HEAD_REF: ${{ github.event.pull_request.head.ref }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+          HEAD_REF: ${{ github.event.pull_request.head.ref || github.ref_name }}
           ESLINT_STATUS: ${{ steps.eslint.outcome == 'success' && '✅ Passed' || (steps.eslint.outcome == 'skipped' && '⏭️ Skipped' || '❌ Failed') }}
           ESLINT_DETAIL: ${{ steps.eslint.outputs.errors != '' && format('{0} problems', steps.eslint.outputs.errors) || '—' }}
           TSC_STATUS: ${{ steps.tsc.outcome == 'success' && '✅ Passed' || (steps.tsc.outcome == 'skipped' && '⏭️ Skipped' || '❌ Failed') }}
