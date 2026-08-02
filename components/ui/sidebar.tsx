@@ -282,6 +282,7 @@ function SidebarRail({ className, ...props }: React.ComponentProps<"button">) {
 
   return (
     <button
+      type="button"
       data-sidebar="rail"
       data-slot="sidebar-rail"
       aria-label="Toggle Sidebar"
@@ -606,7 +607,8 @@ function SidebarMenuSkeleton({
 }) {
   // Random width between 50 to 90%.
   const [width] = React.useState(() => {
-    return `${Math.floor(Math.random() * 40) + 50}%`
+    const seed = crypto.getRandomValues(new Uint32Array(1))[0]
+    return `${Math.floor((seed / 2 ** 32) * 40) + 50}%`
   })
 
   return (

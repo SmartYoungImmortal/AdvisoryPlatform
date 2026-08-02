@@ -132,7 +132,7 @@ function ToastClose({
   )
 }
 
-function ToastIcon({ type }: { type: string | undefined }) {
+function ToastIcon({ type }: Readonly<{ type: string | undefined }>) {
   let icon: React.ReactNode = null
 
   if (type === "success") {
