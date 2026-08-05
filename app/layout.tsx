@@ -20,7 +20,7 @@ export default function RootLayout({
       lang="en"
       className={cn("h-full", "antialiased", "font-sans")}
     >
-      <body className="min-h-full flex flex-col">
+      <body className="min-h-full max-w-md w-full flex flex-col mx-auto bg-neutral-100">
         <TooltipProvider>
           {children}
         </TooltipProvider>
