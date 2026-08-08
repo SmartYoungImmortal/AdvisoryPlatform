@@ -4,6 +4,7 @@ import '@fontsource-variable/inter/wght.css';
 import "./globals.css";
 import { cn } from "@/lib/utils";
 import { TooltipProvider } from "@/components/ui/tooltip";
+import {NextIntlClientProvider} from 'next-intl';
 
 export const metadata: Metadata = {
   title: "Create Next App",
@@ -21,9 +22,11 @@ export default function RootLayout({
       className={cn("h-full", "antialiased", "font-sans")}
     >
       <body className="min-h-full max-w-md w-full flex flex-col mx-auto bg-neutral-100">
-        <TooltipProvider>
-          {children}
-        </TooltipProvider>
+        <NextIntlClientProvider>
+          <TooltipProvider>
+            {children}
+          </TooltipProvider>
+        </NextIntlClientProvider>
       </body>
     </html>
   );
