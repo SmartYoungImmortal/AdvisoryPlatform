@@ -256,6 +256,12 @@ export function SkillManagementScreen() {
   const t = useTranslations("advisor");
   const c = useTranslations("common");
 
+  const toneClass: Record<"muted" | "primary" | "destructive", string> = {
+    muted: "text-muted-foreground",
+    primary: "text-primary",
+    destructive: "text-destructive",
+  };
+
   const skills = [
     { name: t("skill1"), meta: t("skill1Meta"), tone: "muted" as const },
     { name: t("skill2"), meta: t("skill2Meta"), tone: "muted" as const },
@@ -289,13 +295,7 @@ export function SkillManagementScreen() {
                       {s.name}
                     </p>
                     <p
-                      className={`font-thai w-full text-[12px] leading-[18px] font-normal ${
-                        s.tone === "destructive"
-                          ? "text-destructive"
-                          : s.tone === "primary"
-                            ? "text-primary"
-                            : "text-muted-foreground"
-                      }`}
+                      className={`font-thai w-full text-[12px] leading-[18px] font-normal ${toneClass[s.tone]}`}
                     >
                       {s.meta}
                     </p>
