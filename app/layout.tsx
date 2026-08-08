@@ -18,13 +18,15 @@ export default function RootLayout({
 }>) {
   return (
     <html
-      lang="en"
+      lang="th"
       className={cn("h-full", "antialiased", "font-sans")}
     >
       <body className="min-h-full max-w-md w-full flex flex-col mx-auto bg-neutral-100">
         <NextIntlClientProvider>
           <TooltipProvider>
+            <div className="bg-white">
             {children}
+            </div>
           </TooltipProvider>
         </NextIntlClientProvider>
       </body>
