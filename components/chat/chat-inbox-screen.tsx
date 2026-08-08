@@ -3,9 +3,7 @@ import Link from "next/link";
 import { Search, Video } from "lucide-react";
 import { useTranslations } from "next-intl";
 
-import chris from "@/assets/avatars/christopher-nolan.png";
-import james from "@/assets/avatars/james-gunn.png";
-import emptyIllustration from "@/assets/illustrations/messages-empty.svg";
+import { christopherNolan as chris, jamesGunn as james, messagesEmpty as emptyIllustration } from "@/lib/assets/r2";
 import { ChatAvatar } from "@/components/chat/chat-avatar";
 import { PrimaryButton } from "@/components/mobile/buttons";
 import { HomeIndicator } from "@/components/mobile/home-indicator";

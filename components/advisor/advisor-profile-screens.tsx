@@ -23,7 +23,7 @@ import {
 } from "lucide-react";
 import { useTranslations } from "next-intl";
 
-import advisor from "@/assets/avatars/advisor.png";
+import { advisor } from "@/lib/assets/r2";
 import { NeutralButton, PrimaryButton } from "@/components/mobile/buttons";
 import { Field } from "@/components/mobile/field";
 import { HomeIndicator } from "@/components/mobile/home-indicator";

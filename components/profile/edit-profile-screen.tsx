@@ -2,7 +2,7 @@ import Image from "next/image";
 import { BellOff, Lock, TriangleAlert } from "lucide-react";
 import { useTranslations } from "next-intl";
 
-import araya from "@/assets/avatars/araya-s.png";
+import { arayaS as araya } from "@/lib/assets/r2";
 import { AlertBanner } from "@/components/mobile/banner";
 import { NeutralButton, PrimaryButton } from "@/components/mobile/buttons";
 import { Field } from "@/components/mobile/field";

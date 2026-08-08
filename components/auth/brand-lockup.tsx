@@ -1,6 +1,6 @@
 import Image from "next/image";
 
-import logo from "@/assets/illustrations/logo.svg";
+import { logo } from "@/lib/assets/r2";
 import { cn } from "@/lib/utils";
 
 /**

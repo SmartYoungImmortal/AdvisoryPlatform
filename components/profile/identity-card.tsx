@@ -2,7 +2,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { UserRoundCog } from "lucide-react";
 
-import araya from "@/assets/avatars/araya-s.png";
+import { arayaS as araya } from "@/lib/assets/r2";
 import { cn } from "@/lib/utils";
 
 type Stat = { readonly value: string; readonly label: string };

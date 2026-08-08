@@ -1,6 +1,6 @@
 import Image, { type StaticImageData } from "next/image";
 
-import sarah from "@/assets/avatars/sarah-jenskins.png";
+import { sarahJenskins as sarah } from "@/lib/assets/r2";
 import { cn } from "@/lib/utils";
 
 /**

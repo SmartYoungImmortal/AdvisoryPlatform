@@ -2,7 +2,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { ChevronRight } from "lucide-react";
 
-import logo from "@/assets/illustrations/logo.svg";
+import { logo } from "@/lib/assets/r2";
 import { HomeIndicator } from "@/components/mobile/home-indicator";
 import { MobileScreen, ScreenBody } from "@/components/mobile/screen";
 import { StatusBar } from "@/components/mobile/status-bar";

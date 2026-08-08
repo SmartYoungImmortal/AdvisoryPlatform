@@ -1,27 +1,27 @@
 {
   "$schema": "node_modules/wrangler/config-schema.json",
-  "main": ".open-next/worker.js",
   "name": "advisory-platform",
   "compatibility_date": "2025-03-25",
-  "compatibility_flags": [
-    // Enable Node.js APIs on Workers
-    "nodejs_compat",
-    // Allow fetching public URLs from your app
-    "global_fetch_strictly_public"
-  ],
+
+  // No "main": the site is a Next static export, so Cloudflare serves it from
+  // the assets store directly. Requests never invoke a Worker, which keeps the
+  // Free plan's 10ms CPU limit out of the picture entirely (static asset
+  // requests are unmetered). Add "main" back if a Worker becomes necessary.
   "assets": {
-    "directory": ".open-next/assets",
-    "binding": "ASSETS"
+    "directory": "out",
+    // `/login` resolves to `out/login.html`.
+    "html_handling": "auto-trailing-slash",
+    "not_found_handling": "404-page"
   },
-  // Add bindings here as the app grows (D1/KV/R2/Durable Objects, env vars, etc.)
 
   // Environments: `main` deploys prod (top-level), `dev` deploys qa (env.qa)
   "env": {
     "qa": {
       "name": "advisory-platform-qa",
       "assets": {
-        "directory": ".open-next/assets",
-        "binding": "ASSETS"
+        "directory": "out",
+        "html_handling": "auto-trailing-slash",
+        "not_found_handling": "404-page"
       }
     }
   }

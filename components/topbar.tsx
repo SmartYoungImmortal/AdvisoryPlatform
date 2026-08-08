@@ -1,6 +1,6 @@
 import Image from "next/image";
 import Link from "next/link";
-import logo from "@/assets/illustrations/logo.svg";
+import { logo } from "@/lib/assets/r2";
 import { Bell, Menu } from "lucide-react";
 import { cn } from "@/lib/utils";
 
