@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import '@fontsource-variable/noto-sans-thai/wght.css';
 import '@fontsource-variable/inter/wght.css';
+import '@fontsource-variable/geist/wght.css';
 import "./globals.css";
 import { cn } from "@/lib/utils";
 import { TooltipProvider } from "@/components/ui/tooltip";

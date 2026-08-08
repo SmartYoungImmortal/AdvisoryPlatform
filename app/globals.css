@@ -10,6 +10,10 @@
   --font-sans: 'Inter Variable', 'Noto Sans Thai Variable', sans-serif;
   --font-mono: var(--font-geist-mono);
   --font-heading: var(--font-sans);
+  /* Figma type families: Thai copy renders in Noto Sans Thai, Latin copy in Geist. */
+  --font-thai: 'Noto Sans Thai Variable', sans-serif;
+  --font-latin: 'Geist Variable', sans-serif;
+  --color-brand-image: var(--brand-image);
   --color-sidebar-ring: var(--sidebar-ring);
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
@@ -49,24 +53,28 @@
 }
 
 :root {
-  --background: oklch(1 0 0);
-  --foreground: oklch(0.141 0.005 285.823);
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.141 0.005 285.823);
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.141 0.005 285.823);
-  --primary: oklch(0.488 0.243 264.376);
-  --primary-foreground: oklch(0.97 0.014 254.604);
-  --secondary: oklch(0.967 0.001 286.375);
-  --secondary-foreground: oklch(0.21 0.006 285.885);
-  --muted: oklch(0.967 0.001 286.375);
-  --muted-foreground: oklch(0.552 0.016 285.938);
-  --accent: oklch(0.967 0.001 286.375);
-  --accent-foreground: oklch(0.21 0.006 285.885);
-  --destructive: oklch(0.577 0.245 27.325);
-  --border: oklch(0.92 0.004 286.32);
-  --input: oklch(0.92 0.004 286.32);
-  --ring: oklch(0.705 0.015 286.067);
+  /* Values below mirror the Figma light theme (see "Auth / Profile / Chat (Light) Thai"):
+     background #fafafa, foreground #18181b, surface #ffffff, surface-muted #f4f4f5,
+     border #e4e4e7, border-input #a1a1aa, accent #2563eb, destructive #dc2626. */
+  --background: #fafafa;
+  --foreground: #18181b;
+  --card: #ffffff;
+  --card-foreground: #18181b;
+  --popover: #ffffff;
+  --popover-foreground: #18181b;
+  --primary: #2563eb;
+  --primary-foreground: #ffffff;
+  --brand-image: #3b82f6;
+  --secondary: #f4f4f5;
+  --secondary-foreground: #18181b;
+  --muted: #f4f4f5;
+  --muted-foreground: #71717a;
+  --accent: #f4f4f5;
+  --accent-foreground: #18181b;
+  --destructive: #dc2626;
+  --border: #e4e4e7;
+  --input: #a1a1aa;
+  --ring: #a1a1aa;
   --chart-1: oklch(0.809 0.105 251.813);
   --chart-2: oklch(0.623 0.214 259.815);
   --chart-3: oklch(0.546 0.245 262.881);
@@ -84,6 +92,7 @@
 }
 
 .dark {
+  --brand-image: oklch(0.623 0.214 259.815);
   --background: oklch(0.141 0.005 285.823);
   --foreground: oklch(0.985 0 0);
   --card: oklch(0.21 0.006 285.885);

@@ -1,27 +1,57 @@
 import Image from "next/image";
+import Link from "next/link";
 import logo from "@/assets/illustrations/logo.svg";
-import { Button } from "@/components/ui/button";
 import { Bell, Menu } from "lucide-react";
 import { cn } from "@/lib/utils";
 
-export function TopBar({ unreadNotifications = false }) {
+/**
+ * Figma "Nav Bar" — 402 x 66: 16px side padding, 4px vertical padding, a 24px menu
+ * glyph, the 58px-tall Advisory lockup, and a 22px bell inside a 24px box.
+ * The `before` pseudo-element widens the tap target without moving any pixels.
+ */
+export function TopBar({
+  unreadNotifications = false,
+  className,
+}: {
+  readonly unreadNotifications?: boolean;
+  readonly className?: string;
+}) {
+  const trigger =
+    "relative flex shrink-0 items-center justify-center before:absolute before:-inset-2 before:content-['']";
+
   return (
-    <div className="w-full flex justify-between items-center py-1 px-4">
-      <Button variant="ghost" size="icon-lg">
+    <div
+      className={cn(
+        "flex h-[66px] w-full shrink-0 items-center justify-between px-4 py-1",
+        className,
+      )}
+    >
+      <button aria-label="เมนู" className={cn(trigger, "size-6")} type="button">
         <Menu className="size-6 text-muted-foreground" />
-      </Button>
-      <Image src={logo} alt="Advisory platform logo" className="h-14" />
-      <Button variant="ghost" size="icon-lg">
-        <div className="size-6 relative">
-            <Bell
-            className={cn(
-                "size-6 absolute left-0 top-0",
-                unreadNotifications ? "text-foreground" : "text-muted-foreground",
-            )}
-            />
-            {unreadNotifications && <div className="size-2 bg-primary rounded-full right-0 top-0 absolute z-50"></div>}
-        </div>
-      </Button>
+      </button>
+      {/* Sized so the lockup's ink measures 114px wide, matching the Figma nav
+          logo; the 66px bar height is pinned so the extra height can't grow it. */}
+      <Image
+        alt="Advisory Platform"
+        className="h-[63px] w-auto"
+        priority
+        src={logo}
+      />
+      <Link
+        aria-label="การแจ้งเตือน"
+        className={cn(trigger, "size-6")}
+        href="/notifications"
+      >
+        <Bell
+          className={cn(
+            "size-[22px]",
+            unreadNotifications ? "text-foreground" : "text-muted-foreground",
+          )}
+        />
+        {unreadNotifications ? (
+          <span className="absolute top-px left-[15px] size-2 rounded-full bg-primary" />
+        ) : null}
+      </Link>
     </div>
   );
 }
