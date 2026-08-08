@@ -1,7 +1,6 @@
 import { useTranslations } from "next-intl";
 
-import desk from "@/assets/chat/desk-photo.png";
-import doc from "@/assets/chat/document-preview.png";
+import { deskPhoto as desk, documentPreview as doc } from "@/lib/assets/r2";
 import { ChatFooter, ChatHeader } from "@/components/chat/chat-chrome";
 import {
   DayDivider,

@@ -3,10 +3,7 @@ import Link from "next/link";
 import { ChevronsUpDown, Wallet } from "lucide-react";
 import { useTranslations } from "next-intl";
 
-import chris from "@/assets/avatars/christopher-nolan.png";
-import james from "@/assets/avatars/james-gunn.png";
-import noMatches from "@/assets/illustrations/error-search.svg";
-import sarah from "@/assets/avatars/sarah-jenskins.png";
+import { christopherNolan as chris, errorSearch as noMatches, jamesGunn as james, sarahJenskins as sarah } from "@/lib/assets/r2";
 import { NeutralButton, PrimaryButton } from "@/components/mobile/buttons";
 import { Field } from "@/components/mobile/field";
 import { HomeIndicator } from "@/components/mobile/home-indicator";

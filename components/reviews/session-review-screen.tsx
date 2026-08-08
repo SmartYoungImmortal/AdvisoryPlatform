@@ -2,7 +2,7 @@ import Image from "next/image";
 import { Clock, Paperclip, Star, TriangleAlert } from "lucide-react";
 import { useTranslations } from "next-intl";
 
-import sarah from "@/assets/avatars/sarah-jenskins.png";
+import { sarahJenskins as sarah } from "@/lib/assets/r2";
 import { NeutralButton, PrimaryButton } from "@/components/mobile/buttons";
 import { HomeIndicator } from "@/components/mobile/home-indicator";
 import {
