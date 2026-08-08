@@ -1,0 +1,14 @@
+# Cache policy for the Cloudflare static-asset deploy. Next copies public/ into
+# out/, and Cloudflare reads out/_headers from there.
+#
+# Workers Assets serves everything as `public, max-age=0, must-revalidate` by
+# default, so a browser revalidates all ~16 build files referenced by a page on
+# every navigation. The filenames under /_next/static/ already carry a content
+# hash — a changed file gets a new name — so they can safely be cached forever
+# and never revalidated.
+#
+# HTML is deliberately left on the default: it keeps the unhashed URLs, so it
+# must stay revalidated for a deploy to go live immediately.
+
+/_next/static/*
+  Cache-Control: public, max-age=31536000, immutable
