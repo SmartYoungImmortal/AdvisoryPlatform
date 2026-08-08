@@ -54,10 +54,16 @@ function InputGroupAddon({
       data-slot="input-group-addon"
       data-align={align}
       className={cn(inputGroupAddonVariants({ align }), className)}
-      onClick={(e) => {
+      // Pointer-only affordance: pressing the addon's padding focuses the
+      // control. Bound to mousedown (not click) so the addon never takes focus
+      // first, which also removes the false-positive "click handler without a
+      // keyboard listener" — keyboard users reach the control directly by Tab,
+      // so there is no keyboard interaction to mirror here.
+      onMouseDown={(e) => {
         if ((e.target as HTMLElement).closest("button")) {
           return
         }
+        e.preventDefault()
         e.currentTarget.parentElement?.querySelector("input")?.focus()
       }}
       {...props}
