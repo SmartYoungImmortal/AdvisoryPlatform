@@ -1,5 +1,12 @@
 {
   "homePage": {
     "title": "เฮลโหล เวิลด์!"
+  },
+  "navigation": {
+    "home": "หน้าหลัก",
+    "bookings": "การจอง",
+    "chat": "แชท",
+    "earnings": "รายได้",
+    "user": "ผู้ใช้"
   }
 }

@@ -24,9 +24,7 @@ export default function RootLayout({
       <body className="min-h-full max-w-md w-full flex flex-col mx-auto bg-neutral-100">
         <NextIntlClientProvider>
           <TooltipProvider>
-            <div className="bg-white">
             {children}
-            </div>
           </TooltipProvider>
         </NextIntlClientProvider>
       </body>
