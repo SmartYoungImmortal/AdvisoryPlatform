@@ -9,6 +9,7 @@ import {
   TriangleAlert,
   UserRound,
 } from "lucide-react";
+import type { LucideIcon } from "lucide-react";
 import { useTranslations } from "next-intl";
 
 import walletFailed from "@/assets/illustrations/wallet-failed.svg";
@@ -21,6 +22,86 @@ import { DetailRow, FootNote } from "@/components/screening/parts";
 
 type Result = "success" | "failed" | "unconfirmed" | "slot-taken";
 
+type ResultRow = {
+  readonly icon: LucideIcon;
+  readonly label: string;
+  readonly value: string;
+  readonly tone?: string;
+};
+
+/** Copy, detail rows and actions per outcome — keeps the screen itself flat. */
+function useResultCopy(state: Result) {
+  const t = useTranslations("payment");
+
+  const table: Record<
+    Result,
+    {
+      readonly title: string;
+      readonly body: string;
+      readonly rows: readonly ResultRow[];
+      readonly primary: { readonly label: string; readonly href: string };
+      readonly secondary: { readonly label: string; readonly href: string };
+    }
+  > = {
+    success: {
+      title: t("successTitle"),
+      body: t("successBody"),
+      rows: [
+        { icon: UserRound, label: t("advisorLabel"), value: t("advisor") },
+        { icon: CalendarDays, label: t("dateLabel"), value: t("dateValue") },
+        { icon: Clock, label: t("timeLabel"), value: t("timeValue") },
+      ],
+      primary: { label: t("viewBooking"), href: "/profile" },
+      secondary: { label: t("backHome"), href: "/profile" },
+    },
+    failed: {
+      title: t("failedTitle"),
+      body: t("failedBody"),
+      rows: [
+        { icon: CreditCard, label: t("cardLabel"), value: t("cardValue") },
+        { icon: CreditCard, label: t("amountLabel"), value: t("amountValue") },
+        {
+          icon: TriangleAlert,
+          label: t("reasonLabel"),
+          value: t("reasonValue"),
+          tone: "text-destructive",
+        },
+      ],
+      primary: { label: t("tryAgain"), href: "/checkout/card" },
+      secondary: { label: t("useOther"), href: "/checkout/card" },
+    },
+    unconfirmed: {
+      title: t("unconfirmedTitle"),
+      body: t("unconfirmedBody"),
+      rows: [
+        { icon: CreditCard, label: t("cardLabel"), value: t("cardValue") },
+        {
+          icon: Clock,
+          label: t("statusLabel"),
+          value: t("statusValue"),
+          tone: "text-primary",
+        },
+        { icon: ShieldCheck, label: t("refLabel"), value: t("refValue") },
+      ],
+      primary: { label: t("viewHistory"), href: "/transactions" },
+      secondary: { label: t("contactSupport"), href: "/transactions" },
+    },
+    "slot-taken": {
+      title: t("slotTakenTitle"),
+      body: t("slotTakenBody"),
+      rows: [
+        { icon: CalendarDays, label: t("slotLabel"), value: t("slotValue") },
+        { icon: CreditCard, label: t("cardLabel"), value: t("cardValue") },
+        { icon: CreditCard, label: t("chargedLabel"), value: t("chargedValue") },
+      ],
+      primary: { label: t("pickAnotherTime"), href: "/matching/results" },
+      secondary: { label: t("backToAdvisor"), href: "/matching/results" },
+    },
+  };
+
+  return table[state];
+}
+
 /**
  * Figma payment outcomes — "Payment - Success" (995:10411), "Payment - Failed"
  * (995:10243), "Payment - Unconfirmed" (995:10455) and "Payment - Slot taken"
@@ -28,16 +109,9 @@ type Result = "success" | "failed" | "unconfirmed" | "slot-taken";
  */
 export function PaymentResultScreen({ state }: { readonly state: Result }) {
   const t = useTranslations("payment");
+  const copy = useResultCopy(state);
   const success = state === "success";
   const slotTaken = state === "slot-taken";
-  const unconfirmed = state === "unconfirmed";
-
-  const copy = {
-    success: { title: t("successTitle"), body: t("successBody") },
-    failed: { title: t("failedTitle"), body: t("failedBody") },
-    unconfirmed: { title: t("unconfirmedTitle"), body: t("unconfirmedBody") },
-    "slot-taken": { title: t("slotTakenTitle"), body: t("slotTakenBody") },
-  }[state];
 
   return (
     <MobileScreen>
@@ -64,7 +138,7 @@ export function PaymentResultScreen({ state }: { readonly state: Result }) {
               ) : null}
             </div>
           )}
-          {unconfirmed ? (
+          {state === "unconfirmed" ? (
             <p className="font-latin mt-4 w-full text-center text-[28px] leading-[40px] font-semibold text-foreground">
               {t("unconfirmedAmount")}
             </p>
@@ -80,48 +154,15 @@ export function PaymentResultScreen({ state }: { readonly state: Result }) {
         {/* Figma "Details": a 3-row summary card. */}
         <div className="flex w-full shrink-0 flex-col items-start px-6 pt-6">
           <div className="flex w-full shrink-0 flex-col items-start gap-3 overflow-clip rounded-[14px] bg-card p-[14px]">
-            {success ? (
-              <>
-                <DetailRow icon={UserRound} label={t("advisorLabel")} value={t("advisor")} />
-                <DetailRow icon={CalendarDays} label={t("dateLabel")} value={t("dateValue")} />
-                <DetailRow icon={Clock} label={t("timeLabel")} value={t("timeValue")} />
-              </>
-            ) : null}
-            {state === "failed" ? (
-              <>
-                <DetailRow icon={CreditCard} label={t("cardLabel")} value={t("cardValue")} />
-                <DetailRow icon={CreditCard} label={t("amountLabel")} value={t("amountValue")} />
-                <DetailRow
-                  icon={TriangleAlert}
-                  label={t("reasonLabel")}
-                  value={t("reasonValue")}
-                  valueClassName="text-destructive"
-                />
-              </>
-            ) : null}
-            {unconfirmed ? (
-              <>
-                <DetailRow icon={CreditCard} label={t("cardLabel")} value={t("cardValue")} />
-                <DetailRow
-                  icon={Clock}
-                  label={t("statusLabel")}
-                  value={t("statusValue")}
-                  valueClassName="text-primary"
-                />
-                <DetailRow icon={ShieldCheck} label={t("refLabel")} value={t("refValue")} />
-              </>
-            ) : null}
-            {slotTaken ? (
-              <>
-                <DetailRow icon={CalendarDays} label={t("slotLabel")} value={t("slotValue")} />
-                <DetailRow icon={CreditCard} label={t("cardLabel")} value={t("cardValue")} />
-                <DetailRow
-                  icon={CreditCard}
-                  label={t("chargedLabel")}
-                  value={t("chargedValue")}
-                />
-              </>
-            ) : null}
+            {copy.rows.map((row) => (
+              <DetailRow
+                icon={row.icon}
+                key={row.label}
+                label={row.label}
+                value={row.value}
+                valueClassName={row.tone}
+              />
+            ))}
           </div>
         </div>
 
@@ -132,30 +173,8 @@ export function PaymentResultScreen({ state }: { readonly state: Result }) {
 
         <div className="w-full min-h-px flex-1" />
         <ScreenActions>
-          {success ? (
-            <>
-              <PrimaryButton href="/profile">{t("viewBooking")}</PrimaryButton>
-              <NeutralButton href="/profile">{t("backHome")}</NeutralButton>
-            </>
-          ) : null}
-          {state === "failed" ? (
-            <>
-              <PrimaryButton href="/checkout/card">{t("tryAgain")}</PrimaryButton>
-              <NeutralButton href="/checkout/card">{t("useOther")}</NeutralButton>
-            </>
-          ) : null}
-          {unconfirmed ? (
-            <>
-              <PrimaryButton href="/transactions">{t("viewHistory")}</PrimaryButton>
-              <NeutralButton href="/transactions">{t("contactSupport")}</NeutralButton>
-            </>
-          ) : null}
-          {slotTaken ? (
-            <>
-              <PrimaryButton href="/matching/results">{t("pickAnotherTime")}</PrimaryButton>
-              <NeutralButton href="/matching/results">{t("backToAdvisor")}</NeutralButton>
-            </>
-          ) : null}
+          <PrimaryButton href={copy.primary.href}>{copy.primary.label}</PrimaryButton>
+          <NeutralButton href={copy.secondary.href}>{copy.secondary.label}</NeutralButton>
         </ScreenActions>
       </ScreenBody>
       <HomeIndicator />
@@ -173,10 +192,9 @@ export function PaymentProcessingScreen() {
       <ScreenBody>
         <div className="w-full flex-1" />
         <div className="flex w-full shrink-0 flex-col items-center px-6">
-          <span
+          <output
             aria-label={t("processingTitle")}
-            className="size-11 shrink-0 animate-spin rounded-full border-[3px] border-border border-t-primary"
-            role="status"
+            className="block size-11 shrink-0 animate-spin rounded-full border-[3px] border-border border-t-primary"
           />
           <p className="font-thai mt-[64px] w-full text-center text-[24px] leading-[34px] font-semibold text-foreground">
             {t("processingTitle")}

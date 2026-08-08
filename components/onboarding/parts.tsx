@@ -74,12 +74,7 @@ export function DropZone({
         {title}
       </p>
       {subtitle ? (
-        <p
-          className={cn(
-            "font-thai w-full text-center text-[12px] leading-[18px] font-normal text-muted-foreground",
-            compact ? "mt-1" : "mt-1",
-          )}
-        >
+        <p className="font-thai mt-1 w-full text-center text-[12px] leading-[18px] font-normal text-muted-foreground">
           {subtitle}
         </p>
       ) : null}

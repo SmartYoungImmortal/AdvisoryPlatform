@@ -18,10 +18,14 @@ export function LogOutDialog() {
       {/* The hairline is an inset ring rather than a border so the 326px frame
           keeps a full 286px of inner width — with a border it drops to 284 and
           the body copy wraps to a second line. */}
-      <div
+      {/* A real <dialog open> rather than role="dialog". The UA stylesheet's
+          margin and border are reset so the Figma 326px frame holds, and its
+          `position: absolute` becomes `relative` — static would drop the dialog
+          below the absolutely positioned scrim in paint order. */}
+      <dialog
         aria-modal
-        className="relative flex w-[326px] flex-col items-start gap-4 overflow-clip rounded-[16px] bg-card p-5 ring-1 ring-border ring-inset"
-        role="dialog"
+        className="relative m-0 flex w-[326px] flex-col items-start gap-4 overflow-clip rounded-[16px] border-0 bg-card p-5 ring-1 ring-border ring-inset"
+        open
       >
         <div className="flex w-full shrink-0 flex-col items-start gap-2 overflow-clip">
           <p className="font-thai w-full text-[20px] leading-[28px] font-semibold text-foreground">
@@ -35,7 +39,7 @@ export function LogOutDialog() {
           <DestructiveButton href="/login">{t("confirm")}</DestructiveButton>
           <NeutralButton href="/profile">{t("cancel")}</NeutralButton>
         </div>
-      </div>
+      </dialog>
     </div>
   );
 }

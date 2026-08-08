@@ -94,10 +94,9 @@ export function MatchingProgressScreen() {
         <div className="w-full flex-1" />
         {/* Figma "Processing": a 44px spinner, 64px gap, then the 34/20 text block. */}
         <div className="flex w-full shrink-0 flex-col items-center px-6">
-          <span
+          <output
             aria-label={t("searchingTitle")}
-            className="size-11 shrink-0 animate-spin rounded-full border-[3px] border-border border-t-primary"
-            role="status"
+            className="block size-11 shrink-0 animate-spin rounded-full border-[3px] border-border border-t-primary"
           />
           <p className="font-thai mt-[64px] w-full text-center text-[24px] leading-[34px] font-semibold text-foreground">
             {t("searchingTitle")}

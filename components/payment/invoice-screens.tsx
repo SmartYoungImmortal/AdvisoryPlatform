@@ -62,32 +62,116 @@ function Line({
  * Figma "Invoice detail" (995:9907) plus its failed (995:9975) and refunded
  * (995:10046) variants — hero amount, session card, breakdown and references.
  */
-export function InvoiceDetailScreen({ state }: { readonly state: Invoice }) {
-  const t = useTranslations("payment");
-  const c = useTranslations("common");
+/** Everything that differs between the three invoice states, in one table. */
+type InvoiceCopy = {
+  readonly icon: LucideIcon;
+  readonly tint: string;
+  readonly amount: string;
+  readonly when: string;
+  readonly who: string;
+  readonly what: string;
+  readonly dateLabel: string;
+  readonly dateValue: string;
+  readonly statusLabel: string;
+  readonly statusValue: string;
+  readonly statusTone: string;
+  readonly lines: ReadonlyArray<{
+    readonly label: string;
+    readonly value: string;
+    readonly negative?: boolean;
+  }>;
+  readonly totalLabel: string;
+  readonly totalValue: string;
+  readonly cardLabel: string;
+  readonly invoiceNo: string;
+  readonly chargeId: string;
+};
 
-  const hero: Record<Invoice, { icon: LucideIcon; tint: string; amount: string; when: string }> = {
+function useInvoiceCopy(state: Invoice): InvoiceCopy {
+  const t = useTranslations("payment");
+
+  const table: Record<Invoice, InvoiceCopy> = {
     paid: {
       icon: CircleCheckBig,
       tint: "bg-[#ecfccb] text-foreground",
       amount: t("totalValue"),
       when: t("invoicePaidTime"),
+      who: t("advisor"),
+      what: t("session"),
+      dateLabel: t("bookingDateLabel"),
+      dateValue: t("dateValue"),
+      statusLabel: t("timeLabel"),
+      statusValue: t("timeValue"),
+      statusTone: "",
+      lines: [
+        { label: t("session"), value: t("sessionPrice") },
+        { label: t("platformFee"), value: t("platformFeeValue") },
+      ],
+      totalLabel: t("grandTotal"),
+      totalValue: t("totalValue"),
+      cardLabel: t("paidWith"),
+      invoiceNo: t("inv1No"),
+      chargeId: t("inv1Charge"),
     },
     failed: {
       icon: TriangleAlert,
       tint: "bg-destructive/10 text-destructive",
       amount: t("thesisTotal"),
       when: t("invoiceFailedTime"),
+      who: "กัญญา พรหมมา",
+      what: t("thesisReview"),
+      dateLabel: t("requestedSlotLabel"),
+      dateValue: "ศ. 8 ส.ค. 2569",
+      statusLabel: t("bookingLabel"),
+      statusValue: t("bookingUnconfirmed"),
+      statusTone: "text-destructive",
+      lines: [
+        { label: t("thesisReview"), value: t("thesisPrice") },
+        { label: t("platformFee"), value: t("thesisFee") },
+      ],
+      totalLabel: t("attemptedTotal"),
+      totalValue: t("thesisTotal"),
+      cardLabel: t("cardUsed"),
+      invoiceNo: t("inv2No"),
+      chargeId: t("inv2Charge"),
     },
     refunded: {
       icon: RotateCcw,
       tint: "bg-primary/10 text-primary",
       amount: t("portfolioTotal"),
       when: t("invoiceRefundedTime"),
+      who: "James Gunn",
+      what: t("portfolioReview"),
+      dateLabel: t("bookingDateLabel"),
+      dateValue: "ส. 19 ก.ค. 2569",
+      statusLabel: t("bookingLabel"),
+      statusValue: t("bookingCancelled"),
+      statusTone: "text-destructive",
+      lines: [
+        { label: t("portfolioReview"), value: t("portfolioPrice") },
+        { label: t("platformFee"), value: t("portfolioFee") },
+        { label: t("refundToCard"), value: t("refundValue"), negative: true },
+      ],
+      totalLabel: t("netCharged"),
+      totalValue: t("netValue"),
+      cardLabel: t("refundedTo"),
+      invoiceNo: t("inv3No"),
+      chargeId: t("inv3Charge"),
     },
   };
-  const h = hero[state];
-  const HeroIcon = h.icon;
+
+  return table[state];
+}
+
+/**
+ * Figma "Invoice detail" (995:9907) plus its failed (995:9975) and refunded
+ * (995:10046) variants — hero amount, session card, breakdown and references.
+ */
+export function InvoiceDetailScreen({ state }: { readonly state: Invoice }) {
+  const t = useTranslations("payment");
+  const c = useTranslations("common");
+  const copy = useInvoiceCopy(state);
+  const HeroIcon = copy.icon;
 
   return (
     <MobileScreen>
@@ -97,15 +181,15 @@ export function InvoiceDetailScreen({ state }: { readonly state: Invoice }) {
         {/* Figma "Hero": a 40px status badge, the amount, then the timestamp. */}
         <div className="flex w-full shrink-0 flex-col items-center px-6 pt-4">
           <span
-            className={`flex size-10 shrink-0 items-center justify-center rounded-full ${h.tint}`}
+            className={`flex size-10 shrink-0 items-center justify-center rounded-full ${copy.tint}`}
           >
             <HeroIcon className="size-5" />
           </span>
           <p className="font-latin mt-3 w-full text-center text-[28px] leading-[40px] font-semibold text-foreground">
-            {h.amount}
+            {copy.amount}
           </p>
           <p className="font-thai mt-1 w-full text-center text-[12px] leading-[18px] font-normal text-muted-foreground">
-            {h.when}
+            {copy.when}
           </p>
         </div>
 
@@ -114,86 +198,43 @@ export function InvoiceDetailScreen({ state }: { readonly state: Invoice }) {
           <div className="flex w-full shrink-0 flex-col items-start gap-3 overflow-clip rounded-[14px] bg-card p-[14px]">
             <div className="flex w-full flex-col items-start gap-[2px]">
               <p className="font-latin w-full text-[14px] leading-[20px] font-medium text-foreground">
-                {state === "paid" ? t("advisor") : state === "failed" ? "กัญญา พรหมมา" : "James Gunn"}
+                {copy.who}
               </p>
               <p className="font-thai w-full text-[12px] leading-[18px] font-normal text-muted-foreground">
-                {state === "paid"
-                  ? t("session")
-                  : state === "failed"
-                    ? t("thesisReview")
-                    : t("portfolioReview")}
+                {copy.what}
               </p>
             </div>
             <div className="h-px w-full shrink-0 bg-muted" />
+            <DetailRow icon={CalendarDays} label={copy.dateLabel} value={copy.dateValue} />
             <DetailRow
-              icon={CalendarDays}
-              label={state === "failed" ? t("requestedSlotLabel") : t("bookingDateLabel")}
-              value={
-                state === "paid"
-                  ? t("dateValue")
-                  : state === "failed"
-                    ? "ศ. 8 ส.ค. 2569"
-                    : "ส. 19 ก.ค. 2569"
-              }
+              icon={Clock}
+              label={copy.statusLabel}
+              value={copy.statusValue}
+              valueClassName={copy.statusTone}
             />
-            {state === "paid" ? (
-              <DetailRow icon={Clock} label={t("timeLabel")} value={t("timeValue")} />
-            ) : (
-              <DetailRow
-                icon={Clock}
-                label={t("bookingLabel")}
-                value={state === "failed" ? t("bookingUnconfirmed") : t("bookingCancelled")}
-                valueClassName="text-destructive"
-              />
-            )}
           </div>
         </div>
 
         {/* Figma "Breakdown": line items and the resulting total. */}
         <div className="flex w-full shrink-0 flex-col items-start px-6 pt-5">
           <div className="flex w-full shrink-0 flex-col items-start gap-[10px] overflow-clip rounded-[14px] bg-card p-[14px]">
-            {state === "paid" ? (
-              <>
-                <Line label={t("session")} value={t("sessionPrice")} />
-                <Line label={t("platformFee")} value={t("platformFeeValue")} />
-                <div className="h-px w-full shrink-0 bg-muted" />
-                <Line label={t("grandTotal")} strong value={t("totalValue")} />
-              </>
-            ) : null}
-            {state === "failed" ? (
-              <>
-                <Line label={t("thesisReview")} value={t("thesisPrice")} />
-                <Line label={t("platformFee")} value={t("thesisFee")} />
-                <div className="h-px w-full shrink-0 bg-muted" />
-                <Line label={t("attemptedTotal")} strong value={t("thesisTotal")} />
-              </>
-            ) : null}
-            {state === "refunded" ? (
-              <>
-                <Line label={t("portfolioReview")} value={t("portfolioPrice")} />
-                <Line label={t("platformFee")} value={t("portfolioFee")} />
-                <Line label={t("refundToCard")} negative value={t("refundValue")} />
-                <div className="h-px w-full shrink-0 bg-muted" />
-                <Line label={t("netCharged")} strong value={t("netValue")} />
-              </>
-            ) : null}
+            {copy.lines.map((line) => (
+              <Line
+                key={line.label}
+                label={line.label}
+                negative={line.negative}
+                value={line.value}
+              />
+            ))}
+            <div className="h-px w-full shrink-0 bg-muted" />
+            <Line label={copy.totalLabel} strong value={copy.totalValue} />
           </div>
         </div>
 
         {/* Figma "Reference": payment method, invoice number and charge id. */}
         <div className="flex w-full shrink-0 flex-col items-start px-6 pt-5">
           <div className="flex w-full shrink-0 flex-col items-start gap-3 overflow-clip rounded-[14px] bg-card p-[14px]">
-            <DetailRow
-              icon={CreditCard}
-              label={
-                state === "paid"
-                  ? t("paidWith")
-                  : state === "failed"
-                    ? t("cardUsed")
-                    : t("refundedTo")
-              }
-              value={t("cardBrand")}
-            />
+            <DetailRow icon={CreditCard} label={copy.cardLabel} value={t("cardBrand")} />
             {state === "failed" ? (
               <DetailRow
                 icon={TriangleAlert}
@@ -202,24 +243,8 @@ export function InvoiceDetailScreen({ state }: { readonly state: Invoice }) {
                 valueClassName="text-destructive"
               />
             ) : null}
-            <DetailRow
-              icon={Wallet}
-              label={t("invoiceNoLabel")}
-              value={
-                state === "paid" ? t("inv1No") : state === "failed" ? t("inv2No") : t("inv3No")
-              }
-            />
-            <DetailRow
-              icon={Wallet}
-              label={t("chargeIdLabel")}
-              value={
-                state === "paid"
-                  ? t("inv1Charge")
-                  : state === "failed"
-                    ? t("inv2Charge")
-                    : t("inv3Charge")
-              }
-            />
+            <DetailRow icon={Wallet} label={t("invoiceNoLabel")} value={copy.invoiceNo} />
+            <DetailRow icon={Wallet} label={t("chargeIdLabel")} value={copy.chargeId} />
           </div>
         </div>
 
