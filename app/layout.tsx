@@ -1,20 +1,10 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono, Inter } from "next/font/google";
+import '@fontsource-variable/noto-sans-thai/wght.css';
+import '@fontsource-variable/inter/wght.css';
 import "./globals.css";
 import { cn } from "@/lib/utils";
 import { TooltipProvider } from "@/components/ui/tooltip";
-
-const inter = Inter({subsets:['latin'],variable:'--font-sans'});
-
-const geistSans = Geist({
-  variable: "--font-geist-sans",
-  subsets: ["latin"],
-});
-
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
-  subsets: ["latin"],
-});
+import {NextIntlClientProvider} from 'next-intl';
 
 export const metadata: Metadata = {
   title: "Create Next App",
@@ -29,12 +19,14 @@ export default function RootLayout({
   return (
     <html
       lang="en"
-      className={cn("h-full", "antialiased", geistSans.variable, geistMono.variable, "font-sans", inter.variable)}
+      className={cn("h-full", "antialiased", "font-sans")}
     >
-      <body className="min-h-full flex flex-col">
-        <TooltipProvider>
-          {children}
-        </TooltipProvider>
+      <body className="min-h-full max-w-md w-full flex flex-col mx-auto bg-neutral-100">
+        <NextIntlClientProvider>
+          <TooltipProvider>
+            {children}
+          </TooltipProvider>
+        </NextIntlClientProvider>
       </body>
     </html>
   );
