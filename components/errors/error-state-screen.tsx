@@ -1,9 +1,7 @@
 import Image from "next/image";
 import { useTranslations } from "next-intl";
 
-import noConnection from "@/assets/illustrations/error-no-connection.svg";
-import notFound from "@/assets/illustrations/error-not-found.svg";
-import serverError from "@/assets/illustrations/error-search.svg";
+import { errorNoConnection as noConnection, errorNotFound as notFound, errorSearch as serverError } from "@/lib/assets/r2";
 import { NeutralButton, PrimaryButton } from "@/components/mobile/buttons";
 import { HomeIndicator } from "@/components/mobile/home-indicator";
 import {

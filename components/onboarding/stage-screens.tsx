@@ -14,7 +14,7 @@ import {
 } from "lucide-react";
 import { useTranslations } from "next-intl";
 
-import idCard from "@/assets/onboarding/thai-national-id.png";
+import { thaiNationalId as idCard } from "@/lib/assets/r2";
 import { AlertBanner } from "@/components/mobile/banner";
 import { NeutralButton, PrimaryButton } from "@/components/mobile/buttons";
 import { Field } from "@/components/mobile/field";

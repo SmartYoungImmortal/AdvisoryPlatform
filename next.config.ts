@@ -9,8 +9,16 @@ const nextConfig: NextConfig = {
   // limit and returning "Error 1102 Worker exceeded resource limits".
   // Revisit once real server-side work (an API, auth, ISR) lands.
   output: "export",
-  // Cloudflare's static assets have no image-optimisation endpoint to call.
-  images: { unoptimized: true },
+  images: {
+    // Cloudflare's static assets have no image-optimisation endpoint to call,
+    // so images are emitted with their original src.
+    unoptimized: true,
+    // Design assets live in the advisory-platform-assets R2 bucket — see
+    // lib/assets/r2.ts.
+    remotePatterns: [
+      { protocol: "https", hostname: "pub-07e53481352743c1826a900d773cb1f7.r2.dev" },
+    ],
+  },
 };
 
 const withNextIntl = createNextIntlPlugin(

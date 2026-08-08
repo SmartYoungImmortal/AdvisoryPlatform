@@ -12,8 +12,7 @@ import {
 import type { LucideIcon } from "lucide-react";
 import { useTranslations } from "next-intl";
 
-import walletFailed from "@/assets/illustrations/wallet-failed.svg";
-import walletSuccess from "@/assets/illustrations/wallet-success.svg";
+import { walletFailed, walletSuccess } from "@/lib/assets/r2";
 import { NeutralButton, PrimaryButton } from "@/components/mobile/buttons";
 import { HomeIndicator } from "@/components/mobile/home-indicator";
 import { MobileScreen, ScreenActions, ScreenBody } from "@/components/mobile/screen";
