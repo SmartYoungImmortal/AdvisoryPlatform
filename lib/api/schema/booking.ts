@@ -2,11 +2,20 @@ import { z } from "zod";
 
 import { Id, IsoDateTime, Money } from "./common";
 
+/**
+ * Must list every value the `booking.status` column can hold, or a perfectly
+ * valid row fails the client's output validation and the screen renders
+ * nothing. `processing` is the claim `payments.pay` takes before charging, so
+ * that two taps on Pay cannot both reach the card.
+ */
 export const BookingStatus = z.enum([
   "pending-payment",
+  "processing",
   "confirmed",
+  "in-progress",
   "completed",
   "cancelled",
+  "no-show",
 ]);
 
 /**

@@ -30,5 +30,9 @@
     ".next/dev/types/**/*.ts",
     "**/*.mts"
   ],
-  "exclude": ["node_modules"]
+  // `worker/` is compiled by worker/tsconfig.json against
+  // @cloudflare/workers-types, not by Next. Leaving it in this program means
+  // `ExecutionContext` and `ExportedHandler` resolve to nothing here, and
+  // Worker code would be typechecked with the DOM lib it never has at runtime.
+  "exclude": ["node_modules", "worker"]
 }

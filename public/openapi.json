@@ -3432,9 +3432,12 @@
                       "type": "string",
                       "enum": [
                         "pending-payment",
+                        "processing",
                         "confirmed",
+                        "in-progress",
                         "completed",
-                        "cancelled"
+                        "cancelled",
+                        "no-show"
                       ]
                     },
                     "startAt": {
@@ -3583,9 +3586,12 @@
                         "type": "string",
                         "enum": [
                           "pending-payment",
+                          "processing",
                           "confirmed",
+                          "in-progress",
                           "completed",
-                          "cancelled"
+                          "cancelled",
+                          "no-show"
                         ]
                       },
                       "startAt": {

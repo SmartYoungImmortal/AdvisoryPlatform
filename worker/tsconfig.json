@@ -1,0 +1,20 @@
+{
+  // Separate from the root tsconfig on purpose. The Worker runs in the
+  // Cloudflare runtime, not the browser and not Node — it needs
+  // @cloudflare/workers-types and must NOT pull in Next's DOM lib, or code that
+  // touches `document` would typecheck here and then explode at runtime.
+  "extends": "../tsconfig.json",
+  "compilerOptions": {
+    "lib": ["ES2022"],
+    "types": ["@cloudflare/workers-types"],
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "noEmit": true,
+    "jsx": "react-jsx",
+    "paths": {
+      "@/*": ["../*"]
+    }
+  },
+  "include": ["**/*.ts", "../lib/api/**/*.ts", "../lib/roles.ts", "./worker-env.d.ts"],
+  "exclude": ["../node_modules"]
+}

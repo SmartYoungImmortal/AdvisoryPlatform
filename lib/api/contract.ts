@@ -306,12 +306,17 @@ export interface HandlerContext {
  *   // …every other key, or this line fails to compile
  * } satisfies Handlers;
  * ```
+ *
+ * `Ctx` is a parameter because the server needs more than the shared context —
+ * a database handle, the raw request — while the mock needs none of it.
+ * Without it, a handler declaring the richer type is *not* assignable: function
+ * parameters are contravariant under `strictFunctionTypes`, so
+ * `(ctx: WorkerContext) => …` cannot satisfy `(ctx: HandlerContext) => …`.
+ * Parameterising is the honest fix; casting each handler would hide real
+ * mismatches along with this false one.
  */
-export type Handlers = {
-  [K in EndpointKey]: (
-    input: InputOf<K>,
-    ctx: HandlerContext,
-  ) => Promise<OutputOf<K>>;
+export type Handlers<Ctx extends HandlerContext = HandlerContext> = {
+  [K in EndpointKey]: (input: InputOf<K>, ctx: Ctx) => Promise<OutputOf<K>>;
 };
 
 const PARAM_RE = /:([A-Za-z_][A-Za-z0-9_]*)/g;

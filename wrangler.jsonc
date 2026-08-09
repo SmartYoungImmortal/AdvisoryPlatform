@@ -1,27 +1,73 @@
 {
   "$schema": "node_modules/wrangler/config-schema.json",
   "name": "advisory-platform",
+  "main": "worker/index.ts",
+  "tsconfig": "worker/tsconfig.json",
   "compatibility_date": "2025-03-25",
+  "compatibility_flags": ["nodejs_compat"],
 
-  // No "main": the site is a Next static export, so Cloudflare serves it from
-  // the assets store directly. Requests never invoke a Worker, which keeps the
-  // Free plan's 10ms CPU limit out of the picture entirely (static asset
-  // requests are unmetered). Add "main" back if a Worker becomes necessary.
+  // The site is a Next static export. With both `assets` and `main` present,
+  // Cloudflare serves anything matching a file in `out/` straight from the
+  // assets store WITHOUT invoking the Worker — so all 85 pages, /_next/static/*
+  // and the R2 images still cost zero Worker CPU and stay unmetered. Only
+  // /api/* reaches the Worker. That is what keeps the Free plan's 10ms CPU
+  // limit off the page-load path, which is what caused Error 1102 back when
+  // OpenNext rendered every page inside the Worker (commit 02cd878).
   "assets": {
     "directory": "out",
-    // `/login` resolves to `out/login.html`.
+    "binding": "ASSETS",
     "html_handling": "auto-trailing-slash",
-    "not_found_handling": "404-page"
+    "not_found_handling": "404-page",
+    // Explicit so a future out/api/* file can never shadow the API.
+    "run_worker_first": ["/api/*"]
   },
 
-  // Environments: `main` deploys prod (top-level), `dev` deploys qa (env.qa)
+  "observability": { "enabled": true },
+
+  // Cloudflare's built-in rate limiter. Free, no Durable Object required, and
+  // it runs before any handler work — a flood is rejected without touching the
+  // database. Namespace ids are arbitrary but must stay stable: changing one
+  // resets its counters.
+  "ratelimits": [
+    // Per-IP ceiling across the whole API.
+    { "name": "RL_API", "namespace_id": "1001", "simple": { "limit": 120, "period": 60 } },
+    // Credential endpoints. Deliberately tight — this is the brute-force gate.
+    { "name": "RL_AUTH", "namespace_id": "1002", "simple": { "limit": 10, "period": 60 } },
+    // Anything that writes. Stops a script from filling the database.
+    { "name": "RL_WRITE", "namespace_id": "1003", "simple": { "limit": 30, "period": 60 } }
+  ],
+
+  "vars": {
+    "APP_ENV": "production"
+  },
+
+  // Secrets (set with `wrangler secret put <NAME>`, and again with `--env qa`):
+  //   DATABASE_URL        Neon Postgres connection string
+  //   BETTER_AUTH_SECRET  session signing key
+  //   BETTER_AUTH_URL     public origin, e.g. https://advisory-platform.nsza.workers.dev
+
+  // `env.qa` inherits NOTHING — every binding, var and secret must be repeated
+  // here, and `wrangler secret put X --env qa` is a separate command.
   "env": {
     "qa": {
       "name": "advisory-platform-qa",
+      "main": "worker/index.ts",
+      "compatibility_flags": ["nodejs_compat"],
       "assets": {
         "directory": "out",
+        "binding": "ASSETS",
         "html_handling": "auto-trailing-slash",
-        "not_found_handling": "404-page"
+        "not_found_handling": "404-page",
+        "run_worker_first": ["/api/*"]
+      },
+      "observability": { "enabled": true },
+      "ratelimits": [
+        { "name": "RL_API", "namespace_id": "2001", "simple": { "limit": 120, "period": 60 } },
+        { "name": "RL_AUTH", "namespace_id": "2002", "simple": { "limit": 10, "period": 60 } },
+        { "name": "RL_WRITE", "namespace_id": "2003", "simple": { "limit": 30, "period": 60 } }
+      ],
+      "vars": {
+        "APP_ENV": "qa"
       }
     }
   }
