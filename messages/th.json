@@ -746,5 +746,13 @@
     "retry": "ลองอีกครั้ง",
     "goHome": "ไปหน้าหลัก",
     "helpCentre": "ไปที่ศูนย์ช่วยเหลือ"
+  },
+  "admin": {
+    "auth": {
+      "header": "ลงชื่อเข้าใช้สู่หน้าผู้ดูแลระบบ",
+      "formLabelEmail": "อีเมล",
+      "formLabelPassword": "รหัสผ่าน",
+      "formSubmit": "ลงชื่อเข้าใช้"
+    }
   }
 }

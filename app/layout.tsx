@@ -6,6 +6,7 @@ import "./globals.css";
 import { cn } from "@/lib/utils";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { NextIntlClientProvider } from 'next-intl';
+import { Toaster } from "@/components/ui/toast";
 
 export const metadata: Metadata = {
   title: "Advisory Platform",
@@ -28,6 +29,7 @@ export default function RootLayout({
             {children}
           </TooltipProvider>
         </NextIntlClientProvider>
+        <Toaster />
       </body>
     </html>
   );
