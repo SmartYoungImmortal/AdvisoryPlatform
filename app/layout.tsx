@@ -30,8 +30,10 @@ export default async function RootLayout({
       className={cn("h-full", "antialiased", "font-sans")}
     >
       {/* The frame around the mobile canvas is a themed surface, not a raw palette
-          step — `bg-neutral-100` here stayed light in dark mode. */}
-      <body className="min-h-full max-w-md w-full flex flex-col mx-auto bg-muted">
+          step — `bg-neutral-100` here stayed light in dark mode. The 448px canvas
+          itself lives in `MobileViewport` (per route-group layouts) so the admin
+          console can span the full width. */}
+      <body className="min-h-full bg-muted">
         <NextIntlClientProvider messages={messages}>
           <TooltipProvider>
             {children}
