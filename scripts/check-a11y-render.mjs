@@ -14,27 +14,16 @@
  *
  * Run: node scripts/check-a11y-render.mjs
  */
-import { readFileSync, readdirSync } from "node:fs";
-import { join } from "node:path";
+import { readFileSync } from "node:fs";
 
-const SKIP = new Set(["node_modules", ".next", ".git", ".wrangler", "out", "components/ui"]);
-
-function collect(dir, found = []) {
-  for (const entry of readdirSync(dir, { withFileTypes: true })) {
-    const path = join(dir, entry.name);
-    if (SKIP.has(path) || SKIP.has(entry.name)) continue;
-    if (entry.isDirectory()) collect(path, found);
-    else if (entry.name.endsWith(".tsx")) found.push(path);
-  }
-  return found;
-}
+import { sourceFiles } from "./source-files.mjs";
 
 const problems = [];
 
 // The attributes of one element are contiguous, so each `render=` line is walked
 // up to its `<Button` and down to the end of the opening tag, and the whole tag
 // is checked for the prop.
-for (const file of [...collect("components"), ...collect("app")]) {
+for (const file of sourceFiles()) {
   const lines = readFileSync(file, "utf8").split("\n");
   lines.forEach((line, i) => {
     if (!/render=\{[^}]*<Link/.test(line)) return;
