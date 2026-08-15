@@ -51,10 +51,11 @@ export function AdminConfirmDialog({
           <div className="flex w-full flex-col gap-3">{children}</div>
         ) : null}
         <AlertDialogFooter className="flex-row justify-end gap-2.5">
-          <Button render={<Link href={cancelHref} />} variant="outline">
+          <Button nativeButton={false} render={<Link href={cancelHref} />} variant="outline">
             {cancelLabel}
           </Button>
           <Button
+            nativeButton={false}
             render={<Link href={confirmHref} />}
             variant={destructive ? "destructive" : "default"}
           >

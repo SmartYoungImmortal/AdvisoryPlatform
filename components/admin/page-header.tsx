@@ -27,6 +27,7 @@ export function AdminPageHeader({
           <Button
             aria-label="ย้อนกลับ"
             className="mt-0.5 shrink-0"
+            nativeButton={false}
             render={<Link href={backHref} />}
             size="icon"
             variant="ghost"

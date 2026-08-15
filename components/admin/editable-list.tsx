@@ -33,6 +33,7 @@ export function EditableListItem({
       <InputGroupAddon align="inline-end">
         <Button
           aria-label={saveLabel}
+          nativeButton={false}
           render={<Link href={saveHref} />}
           size="icon-sm"
           variant="ghost"
@@ -59,6 +60,7 @@ export function EditableListAddRow({
       <InputGroupAddon align="inline-end">
         <Button
           aria-label={addLabel}
+          nativeButton={false}
           render={<Link href={addHref} />}
           size="icon-sm"
           variant="ghost"
