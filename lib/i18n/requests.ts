@@ -11,6 +11,11 @@ export const formats = {
   number: {
     precise: {
       maximumFractionDigits: 5
+    },
+    baht: {
+      style: 'currency',
+      currency: 'THB',
+      maximumFractionDigits: 0
     }
   },
   list: {
