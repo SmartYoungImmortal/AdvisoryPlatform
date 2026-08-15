@@ -29,7 +29,6 @@ export function AdminPageHeader({
             className="mt-0.5 shrink-0"
             nativeButton={false}
             render={<Link href={backHref} />}
-          nativeButton={false}
             size="icon"
             variant="ghost"
           >

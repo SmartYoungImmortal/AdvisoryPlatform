@@ -35,7 +35,6 @@ export function EditableListItem({
           aria-label={saveLabel}
           nativeButton={false}
           render={<Link href={saveHref} />}
-          nativeButton={false}
           size="icon-sm"
           variant="ghost"
         >
@@ -63,7 +62,6 @@ export function EditableListAddRow({
           aria-label={addLabel}
           nativeButton={false}
           render={<Link href={addHref} />}
-          nativeButton={false}
           size="icon-sm"
           variant="ghost"
         >
