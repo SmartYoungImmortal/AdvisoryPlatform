@@ -52,8 +52,8 @@ export function AdvisorProfileScreen() {
 
   return (
     <MobileScreen>
-        <TopBar unreadNotifications />
       <ScreenBody className="pb-1.5">
+        <TopBar unreadNotifications />
         {/* Figma "Identity Card": verified name, role, then rating/booking/review stats. */}
         <div className="flex w-full shrink-0 flex-col items-start overflow-clip px-6 pt-4">
           <div className="flex w-full shrink-0 flex-col items-start gap-3 overflow-clip rounded-xl bg-card p-3.5">
@@ -548,8 +548,8 @@ export function EarningsScreen() {
 
   return (
     <MobileScreen>
-        <TopBar unreadNotifications />
       <ScreenBody className="pb-1.5">
+        <TopBar unreadNotifications />
         <ScreenHeading className="pt-4" title={t("earningsTitle")} />
 
         {/* Figma balance card: available balance with the withdraw CTA. */}

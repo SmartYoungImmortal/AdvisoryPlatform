@@ -199,8 +199,8 @@ export function HomeScreen() {
 
   return (
     <MobileScreen>
-      <TopBar unreadNotifications />
       <ScreenBody className="relative isolate">
+        <TopBar unreadNotifications />
         {/* The wash belongs to the top of the page, not to the frame: absolutely
             positioned inside the scroll container it travels with the content and
             leaves as you scroll, the way the hero it is modelled on does. `-z-10`
