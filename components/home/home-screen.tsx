@@ -198,13 +198,19 @@ export function HomeScreen() {
   const c = useTranslations("common");
 
   return (
-    // The wash sits on the frame rather than the scroll container, so the glow
-    // stays behind the search block instead of sliding away with the rail below.
-    // It replaces the frame's `bg-background` rather than layering over it — the
-    // token carries that ground colour as its own bottom layer.
-    <MobileScreen className="bg-hero-wash">
-      <ScreenBody className="pt-4">
-        <TopBar unreadNotifications />
+    <MobileScreen>
+      <TopBar unreadNotifications />
+      <ScreenBody className="relative isolate">
+        {/* The wash belongs to the top of the page, not to the frame: absolutely
+            positioned inside the scroll container it travels with the content and
+            leaves as you scroll, the way the hero it is modelled on does. `-z-10`
+            keeps it under the copy — a positioned element otherwise paints above
+            in-flow text — and `isolate` on the scroller confines that negative
+            layer, which would otherwise sink behind the frame's own background. */}
+        <div
+          aria-hidden
+          className="pointer-events-none absolute inset-x-0 top-0 -z-10 h-120 bg-hero-wash"
+        />
 
         {/* Figma "Page Content" — 8px above the first block, 24px between them. */}
         <div className="flex w-full shrink-0 flex-col items-center gap-6 pt-2 pb-6">

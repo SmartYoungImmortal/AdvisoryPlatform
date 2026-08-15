@@ -169,11 +169,11 @@ export function LandingScreen() {
 
   return (
     <MobileScreen>
+        <TopBar login overlay />
       <ScreenBody>
         {/* The design gave this frame its own nav (wordmark + a login link over
             the photo). It uses the shared bar instead, so the landing reads as the
             same app as every other screen — just transparent over the hero. */}
-        <TopBar login overlay />
         {/* Figma "Hero" (1090:16062) under a 58% black scrim. The design draws a
             540px band with a still; this fills the phone screen with the clip
             instead, so `h-full` (the height ScreenBody has left) replaces it. The
