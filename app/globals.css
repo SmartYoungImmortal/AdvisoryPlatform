@@ -37,9 +37,8 @@
   --color-success-foreground: var(--success-foreground);
   --color-success-surface: var(--success-surface);
   --color-brand-image: var(--brand-image);
-  /* A `background-image`, not a colour. It carries its own ground layer because
-     `cn()` merges `bg-hero-wash` and `bg-background` as one `bg-*` group and keeps
-     only the last — so the token has to be the whole background, not half of it. */
+  /* A `background-image`, not a colour: it paints on its own decorative band in
+     the scroll flow, over whatever ground the frame already has. */
   --background-image-hero-wash: var(--hero-wash);
   --color-on-media: var(--on-media);
   --color-scrim: var(--scrim);
@@ -99,14 +98,15 @@
 
   /* Hero wash — two ellipses lit from just outside the frame (-5% / 105%) so the
      glow reads as an edge, never as a visible disc, and both fade to nothing by
-     60% so the middle stays clean under text. Sized 100% wide because on a 448px
-     canvas a narrow ellipse reads as a coloured blob rather than a wash.
+     72% so the middle stays clean under text. Sized 100% wide because on a 448px
+     canvas a narrow ellipse reads as a coloured blob rather than a wash. 38% is
+     well above the reference's 22%: that hero fades across ~1440px, this one has
+     448px, and at 22% the strongest point measured only a 14% channel shift.
      The cool side reuses --brand-image; only the warm side is new. */
   --hero-warm: #ffca29;
   --hero-wash:
-    radial-gradient(ellipse 100% 35% at -5% 20%, color-mix(in oklab, var(--hero-warm) 22%, transparent), transparent 60%),
-    radial-gradient(ellipse 100% 35% at 105% 35%, color-mix(in oklab, var(--brand-image) 22%, transparent), transparent 60%),
-    linear-gradient(var(--background), var(--background));
+    radial-gradient(ellipse 100% 35% at -5% 20%, color-mix(in oklab, var(--hero-warm) 38%, transparent), transparent 72%),
+    radial-gradient(ellipse 100% 35% at 105% 35%, color-mix(in oklab, var(--brand-image) 38%, transparent), transparent 72%);
   --secondary: #f4f4f5;
   --secondary-foreground: #18181b;
   --muted: #f4f4f5;
@@ -152,9 +152,8 @@
      hotter at the same alpha and starts to look like a colour cast. */
   --hero-warm: oklch(0.852 0.164 87.2);
   --hero-wash:
-    radial-gradient(ellipse 100% 35% at -5% 20%, color-mix(in oklab, var(--hero-warm) 12%, transparent), transparent 60%),
-    radial-gradient(ellipse 100% 35% at 105% 35%, color-mix(in oklab, var(--brand-image) 12%, transparent), transparent 60%),
-    linear-gradient(var(--background), var(--background));
+    radial-gradient(ellipse 100% 35% at -5% 20%, color-mix(in oklab, var(--hero-warm) 20%, transparent), transparent 72%),
+    radial-gradient(ellipse 100% 35% at 105% 35%, color-mix(in oklab, var(--brand-image) 20%, transparent), transparent 72%);
   --background: oklch(0.141 0.005 285.823);
   --foreground: oklch(0.985 0 0);
   --card: oklch(0.21 0.006 285.885);
@@ -195,6 +194,15 @@
 @layer base {
   * {
     @apply border-border outline-ring/50;
+  }
+  /* The prototype is a phone frame: every scroller here is a mobile surface —
+     the screen body, the category rail, the advisor rail — and none of them
+     should show a desktop scrollbar. Scrolling itself is untouched. */
+  * {
+    scrollbar-width: none;
+  }
+  *::-webkit-scrollbar {
+    display: none;
   }
   body {
     @apply bg-background text-foreground;

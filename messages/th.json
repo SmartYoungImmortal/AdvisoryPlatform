@@ -2,6 +2,11 @@
   "home": {
     "searchTitle": "อยากปรึกษาเรื่องอะไรดี",
     "searchPlaceholder": "ค้นหาผู้เชี่ยวชาญ หรือหัวข้อที่อยากปรึกษา",
+    "searchExample1": "จดทะเบียนบริษัทต้องเตรียมอะไรบ้าง...",
+    "searchExample2": "วางแผนภาษีสำหรับฟรีแลนซ์...",
+    "searchExample3": "รีวิวสัญญาจ้างก่อนเซ็น...",
+    "searchExample4": "เริ่มลงทุนด้วยเงินก้อนแรก...",
+    "searchExample5": "ปรึกษาเรื่องความเครียดจากงาน...",
     "filterToday": "ว่างวันนี้",
     "filterBudget": "ต่ำกว่า ฿1,000",
     "filterRating": "4.5 ดาวขึ้นไป",
@@ -921,7 +926,9 @@
       "refunds": "คืนเงิน",
       "reports": "รายงาน",
       "payouts": "โอนเงิน",
-      "transactions": "ธุรกรรม"
+      "transactions": "ธุรกรรม",
+      "signOut": "ออกจากระบบ",
+      "adminRole": "ผู้ดูแลระบบ"
     },
     "common": {
       "approve": "อนุมัติ",
@@ -939,7 +946,9 @@
       "emptyTitle": "ไม่มีรายการค้าง",
       "emptyBody": "รายการใหม่จะแสดงที่นี่",
       "noResultsTitle": "ไม่พบผลลัพธ์",
-      "noResultsBody": "ลองค้นหาด้วยคำอื่น"
+      "noResultsBody": "ลองค้นหาด้วยคำอื่น",
+      "rowCount": "{count} รายการ",
+      "selectedNone": "ยังไม่ได้เลือกรายการ"
     },
     "status": {
       "active": "ใช้งานอยู่",
@@ -977,7 +986,9 @@
       "chartFee": "ค่าธรรมเนียม",
       "chartGmv": "ยอดขายรวม",
       "recentVerifications": "คำขอยืนยันตัวตนล่าสุด",
-      "recentReports": "รายงานล่าสุด"
+      "recentReports": "รายงานล่าสุด",
+      "description": "ภาพรวมงานค้างและรายได้ของแพลตฟอร์ม",
+      "gmvTotal": "ยอดขายรวม 6 เดือน"
     },
     "users": {
       "title": "Users",
@@ -986,7 +997,8 @@
       "colStatus": "สถานะบัญชี",
       "actionView": "ดูรายละเอียด",
       "actionSuspend": "ระงับบัญชี",
-      "actionEdit": "แก้ไข"
+      "actionEdit": "แก้ไข",
+      "description": "ค้นหา ดูรายละเอียด และระงับบัญชีผู้ใช้"
     },
     "userDetail": {
       "title": "รายละเอียดผู้ใช้",
@@ -1022,7 +1034,8 @@
       "proofLevelLabel": "ระดับการยืนยัน",
       "proofSelfDeclared": "แจ้งเอง",
       "proofDocSubmitted": "ส่งเอกสารแล้ว",
-      "proofAdminVerified": "ผู้ดูแลยืนยันแล้ว"
+      "proofAdminVerified": "ผู้ดูแลยืนยันแล้ว",
+      "description": "ตรวจเอกสารยืนยันตัวตนและหลักฐานทักษะของที่ปรึกษา"
     },
     "services": {
       "title": "บริการ",
@@ -1032,7 +1045,8 @@
       "colCategory": "หมวดหมู่",
       "actionViewOwner": "ดูเจ้าของ",
       "actionUnpublish": "ระงับการเผยแพร่",
-      "menuLabel": "ตัวเลือกอื่น"
+      "menuLabel": "ตัวเลือกอื่น",
+      "description": "บริการทั้งหมดที่เปิดอยู่บนแพลตฟอร์ม"
     },
     "manage": {
       "title": "จัดการระบบ",
@@ -1041,7 +1055,8 @@
       "addPlaceholder": "เพิ่มรายการใหม่...",
       "addLabel": "เพิ่ม",
       "saveLabel": "บันทึกรายการ",
-      "savedNote": "บันทึกแล้ว"
+      "savedNote": "บันทึกแล้ว",
+      "description": "จัดการประเภทบริการและทักษะที่ใช้ทั้งระบบ"
     },
     "refunds": {
       "title": "คำขอคืนเงิน",
@@ -1055,7 +1070,8 @@
       "approveDialogTitle": "ยืนยันการคืนเงิน?",
       "approveDialogBody": "ระบบจะคืนเงินเต็มจำนวนไปยังช่องทางที่ผู้ใช้ชำระ",
       "approvedNote": "คืนเงินแล้ว — ผู้ใช้ได้รับการแจ้งเตือน",
-      "rejectedNote": "ยกเลิกคำขอแล้ว — เหตุผลถูกส่งให้ผู้ใช้"
+      "rejectedNote": "ยกเลิกคำขอแล้ว — เหตุผลถูกส่งให้ผู้ใช้",
+      "description": "ตรวจหลักฐานและตัดสินคำขอคืนเงิน"
     },
     "reports": {
       "title": "รายงาน",
@@ -1074,7 +1090,8 @@
       "suspendedNote": "ระงับบัญชีแล้ว — ผู้ใช้ได้รับการแจ้งเตือน",
       "dismissedNote": "ทิ้งรายงานแล้ว — คืนอันดับการมองเห็นให้ผู้ใช้",
       "riskLow": "เสี่ยงต่ำ",
-      "riskHigh": "เสี่ยงสูง"
+      "riskHigh": "เสี่ยงสูง",
+      "description": "ตัดสินรายงานจากผู้ใช้และการตรวจจับนอกแพลตฟอร์ม (CF-08)"
     },
     "payouts": {
       "title": "โอนเงินให้ที่ปรึกษา",
@@ -1096,7 +1113,8 @@
       "colAdvisor": "ที่ปรึกษา",
       "colAmount": "จำนวนเงิน",
       "colFee": "ค่าธรรมเนียม",
-      "colStatus": "สถานะ"
+      "colStatus": "สถานะ",
+      "description": "บัญชีแยกประเภทใบแจ้งหนี้และสถานะเงินในบัญชีกลาง"
     }
   }
 }

@@ -1,14 +1,20 @@
 import type { ReactNode } from "react";
 
+import { Card } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
 
 /**
  * Case-desk archetype — Figma verification/refunds/reports (1042:15142,
  * 1042:15191, 1042:15219): left queue rail, right detail column, footer
- * action bar pinned bottom-right.
+ * action bar pinned bottom-right. The whole desk is one Card surface on the
+ * tinted canvas.
  */
 export function CaseLayout({ children }: { readonly children: ReactNode }) {
-  return <div className="flex min-h-0 w-full flex-1 items-stretch gap-6">{children}</div>;
+  return (
+    <Card className="w-full flex-1 flex-row items-stretch gap-6 p-6">
+      {children}
+    </Card>
+  );
 }
 
 export function CaseQueue({
