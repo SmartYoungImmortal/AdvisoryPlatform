@@ -78,6 +78,27 @@ export const jamesGunn: StaticImageData = {
   height: 240,
 };
 
+/** `assets/marketing/cta-band` — 910x640. Landing CTA band photo, 2x of 402x320. */
+export const landingCtaBand: StaticImageData = {
+  src: `${R2_BASE}/marketing/cta-band.b3fab7d6.jpg`,
+  width: 910,
+  height: 640,
+};
+
+/**
+ * `assets/marketing/hero-poster` — 720x1280. First frame of the landing hero
+ * clip, so the banner shows the right image before the first HLS segment lands
+ * and stays a still for readers who ask for reduced motion.
+ */
+export const landingHeroPoster: StaticImageData = {
+  src: `${R2_BASE}/marketing/hero-poster.17d69a85.jpg`,
+  width: 720,
+  height: 1280,
+};
+
+/** Landing hero clip — 720x1280 @ 25fps, silent, VOD HLS. */
+export const landingHeroVideo = `${R2_BASE}/advisory-home/9_16/720/stream.m3u8`;
+
 /** `assets/illustrations/logo` — 112x61. */
 export const logo: StaticImageData = {
   src: `${R2_BASE}/illustrations/logo.9f276dba.svg`,
@@ -97,6 +118,32 @@ export const sarahJenskins: StaticImageData = {
   src: `${R2_BASE}/avatars/sarah-jenskins.e07d45e9.png`,
   width: 480,
   height: 320,
+};
+
+/**
+ * `assets/services/advisors-desk` — 480x856. The service cover shared by the
+ * tax-planning listings. Portrait, because the frames crop it to both a 216x120
+ * banner and an 88px square; a landscape source would run out of pixels in the
+ * square.
+ */
+export const serviceAdvisorsDesk: StaticImageData = {
+  src: `${R2_BASE}/services/advisors-desk.f0019d0e.jpg`,
+  width: 480,
+  height: 856,
+};
+
+/** `assets/services/advisors-review` — 640x450. Business-consulting cover. */
+export const serviceAdvisorsReview: StaticImageData = {
+  src: `${R2_BASE}/services/advisors-review.01eb4317.jpg`,
+  width: 640,
+  height: 450,
+};
+
+/** `assets/services/laptop-code` — 640x426. Tech/interview cover. */
+export const serviceLaptopCode: StaticImageData = {
+  src: `${R2_BASE}/services/laptop-code.6b8941bb.jpg`,
+  width: 640,
+  height: 426,
 };
 
 /** `assets/onboarding/thai-national-id` — 700x466. */

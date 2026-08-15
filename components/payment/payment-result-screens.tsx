@@ -14,9 +14,7 @@ import { useTranslations } from "next-intl";
 
 import { walletFailed, walletSuccess } from "@/lib/assets/r2";
 import { NeutralButton, PrimaryButton } from "@/components/mobile/buttons";
-import { HomeIndicator } from "@/components/mobile/home-indicator";
 import { MobileScreen, ScreenActions, ScreenBody } from "@/components/mobile/screen";
-import { StatusBar } from "@/components/mobile/status-bar";
 import { DetailRow, FootNote } from "@/components/screening/parts";
 
 type Result = "success" | "failed" | "unconfirmed" | "slot-taken";
@@ -113,8 +111,7 @@ export function PaymentResultScreen({ state }: { readonly state: Result }) {
   const slotTaken = state === "slot-taken";
 
   return (
-    <MobileScreen>
-      <StatusBar />
+    <MobileScreen className="pt-6">
       <ScreenBody>
         {/* Figma "Hero": a 280px wallet illustration (or a 96px badge for the
             slot-taken frame), then the 28/40 title and 14/20 muted body. */}
@@ -176,7 +173,6 @@ export function PaymentResultScreen({ state }: { readonly state: Result }) {
           <NeutralButton href={copy.secondary.href}>{copy.secondary.label}</NeutralButton>
         </ScreenActions>
       </ScreenBody>
-      <HomeIndicator />
     </MobileScreen>
   );
 }
@@ -186,8 +182,7 @@ export function PaymentProcessingScreen() {
   const t = useTranslations("payment");
 
   return (
-    <MobileScreen>
-      <StatusBar />
+    <MobileScreen className="pt-6">
       <ScreenBody>
         <div className="w-full flex-1" />
         <div className="flex w-full shrink-0 flex-col items-center px-6">
@@ -204,7 +199,6 @@ export function PaymentProcessingScreen() {
           <NeutralButton href="/checkout/card">{t("cancelPayment")}</NeutralButton>
         </div>
       </ScreenBody>
-      <HomeIndicator />
     </MobileScreen>
   );
 }

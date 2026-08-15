@@ -8,7 +8,6 @@ import { useTranslations } from "next-intl";
 
 import { NeutralButton, PrimaryButton } from "@/components/mobile/buttons";
 import { AddRow } from "@/components/mobile/settings-list";
-import { HomeIndicator } from "@/components/mobile/home-indicator";
 import {
   MobileScreen,
   ScreenActions,
@@ -17,7 +16,6 @@ import {
   ScreenSpacer,
   ScreenTopBar,
 } from "@/components/mobile/screen";
-import { StatusBar } from "@/components/mobile/status-bar";
 import {
   Card,
   CardDivider,
@@ -33,7 +31,6 @@ export function ScreeningSetupScreen() {
 
   return (
     <MobileScreen>
-      <StatusBar />
       <ScreenTopBar href="/profile" label={c("back")} />
       <ScreenBody>
         <ScreenHeading
@@ -79,7 +76,6 @@ export function ScreeningSetupScreen() {
 
         <ScreenSpacer />
       </ScreenBody>
-      <HomeIndicator />
     </MobileScreen>
   );
 }
@@ -91,7 +87,6 @@ export function ScreeningRequestsScreen() {
 
   return (
     <MobileScreen>
-      <StatusBar />
       <ScreenTopBar href="/profile" label={c("back")} />
       <ScreenBody>
         <ScreenHeading className="pt-4" title={t("requestsTitle")} />
@@ -157,7 +152,6 @@ export function ScreeningRequestsScreen() {
 
         <ScreenSpacer />
       </ScreenBody>
-      <HomeIndicator />
     </MobileScreen>
   );
 }
@@ -169,7 +163,6 @@ export function ReviewAnswersScreen() {
 
   return (
     <MobileScreen>
-      <StatusBar />
       <ScreenTopBar href="/screening/requests" label={c("back")} />
       <ScreenBody>
         <ScreenHeading
@@ -197,7 +190,6 @@ export function ReviewAnswersScreen() {
           <NeutralButton href="/screening/requests">{t("decline")}</NeutralButton>
         </ScreenActions>
       </ScreenBody>
-      <HomeIndicator />
     </MobileScreen>
   );
 }

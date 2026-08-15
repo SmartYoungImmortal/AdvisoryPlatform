@@ -24,6 +24,7 @@ export function ChatHeader() {
         <Button
           aria-label={c("back")}
           className="size-10 shrink-0"
+          nativeButton={false}
           render={<Link href="/chat" />}
           size="icon"
           variant="ghost"

@@ -12,9 +12,7 @@ import {
 } from "@/components/ui/input-group";
 import { ChatAvatar } from "@/components/chat/chat-avatar";
 import { PrimaryButton } from "@/components/mobile/buttons";
-import { HomeIndicator } from "@/components/mobile/home-indicator";
 import { MobileScreen, ScreenBody } from "@/components/mobile/screen";
-import { StatusBar } from "@/components/mobile/status-bar";
 import { BottomBar } from "@/components/bottombar";
 import { TopBar } from "@/components/topbar";
 
@@ -64,10 +62,9 @@ export function ChatInboxScreen({
 
   return (
     <MobileScreen>
-      <StatusBar />
-      <TopBar unreadNotifications />
       {/* Figma "Container": 2px side padding, 16px top padding, 16px between blocks. */}
       <ScreenBody className="items-start gap-4 px-0.5 pt-4 pb-[72px]">
+        <TopBar unreadNotifications />
         {hasBanner ? (
           /* Figma "In-app banner" (995:11104) — a 64px accent-tinted strip above
              the list with an 18px video glyph and a join affordance. */
@@ -157,7 +154,6 @@ export function ChatInboxScreen({
         )}
       </ScreenBody>
       <BottomBar role="anon" selected="chat" />
-      <HomeIndicator />
     </MobileScreen>
   );
 }

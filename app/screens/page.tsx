@@ -3,20 +3,34 @@ import Link from "next/link";
 import { ChevronRight } from "lucide-react";
 
 import { logo } from "@/lib/assets/r2";
-import { HomeIndicator } from "@/components/mobile/home-indicator";
 import { MobileScreen, ScreenBody } from "@/components/mobile/screen";
-import { StatusBar } from "@/components/mobile/status-bar";
+import { MobileViewport } from "@/components/mobile/viewport";
 
 /**
- * Screen directory. There is no home/dashboard frame in Figma yet, so this stands
- * in as the prototype's entry point and gives the Home tab somewhere to land.
- * Replace it once the dashboard is designed.
+ * Screen directory — the index of every frame the prototype implements.
+ *
+ * It used to sit at `/` as a stand-in for the missing dashboard. The home frame
+ * now exists and owns that route (which is where the Home tab points), so the
+ * directory moved here.
  */
 const SECTIONS: ReadonlyArray<{
   readonly title: string;
   readonly node: string;
   readonly screens: ReadonlyArray<{ readonly href: string; readonly label: string }>;
 }> = [
+  {
+    title: "Home & search",
+    node: "1155:17276",
+    screens: [
+      { href: "/", label: "Home" },
+      { href: "/search", label: "Search results" },
+    ],
+  },
+  {
+    title: "Marketing",
+    node: "1090:16061",
+    screens: [{ href: "/landing", label: "Landing – About & FAQ" }],
+  },
   {
     title: "Auth",
     node: "995:4115",
@@ -166,52 +180,54 @@ export default function ScreenDirectoryPage() {
   const total = SECTIONS.reduce((n, s) => n + s.screens.length, 0);
 
   return (
-    <MobileScreen>
-      <StatusBar />
-      <ScreenBody className="pb-6">
-        <div className="flex w-full shrink-0 flex-col items-center px-6 pt-4">
-          <Image alt="Advisory Platform" className="h-[63px] w-auto" priority src={logo} />
-          <p className="mt-3 w-full text-center text-sm font-normal text-muted-foreground">
-            {total} หน้าจากดีไซน์ · แตะเพื่อดูแต่ละหน้า
-          </p>
-        </div>
-
-        {SECTIONS.map((section) => (
-          <div
-            className="flex w-full shrink-0 flex-col items-start gap-2 px-6 pt-5"
-            key={section.node}
-          >
-            <div className="flex w-full items-baseline justify-between gap-3">
-              <p className="text-sm font-medium text-foreground">
-                {section.title}
-              </p>
-              <span className="font-latin text-xs font-normal text-muted-foreground">
-                {section.node}
-              </span>
-            </div>
-            <div className="flex w-full shrink-0 flex-col items-start overflow-clip rounded-xl bg-card">
-              {section.screens.map((screen, i) => (
-                <div className="w-full" key={screen.href}>
-                  {i > 0 ? <div className="h-px w-full shrink-0 bg-muted" /> : null}
-                  <Link
-                    className="flex w-full shrink-0 items-center gap-3 overflow-clip p-3.5"
-                    href={screen.href}
-                  >
-                    <span className="min-w-px flex-1 text-sm font-medium text-foreground">
-                      {screen.label}
-                    </span>
-                    <span className="font-latin shrink-0 text-xs font-normal text-muted-foreground">
-                      {screen.href}
-                    </span>
-                    <ChevronRight className="size-4 shrink-0 text-muted-foreground" />
-                  </Link>
-                </div>
-              ))}
-            </div>
+    // Not inside a route group, so the 448px canvas is wrapped inline — the
+    // grouped routes get it from their own layout instead.
+    <MobileViewport>
+      <MobileScreen className="pt-6">
+        <ScreenBody className="pb-6">
+          <div className="flex w-full shrink-0 flex-col items-center px-6 pt-4">
+            <Image alt="Advisory Platform" className="h-[63px] w-auto" priority src={logo} />
+            <p className="mt-3 w-full text-center text-sm font-normal text-muted-foreground">
+              {total} หน้าจากดีไซน์ · แตะเพื่อดูแต่ละหน้า
+            </p>
           </div>
-        ))}
-      </ScreenBody>
-      <HomeIndicator />
-    </MobileScreen>
+
+          {SECTIONS.map((section) => (
+            <div
+              className="flex w-full shrink-0 flex-col items-start gap-2 px-6 pt-5"
+              key={section.node}
+            >
+              <div className="flex w-full items-baseline justify-between gap-3">
+                <p className="text-sm font-medium text-foreground">
+                  {section.title}
+                </p>
+                <span className="font-latin text-xs font-normal text-muted-foreground">
+                  {section.node}
+                </span>
+              </div>
+              <div className="flex w-full shrink-0 flex-col items-start overflow-clip rounded-xl bg-card">
+                {section.screens.map((screen, i) => (
+                  <div className="w-full" key={screen.href}>
+                    {i > 0 ? <div className="h-px w-full shrink-0 bg-muted" /> : null}
+                    <Link
+                      className="flex w-full shrink-0 items-center gap-3 overflow-clip p-3.5"
+                      href={screen.href}
+                    >
+                      <span className="min-w-px flex-1 text-sm font-medium text-foreground">
+                        {screen.label}
+                      </span>
+                      <span className="font-latin shrink-0 text-xs font-normal text-muted-foreground">
+                        {screen.href}
+                      </span>
+                      <ChevronRight className="size-4 shrink-0 text-muted-foreground" />
+                    </Link>
+                  </div>
+                ))}
+              </div>
+            </div>
+          ))}
+        </ScreenBody>
+      </MobileScreen>
+    </MobileViewport>
   );
 }

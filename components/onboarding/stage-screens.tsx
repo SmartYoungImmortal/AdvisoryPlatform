@@ -19,7 +19,6 @@ import { Textarea } from "@/components/ui/textarea";
 import { AlertBanner } from "@/components/mobile/banner";
 import { NeutralButton, PrimaryButton } from "@/components/mobile/buttons";
 import { Field } from "@/components/mobile/field";
-import { HomeIndicator } from "@/components/mobile/home-indicator";
 import {
   MobileScreen,
   ScreenActions,
@@ -28,7 +27,6 @@ import {
   ScreenSpacer,
   ScreenTopBar,
 } from "@/components/mobile/screen";
-import { StatusBar } from "@/components/mobile/status-bar";
 import { BulletLine, CheckLine, DropZone, StageHeader } from "@/components/onboarding/parts";
 import { Card, CardDivider, StackRow } from "@/components/screening/parts";
 
@@ -39,7 +37,6 @@ export function BecomeAdvisorScreen() {
 
   return (
     <MobileScreen>
-      <StatusBar />
       <ScreenTopBar href="/profile" label={c("back")} />
       <ScreenBody>
         <ScreenHeading
@@ -62,7 +59,6 @@ export function BecomeAdvisorScreen() {
           <NeutralButton href="/profile">{t("later")}</NeutralButton>
         </ScreenActions>
       </ScreenBody>
-      <HomeIndicator />
     </MobileScreen>
   );
 }
@@ -79,7 +75,6 @@ export function OnboardingStage1Screen({
 
   return (
     <MobileScreen>
-      <StatusBar />
       <ScreenTopBar href="/advisor/apply" label={c("back")} />
       <ScreenBody>
         <StageHeader label={t("stepOf", { n: 1 })} step={1} title={t("s1Title")} />
@@ -143,7 +138,6 @@ export function OnboardingStage1Screen({
           </PrimaryButton>
         </div>
       </ScreenBody>
-      <HomeIndicator />
     </MobileScreen>
   );
 }
@@ -164,7 +158,6 @@ export function OnboardingStage2Screen({
 
   return (
     <MobileScreen>
-      <StatusBar />
       <ScreenTopBar href="/advisor-onboarding/stage-1" label={c("back")} />
       <ScreenBody>
         <StageHeader label={t("stepOf", { n: 2 })} step={2} title={t("s2Title")} />
@@ -251,7 +244,6 @@ export function OnboardingStage2Screen({
           </PrimaryButton>
         </div>
       </ScreenBody>
-      <HomeIndicator />
     </MobileScreen>
   );
 }
@@ -268,7 +260,6 @@ export function OnboardingStage3Screen({
 
   return (
     <MobileScreen>
-      <StatusBar />
       <ScreenTopBar href="/advisor-onboarding/stage-2" label={c("back")} />
       <ScreenBody>
         <StageHeader label={t("stepOf", { n: 3 })} step={3} title={t("s3Title")} />
@@ -333,7 +324,6 @@ export function OnboardingStage3Screen({
           </PrimaryButton>
         </div>
       </ScreenBody>
-      <HomeIndicator />
     </MobileScreen>
   );
 }

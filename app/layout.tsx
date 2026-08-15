@@ -7,26 +7,34 @@ import "./globals.css";
 import { cn } from "@/lib/utils";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import {NextIntlClientProvider} from 'next-intl';
+import {getMessages} from 'next-intl/server';
 
 export const metadata: Metadata = {
   title: "Advisory Platform",
   description: "แพลตฟอร์มจับคู่ผู้ขอคำปรึกษากับที่ปรึกษา",
 };
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  // Client components read their copy from this provider, not from the request
+  // config, so the messages have to be handed over explicitly — without them a
+  // `useTranslations` call in a client component renders the bare key.
+  const messages = await getMessages();
+
   return (
     <html
       lang="th"
       className={cn("h-full", "antialiased", "font-sans")}
     >
       {/* The frame around the mobile canvas is a themed surface, not a raw palette
-          step — `bg-neutral-100` here stayed light in dark mode. */}
-      <body className="min-h-full max-w-md w-full flex flex-col mx-auto bg-muted">
-        <NextIntlClientProvider>
+          step — `bg-neutral-100` here stayed light in dark mode. The 448px canvas
+          itself lives in `MobileViewport` (per route-group layouts) so the admin
+          console can span the full width. */}
+      <body className="min-h-full bg-muted">
+        <NextIntlClientProvider messages={messages}>
           <TooltipProvider>
             {children}
           </TooltipProvider>
