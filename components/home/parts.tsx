@@ -25,11 +25,14 @@ export function SearchField({
   href,
   iconClassName = "size-4.5",
   linkLabel,
+  overlay,
   ...inputProps
 }: {
   readonly href?: string;
   readonly iconClassName?: string;
   readonly linkLabel?: string;
+  /** Drawn over the control's own box — see `TypingPlaceholder`. */
+  readonly overlay?: ReactNode;
 } & ComponentProps<"input">) {
   return (
     <div className="relative flex min-w-px flex-1 items-start">
@@ -37,7 +40,16 @@ export function SearchField({
         <InputGroupAddon className="p-0 text-muted-foreground">
           <Search className={iconClassName} />
         </InputGroupAddon>
-        <InputGroupInput className="px-0 text-sm" type="search" {...inputProps} />
+        {overlay ? (
+          // The overlay is positioned against the control rather than the group,
+          // so it starts where the placeholder starts, past the icon.
+          <div className="relative flex min-w-px flex-1 items-center">
+            <InputGroupInput className="px-0 text-sm" type="search" {...inputProps} />
+            {overlay}
+          </div>
+        ) : (
+          <InputGroupInput className="px-0 text-sm" type="search" {...inputProps} />
+        )}
       </InputGroup>
       {href ? (
         <Link

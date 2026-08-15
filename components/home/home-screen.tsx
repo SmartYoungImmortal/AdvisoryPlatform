@@ -26,6 +26,7 @@ import { Button } from "@/components/ui/button";
 import { ChatAvatar } from "@/components/chat/chat-avatar";
 import { AutoScrollRail } from "@/components/home/auto-scroll-rail";
 import { HomeIntro } from "@/components/home/intro";
+import { TypingPlaceholder } from "@/components/home/typing-placeholder";
 import {
   FilterButton,
   FilterChip,
@@ -198,6 +199,16 @@ function Step({
 export function HomeScreen() {
   const t = useTranslations("home");
   const c = useTranslations("common");
+  // next-intl does not carry arrays through a message file, and it types message
+  // keys as a literal union, so the examples are spelled out rather than built
+  // from a template literal.
+  const searchExamples = [
+    t("searchExample1"),
+    t("searchExample2"),
+    t("searchExample3"),
+    t("searchExample4"),
+    t("searchExample5"),
+  ];
 
   return (
     <MobileScreen>
@@ -227,6 +238,7 @@ export function HomeScreen() {
                 aria-label={t("searchPlaceholder")}
                 href="/search"
                 linkLabel={c("search")}
+                overlay={<TypingPlaceholder phrases={searchExamples} />}
                 placeholder={t("searchPlaceholder")}
                 readOnly
               />
