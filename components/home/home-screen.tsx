@@ -24,6 +24,8 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { ChatAvatar } from "@/components/chat/chat-avatar";
+import { AutoScrollRail } from "@/components/home/auto-scroll-rail";
+import { HomeIntro } from "@/components/home/intro";
 import {
   FilterButton,
   FilterChip,
@@ -214,6 +216,7 @@ export function HomeScreen() {
 
         {/* Figma "Page Content" — 8px above the first block, 24px between them. */}
         <div className="flex w-full shrink-0 flex-col items-center gap-6 pt-2 pb-6">
+          <HomeIntro>
           {/* Figma "Search Block" */}
           <div className="flex w-full shrink-0 flex-col items-start gap-3 px-6">
             <h1 className="w-full text-2xl font-semibold text-foreground">
@@ -243,14 +246,14 @@ export function HomeScreen() {
               href="/search"
               title={t("categories")}
             />
-            <div className="flex w-full shrink-0 items-start gap-2 overflow-x-auto px-6">
+            <AutoScrollRail className="px-6">
               <CategoryCard icon={Briefcase} label={t("categoryBusiness")} />
               <CategoryCard icon={Wallet} label={t("categoryFinance")} />
               <CategoryCard icon={FileText} label={t("categoryLegal")} />
               <CategoryCard icon={Book} label={t("categoryEducation")} />
               <CategoryCard icon={Brain} label={t("categoryWellbeing")} />
               <CategoryCard icon={CodeXml} label={t("categoryTech")} />
-            </div>
+            </AutoScrollRail>
           </div>
 
           {/* Figma "Matching Card" — the accent block that opens the matching flow.
@@ -410,6 +413,7 @@ export function HomeScreen() {
               title={t("n3Title")}
             />
           </div>
+          </HomeIntro>
         </div>
       </ScreenBody>
       <BottomBar role="user" selected="home" />
