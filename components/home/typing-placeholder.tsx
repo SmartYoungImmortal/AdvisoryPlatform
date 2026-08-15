@@ -106,7 +106,10 @@ export function TypingPlaceholder({
 
       return () => mm.revert();
     },
-    { scope: root, dependencies: [phrases, typeSpeed, hold, deleteRatio] },
+    // `phrases` is a fresh array on every render, and useGSAP hands the
+    // dependency list to useLayoutEffect as-is — React then sees the list change
+    // size and warns. Its contents are what matter here, so they key it.
+    { scope: root, dependencies: [phrases.join("\u0000"), typeSpeed, hold, deleteRatio] },
   );
 
   return (
