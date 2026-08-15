@@ -39,7 +39,7 @@ export function AdminTable<T extends { readonly id: string }>({
 }) {
   return (
     <Table>
-      <TableHeader>
+      <TableHeader className="bg-muted/40">
         <TableRow>
           <TableHead className="w-8">
             <Checkbox aria-label="เลือกทั้งหมด" />

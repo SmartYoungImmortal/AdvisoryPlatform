@@ -11,7 +11,8 @@ export function AdminShell({ children }: { readonly children: ReactNode }) {
   return (
     <div className="flex min-h-dvh w-full items-stretch">
       <AdminSidebar />
-      <main className="min-w-0 flex-1">{children}</main>
+      {/* Tinted canvas so Card surfaces read as surfaces. */}
+      <main className="flex min-w-0 flex-1 flex-col bg-muted/40">{children}</main>
     </div>
   );
 }

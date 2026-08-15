@@ -29,8 +29,8 @@ export function QueueCard({
       className={cn(
         "flex w-full flex-col gap-1 rounded-lg border px-3 py-2.5",
         selected
-          ? "border-primary/40 bg-accent"
-          : "border-transparent hover:bg-accent/50",
+          ? "border-primary/40 bg-card shadow-xs"
+          : "border-border/60 bg-card/60 hover:bg-card hover:shadow-xs",
       )}
       href={href}
     >

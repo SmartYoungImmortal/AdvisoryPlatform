@@ -12,37 +12,48 @@ import {
 import { cn } from "@/lib/utils";
 
 /**
- * Figma "Sidebar Item" (1042:15273, Level=Default/Level2). Two-level tree,
- * always expanded like the wireframe; hierarchy reads through indent plus the
- * Level2 guide line. Active state follows the recursive Nexus rule from
- * `lib/navigation/admin.ts`.
+ * Figma "Sidebar Item" (1042:15273). Section headers (User / Marketplace)
+ * render as muted group labels; leaf rows get the accent pill when active —
+ * the recursive rule from `lib/navigation/admin.ts` lights the whole path.
  */
 export function AdminSidebarNav() {
   const pathname = usePathname();
 
   return (
-    <nav className="flex w-full flex-col gap-1">
-      {adminNav.map((item) => (
-        <div className="flex w-full flex-col gap-1" key={item.key}>
-          <NavRow active={isAdminNavActive(item, pathname)} item={item} />
-          {item.children ? (
-            <div className="mb-1 ml-4 flex flex-col gap-1 border-l border-sidebar-border pl-2">
-              {item.children.map((child) => (
-                <NavRow
-                  active={isAdminNavActive(child, pathname)}
-                  item={child}
-                  key={child.key}
-                />
-              ))}
-            </div>
-          ) : null}
-        </div>
-      ))}
+    <nav className="flex w-full flex-col gap-4">
+      {adminNav.map((item) =>
+        item.children ? (
+          <div className="flex w-full flex-col gap-0.5" key={item.key}>
+            <SectionLabel item={item} />
+            {item.children.map((child) => (
+              <LeafRow
+                active={isAdminNavActive(child, pathname)}
+                item={child}
+                key={child.key}
+              />
+            ))}
+          </div>
+        ) : (
+          <div className="flex w-full flex-col gap-0.5" key={item.key}>
+            <LeafRow active={isAdminNavActive(item, pathname)} item={item} />
+          </div>
+        ),
+      )}
     </nav>
   );
 }
 
-function NavRow({
+function SectionLabel({ item }: { readonly item: AdminNavItem }) {
+  const t = useTranslations("admin");
+
+  return (
+    <p className="font-latin px-2 pb-1 text-xs font-medium tracking-wide text-sidebar-foreground/50 uppercase">
+      {t(`nav.${item.key}`)}
+    </p>
+  );
+}
+
+function LeafRow({
   item,
   active,
 }: {
@@ -51,25 +62,24 @@ function NavRow({
 }) {
   const t = useTranslations("admin");
   const Icon = item.icon;
-  const rowClass = cn(
-    "flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-sm",
-    active ? "font-medium text-sidebar-primary" : "text-sidebar-foreground/70",
-    active && item.href && "bg-sidebar-accent text-sidebar-accent-foreground",
-    !item.href && "font-medium text-sidebar-foreground",
-  );
-  const content = (
-    <>
-      <Icon className="size-4 shrink-0" />
-      <span className="min-w-0 flex-1 truncate">{t(`nav.${item.key}`)}</span>
-    </>
-  );
 
-  if (!item.href) {
-    return <p className={rowClass}>{content}</p>;
-  }
   return (
-    <Link className={cn(rowClass, "hover:bg-sidebar-accent")} href={item.href}>
-      {content}
+    <Link
+      className={cn(
+        "flex h-8 w-full items-center gap-2.5 rounded-md px-2 text-sm",
+        active
+          ? "bg-sidebar-accent font-medium text-sidebar-accent-foreground"
+          : "text-sidebar-foreground/70 hover:bg-sidebar-accent/60 hover:text-sidebar-foreground",
+      )}
+      href={item.href ?? "/admin/dashboard"}
+    >
+      <Icon
+        className={cn(
+          "size-4 shrink-0",
+          active ? "text-sidebar-primary" : "text-sidebar-foreground/50",
+        )}
+      />
+      <span className="min-w-0 flex-1 truncate">{t(`nav.${item.key}`)}</span>
     </Link>
   );
 }
