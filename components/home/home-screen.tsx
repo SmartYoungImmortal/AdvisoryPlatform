@@ -198,7 +198,11 @@ export function HomeScreen() {
   const c = useTranslations("common");
 
   return (
-    <MobileScreen>
+    // The wash sits on the frame rather than the scroll container, so the glow
+    // stays behind the search block instead of sliding away with the rail below.
+    // It replaces the frame's `bg-background` rather than layering over it — the
+    // token carries that ground colour as its own bottom layer.
+    <MobileScreen className="bg-hero-wash">
       <ScreenBody className="pt-4">
         <TopBar unreadNotifications />
 

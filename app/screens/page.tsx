@@ -174,98 +174,60 @@ const SECTIONS: ReadonlyArray<{
       { href: "/status/server-error", label: "Error – Server" },
     ],
   },
-  {
-    title: "Admin Console",
-    node: "1042:14855",
-    screens: [
-      { href: "/admin", label: "Admin – Entry (login)" },
-      { href: "/admin/login", label: "Admin login" },
-      { href: "/admin/login/error", label: "Admin login – Failed" },
-      { href: "/admin/dashboard", label: "Dashboard" },
-      { href: "/admin/users", label: "Users" },
-      { href: "/admin/users/no-results", label: "Users – No results" },
-      { href: "/admin/users/john-minecraft", label: "User detail" },
-      { href: "/admin/users/john-minecraft/suspend", label: "User detail – Suspend confirm" },
-      { href: "/admin/users/john-minecraft/suspended", label: "User detail – Suspended" },
-      { href: "/admin/verification", label: "Identity verification" },
-      { href: "/admin/verification/reject", label: "Verification – Reject reason" },
-      { href: "/admin/verification/approved", label: "Verification – Approved" },
-      { href: "/admin/verification/rejected", label: "Verification – Rejected" },
-      { href: "/admin/verification/empty", label: "Verification – Empty" },
-      { href: "/admin/verification/skills", label: "Skill-proof review" },
-      { href: "/admin/verification/skills/approved", label: "Skill proof – Approved" },
-      { href: "/admin/services", label: "Services" },
-      { href: "/admin/services/no-results", label: "Services – No results" },
-      { href: "/admin/manage", label: "Manage – Categories" },
-      { href: "/admin/manage/saved", label: "Manage – Saved" },
-      { href: "/admin/manage/skills", label: "Manage – Skills" },
-      { href: "/admin/refunds", label: "Refund cases" },
-      { href: "/admin/refunds/approve", label: "Refund – Confirm" },
-      { href: "/admin/refunds/approved", label: "Refund – Approved" },
-      { href: "/admin/refunds/rejected", label: "Refund – Rejected" },
-      { href: "/admin/refunds/empty", label: "Refunds – Empty" },
-      { href: "/admin/reports", label: "Report cases" },
-      { href: "/admin/reports/suspend", label: "Report – Suspend confirm" },
-      { href: "/admin/reports/suspended", label: "Report – Suspended" },
-      { href: "/admin/reports/dismissed", label: "Report – Dismissed" },
-      { href: "/admin/payouts", label: "Payouts" },
-      { href: "/admin/payouts/paid", label: "Payouts – Marked paid" },
-      { href: "/admin/payouts/failed", label: "Payouts – Failure desk" },
-      { href: "/admin/transactions", label: "Transactions ledger" },
-    ],
-  },
 ];
 
 export default function ScreenDirectoryPage() {
   const total = SECTIONS.reduce((n, s) => n + s.screens.length, 0);
 
   return (
+    // Not inside a route group, so the 448px canvas is wrapped inline — the
+    // grouped routes get it from their own layout instead.
     <MobileViewport>
-    <MobileScreen className="pt-6">
-      <ScreenBody className="pb-6">
-        <div className="flex w-full shrink-0 flex-col items-center px-6 pt-4">
-          <Image alt="Advisory Platform" className="h-[63px] w-auto" priority src={logo} />
-          <p className="mt-3 w-full text-center text-sm font-normal text-muted-foreground">
-            {total} หน้าจากดีไซน์ · แตะเพื่อดูแต่ละหน้า
-          </p>
-        </div>
-
-        {SECTIONS.map((section) => (
-          <div
-            className="flex w-full shrink-0 flex-col items-start gap-2 px-6 pt-5"
-            key={section.node}
-          >
-            <div className="flex w-full items-baseline justify-between gap-3">
-              <p className="text-sm font-medium text-foreground">
-                {section.title}
-              </p>
-              <span className="font-latin text-xs font-normal text-muted-foreground">
-                {section.node}
-              </span>
-            </div>
-            <div className="flex w-full shrink-0 flex-col items-start overflow-clip rounded-xl bg-card">
-              {section.screens.map((screen, i) => (
-                <div className="w-full" key={screen.href}>
-                  {i > 0 ? <div className="h-px w-full shrink-0 bg-muted" /> : null}
-                  <Link
-                    className="flex w-full shrink-0 items-center gap-3 overflow-clip p-3.5"
-                    href={screen.href}
-                  >
-                    <span className="min-w-px flex-1 text-sm font-medium text-foreground">
-                      {screen.label}
-                    </span>
-                    <span className="font-latin shrink-0 text-xs font-normal text-muted-foreground">
-                      {screen.href}
-                    </span>
-                    <ChevronRight className="size-4 shrink-0 text-muted-foreground" />
-                  </Link>
-                </div>
-              ))}
-            </div>
+      <MobileScreen className="pt-6">
+        <ScreenBody className="pb-6">
+          <div className="flex w-full shrink-0 flex-col items-center px-6 pt-4">
+            <Image alt="Advisory Platform" className="h-[63px] w-auto" priority src={logo} />
+            <p className="mt-3 w-full text-center text-sm font-normal text-muted-foreground">
+              {total} หน้าจากดีไซน์ · แตะเพื่อดูแต่ละหน้า
+            </p>
           </div>
-        ))}
-      </ScreenBody>
-    </MobileScreen>
+
+          {SECTIONS.map((section) => (
+            <div
+              className="flex w-full shrink-0 flex-col items-start gap-2 px-6 pt-5"
+              key={section.node}
+            >
+              <div className="flex w-full items-baseline justify-between gap-3">
+                <p className="text-sm font-medium text-foreground">
+                  {section.title}
+                </p>
+                <span className="font-latin text-xs font-normal text-muted-foreground">
+                  {section.node}
+                </span>
+              </div>
+              <div className="flex w-full shrink-0 flex-col items-start overflow-clip rounded-xl bg-card">
+                {section.screens.map((screen, i) => (
+                  <div className="w-full" key={screen.href}>
+                    {i > 0 ? <div className="h-px w-full shrink-0 bg-muted" /> : null}
+                    <Link
+                      className="flex w-full shrink-0 items-center gap-3 overflow-clip p-3.5"
+                      href={screen.href}
+                    >
+                      <span className="min-w-px flex-1 text-sm font-medium text-foreground">
+                        {screen.label}
+                      </span>
+                      <span className="font-latin shrink-0 text-xs font-normal text-muted-foreground">
+                        {screen.href}
+                      </span>
+                      <ChevronRight className="size-4 shrink-0 text-muted-foreground" />
+                    </Link>
+                  </div>
+                ))}
+              </div>
+            </div>
+          ))}
+        </ScreenBody>
+      </MobileScreen>
     </MobileViewport>
   );
 }

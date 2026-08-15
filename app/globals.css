@@ -37,6 +37,10 @@
   --color-success-foreground: var(--success-foreground);
   --color-success-surface: var(--success-surface);
   --color-brand-image: var(--brand-image);
+  /* A `background-image`, not a colour. It carries its own ground layer because
+     `cn()` merges `bg-hero-wash` and `bg-background` as one `bg-*` group and keeps
+     only the last — so the token has to be the whole background, not half of it. */
+  --background-image-hero-wash: var(--hero-wash);
   --color-on-media: var(--on-media);
   --color-scrim: var(--scrim);
   --color-sidebar-ring: var(--sidebar-ring);
@@ -92,6 +96,17 @@
   --primary: #2563eb;
   --primary-foreground: #ffffff;
   --brand-image: #3b82f6;
+
+  /* Hero wash — two ellipses lit from just outside the frame (-5% / 105%) so the
+     glow reads as an edge, never as a visible disc, and both fade to nothing by
+     60% so the middle stays clean under text. Sized 100% wide because on a 448px
+     canvas a narrow ellipse reads as a coloured blob rather than a wash.
+     The cool side reuses --brand-image; only the warm side is new. */
+  --hero-warm: #ffca29;
+  --hero-wash:
+    radial-gradient(ellipse 100% 35% at -5% 20%, color-mix(in oklab, var(--hero-warm) 22%, transparent), transparent 60%),
+    radial-gradient(ellipse 100% 35% at 105% 35%, color-mix(in oklab, var(--brand-image) 22%, transparent), transparent 60%),
+    linear-gradient(var(--background), var(--background));
   --secondary: #f4f4f5;
   --secondary-foreground: #18181b;
   --muted: #f4f4f5;
@@ -133,6 +148,13 @@
 
 .dark {
   --brand-image: oklch(0.623 0.214 259.815);
+  /* Same geometry, roughly half the strength: on a dark ground the tint reads far
+     hotter at the same alpha and starts to look like a colour cast. */
+  --hero-warm: oklch(0.852 0.164 87.2);
+  --hero-wash:
+    radial-gradient(ellipse 100% 35% at -5% 20%, color-mix(in oklab, var(--hero-warm) 12%, transparent), transparent 60%),
+    radial-gradient(ellipse 100% 35% at 105% 35%, color-mix(in oklab, var(--brand-image) 12%, transparent), transparent 60%),
+    linear-gradient(var(--background), var(--background));
   --background: oklch(0.141 0.005 285.823);
   --foreground: oklch(0.985 0 0);
   --card: oklch(0.21 0.006 285.885);

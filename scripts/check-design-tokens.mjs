@@ -11,8 +11,9 @@
  *
  * Run: node scripts/check-design-tokens.mjs
  */
-import { readFileSync, readdirSync } from "node:fs";
-import { join } from "node:path";
+import { readFileSync } from "node:fs";
+
+import { sourceFiles } from "./source-files.mjs";
 
 const SPACING_PREFIXES =
   "p|px|py|pt|pb|pl|pr|m|mt|mb|ml|mr|gap|gap-x|gap-y|space-x|space-y|size|h|w|min-h|min-w";
@@ -81,20 +82,7 @@ const RULES = [
   },
 ];
 
-/** `components/ui` is vendored by `shadcn add`; it is not ours to police. */
-const SKIP = new Set(["node_modules", ".next", ".git", ".wrangler", "out", "components/ui"]);
-
-function collect(dir, found = []) {
-  for (const entry of readdirSync(dir, { withFileTypes: true })) {
-    const path = join(dir, entry.name);
-    if (SKIP.has(path) || SKIP.has(entry.name)) continue;
-    if (entry.isDirectory()) collect(path, found);
-    else if (entry.name.endsWith(".tsx")) found.push(path);
-  }
-  return found;
-}
-
-const files = [...collect("components"), ...collect("app")];
+const files = sourceFiles();
 
 /**
  * Comments routinely name the class a line moved away from ("`bg-neutral-100`
