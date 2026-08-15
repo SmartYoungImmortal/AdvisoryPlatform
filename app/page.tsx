@@ -6,6 +6,7 @@ import { logo } from "@/lib/assets/r2";
 import { HomeIndicator } from "@/components/mobile/home-indicator";
 import { MobileScreen, ScreenBody } from "@/components/mobile/screen";
 import { StatusBar } from "@/components/mobile/status-bar";
+import { MobileViewport } from "@/components/mobile/viewport";
 
 /**
  * Screen directory. There is no home/dashboard frame in Figma yet, so this stands
@@ -166,6 +167,7 @@ export default function ScreenDirectoryPage() {
   const total = SECTIONS.reduce((n, s) => n + s.screens.length, 0);
 
   return (
+    <MobileViewport>
     <MobileScreen>
       <StatusBar />
       <ScreenBody className="pb-6">
@@ -213,5 +215,6 @@ export default function ScreenDirectoryPage() {
       </ScreenBody>
       <HomeIndicator />
     </MobileScreen>
+    </MobileViewport>
   );
 }
