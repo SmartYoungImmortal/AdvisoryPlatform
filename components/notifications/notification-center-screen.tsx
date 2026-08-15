@@ -3,7 +3,6 @@ import { Bell, CalendarDays, CreditCard, MessageSquare } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { useTranslations } from "next-intl";
 
-import { HomeIndicator } from "@/components/mobile/home-indicator";
 import {
   MobileScreen,
   ScreenBody,
@@ -11,7 +10,6 @@ import {
   ScreenSpacer,
   ScreenTopBar,
 } from "@/components/mobile/screen";
-import { StatusBar } from "@/components/mobile/status-bar";
 
 /**
  * Figma notification row — 64px tall: a 16px glyph, a title/body stack and a
@@ -93,7 +91,6 @@ export function NotificationCenterScreen({
 
   return (
     <MobileScreen>
-      <StatusBar />
       <ScreenTopBar href="/profile" label={c("back")} />
       <ScreenBody>
         <ScreenHeading className="pt-4" title={t("title")} />
@@ -163,7 +160,6 @@ export function NotificationCenterScreen({
 
         <ScreenSpacer />
       </ScreenBody>
-      <HomeIndicator />
     </MobileScreen>
   );
 }

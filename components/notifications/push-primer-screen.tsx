@@ -3,7 +3,6 @@ import type { LucideIcon } from "lucide-react";
 import { useTranslations } from "next-intl";
 
 import { NeutralButton, PrimaryButton } from "@/components/mobile/buttons";
-import { HomeIndicator } from "@/components/mobile/home-indicator";
 import {
   MobileScreen,
   ScreenActions,
@@ -12,7 +11,6 @@ import {
   ScreenSpacer,
   ScreenTopBar,
 } from "@/components/mobile/screen";
-import { StatusBar } from "@/components/mobile/status-bar";
 
 /** Figma "Info Card" row — 64px tall, 16px glyph, title/body stack. */
 function PrimerRow({
@@ -46,7 +44,6 @@ export function PushPrimerScreen() {
 
   return (
     <MobileScreen>
-      <StatusBar />
       <ScreenTopBar href="/notifications" label={c("back")} />
       <ScreenBody>
         <ScreenHeading
@@ -84,7 +81,6 @@ export function PushPrimerScreen() {
           <NeutralButton href="/profile">{t("primerLater")}</NeutralButton>
         </ScreenActions>
       </ScreenBody>
-      <HomeIndicator />
     </MobileScreen>
   );
 }

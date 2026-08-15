@@ -6,7 +6,6 @@ import { arayaS as araya } from "@/lib/assets/r2";
 import { AlertBanner } from "@/components/mobile/banner";
 import { NeutralButton, PrimaryButton } from "@/components/mobile/buttons";
 import { Field } from "@/components/mobile/field";
-import { HomeIndicator } from "@/components/mobile/home-indicator";
 import {
   MobileScreen,
   ScreenActions,
@@ -15,7 +14,6 @@ import {
   ScreenSpacer,
   ScreenTopBar,
 } from "@/components/mobile/screen";
-import { StatusBar } from "@/components/mobile/status-bar";
 
 /**
  * Figma "Advisee profile - Edit" (995:7152) plus the save-failed (995:7586) and
@@ -32,7 +30,6 @@ export function EditProfileScreen({
 
   return (
     <MobileScreen>
-      <StatusBar />
       <ScreenTopBar href="/profile" label={c("back")} />
       <ScreenBody>
         <ScreenHeading subtitle={t("subtitle")} title={t("title")} />
@@ -104,7 +101,6 @@ export function EditProfileScreen({
           <NeutralButton href="/profile">{c("cancel")}</NeutralButton>
         </ScreenActions>
       </ScreenBody>
-      <HomeIndicator />
     </MobileScreen>
   );
 }

@@ -33,6 +33,8 @@ export function QuickActions({
         <Button
           className={tile}
           key={label}
+          // false only for the anchor form; the fallback really is a native button.
+          nativeButton={!href}
           render={href ? <Link href={href} /> : undefined}
           variant="ghost"
         >

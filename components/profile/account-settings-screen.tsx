@@ -2,7 +2,6 @@ import { CircleCheckBig, Lock, Mail, Trash2 } from "lucide-react";
 import { useTranslations } from "next-intl";
 
 import { SuccessBanner } from "@/components/mobile/banner";
-import { HomeIndicator } from "@/components/mobile/home-indicator";
 import {
   MobileScreen,
   ScreenBody,
@@ -16,7 +15,6 @@ import {
   SettingsRow,
   SettingsSection,
 } from "@/components/mobile/settings-list";
-import { StatusBar } from "@/components/mobile/status-bar";
 
 /**
  * Figma "Account settings" (995:7046) and its updated state (995:7095), which adds
@@ -33,7 +31,6 @@ export function AccountSettingsScreen({
 
   return (
     <MobileScreen>
-      <StatusBar />
       <ScreenTopBar href="/profile" label={c("back")} />
       <ScreenBody>
         <ScreenHeading
@@ -82,7 +79,6 @@ export function AccountSettingsScreen({
 
         <ScreenSpacer />
       </ScreenBody>
-      <HomeIndicator />
     </MobileScreen>
   );
 }

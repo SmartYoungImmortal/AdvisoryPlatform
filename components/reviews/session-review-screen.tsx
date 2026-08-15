@@ -6,14 +6,12 @@ import { sarahJenskins as sarah } from "@/lib/assets/r2";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { NeutralButton, PrimaryButton } from "@/components/mobile/buttons";
-import { HomeIndicator } from "@/components/mobile/home-indicator";
 import {
   MobileScreen,
   ScreenActions,
   ScreenBody,
   ScreenSpacer,
 } from "@/components/mobile/screen";
-import { StatusBar } from "@/components/mobile/status-bar";
 
 /** Figma "Summary Row" — 16px glyph, label, right-aligned value. */
 function SummaryRow({
@@ -43,8 +41,7 @@ export function SessionReviewScreen() {
   const t = useTranslations("reviews");
 
   return (
-    <MobileScreen>
-      <StatusBar />
+    <MobileScreen className="pt-6">
       <ScreenBody>
         {/* Figma "Ended Hero": 70px inset, 96px avatar, then the 40/20 text block. */}
         <div className="flex w-full shrink-0 flex-col items-center pt-[70px]">
@@ -118,7 +115,6 @@ export function SessionReviewScreen() {
           <NeutralButton href="/profile">{t("backHome")}</NeutralButton>
         </ScreenActions>
       </ScreenBody>
-      <HomeIndicator />
     </MobileScreen>
   );
 }

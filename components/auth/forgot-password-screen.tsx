@@ -3,7 +3,6 @@ import { useTranslations } from "next-intl";
 
 import { NeutralButton, PrimaryButton } from "@/components/mobile/buttons";
 import { Field } from "@/components/mobile/field";
-import { HomeIndicator } from "@/components/mobile/home-indicator";
 import {
   MobileScreen,
   ScreenActions,
@@ -12,7 +11,6 @@ import {
   ScreenSpacer,
   ScreenTopBar,
 } from "@/components/mobile/screen";
-import { StatusBar } from "@/components/mobile/status-bar";
 
 /** Figma "Forgot password (Light)" — 995:4148. */
 export function ForgotPasswordScreen() {
@@ -21,7 +19,6 @@ export function ForgotPasswordScreen() {
 
   return (
     <MobileScreen>
-      <StatusBar />
       <ScreenTopBar href="/login" label={c("back")} />
       <ScreenBody>
         {/* Figma "Heading": 112px block — 16px top, 40px title, 8px gap, 40px subtitle. */}
@@ -47,7 +44,6 @@ export function ForgotPasswordScreen() {
           <NeutralButton href="/login">{t("backToSignIn")}</NeutralButton>
         </ScreenActions>
       </ScreenBody>
-      <HomeIndicator />
     </MobileScreen>
   );
 }
@@ -59,7 +55,6 @@ export function ResetLinkSentScreen() {
 
   return (
     <MobileScreen>
-      <StatusBar />
       <ScreenTopBar href="/forgot-password" label={c("back")} />
       <ScreenBody>
         {/* Figma "Hero": 96px badge inset 56px from the top, then the 30/40 text block. */}
@@ -98,7 +93,6 @@ export function ResetLinkSentScreen() {
           <NeutralButton href="/reset-sent">{t("resend")}</NeutralButton>
         </ScreenActions>
       </ScreenBody>
-      <HomeIndicator />
     </MobileScreen>
   );
 }

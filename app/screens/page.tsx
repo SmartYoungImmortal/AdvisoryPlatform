@@ -3,20 +3,33 @@ import Link from "next/link";
 import { ChevronRight } from "lucide-react";
 
 import { logo } from "@/lib/assets/r2";
-import { HomeIndicator } from "@/components/mobile/home-indicator";
 import { MobileScreen, ScreenBody } from "@/components/mobile/screen";
-import { StatusBar } from "@/components/mobile/status-bar";
 
 /**
- * Screen directory. There is no home/dashboard frame in Figma yet, so this stands
- * in as the prototype's entry point and gives the Home tab somewhere to land.
- * Replace it once the dashboard is designed.
+ * Screen directory — the index of every frame the prototype implements.
+ *
+ * It used to sit at `/` as a stand-in for the missing dashboard. The home frame
+ * now exists and owns that route (which is where the Home tab points), so the
+ * directory moved here.
  */
 const SECTIONS: ReadonlyArray<{
   readonly title: string;
   readonly node: string;
   readonly screens: ReadonlyArray<{ readonly href: string; readonly label: string }>;
 }> = [
+  {
+    title: "Home & search",
+    node: "1155:17276",
+    screens: [
+      { href: "/", label: "Home" },
+      { href: "/search", label: "Search results" },
+    ],
+  },
+  {
+    title: "Marketing",
+    node: "1090:16061",
+    screens: [{ href: "/landing", label: "Landing – About & FAQ" }],
+  },
   {
     title: "Auth",
     node: "995:4115",
@@ -166,8 +179,7 @@ export default function ScreenDirectoryPage() {
   const total = SECTIONS.reduce((n, s) => n + s.screens.length, 0);
 
   return (
-    <MobileScreen>
-      <StatusBar />
+    <MobileScreen className="pt-6">
       <ScreenBody className="pb-6">
         <div className="flex w-full shrink-0 flex-col items-center px-6 pt-4">
           <Image alt="Advisory Platform" className="h-[63px] w-auto" priority src={logo} />
@@ -211,7 +223,6 @@ export default function ScreenDirectoryPage() {
           </div>
         ))}
       </ScreenBody>
-      <HomeIndicator />
     </MobileScreen>
   );
 }

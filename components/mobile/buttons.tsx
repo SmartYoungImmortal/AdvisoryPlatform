@@ -28,7 +28,15 @@ function Action({ href, ...props }: ActionProps) {
   // `render` hands the button's classes, ref and interaction wiring to the anchor,
   // so the link form keeps the focus ring and press state. Re-declaring a subset of
   // the classes on a bare <Link> — the previous approach — silently dropped both.
-  return href ? <Button render={<Link href={href} />} {...props} /> : <Button {...props} />;
+  //
+  // `nativeButton` tells Base UI which element it actually ended up on. It defaults
+  // to true, so leaving it off an anchor makes the primitive skip the keyboard and
+  // ARIA handling a non-<button> needs — the very thing `render` is here to keep.
+  return href ? (
+    <Button nativeButton={false} render={<Link href={href} />} {...props} />
+  ) : (
+    <Button {...props} />
+  );
 }
 
 /** Figma "ButtonPrimary" — accent on white; the primitive's default variant. */

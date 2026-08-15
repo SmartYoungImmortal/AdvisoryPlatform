@@ -3,7 +3,6 @@ import type { LucideIcon } from "lucide-react";
 import { useTranslations } from "next-intl";
 
 import { NeutralButton, PrimaryButton } from "@/components/mobile/buttons";
-import { HomeIndicator } from "@/components/mobile/home-indicator";
 import {
   MobileScreen,
   ScreenActions,
@@ -12,7 +11,6 @@ import {
   ScreenSpacer,
   ScreenTopBar,
 } from "@/components/mobile/screen";
-import { StatusBar } from "@/components/mobile/status-bar";
 
 /** Figma "Info Card" row — 64px tall: 16px glyph inset 14px, then a title/body stack. */
 function UseRow({
@@ -46,7 +44,6 @@ export function PdpaScreen() {
 
   return (
     <MobileScreen>
-      <StatusBar />
       <ScreenTopBar href="/register" label={c("back")} />
       <ScreenBody>
         <ScreenHeading className="gap-2 pt-4" subtitle={t("subtitle")} title={t("title")} />
@@ -72,7 +69,6 @@ export function PdpaScreen() {
           <NeutralButton href="/terms">{t("readFull")}</NeutralButton>
         </ScreenActions>
       </ScreenBody>
-      <HomeIndicator />
     </MobileScreen>
   );
 }
@@ -85,7 +81,6 @@ export function TermsScreen() {
 
   return (
     <MobileScreen>
-      <StatusBar />
       <ScreenTopBar href="/pdpa" label={c("back")} />
       <ScreenBody>
         <ScreenHeading className="pt-4" title={t("title")} />
@@ -107,7 +102,6 @@ export function TermsScreen() {
         </div>
         <ScreenSpacer />
       </ScreenBody>
-      <HomeIndicator />
     </MobileScreen>
   );
 }

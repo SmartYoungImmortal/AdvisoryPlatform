@@ -14,7 +14,6 @@ import { useTranslations } from "next-intl";
 import { Textarea } from "@/components/ui/textarea";
 import { NeutralButton, PrimaryButton } from "@/components/mobile/buttons";
 import { Field } from "@/components/mobile/field";
-import { HomeIndicator } from "@/components/mobile/home-indicator";
 import {
   MobileScreen,
   ScreenActions,
@@ -23,7 +22,6 @@ import {
   ScreenSpacer,
   ScreenTopBar,
 } from "@/components/mobile/screen";
-import { StatusBar } from "@/components/mobile/status-bar";
 import {
   Card,
   CardDivider,
@@ -40,7 +38,6 @@ export function ScreeningQuestionsScreen() {
 
   return (
     <MobileScreen>
-      <StatusBar />
       <ScreenTopBar href="/matching/results" label={c("back")} />
       <ScreenBody>
         {/* Figma "Stage Header": 8px top padding, 10px gap, 20px subtitle. */}
@@ -77,7 +74,6 @@ export function ScreeningQuestionsScreen() {
           <PrimaryButton href="/screening/submitted">{t("submitAnswers")}</PrimaryButton>
         </div>
       </ScreenBody>
-      <HomeIndicator />
     </MobileScreen>
   );
 }
@@ -89,7 +85,6 @@ export function ScreeningSubmittedScreen() {
 
   return (
     <MobileScreen>
-      <StatusBar />
       <ScreenTopBar href="/screening/questions" label={c("back")} />
       <ScreenBody>
         <StatusHero
@@ -122,7 +117,6 @@ export function ScreeningSubmittedScreen() {
           </p>
         </ScreenActions>
       </ScreenBody>
-      <HomeIndicator />
     </MobileScreen>
   );
 }
@@ -134,7 +128,6 @@ export function ScreeningAcceptedScreen() {
 
   return (
     <MobileScreen>
-      <StatusBar />
       <ScreenTopBar href="/screening/submitted" label={c("back")} />
       <ScreenBody>
         <StatusHero
@@ -159,7 +152,6 @@ export function ScreeningAcceptedScreen() {
           <NeutralButton href="/checkout/card">{t("bookFull")}</NeutralButton>
         </ScreenActions>
       </ScreenBody>
-      <HomeIndicator />
     </MobileScreen>
   );
 }
@@ -171,7 +163,6 @@ export function ScreeningDeclinedScreen() {
 
   return (
     <MobileScreen>
-      <StatusBar />
       <ScreenTopBar href="/screening/submitted" label={c("back")} />
       <ScreenBody>
         <StatusHero
@@ -201,7 +192,6 @@ export function ScreeningDeclinedScreen() {
           <NeutralButton href="/profile">{t("backHome")}</NeutralButton>
         </ScreenActions>
       </ScreenBody>
-      <HomeIndicator />
     </MobileScreen>
   );
 }
@@ -213,7 +203,6 @@ export function TrialConsultationScreen() {
 
   return (
     <MobileScreen>
-      <StatusBar />
       <ScreenTopBar href="/screening/accepted" label={c("back")} />
       <ScreenBody>
         <ScreenHeading
@@ -242,7 +231,6 @@ export function TrialConsultationScreen() {
           <NeutralButton href="/profile">{t("trialLater")}</NeutralButton>
         </ScreenActions>
       </ScreenBody>
-      <HomeIndicator />
     </MobileScreen>
   );
 }

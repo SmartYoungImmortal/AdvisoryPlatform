@@ -28,11 +28,17 @@
      (text-2xl is 24, text-3xl is 30), so it gets a named step of its own. */
   --text-heading: 1.75rem;
   --text-heading--line-height: 2.5rem;
+  /* Figma "Thai/heading 1" — the 32/44 landing hero title. text-3xl is 30/36,
+     which is neither the size nor the leading the design asks for. */
+  --text-heading-lg: 2rem;
+  --text-heading-lg--line-height: 2.75rem;
 
   --color-success: var(--success);
   --color-success-foreground: var(--success-foreground);
   --color-success-surface: var(--success-surface);
   --color-brand-image: var(--brand-image);
+  --color-on-media: var(--on-media);
+  --color-scrim: var(--scrim);
   --color-sidebar-ring: var(--sidebar-ring);
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
@@ -103,6 +109,12 @@
   --border: #e4e4e7;
   --input: #a1a1aa;
   --ring: #a1a1aa;
+  /* The landing hero and CTA band lay copy over a photograph behind a black
+     scrim. Neither the photo nor the scrim reacts to the theme, so the pair is
+     deliberately absent from `.dark` — flipping them there would put white text
+     on white. Everything else that inverts uses `bg-foreground text-background`. */
+  --on-media: #ffffff;
+  --scrim: #000000;
   --chart-1: oklch(0.809 0.105 251.813);
   --chart-2: oklch(0.623 0.214 259.815);
   --chart-3: oklch(0.546 0.245 262.881);
