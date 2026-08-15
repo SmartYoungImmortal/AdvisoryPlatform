@@ -11,8 +11,8 @@
  *
  * Run: node scripts/check-design-tokens.mjs
  */
-import { readFileSync } from "node:fs";
-import { execFileSync } from "node:child_process";
+import { readFileSync, readdirSync } from "node:fs";
+import { join } from "node:path";
 
 const SPACING_PREFIXES =
   "p|px|py|pt|pb|pl|pr|m|mt|mb|ml|mr|gap|gap-x|gap-y|space-x|space-y|size|h|w|min-h|min-w";
@@ -40,7 +40,7 @@ const RULES = [
   },
   {
     id: "arbitrary-spacing",
-    re: new RegExp(`\\b(${SPACING_PREFIXES})-\\[(\\d+)px\\]`, "g"),
+    re: new RegExp(String.raw`\b(${SPACING_PREFIXES})-\[(\d+)px\]`, "g"),
     // Even values up to 64px land on the 4px grid; larger or odd ones are
     // genuine one-off Figma dimensions and stay arbitrary.
     test: (m) => Number(m[2]) > 0 && Number(m[2]) % 2 === 0 && Number(m[2]) <= 64,
@@ -81,21 +81,39 @@ const RULES = [
   },
 ];
 
-const files = execFileSync(
-  "git",
-  ["ls-files", "components/**/*.tsx", "app/**/*.tsx", "components/*.tsx"],
-  { encoding: "utf8" },
-)
-  .split("\n")
-  .filter((f) => f.endsWith(".tsx") && !f.startsWith("components/ui/"));
+/** `components/ui` is vendored by `shadcn add`; it is not ours to police. */
+const SKIP = new Set(["node_modules", ".next", ".git", ".wrangler", "out", "components/ui"]);
+
+function collect(dir, found = []) {
+  for (const entry of readdirSync(dir, { withFileTypes: true })) {
+    const path = join(dir, entry.name);
+    if (SKIP.has(path) || SKIP.has(entry.name)) continue;
+    if (entry.isDirectory()) collect(path, found);
+    else if (entry.name.endsWith(".tsx")) found.push(path);
+  }
+  return found;
+}
+
+const files = [...collect("components"), ...collect("app")];
+
+/**
+ * Comments routinely name the class a line moved away from ("`bg-neutral-100`
+ * here stayed light in dark mode"), and those explanations span several lines, so
+ * matching a comment-looking *prefix* is not enough. Blank the comment bodies out
+ * instead, padding with spaces so line and column numbers still line up.
+ */
+function maskComments(source) {
+  const blank = (match) => match.replaceAll(/[^\n]/g, " ");
+  return source
+    .replaceAll(/\/\*[\s\S]*?\*\//g, blank) // /* … */ and the body of {/* … */}
+    .replaceAll(/(^|[^:])\/\/[^\n]*/g, (match, before) => before + blank(match.slice(before.length)));
+}
 
 const problems = [];
 
 for (const file of files) {
-  const lines = readFileSync(file, "utf8").split("\n");
+  const lines = maskComments(readFileSync(file, "utf8")).split("\n");
   lines.forEach((line, i) => {
-    // Comments explain the Figma origin of a value; they are not markup.
-    if (/^\s*(\/\/|\*|\/\*|\{\/\*)/.test(line)) return;
     for (const rule of RULES) {
       rule.re.lastIndex = 0;
       let m;

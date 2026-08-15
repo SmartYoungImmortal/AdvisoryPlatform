@@ -57,6 +57,15 @@ export function Field({
   readonly invalid?: boolean;
   readonly latin?: boolean;
 } & ComponentProps<"input">) {
+  // An error replaces the hint rather than stacking under it, so only one of the
+  // two ever renders.
+  let footnote = null;
+  if (error) {
+    footnote = <FieldError className="text-xs">{error}</FieldError>;
+  } else if (hint) {
+    footnote = <FieldDescription className="text-xs">{hint}</FieldDescription>;
+  }
+
   return (
     <FieldRoot className="gap-1">
       <FieldLabel htmlFor={inputProps.id}>{label}</FieldLabel>
@@ -79,11 +88,7 @@ export function Field({
           </InputGroupAddon>
         ) : null}
       </InputGroup>
-      {error ? (
-        <FieldError className="text-xs">{error}</FieldError>
-      ) : hint ? (
-        <FieldDescription className="text-xs">{hint}</FieldDescription>
-      ) : null}
+      {footnote}
     </FieldRoot>
   );
 }
