@@ -2,12 +2,12 @@ import {
   ChevronRight,
   CircleHelp,
   FileText,
-  Plus,
   ShieldCheck,
 } from "lucide-react";
 import { useTranslations } from "next-intl";
 
 import { NeutralButton, PrimaryButton } from "@/components/mobile/buttons";
+import { AddRow } from "@/components/mobile/settings-list";
 import { HomeIndicator } from "@/components/mobile/home-indicator";
 import {
   MobileScreen,
@@ -44,7 +44,7 @@ export function ScreeningSetupScreen() {
 
         {/* Figma "Questions": 20px top padding, 18px caption, 8px gap, card. */}
         <div className="flex w-full shrink-0 flex-col items-start gap-2 px-6 pt-5">
-          <p className="font-thai w-full text-[12px] leading-[18px] font-normal text-muted-foreground">
+          <p className="w-full text-xs font-normal text-muted-foreground">
             {t("yourQuestions")}
           </p>
           <Card>
@@ -53,7 +53,7 @@ export function ScreeningSetupScreen() {
               centerIcon
               icon={CircleHelp}
               title={t("q1")}
-              trailing={<ChevronRight className="mt-[10px] size-4 text-muted-foreground" />}
+              trailing={<ChevronRight className="mt-2.5 size-4 text-muted-foreground" />}
             />
             <CardDivider />
             <StackRow
@@ -61,7 +61,7 @@ export function ScreeningSetupScreen() {
               centerIcon
               icon={CircleHelp}
               title={t("q2")}
-              trailing={<ChevronRight className="mt-[10px] size-4 text-muted-foreground" />}
+              trailing={<ChevronRight className="mt-2.5 size-4 text-muted-foreground" />}
             />
             <CardDivider />
             <StackRow
@@ -69,19 +69,11 @@ export function ScreeningSetupScreen() {
               centerIcon
               icon={CircleHelp}
               title={t("q3")}
-              trailing={<ChevronRight className="mt-[10px] size-4 text-muted-foreground" />}
+              trailing={<ChevronRight className="mt-2.5 size-4 text-muted-foreground" />}
             />
             <CardDivider />
             {/* Figma "Add question": a 48px single-line row. */}
-            <button
-              className="flex h-12 w-full shrink-0 items-center gap-3 overflow-clip p-[14px]"
-              type="button"
-            >
-              <Plus className="size-4 shrink-0 text-primary" />
-              <span className="font-thai min-w-px flex-1 text-left text-[14px] leading-[20px] font-medium text-primary">
-                {t("addQuestion")}
-              </span>
-            </button>
+            <AddRow label={t("addQuestion")} />
           </Card>
         </div>
 
@@ -105,7 +97,7 @@ export function ScreeningRequestsScreen() {
         <ScreenHeading className="pt-4" title={t("requestsTitle")} />
 
         <div className="flex w-full shrink-0 flex-col items-start gap-2 px-6 pt-5">
-          <p className="font-thai w-full text-[12px] leading-[18px] font-normal text-muted-foreground">
+          <p className="w-full text-xs font-normal text-muted-foreground">
             {t("pending")}
           </p>
           <Card>
@@ -139,7 +131,7 @@ export function ScreeningRequestsScreen() {
         </div>
 
         <div className="flex w-full shrink-0 flex-col items-start gap-2 px-6 pt-5">
-          <p className="font-thai w-full text-[12px] leading-[18px] font-normal text-muted-foreground">
+          <p className="w-full text-xs font-normal text-muted-foreground">
             {t("answered")}
           </p>
           <Card>

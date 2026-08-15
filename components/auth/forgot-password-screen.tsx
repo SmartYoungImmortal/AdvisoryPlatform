@@ -67,11 +67,11 @@ export function ResetLinkSentScreen() {
           <span className="flex size-24 shrink-0 items-center justify-center rounded-full bg-muted">
             <MailCheck className="size-10 text-primary" />
           </span>
-          <div className="flex w-full shrink-0 flex-col items-center gap-[10px] overflow-clip px-6 pt-[18px] text-center">
-            <p className="font-thai w-full text-[24px] leading-[30px] font-semibold text-foreground">
+          <div className="flex w-full shrink-0 flex-col items-center gap-2.5 overflow-clip px-6 pt-4.5 text-center">
+            <p className="w-full text-2xl leading-7.5 font-semibold text-foreground">
               {t("title")}
             </p>
-            <p className="font-thai w-full text-[14px] leading-[20px] font-normal text-muted-foreground">
+            <p className="w-full text-sm font-normal text-muted-foreground">
               {t("subtitle")}
             </p>
           </div>
@@ -79,13 +79,13 @@ export function ResetLinkSentScreen() {
 
         {/* Figma "Sent To": card with a 16px mail glyph and a label/value stack. */}
         <div className="flex w-full shrink-0 flex-col items-start px-6 pt-6">
-          <div className="flex w-full shrink-0 items-center gap-[10px] overflow-clip rounded-[14px] bg-card p-[14px]">
+          <div className="flex w-full shrink-0 items-center gap-2.5 overflow-clip rounded-xl bg-card p-3.5">
             <Mail className="size-4 shrink-0 text-muted-foreground" />
-            <div className="flex min-w-px flex-1 flex-col items-start gap-[2px] overflow-clip">
-              <p className="font-thai w-full text-[12px] leading-[18px] font-normal text-muted-foreground">
+            <div className="flex min-w-px flex-1 flex-col items-start gap-0.5 overflow-clip">
+              <p className="w-full text-xs font-normal text-muted-foreground">
                 {t("sentToLabel")}
               </p>
-              <p className="font-latin w-full text-[14px] leading-[20px] font-medium text-foreground">
+              <p className="font-latin w-full text-sm font-medium text-foreground">
                 {t("sentToValue")}
               </p>
             </div>

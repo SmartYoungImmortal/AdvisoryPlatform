@@ -11,6 +11,7 @@ import {
 } from "lucide-react";
 import { useTranslations } from "next-intl";
 
+import { Textarea } from "@/components/ui/textarea";
 import { NeutralButton, PrimaryButton } from "@/components/mobile/buttons";
 import { Field } from "@/components/mobile/field";
 import { HomeIndicator } from "@/components/mobile/home-indicator";
@@ -43,11 +44,11 @@ export function ScreeningQuestionsScreen() {
       <ScreenTopBar href="/matching/results" label={c("back")} />
       <ScreenBody>
         {/* Figma "Stage Header": 8px top padding, 10px gap, 20px subtitle. */}
-        <div className="flex w-full shrink-0 flex-col items-start gap-[10px] overflow-clip px-6 pt-2">
-          <h1 className="font-thai w-full text-[28px] leading-[40px] font-semibold text-foreground">
+        <div className="flex w-full shrink-0 flex-col items-start gap-2.5 overflow-clip px-6 pt-2">
+          <h1 className="w-full text-heading font-semibold text-foreground">
             {t("answerTitle")}
           </h1>
-          <p className="font-thai w-full text-[14px] leading-[20px] font-normal text-muted-foreground">
+          <p className="w-full text-sm font-normal text-muted-foreground">
             {t("answerSubtitle")}
           </p>
         </div>
@@ -56,15 +57,15 @@ export function ScreeningQuestionsScreen() {
         <div className="flex w-full shrink-0 flex-col items-start gap-4 px-6 pt-2">
           <Field id="screen-q1" label={t("answerQ1")} placeholder={t("answerPlaceholder")} />
           <Field id="screen-q2" label={t("answerQ2")} placeholder={t("answerPlaceholder")} />
-          <div className="flex w-full shrink-0 flex-col items-start gap-[6px]">
+          <div className="flex w-full shrink-0 flex-col items-start gap-1.5">
             <label
-              className="font-thai w-full text-[14px] leading-[20px] font-medium text-foreground"
+              className="w-full text-sm font-medium text-foreground"
               htmlFor="screen-q3"
             >
               {t("answerQ3")}
             </label>
-            <textarea
-              className="font-thai h-[84px] w-full resize-none rounded-[8px] border border-input bg-muted px-3 py-[8px] text-[14px] leading-[20px] font-normal text-foreground outline-none placeholder:text-muted-foreground"
+            <Textarea
+              className="h-21 resize-none bg-muted px-3 text-sm shadow-none field-sizing-fixed"
               id="screen-q3"
               placeholder={t("answerLongPlaceholder")}
             />
@@ -101,7 +102,7 @@ export function ScreeningSubmittedScreen() {
 
         {/* Figma "Status Card": two completed steps and one in-progress step. */}
         <div className="flex w-full shrink-0 flex-col items-start px-6 pt-8">
-          <div className="flex w-full shrink-0 flex-col items-start gap-3 overflow-clip rounded-[14px] bg-card p-[14px]">
+          <div className="flex w-full shrink-0 flex-col items-start gap-3 overflow-clip rounded-xl bg-card p-3.5">
             <DetailRow icon={Check} label={t("step1")} value={t("done")} />
             <DetailRow icon={Check} label={t("step2")} value={t("done")} />
             <DetailRow
@@ -114,9 +115,9 @@ export function ScreeningSubmittedScreen() {
         </div>
 
         <ScreenSpacer />
-        <ScreenActions className="gap-[14px]">
+        <ScreenActions className="gap-3.5">
           <PrimaryButton href="/profile">{t("backHome")}</PrimaryButton>
-          <p className="font-thai w-full text-center text-[14px] leading-[20px] font-normal text-muted-foreground">
+          <p className="w-full text-center text-sm font-normal text-muted-foreground">
             {t("browseOthers")}
           </p>
         </ScreenActions>
@@ -137,7 +138,7 @@ export function ScreeningAcceptedScreen() {
       <ScreenTopBar href="/screening/submitted" label={c("back")} />
       <ScreenBody>
         <StatusHero
-          badgeClassName="bg-[#ecfccb]"
+          badgeClassName="bg-success-surface"
           icon={CircleCheckBig}
           iconClassName="text-foreground"
           subtitle={t("acceptedSubtitle")}
@@ -145,7 +146,7 @@ export function ScreeningAcceptedScreen() {
         />
 
         <div className="flex w-full shrink-0 flex-col items-start px-6 pt-8">
-          <div className="flex w-full shrink-0 flex-col items-start gap-3 overflow-clip rounded-[14px] bg-card p-[14px]">
+          <div className="flex w-full shrink-0 flex-col items-start gap-3 overflow-clip rounded-xl bg-card p-3.5">
             <DetailRow icon={UserRound} label={t("advisorLabel")} value={t("advisorValue")} />
             <DetailRow icon={BookOpen} label={t("topicLabel")} value={t("topicValue")} />
             <DetailRow icon={Clock} label={t("trialLabel")} value={t("trialValue")} />
@@ -181,13 +182,13 @@ export function ScreeningDeclinedScreen() {
 
         {/* Figma "Advisor Note": a quoted message from the advisor. */}
         <div className="flex w-full shrink-0 flex-col items-start px-6 pt-8">
-          <div className="flex w-full shrink-0 items-start gap-[10px] overflow-clip rounded-[14px] bg-card p-[14px]">
+          <div className="flex w-full shrink-0 items-start gap-2.5 overflow-clip rounded-xl bg-card p-3.5">
             <MessageSquare className="size-4 shrink-0 text-muted-foreground" />
-            <div className="flex min-w-px flex-1 flex-col items-start gap-[2px] overflow-clip">
-              <p className="font-thai w-full text-[12px] leading-[18px] font-normal text-muted-foreground">
+            <div className="flex min-w-px flex-1 flex-col items-start gap-0.5 overflow-clip">
+              <p className="w-full text-xs font-normal text-muted-foreground">
                 {t("advisorMessageLabel")}
               </p>
-              <p className="font-thai w-full text-[14px] leading-[20px] font-normal text-foreground">
+              <p className="w-full text-sm font-normal text-foreground">
                 {t("advisorMessage")}
               </p>
             </div>

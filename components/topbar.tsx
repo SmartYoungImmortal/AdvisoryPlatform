@@ -2,6 +2,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { logo } from "@/lib/assets/r2";
 import { Bell, Menu } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
 /**
@@ -26,9 +27,9 @@ export function TopBar({
         className,
       )}
     >
-      <button aria-label="เมนู" className={cn(trigger, "size-6")} type="button">
+      <Button aria-label="เมนู" className={cn(trigger, "size-6")} size="icon" variant="ghost">
         <Menu className="size-6 text-muted-foreground" />
-      </button>
+      </Button>
       {/* Sized so the lockup's ink measures 114px wide, matching the Figma nav
           logo; the 66px bar height is pinned so the extra height can't grow it. */}
       <Image
@@ -37,21 +38,23 @@ export function TopBar({
         priority
         src={logo}
       />
-      <Link
+      <Button
         aria-label="การแจ้งเตือน"
         className={cn(trigger, "size-6")}
-        href="/notifications"
+        render={<Link href="/notifications" />}
+        size="icon"
+        variant="ghost"
       >
         <Bell
           className={cn(
-            "size-[22px]",
+            "size-5.5",
             unreadNotifications ? "text-foreground" : "text-muted-foreground",
           )}
         />
         {unreadNotifications ? (
           <span className="absolute top-px left-[15px] size-2 rounded-full bg-primary" />
         ) : null}
-      </Link>
+      </Button>
     </div>
   );
 }

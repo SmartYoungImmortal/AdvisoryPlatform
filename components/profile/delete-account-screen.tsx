@@ -49,7 +49,7 @@ export function DeleteAccountScreen({
           <InfoCard
             caption={isBlocked ? t("blockedTitle") : t("lossTitle")}
             className={isBlocked ? "ring-1 ring-destructive ring-inset" : undefined}
-            gap="gap-[10px]"
+            gap="gap-2.5"
           >
             {isBlocked ? (
               <>

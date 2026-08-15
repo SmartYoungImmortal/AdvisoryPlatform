@@ -2,6 +2,7 @@ import Link from "next/link";
 import { ChevronLeft } from "lucide-react";
 import type { ReactNode } from "react";
 
+import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
 /**
@@ -67,9 +68,9 @@ export function ScreenTopBar({
   readonly label?: string;
   readonly className?: string;
 }) {
-  const icon = <ChevronLeft className="size-7" />;
+  // `before` widens the tap target past the 28px glyph without moving any pixels.
   const trigger =
-    "relative flex size-7 shrink-0 items-center justify-center overflow-visible text-foreground before:absolute before:-inset-2 before:content-['']";
+    "relative size-7 shrink-0 overflow-visible text-foreground before:absolute before:-inset-2 before:content-['']";
 
   return (
     <div
@@ -78,15 +79,15 @@ export function ScreenTopBar({
         className,
       )}
     >
-      {href ? (
-        <Link aria-label={label} className={trigger} href={href}>
-          {icon}
-        </Link>
-      ) : (
-        <button aria-label={label} className={trigger} type="button">
-          {icon}
-        </button>
-      )}
+      <Button
+        aria-label={label}
+        className={trigger}
+        render={href ? <Link href={href} /> : undefined}
+        size="icon"
+        variant="ghost"
+      >
+        <ChevronLeft className="size-7" />
+      </Button>
     </div>
   );
 }
@@ -111,11 +112,11 @@ export function ScreenHeading({
         className,
       )}
     >
-      <h1 className="font-thai w-full text-[28px] leading-[40px] font-semibold text-foreground">
+      <h1 className="w-full text-heading font-semibold text-foreground">
         {title}
       </h1>
       {subtitle ? (
-        <p className="font-thai w-full text-[14px] leading-[20px] font-normal text-muted-foreground">
+        <p className="w-full text-sm font-normal text-muted-foreground">
           {subtitle}
         </p>
       ) : null}

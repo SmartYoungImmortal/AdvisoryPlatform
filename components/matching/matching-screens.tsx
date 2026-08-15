@@ -4,6 +4,7 @@ import { ChevronsUpDown, Wallet } from "lucide-react";
 import { useTranslations } from "next-intl";
 
 import { christopherNolan as chris, errorSearch as noMatches, jamesGunn as james, sarahJenskins as sarah } from "@/lib/assets/r2";
+import { Textarea } from "@/components/ui/textarea";
 import { NeutralButton, PrimaryButton } from "@/components/mobile/buttons";
 import { Field } from "@/components/mobile/field";
 import { HomeIndicator } from "@/components/mobile/home-indicator";
@@ -27,11 +28,11 @@ export function ProblemDescriptionScreen() {
       <ScreenTopBar href="/chat" label={c("back")} />
       <ScreenBody>
         {/* Figma "Stage Header": 8px top padding, 10px gap, 40px subtitle block. */}
-        <div className="flex w-full shrink-0 flex-col items-start gap-[10px] overflow-clip px-6 pt-2">
-          <h1 className="font-thai w-full text-[28px] leading-[40px] font-semibold text-foreground">
+        <div className="flex w-full shrink-0 flex-col items-start gap-2.5 overflow-clip px-6 pt-2">
+          <h1 className="w-full text-heading font-semibold text-foreground">
             {t("problemTitle")}
           </h1>
-          <p className="font-thai w-full text-[14px] leading-[20px] font-normal text-muted-foreground">
+          <p className="w-full text-sm font-normal text-muted-foreground">
             {t("problemSubtitle")}
           </p>
         </div>
@@ -51,19 +52,19 @@ export function ProblemDescriptionScreen() {
             placeholder={t("budgetPlaceholder")}
           />
           {/* Figma "Bio Field": 20px label, 6px gap, 84px textarea, 6px gap, hint. */}
-          <div className="flex w-full shrink-0 flex-col items-start gap-[6px]">
+          <div className="flex w-full shrink-0 flex-col items-start gap-1.5">
             <label
-              className="font-thai w-full text-[14px] leading-[20px] font-medium text-foreground"
+              className="w-full text-sm font-medium text-foreground"
               htmlFor="match-detail"
             >
               {t("detailLabel")}
             </label>
-            <textarea
-              className="font-thai h-[84px] w-full resize-none rounded-[8px] border border-input bg-muted px-3 py-[8px] text-[14px] leading-[20px] font-normal text-foreground outline-none placeholder:text-muted-foreground"
+            <Textarea
+              className="h-21 resize-none bg-muted px-3 text-sm shadow-none field-sizing-fixed"
               id="match-detail"
               placeholder={t("detailPlaceholder")}
             />
-            <p className="font-thai w-full text-[12px] leading-[18px] font-normal text-muted-foreground">
+            <p className="w-full text-xs font-normal text-muted-foreground">
               {t("detailHint")}
             </p>
           </div>
@@ -95,10 +96,10 @@ export function MatchingProgressScreen() {
             aria-label={t("searchingTitle")}
             className="block size-11 shrink-0 animate-spin rounded-full border-[3px] border-border border-t-primary"
           />
-          <p className="font-thai mt-[64px] w-full text-center text-[24px] leading-[34px] font-semibold text-foreground">
+          <p className="mt-16 w-full text-center text-2xl font-semibold text-foreground">
             {t("searchingTitle")}
           </p>
-          <p className="font-thai mt-2 w-full text-center text-[14px] leading-[20px] font-normal text-muted-foreground">
+          <p className="mt-2 w-full text-center text-sm font-normal text-muted-foreground">
             {t("searchingBody")}
           </p>
         </div>
@@ -129,7 +130,7 @@ function MatchCard({
   readonly rating: string;
 }) {
   return (
-    <div className="flex w-full shrink-0 items-start gap-3 overflow-clip rounded-[14px] bg-card p-[14px]">
+    <div className="flex w-full shrink-0 items-start gap-3 overflow-clip rounded-xl bg-card p-3.5">
       <Image
         alt=""
         className="size-12 shrink-0 rounded-full object-cover"
@@ -137,22 +138,22 @@ function MatchCard({
         src={avatar}
         width={48}
       />
-      <div className="flex min-w-px flex-1 flex-col items-start gap-[2px] overflow-clip">
-        <p className="font-thai w-full text-[14px] leading-[20px] font-medium text-foreground">
+      <div className="flex min-w-px flex-1 flex-col items-start gap-0.5 overflow-clip">
+        <p className="w-full text-sm font-medium text-foreground">
           {name}
         </p>
-        <p className="font-thai w-full text-[12px] leading-[18px] font-normal text-muted-foreground">
+        <p className="w-full text-xs font-normal text-muted-foreground">
           {field}
         </p>
-        <p className="font-thai w-full text-[12px] leading-[18px] font-normal text-primary">
+        <p className="w-full text-xs font-normal text-primary">
           {match}
         </p>
       </div>
-      <div className="flex shrink-0 flex-col items-end gap-[2px]">
-        <p className="font-thai text-[14px] leading-[20px] font-medium whitespace-nowrap text-foreground">
+      <div className="flex shrink-0 flex-col items-end gap-0.5">
+        <p className="text-sm font-medium whitespace-nowrap text-foreground">
           {price}
         </p>
-        <p className="font-thai text-[12px] leading-[18px] font-normal whitespace-nowrap text-muted-foreground">
+        <p className="text-xs font-normal whitespace-nowrap text-muted-foreground">
           {rating}
         </p>
       </div>
@@ -192,16 +193,16 @@ export function MatchedAdvisorsScreen({
                 className="h-[237px] w-[246px] shrink-0"
                 src={noMatches}
               />
-              <p className="font-thai mt-4 w-full text-center text-[24px] leading-[34px] font-semibold text-foreground">
+              <p className="mt-4 w-full text-center text-2xl font-semibold text-foreground">
                 {t("noResultsTitle")}
               </p>
-              <p className="font-thai mt-2 w-full text-center text-[14px] leading-[20px] font-normal text-muted-foreground">
+              <p className="mt-2 w-full text-center text-sm font-normal text-muted-foreground">
                 {t("noResultsBody")}
               </p>
             </div>
             <div className="flex w-full shrink-0 items-center justify-center px-6 pt-3">
               <Link
-                className="font-thai text-[14px] leading-[20px] font-medium text-primary"
+                className="text-sm font-medium text-primary"
                 href="/matching"
               >
                 {t("editProblem")}
@@ -239,7 +240,7 @@ export function MatchedAdvisorsScreen({
             </div>
             <div className="flex w-full shrink-0 items-center justify-center px-6 pt-4">
               <Link
-                className="font-thai text-[14px] leading-[20px] font-medium text-primary"
+                className="text-sm font-medium text-primary"
                 href="/matching"
               >
                 {t("refine")}

@@ -15,7 +15,7 @@ export function StatusBar({ className }: { readonly className?: string }) {
         className,
       )}
     >
-      <span className="font-latin shrink-0 text-[16px] leading-[24px] font-semibold tracking-[0] text-foreground">
+      <span className="font-latin shrink-0 text-base font-semibold text-foreground">
         9:41
       </span>
       <div className="flex shrink-0 items-center gap-[7px] overflow-clip text-foreground">

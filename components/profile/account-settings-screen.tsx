@@ -57,7 +57,7 @@ export function AccountSettingsScreen({
             <SettingsRow href="/settings/password" icon={Lock} label={t("password")} />
           </SettingsCard>
           {isUpdated ? (
-            <p className="font-thai w-full text-[12px] leading-[18px] font-normal text-muted-foreground">
+            <p className="w-full text-xs font-normal text-muted-foreground">
               {t("verifyNote")}
             </p>
           ) : null}
@@ -75,7 +75,7 @@ export function AccountSettingsScreen({
               labelClassName="text-destructive"
             />
           </SettingsCard>
-          <p className="font-thai w-full text-[12px] leading-[18px] font-normal text-muted-foreground">
+          <p className="w-full text-xs font-normal text-muted-foreground">
             {t("deleteNote")}
           </p>
         </SettingsSection>
