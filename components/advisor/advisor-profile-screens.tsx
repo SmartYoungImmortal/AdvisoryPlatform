@@ -14,7 +14,6 @@ import {
   Landmark,
   LogOut,
   MessageSquare,
-  Plus,
   Settings,
   ShieldCheck,
   Star,
@@ -24,9 +23,10 @@ import {
 import { useTranslations } from "next-intl";
 
 import { advisor } from "@/lib/assets/r2";
+import { Badge } from "@/components/ui/badge";
+import { Textarea } from "@/components/ui/textarea";
 import { NeutralButton, PrimaryButton } from "@/components/mobile/buttons";
 import { Field } from "@/components/mobile/field";
-import { HomeIndicator } from "@/components/mobile/home-indicator";
 import {
   MobileScreen,
   ScreenActions,
@@ -36,12 +36,12 @@ import {
   ScreenTopBar,
 } from "@/components/mobile/screen";
 import {
+  AddRow,
   SettingsCard,
   SettingsDivider,
   SettingsRow,
   SettingsSection,
 } from "@/components/mobile/settings-list";
-import { StatusBar } from "@/components/mobile/status-bar";
 import { QuickActions } from "@/components/profile/quick-actions";
 import { BottomBar } from "@/components/bottombar";
 import { TopBar } from "@/components/topbar";
@@ -52,12 +52,11 @@ export function AdvisorProfileScreen() {
 
   return (
     <MobileScreen>
-      <StatusBar />
-      <TopBar unreadNotifications />
-      <ScreenBody className="pb-[6px]">
+      <ScreenBody className="pb-1.5">
+        <TopBar unreadNotifications />
         {/* Figma "Identity Card": verified name, role, then rating/booking/review stats. */}
         <div className="flex w-full shrink-0 flex-col items-start overflow-clip px-6 pt-4">
-          <div className="flex w-full shrink-0 flex-col items-start gap-3 overflow-clip rounded-[14px] bg-card p-[14px]">
+          <div className="flex w-full shrink-0 flex-col items-start gap-3 overflow-clip rounded-xl bg-card p-3.5">
             <div className="flex w-full shrink-0 items-center gap-3 overflow-clip">
               <Image
                 alt=""
@@ -66,17 +65,17 @@ export function AdvisorProfileScreen() {
                 src={advisor}
                 width={56}
               />
-              <div className="flex min-w-px flex-1 flex-col items-start gap-[2px] overflow-clip">
-                <p className="font-latin flex w-full items-center gap-1 text-[16px] leading-[24px] font-medium text-foreground">
+              <div className="flex min-w-px flex-1 flex-col items-start gap-0.5 overflow-clip">
+                <p className="font-latin flex w-full items-center gap-1 text-base font-medium text-foreground">
                   {t("name")}
                   <BadgeCheck className="size-4 shrink-0 text-primary" />
                 </p>
-                <p className="font-thai w-full text-[12px] leading-[18px] font-normal text-muted-foreground">
+                <p className="w-full text-xs font-normal text-muted-foreground">
                   {t("role")}
                 </p>
               </div>
-              <span className="flex size-9 shrink-0 items-center justify-center overflow-clip rounded-[8px] bg-muted">
-                <UserRoundCog className="size-[18px] text-muted-foreground" />
+              <span className="flex size-9 shrink-0 items-center justify-center overflow-clip rounded-md bg-muted">
+                <UserRoundCog className="size-4.5 text-muted-foreground" />
               </span>
             </div>
             <div className="h-px w-full shrink-0 bg-muted" />
@@ -87,16 +86,16 @@ export function AdvisorProfileScreen() {
                 { value: "32", label: t("statReviews"), star: false },
               ].map((s) => (
                 <div
-                  className="flex min-w-px flex-1 flex-col items-center gap-[2px] overflow-clip"
+                  className="flex min-w-px flex-1 flex-col items-center gap-0.5 overflow-clip"
                   key={s.label}
                 >
-                  <p className="font-latin flex w-full items-center justify-center gap-1 text-[16px] leading-[24px] font-medium text-foreground">
+                  <p className="font-latin flex w-full items-center justify-center gap-1 text-base font-medium text-foreground">
                     {s.star ? (
-                      <Star className="size-[14px] shrink-0 fill-primary text-primary" />
+                      <Star className="size-3.5 shrink-0 fill-primary text-primary" />
                     ) : null}
                     {s.value}
                   </p>
-                  <p className="font-thai w-full text-[12px] leading-[18px] font-normal text-muted-foreground">
+                  <p className="w-full text-xs font-normal text-muted-foreground">
                     {s.label}
                   </p>
                 </div>
@@ -122,11 +121,7 @@ export function AdvisorProfileScreen() {
               href="/screening/requests"
               icon={FileText}
               label={t("requests")}
-              value={
-                <span className="flex size-5 items-center justify-center rounded-full bg-primary text-[12px] leading-[18px] font-medium text-primary-foreground">
-                  3
-                </span>
-              }
+              value={<Badge className="size-5 p-0">3</Badge>}
             />
             <SettingsDivider />
             <SettingsRow icon={CalendarDays} label={t("myBookings")} />
@@ -171,7 +166,6 @@ export function AdvisorProfileScreen() {
         </SettingsSection>
       </ScreenBody>
       <BottomBar role="advisor" selected="user" />
-      <HomeIndicator />
     </MobileScreen>
   );
 }
@@ -183,7 +177,6 @@ export function AdvisorProfileEditScreen() {
 
   return (
     <MobileScreen>
-      <StatusBar />
       <ScreenTopBar href="/advisor/profile" label={c("back")} />
       <ScreenBody>
         <ScreenHeading
@@ -210,33 +203,33 @@ export function AdvisorProfileEditScreen() {
             label={t("displayNameLabel")}
             latin
           />
-          <div className="flex w-full shrink-0 flex-col items-start gap-[6px]">
+          <div className="flex w-full shrink-0 flex-col items-start gap-1.5">
             <label
-              className="font-thai w-full text-[14px] leading-[20px] font-medium text-foreground"
+              className="w-full text-sm font-medium text-foreground"
               htmlFor="advisor-bio"
             >
               {t("bioLabel")}
             </label>
-            <textarea
-              className="font-thai h-[88px] w-full resize-none rounded-[8px] border border-input bg-muted px-3 py-[8px] text-[14px] leading-[20px] font-normal text-foreground outline-none"
+            <Textarea
+              className="h-22 resize-none bg-muted px-3 text-sm shadow-none field-sizing-fixed"
               defaultValue={t("bioValue")}
               id="advisor-bio"
             />
           </div>
           <Link
-            className="flex h-16 w-full shrink-0 items-start gap-3 overflow-clip rounded-[14px] bg-card p-[14px]"
+            className="flex h-16 w-full shrink-0 items-start gap-3 overflow-clip rounded-xl bg-card p-3.5"
             href="/advisor/skills"
           >
             <FileText className="size-4 shrink-0 text-muted-foreground" />
-            <div className="flex min-w-px flex-1 flex-col items-start gap-[2px] overflow-clip text-left">
-              <p className="font-thai w-full text-[12px] leading-[18px] font-normal text-muted-foreground">
+            <div className="flex min-w-px flex-1 flex-col items-start gap-0.5 overflow-clip text-left">
+              <p className="w-full text-xs font-normal text-muted-foreground">
                 {t("skillsLabel")}
               </p>
-              <p className="font-thai w-full text-[14px] leading-[20px] font-normal text-foreground">
+              <p className="w-full text-sm font-normal text-foreground">
                 {t("skillsValue")}
               </p>
             </div>
-            <ChevronRight className="mt-[10px] size-4 shrink-0 text-muted-foreground" />
+            <ChevronRight className="mt-2.5 size-4 shrink-0 text-muted-foreground" />
           </Link>
         </div>
 
@@ -246,7 +239,6 @@ export function AdvisorProfileEditScreen() {
           <NeutralButton href="/advisor/profile">{t("cancel")}</NeutralButton>
         </ScreenActions>
       </ScreenBody>
-      <HomeIndicator />
     </MobileScreen>
   );
 }
@@ -271,7 +263,6 @@ export function SkillManagementScreen() {
 
   return (
     <MobileScreen>
-      <StatusBar />
       <ScreenTopBar href="/advisor/edit" label={c("back")} />
       <ScreenBody>
         <ScreenHeading
@@ -281,45 +272,36 @@ export function SkillManagementScreen() {
         />
 
         <div className="flex w-full shrink-0 flex-col items-start gap-2 px-6 pt-5">
-          <p className="font-thai w-full text-[12px] leading-[18px] font-normal text-muted-foreground">
+          <p className="w-full text-xs font-normal text-muted-foreground">
             {t("yourSkills")}
           </p>
-          <div className="flex w-full shrink-0 flex-col items-start overflow-clip rounded-[14px] bg-card">
+          <div className="flex w-full shrink-0 flex-col items-start overflow-clip rounded-xl bg-card">
             {skills.map((s, i) => (
               <div className="w-full" key={s.name}>
                 {i > 0 ? <div className="h-px w-full shrink-0 bg-muted" /> : null}
-                <div className="flex h-16 w-full shrink-0 items-start gap-3 overflow-clip p-[14px]">
-                  <FileText className="mt-[10px] size-4 shrink-0 text-muted-foreground" />
-                  <div className="flex min-w-px flex-1 flex-col items-start gap-[2px] overflow-clip">
-                    <p className="font-thai w-full text-[14px] leading-[20px] font-medium text-foreground">
+                <div className="flex h-16 w-full shrink-0 items-start gap-3 overflow-clip p-3.5">
+                  <FileText className="mt-2.5 size-4 shrink-0 text-muted-foreground" />
+                  <div className="flex min-w-px flex-1 flex-col items-start gap-0.5 overflow-clip">
+                    <p className="w-full text-sm font-medium text-foreground">
                       {s.name}
                     </p>
                     <p
-                      className={`font-thai w-full text-[12px] leading-[18px] font-normal ${toneClass[s.tone]}`}
+                      className={`w-full text-xs font-normal ${toneClass[s.tone]}`}
                     >
                       {s.meta}
                     </p>
                   </div>
-                  <ChevronRight className="mt-[10px] size-4 shrink-0 text-muted-foreground" />
+                  <ChevronRight className="mt-2.5 size-4 shrink-0 text-muted-foreground" />
                 </div>
               </div>
             ))}
             <div className="h-px w-full shrink-0 bg-muted" />
-            <button
-              className="flex h-12 w-full shrink-0 items-center gap-3 overflow-clip p-[14px]"
-              type="button"
-            >
-              <Plus className="size-4 shrink-0 text-primary" />
-              <span className="font-thai min-w-px flex-1 text-left text-[14px] leading-[20px] font-medium text-primary">
-                {t("addSkill")}
-              </span>
-            </button>
+            <AddRow label={t("addSkill")} />
           </div>
         </div>
 
         <ScreenSpacer />
       </ScreenBody>
-      <HomeIndicator />
     </MobileScreen>
   );
 }
@@ -331,7 +313,6 @@ export function PayoutSetupScreen() {
 
   return (
     <MobileScreen>
-      <StatusBar />
       <ScreenTopBar href="/earnings" label={c("back")} />
       <ScreenBody>
         <ScreenHeading className="pt-4" title={t("payoutSetupTitle")} />
@@ -359,7 +340,6 @@ export function PayoutSetupScreen() {
           <PrimaryButton href="/earnings/payout-account">{t("saveAccount")}</PrimaryButton>
         </div>
       </ScreenBody>
-      <HomeIndicator />
     </MobileScreen>
   );
 }
@@ -371,42 +351,41 @@ export function PayoutAccountScreen() {
 
   return (
     <MobileScreen>
-      <StatusBar />
       <ScreenTopBar href="/earnings" label={c("back")} />
       <ScreenBody>
         <ScreenHeading className="pt-4" title={t("payoutTitle")} />
 
         <div className="flex w-full shrink-0 flex-col items-start px-6 pt-2">
-          <div className="flex w-full shrink-0 flex-col items-start gap-3 overflow-clip rounded-[14px] bg-card p-[14px]">
+          <div className="flex w-full shrink-0 flex-col items-start gap-3 overflow-clip rounded-xl bg-card p-3.5">
             <div className="flex w-full shrink-0 items-center gap-3">
               <Landmark className="size-4 shrink-0 text-muted-foreground" />
-              <div className="flex min-w-px flex-1 flex-col items-start gap-[2px]">
-                <p className="font-thai w-full text-[14px] leading-[20px] font-medium text-foreground">
+              <div className="flex min-w-px flex-1 flex-col items-start gap-0.5">
+                <p className="w-full text-sm font-medium text-foreground">
                   {t("bankName")}
                 </p>
-                <p className="font-thai w-full text-[12px] leading-[18px] font-normal text-muted-foreground">
+                <p className="w-full text-xs font-normal text-muted-foreground">
                   {t("bankAccount")}
                 </p>
               </div>
-              <span className="font-thai flex shrink-0 items-center gap-1 rounded-full bg-primary/10 px-2 py-[3px] text-[12px] leading-[18px] font-medium whitespace-nowrap text-primary">
-                <CircleCheck className="size-3" />
+              <Badge className="h-auto bg-primary/10 py-0.75 text-primary">
+                <CircleCheck />
                 {t("verified")}
-              </span>
+              </Badge>
             </div>
             <div className="h-px w-full shrink-0 bg-muted" />
-            <div className="flex h-5 w-full items-center gap-[10px]">
-              <span className="font-thai min-w-px flex-1 text-[14px] leading-[20px] font-normal text-muted-foreground">
+            <div className="flex h-5 w-full items-center gap-2.5">
+              <span className="min-w-px flex-1 text-sm font-normal text-muted-foreground">
                 {t("accountNameLabel")}
               </span>
-              <span className="font-latin shrink-0 text-[14px] leading-[20px] font-medium text-foreground">
+              <span className="font-latin shrink-0 text-sm font-medium text-foreground">
                 {t("accountNameValue")}
               </span>
             </div>
-            <div className="flex h-5 w-full items-center gap-[10px]">
-              <span className="font-thai min-w-px flex-1 text-[14px] leading-[20px] font-normal text-muted-foreground">
+            <div className="flex h-5 w-full items-center gap-2.5">
+              <span className="min-w-px flex-1 text-sm font-normal text-muted-foreground">
                 {t("payoutTypeLabel")}
               </span>
-              <span className="font-thai shrink-0 text-[14px] leading-[20px] font-medium text-foreground">
+              <span className="shrink-0 text-sm font-medium text-foreground">
                 {t("payoutTypeValue")}
               </span>
             </div>
@@ -419,7 +398,6 @@ export function PayoutAccountScreen() {
           <NeutralButton href="/earnings">{t("deleteAccount")}</NeutralButton>
         </ScreenActions>
       </ScreenBody>
-      <HomeIndicator />
     </MobileScreen>
   );
 }
@@ -431,29 +409,28 @@ export function PayoutFailedScreen() {
 
   return (
     <MobileScreen>
-      <StatusBar />
       <ScreenTopBar href="/earnings/payout-history" label={c("back")} />
       <ScreenBody>
         <div className="flex w-full shrink-0 flex-col items-center px-6 pt-4">
           <span className="flex size-10 shrink-0 items-center justify-center rounded-full bg-destructive/10">
             <CircleAlert className="size-5 text-destructive" />
           </span>
-          <p className="font-latin mt-3 w-full text-center text-[28px] leading-[40px] font-semibold text-foreground">
+          <p className="font-latin mt-3 w-full text-center text-heading font-semibold text-foreground">
             {t("payoutFailedAmount")}
           </p>
-          <p className="font-thai mt-1 w-full text-center text-[12px] leading-[18px] font-normal text-muted-foreground">
+          <p className="mt-1 w-full text-center text-xs font-normal text-muted-foreground">
             {t("payoutFailedWhen")}
           </p>
         </div>
 
         <div className="flex w-full shrink-0 flex-col items-start px-6 pt-5">
-          <div className="flex w-full shrink-0 items-start gap-3 overflow-clip rounded-[14px] bg-card p-[14px]">
+          <div className="flex w-full shrink-0 items-start gap-3 overflow-clip rounded-xl bg-card p-3.5">
             <Clock className="size-4 shrink-0 text-primary" />
-            <div className="flex min-w-px flex-1 flex-col items-start gap-[2px] overflow-clip">
-              <p className="font-thai w-full text-[14px] leading-[20px] font-medium text-foreground">
+            <div className="flex min-w-px flex-1 flex-col items-start gap-0.5 overflow-clip">
+              <p className="w-full text-sm font-medium text-foreground">
                 {t("fundsSafeTitle")}
               </p>
-              <p className="font-thai w-full text-[12px] leading-[18px] font-normal text-muted-foreground">
+              <p className="w-full text-xs font-normal text-muted-foreground">
                 {t("fundsSafeBody")}
               </p>
             </div>
@@ -461,20 +438,20 @@ export function PayoutFailedScreen() {
         </div>
 
         <div className="flex w-full shrink-0 flex-col items-start px-6 pt-5">
-          <div className="flex w-full shrink-0 flex-col items-start gap-3 overflow-clip rounded-[14px] bg-card p-[14px]">
+          <div className="flex w-full shrink-0 flex-col items-start gap-3 overflow-clip rounded-xl bg-card p-3.5">
             {[
               { icon: Landmark, label: t("payoutAccountLabel"), value: t("payoutAccountValue"), tone: "" },
               { icon: CircleAlert, label: t("reasonLabel"), value: t("reasonValue"), tone: "text-destructive" },
               { icon: UserRoundCog, label: t("bankDataLabel"), value: t("bankDataValue"), tone: "" },
               { icon: FileText, label: t("transferNoLabel"), value: t("transferNoValue"), tone: "" },
             ].map(({ icon: Icon, label, value, tone }) => (
-              <div className="flex h-5 w-full items-center gap-[10px]" key={label}>
+              <div className="flex h-5 w-full items-center gap-2.5" key={label}>
                 <Icon className={`size-4 shrink-0 ${tone || "text-muted-foreground"}`} />
-                <span className="font-thai min-w-px flex-1 text-[14px] leading-[20px] font-normal text-muted-foreground">
+                <span className="min-w-px flex-1 text-sm font-normal text-muted-foreground">
                   {label}
                 </span>
                 <span
-                  className={`font-latin shrink-0 text-[14px] leading-[20px] font-medium whitespace-nowrap ${tone || "text-foreground"}`}
+                  className={`font-latin shrink-0 text-sm font-medium whitespace-nowrap ${tone || "text-foreground"}`}
                 >
                   {value}
                 </span>
@@ -489,7 +466,6 @@ export function PayoutFailedScreen() {
           <NeutralButton href="/earnings">{t("contactSupport")}</NeutralButton>
         </ScreenActions>
       </ScreenBody>
-      <HomeIndicator />
     </MobileScreen>
   );
 }
@@ -507,54 +483,53 @@ export function PayoutHistoryScreen() {
 
   return (
     <MobileScreen>
-      <StatusBar />
       <ScreenTopBar href="/earnings" label={c("back")} />
       <ScreenBody>
         <ScreenHeading className="pt-4" title={t("historyTitle")} />
 
         <div className="flex w-full shrink-0 flex-col items-start px-6 pt-2">
-          <div className="flex w-full shrink-0 flex-col items-start gap-1 overflow-clip rounded-[14px] bg-card p-[14px]">
-            <p className="font-thai w-full text-[12px] leading-[18px] font-normal text-muted-foreground">
+          <div className="flex w-full shrink-0 flex-col items-start gap-1 overflow-clip rounded-xl bg-card p-3.5">
+            <p className="w-full text-xs font-normal text-muted-foreground">
               {t("historyYearLabel")}
             </p>
-            <p className="font-latin w-full text-[28px] leading-[40px] font-semibold text-foreground">
+            <p className="font-latin w-full text-heading font-semibold text-foreground">
               {t("historyTotal")}
             </p>
-            <p className="font-thai w-full text-[12px] leading-[18px] font-normal text-muted-foreground">
+            <p className="w-full text-xs font-normal text-muted-foreground">
               {t("historyNote")}
             </p>
           </div>
         </div>
 
         <div className="flex w-full shrink-0 flex-col items-start gap-2 px-6 pt-5">
-          <p className="font-thai w-full text-[12px] leading-[18px] font-normal text-muted-foreground">
+          <p className="w-full text-xs font-normal text-muted-foreground">
             {t("allTransfers")}
           </p>
-          <div className="flex w-full shrink-0 flex-col items-start overflow-clip rounded-[14px] bg-card">
+          <div className="flex w-full shrink-0 flex-col items-start overflow-clip rounded-xl bg-card">
             {rows.map((r, i) => (
               <div className="w-full" key={r.date}>
                 {i > 0 ? <div className="h-px w-full shrink-0 bg-muted" /> : null}
                 <Link
-                  className="flex h-16 w-full shrink-0 items-start gap-3 overflow-clip p-[14px]"
+                  className="flex h-16 w-full shrink-0 items-start gap-3 overflow-clip p-3.5"
                   href="/earnings/payout-history/failed"
                 >
-                  <div className="flex min-w-px flex-1 flex-col items-start gap-[2px] overflow-clip">
-                    <p className="font-thai w-full text-[14px] leading-[20px] font-medium text-foreground">
+                  <div className="flex min-w-px flex-1 flex-col items-start gap-0.5 overflow-clip">
+                    <p className="w-full text-sm font-medium text-foreground">
                       {r.date}
                     </p>
-                    <p className="font-thai w-full text-[12px] leading-[18px] font-normal text-muted-foreground">
+                    <p className="w-full text-xs font-normal text-muted-foreground">
                       {r.meta}
                     </p>
                   </div>
-                  <div className="flex shrink-0 flex-col items-end gap-[2px]">
-                    <p className="font-latin text-[14px] leading-[20px] font-medium whitespace-nowrap text-foreground">
+                  <div className="flex shrink-0 flex-col items-end gap-0.5">
+                    <p className="font-latin text-sm font-medium whitespace-nowrap text-foreground">
                       {r.amount}
                     </p>
-                    <p className="font-thai text-[12px] leading-[18px] font-normal text-muted-foreground">
+                    <p className="text-xs font-normal text-muted-foreground">
                       {t("success")}
                     </p>
                   </div>
-                  <ChevronRight className="mt-[10px] size-4 shrink-0 text-muted-foreground" />
+                  <ChevronRight className="mt-2.5 size-4 shrink-0 text-muted-foreground" />
                 </Link>
               </div>
             ))}
@@ -563,7 +538,6 @@ export function PayoutHistoryScreen() {
 
         <ScreenSpacer />
       </ScreenBody>
-      <HomeIndicator />
     </MobileScreen>
   );
 }
@@ -574,18 +548,17 @@ export function EarningsScreen() {
 
   return (
     <MobileScreen>
-      <StatusBar />
-      <TopBar unreadNotifications />
-      <ScreenBody className="pb-[6px]">
+      <ScreenBody className="pb-1.5">
+        <TopBar unreadNotifications />
         <ScreenHeading className="pt-4" title={t("earningsTitle")} />
 
         {/* Figma balance card: available balance with the withdraw CTA. */}
         <div className="flex w-full shrink-0 flex-col items-start px-6 pt-2">
-          <div className="flex w-full shrink-0 flex-col items-start gap-2 overflow-clip rounded-[14px] bg-card p-[14px]">
-            <p className="font-thai w-full text-[12px] leading-[18px] font-normal text-muted-foreground">
+          <div className="flex w-full shrink-0 flex-col items-start gap-2 overflow-clip rounded-xl bg-card p-3.5">
+            <p className="w-full text-xs font-normal text-muted-foreground">
               {t("available")}
             </p>
-            <p className="font-latin w-full text-[28px] leading-[40px] font-semibold text-foreground">
+            <p className="font-latin w-full text-heading font-semibold text-foreground">
               {t("availableAmount")}
             </p>
             <PrimaryButton href="/earnings/payout-account">{t("withdrawCta")}</PrimaryButton>
@@ -593,7 +566,7 @@ export function EarningsScreen() {
         </div>
 
         <div className="flex w-full shrink-0 flex-col items-start px-6 pt-3">
-          <div className="flex w-full shrink-0 flex-col items-start overflow-clip rounded-[14px] bg-card">
+          <div className="flex w-full shrink-0 flex-col items-start overflow-clip rounded-xl bg-card">
             {[
               { icon: Clock, title: t("inTransit"), meta: t("inTransitMeta"), amount: t("inTransitAmount") },
               { icon: CircleAlert, title: t("pending"), meta: t("pendingMeta"), amount: t("pendingAmount") },
@@ -601,17 +574,17 @@ export function EarningsScreen() {
             ].map(({ icon: Icon, title, meta, amount }, i) => (
               <div className="w-full" key={title}>
                 {i > 0 ? <div className="h-px w-full shrink-0 bg-muted" /> : null}
-                <div className="flex h-16 w-full shrink-0 items-start gap-3 overflow-clip p-[14px]">
-                  <Icon className="mt-[10px] size-4 shrink-0 text-muted-foreground" />
-                  <div className="flex min-w-px flex-1 flex-col items-start gap-[2px] overflow-clip">
-                    <p className="font-thai w-full text-[14px] leading-[20px] font-medium text-foreground">
+                <div className="flex h-16 w-full shrink-0 items-start gap-3 overflow-clip p-3.5">
+                  <Icon className="mt-2.5 size-4 shrink-0 text-muted-foreground" />
+                  <div className="flex min-w-px flex-1 flex-col items-start gap-0.5 overflow-clip">
+                    <p className="w-full text-sm font-medium text-foreground">
                       {title}
                     </p>
-                    <p className="font-thai w-full text-[12px] leading-[18px] font-normal text-muted-foreground">
+                    <p className="w-full text-xs font-normal text-muted-foreground">
                       {meta}
                     </p>
                   </div>
-                  <p className="font-latin mt-[10px] shrink-0 text-[14px] leading-[20px] font-medium whitespace-nowrap text-foreground">
+                  <p className="font-latin mt-2.5 shrink-0 text-sm font-medium whitespace-nowrap text-foreground">
                     {amount}
                   </p>
                 </div>
@@ -623,21 +596,21 @@ export function EarningsScreen() {
         {/* Figma "การให้คำปรึกษาล่าสุด": recent sessions with payout status. */}
         <div className="flex w-full shrink-0 flex-col items-start gap-2 px-6 pt-5">
           <div className="flex w-full items-center justify-between gap-3">
-            <p className="font-thai text-[12px] leading-[18px] font-normal text-muted-foreground">
+            <p className="text-xs font-normal text-muted-foreground">
               {t("recentSessions")}
             </p>
-            <span className="font-thai text-[12px] leading-[18px] font-medium text-primary">
+            <span className="text-xs font-medium text-primary">
               {t("seeAll")}
             </span>
           </div>
-          <div className="flex w-full shrink-0 flex-col items-start overflow-clip rounded-[14px] bg-card">
+          <div className="flex w-full shrink-0 flex-col items-start overflow-clip rounded-xl bg-card">
             {[
               { avatar: advisor, name: t("e1Name"), meta: t("e1Meta"), amount: t("e1Amount"), status: t("pending") },
               { avatar: advisor, name: t("e2Name"), meta: t("e2Meta"), amount: t("e2Amount"), status: t("available") },
             ].map((r, i) => (
               <div className="w-full" key={r.name}>
                 {i > 0 ? <div className="h-px w-full shrink-0 bg-muted" /> : null}
-                <div className="flex h-16 w-full shrink-0 items-start gap-3 overflow-clip p-[14px]">
+                <div className="flex h-16 w-full shrink-0 items-start gap-3 overflow-clip p-3.5">
                   <Image
                     alt=""
                     className="mt-1 size-8 shrink-0 rounded-full object-cover"
@@ -645,19 +618,19 @@ export function EarningsScreen() {
                     src={r.avatar}
                     width={32}
                   />
-                  <div className="flex min-w-px flex-1 flex-col items-start gap-[2px] overflow-clip">
-                    <p className="font-thai w-full text-[14px] leading-[20px] font-medium text-foreground">
+                  <div className="flex min-w-px flex-1 flex-col items-start gap-0.5 overflow-clip">
+                    <p className="w-full text-sm font-medium text-foreground">
                       {r.name}
                     </p>
-                    <p className="font-thai w-full text-[12px] leading-[18px] font-normal text-muted-foreground">
+                    <p className="w-full text-xs font-normal text-muted-foreground">
                       {r.meta}
                     </p>
                   </div>
-                  <div className="flex shrink-0 flex-col items-end gap-[2px]">
-                    <p className="font-latin text-[14px] leading-[20px] font-medium whitespace-nowrap text-foreground">
+                  <div className="flex shrink-0 flex-col items-end gap-0.5">
+                    <p className="font-latin text-sm font-medium whitespace-nowrap text-foreground">
                       {r.amount}
                     </p>
-                    <p className="font-thai text-[12px] leading-[18px] font-normal whitespace-nowrap text-muted-foreground">
+                    <p className="text-xs font-normal whitespace-nowrap text-muted-foreground">
                       {r.status}
                     </p>
                   </div>
@@ -685,7 +658,6 @@ export function EarningsScreen() {
         </SettingsSection>
       </ScreenBody>
       <BottomBar role="advisor" selected="earnings" />
-      <HomeIndicator />
     </MobileScreen>
   );
 }

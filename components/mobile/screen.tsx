@@ -2,11 +2,17 @@ import Link from "next/link";
 import { ChevronLeft } from "lucide-react";
 import type { ReactNode } from "react";
 
+import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
 /**
  * Root of a 402px-wide mobile frame: canvas background, vertical stack, and a
  * stacking context for the fixed tab bar / dialog scrims the design layers on top.
+ *
+ * `pb-4` stands in for the home indicator the Figma frames draw. We do not render
+ * mock OS chrome; content starts flush at the top and only the bottom keeps a
+ * short inset so the last row is not jammed against the edge. Frames that need
+ * the bottom edge too opt out with `pb-0`.
  */
 export function MobileScreen({
   children,
@@ -19,8 +25,8 @@ export function MobileScreen({
     <div
       className={cn(
         // No `flex-1` here: as a flex item it would take flex-basis 0 and grow past
-        // the frame, so the tab bar / home indicator would slide off the viewport.
-        "relative flex h-dvh w-full flex-col items-center overflow-hidden bg-background",
+        // the frame, so the tab bar would slide off the viewport.
+        "relative flex h-dvh w-full flex-col items-center overflow-hidden bg-background pb-4",
         className,
       )}
     >
@@ -42,6 +48,9 @@ export function ScreenBody({
 }) {
   return (
     <div
+      // Named so a sticky child can resolve its scroll container — the landing bar
+      // observes this element rather than the window.
+      data-slot="screen-body"
       className={cn(
         "flex w-full min-h-0 flex-1 flex-col items-center overflow-y-auto",
         className,
@@ -57,7 +66,11 @@ export function ScreenSpacer({ className }: { readonly className?: string }) {
   return <div className={cn("w-full min-h-px flex-1", className)} />;
 }
 
-/** Figma "Top Bar" — 402 x 44 with a 28px back chevron inset 16px from the left. */
+/**
+ * Figma "Top Bar" — a 28px back chevron inset 16px from the left. The chevron is
+ * not the app's nav bar, so the frame keeps the 24px the OS status bar used to
+ * hold above it rather than starting the glyph flush against the top edge.
+ */
 export function ScreenTopBar({
   href,
   label = "ย้อนกลับ",
@@ -67,26 +80,28 @@ export function ScreenTopBar({
   readonly label?: string;
   readonly className?: string;
 }) {
-  const icon = <ChevronLeft className="size-7" />;
+  // `before` widens the tap target past the 28px glyph without moving any pixels.
   const trigger =
-    "relative flex size-7 shrink-0 items-center justify-center overflow-visible text-foreground before:absolute before:-inset-2 before:content-['']";
+    "relative size-7 shrink-0 overflow-visible text-foreground before:absolute before:-inset-2 before:content-['']";
 
   return (
     <div
       className={cn(
-        "flex w-full shrink-0 items-center overflow-clip py-2 pl-4",
+        "flex w-full shrink-0 items-center overflow-clip pt-8 pb-2 pl-4",
         className,
       )}
     >
-      {href ? (
-        <Link aria-label={label} className={trigger} href={href}>
-          {icon}
-        </Link>
-      ) : (
-        <button aria-label={label} className={trigger} type="button">
-          {icon}
-        </button>
-      )}
+      <Button
+        aria-label={label}
+        className={trigger}
+        // false only for the anchor form; the fallback really is a native button.
+        nativeButton={!href}
+        render={href ? <Link href={href} /> : undefined}
+        size="icon"
+        variant="ghost"
+      >
+        <ChevronLeft className="size-7" />
+      </Button>
     </div>
   );
 }
@@ -111,11 +126,11 @@ export function ScreenHeading({
         className,
       )}
     >
-      <h1 className="font-thai w-full text-[28px] leading-[40px] font-semibold text-foreground">
+      <h1 className="w-full text-heading font-semibold text-foreground">
         {title}
       </h1>
       {subtitle ? (
-        <p className="font-thai w-full text-[14px] leading-[20px] font-normal text-muted-foreground">
+        <p className="w-full text-sm font-normal text-muted-foreground">
           {subtitle}
         </p>
       ) : null}

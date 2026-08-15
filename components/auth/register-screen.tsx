@@ -1,10 +1,10 @@
 import Link from "next/link";
-import { Eye, Lock, Mail } from "lucide-react";
+import { Lock, Mail } from "lucide-react";
 import { useTranslations } from "next-intl";
 
+import { Checkbox } from "@/components/ui/checkbox";
 import { NeutralButton, PrimaryButton } from "@/components/mobile/buttons";
-import { Field } from "@/components/mobile/field";
-import { HomeIndicator } from "@/components/mobile/home-indicator";
+import { Field, RevealPasswordButton } from "@/components/mobile/field";
 import {
   MobileScreen,
   ScreenActions,
@@ -13,20 +13,6 @@ import {
   ScreenSpacer,
   ScreenTopBar,
 } from "@/components/mobile/screen";
-import { StatusBar } from "@/components/mobile/status-bar";
-
-/** Figma "Consent Checkbox" — 16px box holding a 14px 4px-radius square. */
-function ConsentCheckbox({ invalid = false }: { readonly invalid?: boolean }) {
-  return (
-    <span className="relative block size-4 shrink-0">
-      <span
-        className={`absolute top-px left-px size-[14px] rounded-[4px] border bg-card ${
-          invalid ? "border-destructive" : "border-border"
-        }`}
-      />
-    </span>
-  );
-}
 
 /**
  * Figma "Register (Light)" (995:4344) plus the email-in-use (995:4383) and
@@ -44,12 +30,11 @@ export function RegisterScreen({
 
   return (
     <MobileScreen>
-      <StatusBar />
       <ScreenTopBar href="/login" label={c("back")} />
       <ScreenBody>
         {/* Figma "Heading": 16px top / 8px bottom padding, 10px gap. */}
         <ScreenHeading
-          className="gap-[10px] pt-4"
+          className="gap-2.5 pt-4"
           subtitle={t("subtitle")}
           title={t("title")}
         />
@@ -86,27 +71,23 @@ export function RegisterScreen({
               invalid={invalid}
               label={t("passwordLabel")}
               placeholder={t("passwordPlaceholder")}
-              trailing={
-                <button aria-label={t("passwordLabel")} type="button">
-                  <Eye className="size-4" />
-                </button>
-              }
+              trailing={<RevealPasswordButton label={t("passwordLabel")} />}
               type="password"
             />
             {invalid ? (
-              <p className="font-thai w-full text-[12px] leading-[18px] font-normal text-destructive">
+              <p className="w-full text-xs font-normal text-destructive">
                 {t("passwordError")}
               </p>
             ) : null}
             {inUse ? (
-              <p className="font-thai w-full text-[14px] leading-[20px] font-normal text-muted-foreground">
+              <p className="w-full text-sm font-normal text-muted-foreground">
                 {t("hintCompact")}
               </p>
             ) : (
-              <div className="font-thai w-full text-[14px] leading-[20px] font-normal whitespace-pre-wrap text-muted-foreground">
-                <p className="leading-[20px]">{invalid ? t("hintRange1") : t("hint1")}</p>
-                <p className="leading-[20px]">{t("hint2")}</p>
-                <p className="leading-[20px]">{t("hint3")}</p>
+              <div className="w-full text-sm font-normal whitespace-pre-wrap text-muted-foreground">
+                <p>{invalid ? t("hintRange1") : t("hint1")}</p>
+                <p>{t("hint2")}</p>
+                <p>{t("hint3")}</p>
               </div>
             )}
           </div>
@@ -118,29 +99,34 @@ export function RegisterScreen({
             invalid={invalid}
             label={t("confirmLabel")}
             placeholder={t("confirmPlaceholder")}
-            trailing={
-              <button aria-label={t("confirmLabel")} type="button">
-                <Eye className="size-4" />
-              </button>
-            }
+            trailing={<RevealPasswordButton label={t("confirmLabel")} />}
             type="password"
           />
         </div>
 
-        {/* Figma "PDPA Consent": 20px top padding, 10px gap, 12/18 copy. */}
-        <div className="flex w-full shrink-0 items-start gap-[10px] px-6 pt-5">
-          <ConsentCheckbox invalid={invalid} />
-          <p className="font-thai min-w-px flex-1 text-[12px] leading-[18px] font-normal text-muted-foreground">
+        {/* Figma "PDPA Consent": 20px top padding, 10px gap, 12/18 copy. The copy is
+            a <label>, so tapping the sentence toggles the box — the previous pair of
+            decorative <span>s could not be focused, checked or read out at all. */}
+        <div className="flex w-full shrink-0 items-start gap-2.5 px-6 pt-5">
+          <Checkbox
+            aria-invalid={invalid || undefined}
+            className="mt-px size-3.5 bg-card"
+            id="register-consent"
+          />
+          <label
+            className="min-w-px flex-1 text-xs font-normal text-muted-foreground"
+            htmlFor="register-consent"
+          >
             {t("consentPrefix")}
             <span className="text-brand-image">{t("consentTerms")}</span>
             {t("consentAnd")}
             <span className="text-brand-image">{t("consentPrivacy")}</span>
             {t("consentSuffix")}
-          </p>
+          </label>
         </div>
         {invalid ? (
           <div className="flex w-full shrink-0 items-start px-6 pt-1">
-            <p className="font-thai w-full text-[12px] leading-[18px] font-normal text-destructive">
+            <p className="w-full text-xs font-normal text-destructive" role="alert">
               {t("consentError")}
             </p>
           </div>
@@ -148,10 +134,10 @@ export function RegisterScreen({
 
         <ScreenSpacer />
         {/* Figma "Actions": 8px padding, 14px gap above the sign-in link. */}
-        <ScreenActions className="gap-[14px]">
+        <ScreenActions className="gap-3.5">
           <PrimaryButton href="/pdpa">{t("submit")}</PrimaryButton>
           {inUse ? <NeutralButton href="/login">{t("signInWithEmail")}</NeutralButton> : null}
-          <p className="font-thai w-full text-center text-[14px] leading-[20px] font-normal text-muted-foreground">
+          <p className="w-full text-center text-sm font-normal text-muted-foreground">
             {t("haveAccount")}
             <Link className="text-brand-image" href="/login">
               {t("signIn")}
@@ -159,7 +145,6 @@ export function RegisterScreen({
           </p>
         </ScreenActions>
       </ScreenBody>
-      <HomeIndicator />
     </MobileScreen>
   );
 }

@@ -12,9 +12,7 @@ import {
   PartnerMessage,
   PartnerText,
 } from "@/components/chat/messages";
-import { HomeIndicator } from "@/components/mobile/home-indicator";
 import { MobileScreen, ScreenBody } from "@/components/mobile/screen";
-import { StatusBar } from "@/components/mobile/status-bar";
 
 /**
  * Figma "Chat" (995:8152) and "Chat - Message failed" (995:8209). The failed frame
@@ -28,11 +26,9 @@ export function ChatThreadScreen({
   const t = useTranslations("chat");
   const isFailed = state === "message-failed";
 
-  // The thread frame stacks its blocks with a 16px gap under a 48px status-bar
-  // inset, with the status bar itself absolutely positioned over the top.
+  // The thread frame stacks its blocks with a 16px gap.
   return (
-    <MobileScreen className="gap-4 pt-12">
-      <StatusBar className="absolute top-0 left-0" />
+    <MobileScreen className="gap-4">
       <ChatHeader />
       {/* Figma "Container": 16px side padding, 12px between messages. */}
       <ScreenBody className="items-start gap-3 px-4">
@@ -52,23 +48,23 @@ export function ChatThreadScreen({
               <PartnerText>{t("thread.askAnything")}</PartnerText>
             </PartnerMessage>
             <DayDivider>{t("today")}</DayDivider>
-            <PartnerMessage bubbleClassName="items-start gap-[10px]" time="00.03">
+            <PartnerMessage bubbleClassName="items-start gap-2.5" time="00.03">
               <FileBody meta={t("thread.fileMeta")} name={t("thread.fileName")} />
             </PartnerMessage>
-            <MyMessage bubbleClassName="gap-[10px] bg-muted" time="00.05">
+            <MyMessage bubbleClassName="gap-2.5 bg-muted" time="00.05">
               <FileBody meta={t("thread.fileMeta")} name={t("thread.fileName")} />
             </MyMessage>
           </>
         )}
 
         <PartnerMessage
-          bubbleClassName="h-[213px] w-[184px] items-start gap-[10px]"
+          bubbleClassName="h-[213px] w-[184px] items-start gap-2.5"
           time="00.06"
         >
           <ImageBody src={doc} />
         </PartnerMessage>
         <MyMessage
-          bubbleClassName="h-[149px] w-[255px] gap-[10px] bg-brand-image"
+          bubbleClassName="h-[149px] w-[255px] gap-2.5 bg-brand-image"
           time="00.07"
         >
           <ImageBody src={desk} />
@@ -79,7 +75,6 @@ export function ChatThreadScreen({
         ) : null}
       </ScreenBody>
       <ChatFooter sendVariant={isFailed ? "muted" : "primary"} />
-      <HomeIndicator />
     </MobileScreen>
   );
 }

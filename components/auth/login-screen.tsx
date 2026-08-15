@@ -1,12 +1,11 @@
 import Link from "next/link";
-import { Eye, Lock, Mail, TriangleAlert } from "lucide-react";
+import { Lock, Mail, TriangleAlert } from "lucide-react";
 import { useTranslations } from "next-intl";
 
 import { BrandLockup } from "@/components/auth/brand-lockup";
 import { AlertBanner } from "@/components/mobile/banner";
 import { NeutralButton, PrimaryButton } from "@/components/mobile/buttons";
-import { Field } from "@/components/mobile/field";
-import { HomeIndicator } from "@/components/mobile/home-indicator";
+import { Field, RevealPasswordButton } from "@/components/mobile/field";
 import {
   MobileScreen,
   ScreenActions,
@@ -15,7 +14,6 @@ import {
   ScreenSpacer,
   ScreenTopBar,
 } from "@/components/mobile/screen";
-import { StatusBar } from "@/components/mobile/status-bar";
 
 /**
  * Figma "Login (Light)" (995:4174) plus the account-locked (995:4207) and
@@ -35,7 +33,6 @@ export function LoginScreen({
 
   return (
     <MobileScreen>
-      <StatusBar />
       <ScreenTopBar href="/" label={c("back")} />
       <ScreenBody>
         <BrandLockup />
@@ -74,17 +71,13 @@ export function LoginScreen({
             id="login-password"
             label={t("passwordLabel")}
             placeholder={t("passwordPlaceholder")}
-            trailing={
-              <button aria-label={t("showPassword")} type="button">
-                <Eye className="size-4" />
-              </button>
-            }
+            trailing={<RevealPasswordButton label={t("showPassword")} />}
             type="password"
           />
           {/* Figma "Forgot Password Row": right-aligned 32px link target. */}
           <div className="flex w-full shrink-0 items-center justify-end overflow-clip">
             <Link
-              className="font-thai flex min-h-8 shrink-0 items-center justify-center gap-2 rounded-[8px] px-3 py-[6px] text-[14px] leading-[20px] font-medium whitespace-nowrap text-primary"
+              className="flex min-h-8 shrink-0 items-center justify-center gap-2 rounded-md px-3 py-1.5 text-sm font-medium whitespace-nowrap text-primary"
               href="/forgot-password"
             >
               {t("forgotPassword")}
@@ -101,7 +94,6 @@ export function LoginScreen({
           <NeutralButton href="/register">{t("signUp")}</NeutralButton>
         </ScreenActions>
       </ScreenBody>
-      <HomeIndicator />
     </MobileScreen>
   );
 }

@@ -2,7 +2,6 @@ import { CircleCheckBig, Lock, Mail, Trash2 } from "lucide-react";
 import { useTranslations } from "next-intl";
 
 import { SuccessBanner } from "@/components/mobile/banner";
-import { HomeIndicator } from "@/components/mobile/home-indicator";
 import {
   MobileScreen,
   ScreenBody,
@@ -16,7 +15,6 @@ import {
   SettingsRow,
   SettingsSection,
 } from "@/components/mobile/settings-list";
-import { StatusBar } from "@/components/mobile/status-bar";
 
 /**
  * Figma "Account settings" (995:7046) and its updated state (995:7095), which adds
@@ -33,7 +31,6 @@ export function AccountSettingsScreen({
 
   return (
     <MobileScreen>
-      <StatusBar />
       <ScreenTopBar href="/profile" label={c("back")} />
       <ScreenBody>
         <ScreenHeading
@@ -57,7 +54,7 @@ export function AccountSettingsScreen({
             <SettingsRow href="/settings/password" icon={Lock} label={t("password")} />
           </SettingsCard>
           {isUpdated ? (
-            <p className="font-thai w-full text-[12px] leading-[18px] font-normal text-muted-foreground">
+            <p className="w-full text-xs font-normal text-muted-foreground">
               {t("verifyNote")}
             </p>
           ) : null}
@@ -75,14 +72,13 @@ export function AccountSettingsScreen({
               labelClassName="text-destructive"
             />
           </SettingsCard>
-          <p className="font-thai w-full text-[12px] leading-[18px] font-normal text-muted-foreground">
+          <p className="w-full text-xs font-normal text-muted-foreground">
             {t("deleteNote")}
           </p>
         </SettingsSection>
 
         <ScreenSpacer />
       </ScreenBody>
-      <HomeIndicator />
     </MobileScreen>
   );
 }

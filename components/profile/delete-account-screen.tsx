@@ -9,7 +9,6 @@ import {
 } from "@/components/mobile/banner";
 import { DestructiveButton, NeutralButton, PrimaryButton } from "@/components/mobile/buttons";
 import { Field } from "@/components/mobile/field";
-import { HomeIndicator } from "@/components/mobile/home-indicator";
 import {
   MobileScreen,
   ScreenActions,
@@ -17,7 +16,6 @@ import {
   ScreenSpacer,
   ScreenTopBar,
 } from "@/components/mobile/screen";
-import { StatusBar } from "@/components/mobile/status-bar";
 
 /**
  * Figma "Delete account" (995:7458) and its blocked state (995:7499), which swaps
@@ -34,7 +32,6 @@ export function DeleteAccountScreen({
 
   return (
     <MobileScreen>
-      <StatusBar />
       <ScreenTopBar href="/settings" label={c("back")} />
       <ScreenBody>
         <WarningHero
@@ -49,7 +46,7 @@ export function DeleteAccountScreen({
           <InfoCard
             caption={isBlocked ? t("blockedTitle") : t("lossTitle")}
             className={isBlocked ? "ring-1 ring-destructive ring-inset" : undefined}
-            gap="gap-[10px]"
+            gap="gap-2.5"
           >
             {isBlocked ? (
               <>
@@ -108,7 +105,6 @@ export function DeleteAccountScreen({
           )}
         </ScreenActions>
       </ScreenBody>
-      <HomeIndicator />
     </MobileScreen>
   );
 }

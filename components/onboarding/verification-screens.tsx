@@ -2,7 +2,6 @@ import { Check, CircleAlert, CircleCheckBig, Hourglass } from "lucide-react";
 import { useTranslations } from "next-intl";
 
 import { NeutralButton, PrimaryButton } from "@/components/mobile/buttons";
-import { HomeIndicator } from "@/components/mobile/home-indicator";
 import {
   MobileScreen,
   ScreenActions,
@@ -10,7 +9,6 @@ import {
   ScreenSpacer,
   ScreenTopBar,
 } from "@/components/mobile/screen";
-import { StatusBar } from "@/components/mobile/status-bar";
 import { StepRow } from "@/components/onboarding/parts";
 import { StatusHero } from "@/components/screening/parts";
 
@@ -21,17 +19,16 @@ export function OnboardingThankYouScreen() {
 
   return (
     <MobileScreen>
-      <StatusBar />
       <ScreenTopBar href="/advisor-onboarding/stage-3" label={c("back")} />
       <ScreenBody>
         <StatusHero
-          badgeClassName="bg-[#ecfccb]"
+          badgeClassName="bg-success-surface"
           icon={CircleCheckBig}
           iconClassName="text-foreground"
           subtitle={t("thanksSubtitle")}
           title={t("thanksTitle")}
         />
-        <p className="font-thai w-full px-6 pt-3 text-center text-[12px] leading-[18px] font-normal text-muted-foreground">
+        <p className="w-full px-6 pt-3 text-center text-xs font-normal text-muted-foreground">
           {t("thanksMeta")}
         </p>
         <ScreenSpacer />
@@ -40,7 +37,6 @@ export function OnboardingThankYouScreen() {
           <NeutralButton href="/profile">{t("backHome")}</NeutralButton>
         </ScreenActions>
       </ScreenBody>
-      <HomeIndicator />
     </MobileScreen>
   );
 }
@@ -60,7 +56,6 @@ export function VerificationStatusScreen({
 
   return (
     <MobileScreen>
-      <StatusBar />
       <ScreenTopBar href="/advisor-onboarding/thank-you" label={c("back")} />
       <ScreenBody>
         <StatusHero
@@ -72,7 +67,7 @@ export function VerificationStatusScreen({
         />
 
         <div className="flex w-full shrink-0 flex-col items-start px-6 pt-8">
-          <div className="flex w-full shrink-0 flex-col items-start gap-3 overflow-clip rounded-[14px] bg-card p-[14px]">
+          <div className="flex w-full shrink-0 flex-col items-start gap-3 overflow-clip rounded-xl bg-card p-3.5">
             <StepRow
               icon={Check}
               label={t("stepPersonal")}
@@ -103,13 +98,13 @@ export function VerificationStatusScreen({
         {failed ? (
           /* Figma "Note": the reviewer's rejection reason. */
           <div className="flex w-full shrink-0 flex-col items-start px-6 pt-3">
-            <div className="flex w-full shrink-0 items-start gap-[10px] overflow-clip rounded-[14px] border border-destructive bg-card p-[14px]">
+            <div className="flex w-full shrink-0 items-start gap-2.5 overflow-clip rounded-xl border border-destructive bg-card p-3.5">
               <CircleAlert className="size-4 shrink-0 text-destructive" />
-              <div className="flex min-w-px flex-1 flex-col items-start gap-[2px] overflow-clip">
-                <p className="font-thai w-full text-[12px] leading-[18px] font-normal text-destructive">
+              <div className="flex min-w-px flex-1 flex-col items-start gap-0.5 overflow-clip">
+                <p className="w-full text-xs font-normal text-destructive">
                   {t("reviewerNote")}
                 </p>
-                <p className="font-thai w-full text-[14px] leading-[20px] font-normal text-foreground">
+                <p className="w-full text-sm font-normal text-foreground">
                   {t("reviewerReason")}
                 </p>
               </div>
@@ -129,7 +124,6 @@ export function VerificationStatusScreen({
           )}
         </ScreenActions>
       </ScreenBody>
-      <HomeIndicator />
     </MobileScreen>
   );
 }

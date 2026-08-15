@@ -7,13 +7,41 @@
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: 'Inter Variable', 'Noto Sans Thai Variable', sans-serif;
-  --font-mono: var(--font-geist-mono);
-  --font-heading: var(--font-sans);
-  /* Figma type families: Thai copy renders in Noto Sans Thai, Latin copy in Geist. */
-  --font-thai: 'Noto Sans Thai Variable', sans-serif;
+  /* Figma type families: Thai copy renders in Noto Sans Thai, Latin copy in Geist.
+     The product is Thai-first, so Noto Sans Thai *is* the sans default — that way
+     copy inherits the right family instead of every element repeating `font-thai`.
+     `font-latin` stays an explicit opt-in for Latin-only runs (names, numerals). */
+  --font-sans: 'Noto Sans Thai Variable', sans-serif;
+  --font-thai: var(--font-sans);
   --font-latin: 'Geist Variable', sans-serif;
+  --font-mono: 'Geist Mono Variable', ui-monospace, monospace;
+  --font-heading: var(--font-sans);
+
+  /* Thai type scale. Thai stacks vowels/tone marks above and below the baseline, so
+     the design gives 12px and 24px copy more leading than Tailwind's Latin defaults.
+     Overriding the scale here is what lets screens use `text-xs` / `text-2xl`
+     instead of pinning `leading-[18px]` / `leading-[34px]` on every element.
+     14/20, 16/24 and 20/28 already match the defaults exactly, so they need nothing. */
+  --text-xs--line-height: 1.125rem; /* 18px — Tailwind default is 16px */
+  --text-2xl--line-height: 2.125rem; /* 34px — Tailwind default is 32px */
+  /* Figma "Heading" — the 28/40 screen title. No default step lands on 28px
+     (text-2xl is 24, text-3xl is 30), so it gets a named step of its own. */
+  --text-heading: 1.75rem;
+  --text-heading--line-height: 2.5rem;
+  /* Figma "Thai/heading 1" — the 32/44 landing hero title. text-3xl is 30/36,
+     which is neither the size nor the leading the design asks for. */
+  --text-heading-lg: 2rem;
+  --text-heading-lg--line-height: 2.75rem;
+
+  --color-success: var(--success);
+  --color-success-foreground: var(--success-foreground);
+  --color-success-surface: var(--success-surface);
   --color-brand-image: var(--brand-image);
+  /* A `background-image`, not a colour: it paints on its own decorative band in
+     the scroll flow, over whatever ground the frame already has. */
+  --background-image-hero-wash: var(--hero-wash);
+  --color-on-media: var(--on-media);
+  --color-scrim: var(--scrim);
   --color-sidebar-ring: var(--sidebar-ring);
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
@@ -31,6 +59,7 @@
   --color-input: var(--input);
   --color-border: var(--border);
   --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
   --color-accent-foreground: var(--accent-foreground);
   --color-accent: var(--accent);
   --color-muted-foreground: var(--muted-foreground);
@@ -55,7 +84,8 @@
 :root {
   /* Values below mirror the Figma light theme (see "Auth / Profile / Chat (Light) Thai"):
      background #fafafa, foreground #18181b, surface #ffffff, surface-muted #f4f4f5,
-     border #e4e4e7, border-input #a1a1aa, accent #2563eb, destructive #dc2626. */
+     border #e4e4e7, border-input #a1a1aa, accent #2563eb, destructive #dc2626,
+     success #65a30d on success-surface #ecfccb. */
   --background: #fafafa;
   --foreground: #18181b;
   --card: #ffffff;
@@ -65,6 +95,18 @@
   --primary: #2563eb;
   --primary-foreground: #ffffff;
   --brand-image: #3b82f6;
+
+  /* Hero wash — two ellipses lit from just outside the frame (-5% / 105%) so the
+     glow reads as an edge, never as a visible disc, and both fade to nothing by
+     72% so the middle stays clean under text. Sized 100% wide because on a 448px
+     canvas a narrow ellipse reads as a coloured blob rather than a wash. 38% is
+     well above the reference's 22%: that hero fades across ~1440px, this one has
+     448px, and at 22% the strongest point measured only a 14% channel shift.
+     The cool side reuses --brand-image; only the warm side is new. */
+  --hero-warm: #ffca29;
+  --hero-wash:
+    radial-gradient(ellipse 100% 35% at -5% 20%, color-mix(in oklab, var(--hero-warm) 38%, transparent), transparent 72%),
+    radial-gradient(ellipse 100% 35% at 105% 35%, color-mix(in oklab, var(--brand-image) 38%, transparent), transparent 72%);
   --secondary: #f4f4f5;
   --secondary-foreground: #18181b;
   --muted: #f4f4f5;
@@ -72,9 +114,22 @@
   --accent: #f4f4f5;
   --accent-foreground: #18181b;
   --destructive: #dc2626;
+  /* shadcn's own `destructive` button variant is the tinted treatment, so it never
+     needed a foreground. The Figma delete/log-out actions are solid, and that
+     needs a paired text colour that flips with the theme. */
+  --destructive-foreground: #ffffff;
+  --success: #65a30d;
+  --success-foreground: #ffffff;
+  --success-surface: #ecfccb;
   --border: #e4e4e7;
   --input: #a1a1aa;
   --ring: #a1a1aa;
+  /* The landing hero and CTA band lay copy over a photograph behind a black
+     scrim. Neither the photo nor the scrim reacts to the theme, so the pair is
+     deliberately absent from `.dark` — flipping them there would put white text
+     on white. Everything else that inverts uses `bg-foreground text-background`. */
+  --on-media: #ffffff;
+  --scrim: #000000;
   --chart-1: oklch(0.809 0.105 251.813);
   --chart-2: oklch(0.623 0.214 259.815);
   --chart-3: oklch(0.546 0.245 262.881);
@@ -93,6 +148,12 @@
 
 .dark {
   --brand-image: oklch(0.623 0.214 259.815);
+  /* Same geometry, roughly half the strength: on a dark ground the tint reads far
+     hotter at the same alpha and starts to look like a colour cast. */
+  --hero-warm: oklch(0.852 0.164 87.2);
+  --hero-wash:
+    radial-gradient(ellipse 100% 35% at -5% 20%, color-mix(in oklab, var(--hero-warm) 20%, transparent), transparent 72%),
+    radial-gradient(ellipse 100% 35% at 105% 35%, color-mix(in oklab, var(--brand-image) 20%, transparent), transparent 72%);
   --background: oklch(0.141 0.005 285.823);
   --foreground: oklch(0.985 0 0);
   --card: oklch(0.21 0.006 285.885);
@@ -108,6 +169,10 @@
   --accent: oklch(0.274 0.006 286.033);
   --accent-foreground: oklch(0.985 0 0);
   --destructive: oklch(0.704 0.191 22.216);
+  --destructive-foreground: oklch(0.141 0.005 285.823);
+  --success: oklch(0.768 0.233 130.85);
+  --success-foreground: oklch(0.141 0.005 285.823);
+  --success-surface: oklch(0.405 0.101 131.063);
   --border: oklch(1 0 0 / 10%);
   --input: oklch(1 0 0 / 15%);
   --ring: oklch(0.552 0.016 285.938);
@@ -129,6 +194,15 @@
 @layer base {
   * {
     @apply border-border outline-ring/50;
+  }
+  /* The prototype is a phone frame: every scroller here is a mobile surface —
+     the screen body, the category rail, the advisor rail — and none of them
+     should show a desktop scrollbar. Scrolling itself is untouched. */
+  * {
+    scrollbar-width: none;
+  }
+  *::-webkit-scrollbar {
+    display: none;
   }
   body {
     @apply bg-background text-foreground;

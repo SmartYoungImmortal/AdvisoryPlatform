@@ -26,10 +26,10 @@ export function StageHeader({
           style={{ width: `${(step / 3) * 100}%` }}
         />
       </div>
-      <p className="font-thai mt-[10px] w-full text-[12px] leading-[18px] font-normal text-muted-foreground">
+      <p className="mt-2.5 w-full text-xs font-normal text-muted-foreground">
         {label}
       </p>
-      <h1 className="font-thai mt-1 w-full text-[28px] leading-[40px] font-semibold text-foreground">
+      <h1 className="mt-1 w-full text-heading font-semibold text-foreground">
         {title}
       </h1>
     </div>
@@ -57,7 +57,7 @@ export function DropZone({
     // a 16/24 title, 4 gap, a 12/18 subtitle, 12 gap, then the 36px browse button.
     <div
       className={cn(
-        "flex w-full shrink-0 flex-col items-center justify-center overflow-clip rounded-[14px] border border-dashed bg-card",
+        "flex w-full shrink-0 flex-col items-center justify-center overflow-clip rounded-xl border border-dashed bg-card",
         compact ? "px-4 py-4" : "px-5 py-7",
         invalid ? "border-destructive" : "border-input",
       )}
@@ -67,14 +67,14 @@ export function DropZone({
       />
       <p
         className={cn(
-          "font-thai w-full text-center font-medium text-foreground",
-          compact ? "mt-2 text-[14px] leading-[20px]" : "mt-3 text-[16px] leading-[24px]",
+          "w-full text-center font-medium text-foreground",
+          compact ? "mt-2 text-sm" : "mt-3 text-base",
         )}
       >
         {title}
       </p>
       {subtitle ? (
-        <p className="font-thai mt-1 w-full text-center text-[12px] leading-[18px] font-normal text-muted-foreground">
+        <p className="mt-1 w-full text-center text-xs font-normal text-muted-foreground">
           {subtitle}
         </p>
       ) : null}
@@ -87,8 +87,8 @@ export function DropZone({
 export function CheckLine({ children }: { readonly children: ReactNode }) {
   return (
     <div className="flex w-full shrink-0 items-start gap-2 overflow-clip">
-      <CircleCheck className="mt-[3px] size-[14px] shrink-0 text-muted-foreground" />
-      <p className="font-thai min-w-px flex-1 text-[14px] leading-[20px] font-normal text-foreground">
+      <CircleCheck className="mt-[3px] size-3.5 shrink-0 text-muted-foreground" />
+      <p className="min-w-px flex-1 text-sm font-normal text-foreground">
         {children}
       </p>
     </div>
@@ -103,7 +103,7 @@ export function BulletLine({ children }: { readonly children: ReactNode }) {
   return (
     <div className="flex h-5 w-full shrink-0 items-start gap-2 overflow-clip">
       <span className="mt-[7px] size-1 shrink-0 rounded-full bg-muted-foreground" />
-      <p className="font-thai min-w-px flex-1 text-[14px] leading-[20px] font-normal text-foreground">
+      <p className="min-w-px flex-1 text-sm font-normal text-foreground">
         {children}
       </p>
     </div>
@@ -130,14 +130,14 @@ export function StepRow({
   }[tone];
 
   return (
-    <div className="flex h-5 w-full shrink-0 items-center gap-[10px]">
-      <Icon className={cn("size-[18px] shrink-0", toneClass)} />
-      <span className="font-thai min-w-px flex-1 text-[14px] leading-[20px] font-normal text-foreground">
+    <div className="flex h-5 w-full shrink-0 items-center gap-2.5">
+      <Icon className={cn("size-4.5 shrink-0", toneClass)} />
+      <span className="min-w-px flex-1 text-sm font-normal text-foreground">
         {label}
       </span>
       <span
         className={cn(
-          "font-thai shrink-0 text-[12px] leading-[18px] font-medium whitespace-nowrap",
+          "shrink-0 text-xs font-medium whitespace-nowrap",
           toneClass,
         )}
       >

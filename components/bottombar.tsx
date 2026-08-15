@@ -27,10 +27,10 @@ export function BottomBar({
     );
     const content = (
       <>
-        <value.icon className="size-[22px]" />
+        <value.icon className="size-5.5" />
         <span
           className={cn(
-            "font-thai w-full text-center text-[12px] leading-[18px]",
+            "w-full text-center text-xs",
             isSelected ? "font-medium" : "font-normal",
           )}
         >
