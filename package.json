@@ -6,8 +6,9 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint && node scripts/check-design-tokens.mjs",
+    "lint": "eslint && node scripts/check-design-tokens.mjs && node scripts/check-a11y-render.mjs",
     "lint:tokens": "node scripts/check-design-tokens.mjs",
+    "lint:a11y": "node scripts/check-a11y-render.mjs",
     "preview": "next build && wrangler dev",
     "deploy": "next build && wrangler deploy",
     "cf-typegen": "wrangler types --env-interface CloudcflareEnv cloudflare-env.d.ts"

@@ -82,6 +82,8 @@ export function ScreenTopBar({
       <Button
         aria-label={label}
         className={trigger}
+        // false only for the anchor form; the fallback really is a native button.
+        nativeButton={!href}
         render={href ? <Link href={href} /> : undefined}
         size="icon"
         variant="ghost"

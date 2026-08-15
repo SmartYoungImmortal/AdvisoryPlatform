@@ -41,6 +41,7 @@ export function TopBar({
       <Button
         aria-label="การแจ้งเตือน"
         className={cn(trigger, "size-6")}
+        nativeButton={false}
         render={<Link href="/notifications" />}
         size="icon"
         variant="ghost"
