@@ -13,7 +13,6 @@ import { useTranslations } from "next-intl";
 
 import { Badge } from "@/components/ui/badge";
 import { NeutralButton, PrimaryButton } from "@/components/mobile/buttons";
-import { HomeIndicator } from "@/components/mobile/home-indicator";
 import {
   MobileScreen,
   ScreenActions,
@@ -22,7 +21,6 @@ import {
   ScreenSpacer,
   ScreenTopBar,
 } from "@/components/mobile/screen";
-import { StatusBar } from "@/components/mobile/status-bar";
 import { DetailRow } from "@/components/screening/parts";
 import { cn } from "@/lib/utils";
 
@@ -177,7 +175,6 @@ export function InvoiceDetailScreen({ state }: { readonly state: Invoice }) {
 
   return (
     <MobileScreen>
-      <StatusBar />
       <ScreenTopBar href="/transactions" label={c("back")} />
       <ScreenBody>
         {/* Figma "Hero": a 40px status badge, the amount, then the timestamp. */}
@@ -262,7 +259,6 @@ export function InvoiceDetailScreen({ state }: { readonly state: Invoice }) {
           )}
         </ScreenActions>
       </ScreenBody>
-      <HomeIndicator />
     </MobileScreen>
   );
 }
@@ -325,7 +321,6 @@ export function TransactionHistoryScreen() {
 
   return (
     <MobileScreen>
-      <StatusBar />
       <ScreenTopBar href="/profile" label={c("back")} />
       <ScreenBody>
         <ScreenHeading className="pt-4" title={t("historyTitle")} />
@@ -392,7 +387,6 @@ export function TransactionHistoryScreen() {
 
         <ScreenSpacer />
       </ScreenBody>
-      <HomeIndicator />
     </MobileScreen>
   );
 }

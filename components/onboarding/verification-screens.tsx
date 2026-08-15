@@ -2,7 +2,6 @@ import { Check, CircleAlert, CircleCheckBig, Hourglass } from "lucide-react";
 import { useTranslations } from "next-intl";
 
 import { NeutralButton, PrimaryButton } from "@/components/mobile/buttons";
-import { HomeIndicator } from "@/components/mobile/home-indicator";
 import {
   MobileScreen,
   ScreenActions,
@@ -10,7 +9,6 @@ import {
   ScreenSpacer,
   ScreenTopBar,
 } from "@/components/mobile/screen";
-import { StatusBar } from "@/components/mobile/status-bar";
 import { StepRow } from "@/components/onboarding/parts";
 import { StatusHero } from "@/components/screening/parts";
 
@@ -21,7 +19,6 @@ export function OnboardingThankYouScreen() {
 
   return (
     <MobileScreen>
-      <StatusBar />
       <ScreenTopBar href="/advisor-onboarding/stage-3" label={c("back")} />
       <ScreenBody>
         <StatusHero
@@ -40,7 +37,6 @@ export function OnboardingThankYouScreen() {
           <NeutralButton href="/profile">{t("backHome")}</NeutralButton>
         </ScreenActions>
       </ScreenBody>
-      <HomeIndicator />
     </MobileScreen>
   );
 }
@@ -60,7 +56,6 @@ export function VerificationStatusScreen({
 
   return (
     <MobileScreen>
-      <StatusBar />
       <ScreenTopBar href="/advisor-onboarding/thank-you" label={c("back")} />
       <ScreenBody>
         <StatusHero
@@ -129,7 +124,6 @@ export function VerificationStatusScreen({
           )}
         </ScreenActions>
       </ScreenBody>
-      <HomeIndicator />
     </MobileScreen>
   );
 }

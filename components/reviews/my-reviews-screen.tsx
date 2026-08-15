@@ -2,7 +2,6 @@ import { Star } from "lucide-react";
 import { useTranslations } from "next-intl";
 
 import { arayaS as araya, christopherNolan as chris, jamesGunn as james } from "@/lib/assets/r2";
-import { HomeIndicator } from "@/components/mobile/home-indicator";
 import {
   MobileScreen,
   ScreenBody,
@@ -10,7 +9,6 @@ import {
   ScreenSpacer,
   ScreenTopBar,
 } from "@/components/mobile/screen";
-import { StatusBar } from "@/components/mobile/status-bar";
 import { ThaiText } from "@/components/mobile/thai-text";
 import { ReviewCard, Stars } from "@/components/reviews/review-parts";
 
@@ -41,7 +39,6 @@ export function MyReviewsScreen({
 
   return (
     <MobileScreen>
-      <StatusBar />
       <ScreenTopBar href="/profile" label={c("back")} />
       <ScreenBody>
         <ScreenHeading className="pt-4" title={t("title")} />
@@ -117,7 +114,6 @@ export function MyReviewsScreen({
 
         <ScreenSpacer />
       </ScreenBody>
-      <HomeIndicator />
     </MobileScreen>
   );
 }

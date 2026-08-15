@@ -27,7 +27,6 @@ import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
 import { NeutralButton, PrimaryButton } from "@/components/mobile/buttons";
 import { Field } from "@/components/mobile/field";
-import { HomeIndicator } from "@/components/mobile/home-indicator";
 import {
   MobileScreen,
   ScreenActions,
@@ -43,7 +42,6 @@ import {
   SettingsRow,
   SettingsSection,
 } from "@/components/mobile/settings-list";
-import { StatusBar } from "@/components/mobile/status-bar";
 import { QuickActions } from "@/components/profile/quick-actions";
 import { BottomBar } from "@/components/bottombar";
 import { TopBar } from "@/components/topbar";
@@ -54,9 +52,8 @@ export function AdvisorProfileScreen() {
 
   return (
     <MobileScreen>
-      <StatusBar />
-      <TopBar unreadNotifications />
       <ScreenBody className="pb-1.5">
+        <TopBar unreadNotifications />
         {/* Figma "Identity Card": verified name, role, then rating/booking/review stats. */}
         <div className="flex w-full shrink-0 flex-col items-start overflow-clip px-6 pt-4">
           <div className="flex w-full shrink-0 flex-col items-start gap-3 overflow-clip rounded-xl bg-card p-3.5">
@@ -169,7 +166,6 @@ export function AdvisorProfileScreen() {
         </SettingsSection>
       </ScreenBody>
       <BottomBar role="advisor" selected="user" />
-      <HomeIndicator />
     </MobileScreen>
   );
 }
@@ -181,7 +177,6 @@ export function AdvisorProfileEditScreen() {
 
   return (
     <MobileScreen>
-      <StatusBar />
       <ScreenTopBar href="/advisor/profile" label={c("back")} />
       <ScreenBody>
         <ScreenHeading
@@ -244,7 +239,6 @@ export function AdvisorProfileEditScreen() {
           <NeutralButton href="/advisor/profile">{t("cancel")}</NeutralButton>
         </ScreenActions>
       </ScreenBody>
-      <HomeIndicator />
     </MobileScreen>
   );
 }
@@ -269,7 +263,6 @@ export function SkillManagementScreen() {
 
   return (
     <MobileScreen>
-      <StatusBar />
       <ScreenTopBar href="/advisor/edit" label={c("back")} />
       <ScreenBody>
         <ScreenHeading
@@ -309,7 +302,6 @@ export function SkillManagementScreen() {
 
         <ScreenSpacer />
       </ScreenBody>
-      <HomeIndicator />
     </MobileScreen>
   );
 }
@@ -321,7 +313,6 @@ export function PayoutSetupScreen() {
 
   return (
     <MobileScreen>
-      <StatusBar />
       <ScreenTopBar href="/earnings" label={c("back")} />
       <ScreenBody>
         <ScreenHeading className="pt-4" title={t("payoutSetupTitle")} />
@@ -349,7 +340,6 @@ export function PayoutSetupScreen() {
           <PrimaryButton href="/earnings/payout-account">{t("saveAccount")}</PrimaryButton>
         </div>
       </ScreenBody>
-      <HomeIndicator />
     </MobileScreen>
   );
 }
@@ -361,7 +351,6 @@ export function PayoutAccountScreen() {
 
   return (
     <MobileScreen>
-      <StatusBar />
       <ScreenTopBar href="/earnings" label={c("back")} />
       <ScreenBody>
         <ScreenHeading className="pt-4" title={t("payoutTitle")} />
@@ -409,7 +398,6 @@ export function PayoutAccountScreen() {
           <NeutralButton href="/earnings">{t("deleteAccount")}</NeutralButton>
         </ScreenActions>
       </ScreenBody>
-      <HomeIndicator />
     </MobileScreen>
   );
 }
@@ -421,7 +409,6 @@ export function PayoutFailedScreen() {
 
   return (
     <MobileScreen>
-      <StatusBar />
       <ScreenTopBar href="/earnings/payout-history" label={c("back")} />
       <ScreenBody>
         <div className="flex w-full shrink-0 flex-col items-center px-6 pt-4">
@@ -479,7 +466,6 @@ export function PayoutFailedScreen() {
           <NeutralButton href="/earnings">{t("contactSupport")}</NeutralButton>
         </ScreenActions>
       </ScreenBody>
-      <HomeIndicator />
     </MobileScreen>
   );
 }
@@ -497,7 +483,6 @@ export function PayoutHistoryScreen() {
 
   return (
     <MobileScreen>
-      <StatusBar />
       <ScreenTopBar href="/earnings" label={c("back")} />
       <ScreenBody>
         <ScreenHeading className="pt-4" title={t("historyTitle")} />
@@ -553,7 +538,6 @@ export function PayoutHistoryScreen() {
 
         <ScreenSpacer />
       </ScreenBody>
-      <HomeIndicator />
     </MobileScreen>
   );
 }
@@ -564,9 +548,8 @@ export function EarningsScreen() {
 
   return (
     <MobileScreen>
-      <StatusBar />
-      <TopBar unreadNotifications />
       <ScreenBody className="pb-1.5">
+        <TopBar unreadNotifications />
         <ScreenHeading className="pt-4" title={t("earningsTitle")} />
 
         {/* Figma balance card: available balance with the withdraw CTA. */}
@@ -675,7 +658,6 @@ export function EarningsScreen() {
         </SettingsSection>
       </ScreenBody>
       <BottomBar role="advisor" selected="earnings" />
-      <HomeIndicator />
     </MobileScreen>
   );
 }

@@ -5,7 +5,6 @@ import { useTranslations } from "next-intl";
 import { Checkbox } from "@/components/ui/checkbox";
 import { NeutralButton, PrimaryButton } from "@/components/mobile/buttons";
 import { Field, RevealPasswordButton } from "@/components/mobile/field";
-import { HomeIndicator } from "@/components/mobile/home-indicator";
 import {
   MobileScreen,
   ScreenActions,
@@ -14,7 +13,6 @@ import {
   ScreenSpacer,
   ScreenTopBar,
 } from "@/components/mobile/screen";
-import { StatusBar } from "@/components/mobile/status-bar";
 
 /**
  * Figma "Register (Light)" (995:4344) plus the email-in-use (995:4383) and
@@ -32,7 +30,6 @@ export function RegisterScreen({
 
   return (
     <MobileScreen>
-      <StatusBar />
       <ScreenTopBar href="/login" label={c("back")} />
       <ScreenBody>
         {/* Figma "Heading": 16px top / 8px bottom padding, 10px gap. */}
@@ -148,7 +145,6 @@ export function RegisterScreen({
           </p>
         </ScreenActions>
       </ScreenBody>
-      <HomeIndicator />
     </MobileScreen>
   );
 }

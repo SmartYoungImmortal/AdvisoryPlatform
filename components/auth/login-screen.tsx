@@ -6,7 +6,6 @@ import { BrandLockup } from "@/components/auth/brand-lockup";
 import { AlertBanner } from "@/components/mobile/banner";
 import { NeutralButton, PrimaryButton } from "@/components/mobile/buttons";
 import { Field, RevealPasswordButton } from "@/components/mobile/field";
-import { HomeIndicator } from "@/components/mobile/home-indicator";
 import {
   MobileScreen,
   ScreenActions,
@@ -15,7 +14,6 @@ import {
   ScreenSpacer,
   ScreenTopBar,
 } from "@/components/mobile/screen";
-import { StatusBar } from "@/components/mobile/status-bar";
 
 /**
  * Figma "Login (Light)" (995:4174) plus the account-locked (995:4207) and
@@ -35,7 +33,6 @@ export function LoginScreen({
 
   return (
     <MobileScreen>
-      <StatusBar />
       <ScreenTopBar href="/" label={c("back")} />
       <ScreenBody>
         <BrandLockup />
@@ -97,7 +94,6 @@ export function LoginScreen({
           <NeutralButton href="/register">{t("signUp")}</NeutralButton>
         </ScreenActions>
       </ScreenBody>
-      <HomeIndicator />
     </MobileScreen>
   );
 }

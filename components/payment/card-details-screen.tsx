@@ -3,7 +3,6 @@ import { useTranslations } from "next-intl";
 
 import { PrimaryButton } from "@/components/mobile/buttons";
 import { Field } from "@/components/mobile/field";
-import { HomeIndicator } from "@/components/mobile/home-indicator";
 import {
   MobileScreen,
   ScreenBody,
@@ -11,7 +10,6 @@ import {
   ScreenSpacer,
   ScreenTopBar,
 } from "@/components/mobile/screen";
-import { StatusBar } from "@/components/mobile/status-bar";
 import { FootNote } from "@/components/screening/parts";
 
 /** Figma order-summary line — label left, amount right. */
@@ -59,7 +57,6 @@ export function CardDetailsScreen({
 
   return (
     <MobileScreen>
-      <StatusBar />
       <ScreenTopBar href="/screening/accepted" label={c("back")} />
       <ScreenBody>
         <ScreenHeading className="pt-4" title={t("cardTitle")} />
@@ -132,7 +129,6 @@ export function CardDetailsScreen({
           <PrimaryButton href="/checkout/processing">{t("pay")}</PrimaryButton>
         </div>
       </ScreenBody>
-      <HomeIndicator />
     </MobileScreen>
   );
 }

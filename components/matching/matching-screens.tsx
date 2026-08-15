@@ -7,7 +7,6 @@ import { christopherNolan as chris, errorSearch as noMatches, jamesGunn as james
 import { Textarea } from "@/components/ui/textarea";
 import { NeutralButton, PrimaryButton } from "@/components/mobile/buttons";
 import { Field } from "@/components/mobile/field";
-import { HomeIndicator } from "@/components/mobile/home-indicator";
 import {
   MobileScreen,
   ScreenBody,
@@ -15,7 +14,6 @@ import {
   ScreenSpacer,
   ScreenTopBar,
 } from "@/components/mobile/screen";
-import { StatusBar } from "@/components/mobile/status-bar";
 
 /** Figma "Problem description (Light)" — 995:11176. */
 export function ProblemDescriptionScreen() {
@@ -24,7 +22,6 @@ export function ProblemDescriptionScreen() {
 
   return (
     <MobileScreen>
-      <StatusBar />
       <ScreenTopBar href="/chat" label={c("back")} />
       <ScreenBody>
         {/* Figma "Stage Header": 8px top padding, 10px gap, 40px subtitle block. */}
@@ -76,7 +73,6 @@ export function ProblemDescriptionScreen() {
           <PrimaryButton href="/matching/searching">{t("search")}</PrimaryButton>
         </div>
       </ScreenBody>
-      <HomeIndicator />
     </MobileScreen>
   );
 }
@@ -86,8 +82,7 @@ export function MatchingProgressScreen() {
   const t = useTranslations("matching");
 
   return (
-    <MobileScreen>
-      <StatusBar />
+    <MobileScreen className="pt-6">
       <ScreenBody>
         <div className="w-full flex-1" />
         {/* Figma "Processing": a 44px spinner, 64px gap, then the 34/20 text block. */}
@@ -108,7 +103,6 @@ export function MatchingProgressScreen() {
           <NeutralButton href="/matching">{t("cancelSearch")}</NeutralButton>
         </div>
       </ScreenBody>
-      <HomeIndicator />
     </MobileScreen>
   );
 }
@@ -175,7 +169,6 @@ export function MatchedAdvisorsScreen({
 
   return (
     <MobileScreen>
-      <StatusBar />
       <ScreenTopBar href="/matching" label={c("back")} />
       <ScreenBody>
         <ScreenHeading
@@ -251,7 +244,6 @@ export function MatchedAdvisorsScreen({
 
         <ScreenSpacer />
       </ScreenBody>
-      <HomeIndicator />
     </MobileScreen>
   );
 }
