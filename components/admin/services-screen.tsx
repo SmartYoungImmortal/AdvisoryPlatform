@@ -44,6 +44,7 @@ function ServiceRowActions({ service }: { readonly service: AdminService }) {
       <Button
         aria-label={t("services.actionViewOwner")}
         render={<Link href={OWNER_HREF} />}
+        nativeButton={false}
         size="icon-sm"
         variant="ghost"
       >
@@ -62,7 +63,10 @@ function ServiceRowActions({ service }: { readonly service: AdminService }) {
           }
         />
         <DropdownMenuContent align="end">
-          <DropdownMenuItem render={<Link href={OWNER_HREF} />}>
+          <DropdownMenuItem
+            render={<Link href={OWNER_HREF} />}
+            nativeButton={false}
+          >
             {t("services.actionViewOwner")}
           </DropdownMenuItem>
           <DropdownMenuItem
