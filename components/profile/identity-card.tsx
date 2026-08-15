@@ -29,7 +29,7 @@ export function IdentityCard({
   return (
     <div
       className={cn(
-        "flex w-full shrink-0 flex-col items-start gap-3 overflow-clip rounded-[14px] bg-card p-[14px]",
+        "flex w-full shrink-0 flex-col items-start gap-3 overflow-clip rounded-xl bg-card p-3.5",
         className,
       )}
     >
@@ -41,33 +41,33 @@ export function IdentityCard({
           src={araya}
           width={56}
         />
-        <div className="flex min-w-px flex-1 flex-col items-start gap-[2px] overflow-clip">
-          <p className="font-thai w-full text-[16px] leading-[24px] font-medium text-foreground">
+        <div className="flex min-w-px flex-1 flex-col items-start gap-0.5 overflow-clip">
+          <p className="w-full text-base font-medium text-foreground">
             {name}
           </p>
-          <p className="font-thai w-full text-[12px] leading-[18px] font-normal text-muted-foreground">
+          <p className="w-full text-xs font-normal text-muted-foreground">
             {subtitle}
           </p>
         </div>
         <Link
           aria-label={editLabel}
-          className="flex size-9 shrink-0 items-center justify-center overflow-clip rounded-[8px] bg-muted"
+          className="flex size-9 shrink-0 items-center justify-center overflow-clip rounded-md bg-muted"
           href={editHref}
         >
-          <UserRoundCog className="size-[18px] text-muted-foreground" />
+          <UserRoundCog className="size-4.5 text-muted-foreground" />
         </Link>
       </div>
       <div className="h-px w-full shrink-0 bg-muted" />
       <div className="flex w-full shrink-0 items-start overflow-clip text-center">
         {stats.map((stat) => (
           <div
-            className="flex min-w-px flex-1 flex-col items-center gap-[2px] overflow-clip"
+            className="flex min-w-px flex-1 flex-col items-center gap-0.5 overflow-clip"
             key={stat.label}
           >
-            <p className="font-latin w-full text-[16px] leading-[24px] font-medium text-foreground">
+            <p className="font-latin w-full text-base font-medium text-foreground">
               {stat.value}
             </p>
-            <p className="font-thai w-full text-[12px] leading-[18px] font-normal text-muted-foreground">
+            <p className="w-full text-xs font-normal text-muted-foreground">
               {stat.label}
             </p>
           </div>

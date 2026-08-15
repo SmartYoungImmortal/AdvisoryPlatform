@@ -6,11 +6,11 @@ export function HomeIndicator({ className }: { readonly className?: string }) {
     <div
       aria-hidden
       className={cn(
-        "flex h-[34px] w-full shrink-0 items-center justify-center overflow-clip py-2",
+        "flex h-8.5 w-full shrink-0 items-center justify-center overflow-clip py-2",
         className,
       )}
     >
-      <div className="h-[5px] w-[134px] shrink-0 rounded-[100px] bg-foreground opacity-90" />
+      <div className="h-[5px] w-[134px] shrink-0 rounded-full bg-foreground opacity-90" />
     </div>
   );
 }

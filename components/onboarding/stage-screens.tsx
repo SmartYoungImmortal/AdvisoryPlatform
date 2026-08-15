@@ -15,6 +15,7 @@ import {
 import { useTranslations } from "next-intl";
 
 import { thaiNationalId as idCard } from "@/lib/assets/r2";
+import { Textarea } from "@/components/ui/textarea";
 import { AlertBanner } from "@/components/mobile/banner";
 import { NeutralButton, PrimaryButton } from "@/components/mobile/buttons";
 import { Field } from "@/components/mobile/field";
@@ -117,19 +118,19 @@ export function OnboardingStage1Screen({
             label={t("dobLabel")}
             placeholder={err ? t("dobFilledPlaceholder") : t("dobPlaceholder")}
           />
-          <div className="flex w-full shrink-0 flex-col items-start gap-[6px]">
+          <div className="flex w-full shrink-0 flex-col items-start gap-1.5">
             <label
-              className="font-thai w-full text-[14px] leading-[20px] font-medium text-foreground"
+              className="w-full text-sm font-medium text-foreground"
               htmlFor="ob-bio"
             >
               {err ? t("bioIntroLabel") : t("bioLabel")}
             </label>
-            <textarea
-              className="font-thai h-[84px] w-full resize-none rounded-[8px] border border-input bg-muted px-3 py-[8px] text-[14px] leading-[20px] font-normal text-foreground outline-none placeholder:text-muted-foreground"
+            <Textarea
+              className="h-21 resize-none bg-muted px-3 text-sm shadow-none field-sizing-fixed"
               id="ob-bio"
               placeholder={t("bioPlaceholder")}
             />
-            <p className="font-thai w-full text-[12px] leading-[18px] font-normal text-muted-foreground">
+            <p className="w-full text-xs font-normal text-muted-foreground">
               {t("bioHint")}
             </p>
           </div>
@@ -183,15 +184,15 @@ export function OnboardingStage2Screen({
             <>
               <Image
                 alt={t("fileName")}
-                className="h-[208px] w-full shrink-0 rounded-[14px] object-cover"
+                className="h-[208px] w-full shrink-0 rounded-xl object-cover"
                 src={idCard}
               />
-              <div className="mt-[10px] flex h-9 w-full shrink-0 items-start gap-[10px]">
-                <div className="flex min-w-px flex-1 flex-col items-start gap-[2px]">
-                  <p className="font-latin w-full text-[14px] leading-[20px] font-medium text-foreground">
+              <div className="mt-2.5 flex h-9 w-full shrink-0 items-start gap-2.5">
+                <div className="flex min-w-px flex-1 flex-col items-start gap-0.5">
+                  <p className="font-latin w-full text-sm font-medium text-foreground">
                     {t("fileName")}
                   </p>
-                  <p className="font-latin w-full text-[12px] leading-[14px] font-normal text-muted-foreground">
+                  <p className="font-latin w-full text-xs leading-3.5 font-normal text-muted-foreground">
                     {t("fileMeta")}
                   </p>
                 </div>
@@ -225,8 +226,8 @@ export function OnboardingStage2Screen({
         </div>
 
         {/* Figma guidance / next-steps list. */}
-        <div className={`flex w-full shrink-0 flex-col items-start gap-[6px] px-6 ${uploaded ? "pt-6" : "pt-5"}`}>
-          <p className="font-thai mb-[2px] w-full text-[14px] leading-[20px] font-medium text-foreground">
+        <div className={`flex w-full shrink-0 flex-col items-start gap-1.5 px-6 ${uploaded ? "pt-6" : "pt-5"}`}>
+          <p className="mb-0.5 w-full text-sm font-medium text-foreground">
             {uploaded ? t("nextHeading") : t("guidance")}
           </p>
           {uploaded ? (
@@ -281,7 +282,7 @@ export function OnboardingStage3Screen({
         ) : null}
 
         <div className="flex w-full shrink-0 flex-col items-start px-6 pt-2">
-          <p className="font-thai w-full text-[12px] leading-[18px] font-normal text-muted-foreground">
+          <p className="w-full text-xs font-normal text-muted-foreground">
             {t("s3Intro")}
           </p>
         </div>
@@ -289,12 +290,12 @@ export function OnboardingStage3Screen({
         {/* Figma "Skill Card 1": skill picker plus a proof drop zone. */}
         <div className="flex w-full shrink-0 flex-col items-start gap-3 px-6 pt-4">
           <div
-            className={`flex w-full shrink-0 flex-col items-start gap-3 overflow-clip rounded-[14px] border bg-card p-[14px] ${
+            className={`flex w-full shrink-0 flex-col items-start gap-3 overflow-clip rounded-xl border bg-card p-3.5 ${
               err ? "border-destructive" : "border-transparent"
             }`}
           >
             <div className="flex w-full items-center justify-between gap-3">
-              <p className="font-thai text-[14px] leading-[20px] font-medium text-foreground">
+              <p className="text-sm font-medium text-foreground">
                 {t("skillCard")}
               </p>
               <Trash2 className="size-4 shrink-0 text-muted-foreground" />
@@ -305,8 +306,8 @@ export function OnboardingStage3Screen({
               label={t("skillLabel")}
               placeholder={t("skillPlaceholder")}
             />
-            <div className="flex w-full shrink-0 flex-col items-start gap-[6px]">
-              <p className="font-thai w-full text-[14px] leading-[20px] font-medium text-foreground">
+            <div className="flex w-full shrink-0 flex-col items-start gap-1.5">
+              <p className="w-full text-sm font-medium text-foreground">
                 {t("proofLabel")}
               </p>
               <DropZone

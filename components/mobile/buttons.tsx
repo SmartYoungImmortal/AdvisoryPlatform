@@ -5,70 +5,56 @@ import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
 /**
- * Figma buttons are 36px tall with 16px horizontal padding, an 8px radius, an 8px
- * gap and a 14/20 Thai medium label. Their shadow token is fully transparent, hence
- * `shadow-none`.
+ * Figma's mobile actions are the shadcn button re-proportioned: full width, 36px
+ * tall, 16px of horizontal padding and an 8px gap. Their shadow token is fully
+ * transparent, hence `shadow-none`. Everything the primitive already provides —
+ * the focus ring, the disabled state, the active press, the 8px radius — is left
+ * to it instead of being restated here.
  */
-const base =
-  "font-thai h-9 min-h-9 w-full gap-2 rounded-[8px] px-4 py-2 text-[14px] leading-[20px] font-medium shadow-none";
+const metrics = "h-9 w-full gap-2 px-4 shadow-none";
 
-// Filled buttons: the shadcn base pairs a 1px transparent border with
-// `bg-clip-padding`, which would clip the fill to 34px instead of Figma's 36px.
-const filled = `${base} border-0`;
-
-/** Classes shared by the link form so it matches the real button exactly. */
-const linkBase =
-  "inline-flex shrink-0 items-center justify-center whitespace-nowrap transition-all outline-none select-none";
+/**
+ * The filled variants drop the border: shadcn pairs a 1px transparent border with
+ * `bg-clip-padding`, which would inset the fill to 34px instead of Figma's 36px.
+ */
+const filled = `${metrics} border-0`;
 
 type ActionProps = ComponentProps<typeof Button> & {
   /** Render as a link so the prototype can be clicked through. */
   readonly href?: string;
 };
 
-function Action({
-  href,
-  className,
-  children,
-  ...props
-}: ActionProps & { readonly className: string }) {
-  if (href) {
-    return (
-      <Link className={cn(linkBase, className)} href={href}>
-        {children}
-      </Link>
-    );
-  }
-  return (
-    <Button className={className} {...props}>
-      {children}
-    </Button>
-  );
+function Action({ href, ...props }: ActionProps) {
+  // `render` hands the button's classes, ref and interaction wiring to the anchor,
+  // so the link form keeps the focus ring and press state. Re-declaring a subset of
+  // the classes on a bare <Link> — the previous approach — silently dropped both.
+  return href ? <Button render={<Link href={href} />} {...props} /> : <Button {...props} />;
 }
 
-/** Figma "ButtonPrimary" — accent #2563eb on white. */
+/** Figma "ButtonPrimary" — accent on white; the primitive's default variant. */
 export function PrimaryButton({ className, ...props }: ActionProps) {
-  return (
-    <Action
-      className={cn(filled, "bg-primary text-primary-foreground", className)}
-      {...props}
-    />
-  );
+  return <Action className={cn(filled, className)} {...props} />;
 }
 
 /** Figma "ButtonNeutral" — surface with a border hairline. */
 export function NeutralButton({ className, ...props }: ActionProps) {
-  return (
-    <Action
-      className={cn(base, "border border-border bg-card text-foreground", className)}
-      variant="outline"
-      {...props}
-    />
-  );
+  return <Action className={cn(metrics, "bg-card", className)} variant="outline" {...props} />;
 }
 
-/** Figma destructive primary — used by the delete-account confirmation. */
+/**
+ * Figma destructive primary — the delete-account and log-out confirmations.
+ * shadcn's `destructive` variant is the *tinted* treatment, so the solid fill is
+ * spelled out against the token pair rather than a literal white.
+ */
 export function DestructiveButton({ className, ...props }: ActionProps) {
   return (
-    <Action className={cn(filled, "bg-destructive text-white", className)} {...props} />
+    <Action
+      className={cn(
+        filled,
+        "bg-destructive text-destructive-foreground hover:bg-destructive/90",
+        className,
+      )}
+      {...props}
+    />
   );
 }

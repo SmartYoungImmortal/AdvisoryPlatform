@@ -27,14 +27,14 @@ function SummaryLine({
   return (
     <div className="flex w-full shrink-0 items-center justify-between gap-3">
       <span
-        className={`font-thai min-w-px flex-1 text-[14px] leading-[20px] ${
+        className={`min-w-px flex-1 text-sm ${
           strong ? "font-medium text-foreground" : "font-normal text-muted-foreground"
         }`}
       >
         {label}
       </span>
       <span
-        className={`font-latin shrink-0 text-[14px] leading-[20px] whitespace-nowrap ${
+        className={`font-latin shrink-0 text-sm whitespace-nowrap ${
           strong ? "font-semibold text-foreground" : "font-normal text-foreground"
         }`}
       >
@@ -66,12 +66,12 @@ export function CardDetailsScreen({
 
         {/* Figma "Order Summary": caption, advisor line, fees, then the total. */}
         <div className="flex w-full shrink-0 flex-col items-start px-6 pt-2">
-          <div className="flex w-full shrink-0 flex-col items-start gap-[10px] overflow-clip rounded-[14px] bg-card p-[14px]">
+          <div className="flex w-full shrink-0 flex-col items-start gap-2.5 overflow-clip rounded-xl bg-card p-3.5">
             <div className="flex w-full items-center justify-between gap-3">
-              <span className="font-thai text-[12px] leading-[18px] font-normal text-muted-foreground">
+              <span className="text-xs font-normal text-muted-foreground">
                 {t("orderSummary")}
               </span>
-              <span className="font-latin text-[12px] leading-[18px] font-normal text-muted-foreground">
+              <span className="font-latin text-xs font-normal text-muted-foreground">
                 {t("advisor")}
               </span>
             </div>

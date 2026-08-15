@@ -130,7 +130,7 @@ export function PaymentResultScreen({ state }: { readonly state: Result }) {
               <Image alt="" className="size-full" src={success ? walletSuccess : walletFailed} />
               {success ? (
                 <Check
-                  className="absolute size-[49px] text-[#65a30d]"
+                  className="absolute size-[49px] text-success"
                   strokeWidth={3}
                   style={{ left: 188, top: 142.55 }}
                 />
@@ -138,21 +138,21 @@ export function PaymentResultScreen({ state }: { readonly state: Result }) {
             </div>
           )}
           {state === "unconfirmed" ? (
-            <p className="font-latin mt-4 w-full text-center text-[28px] leading-[40px] font-semibold text-foreground">
+            <p className="font-latin mt-4 w-full text-center text-heading font-semibold text-foreground">
               {t("unconfirmedAmount")}
             </p>
           ) : null}
-          <p className="font-thai mt-4 w-full text-center text-[28px] leading-[40px] font-semibold text-foreground">
+          <p className="mt-4 w-full text-center text-heading font-semibold text-foreground">
             {copy.title}
           </p>
-          <p className="font-thai mt-2 w-full text-center text-[14px] leading-[20px] font-normal text-muted-foreground">
+          <p className="mt-2 w-full text-center text-sm font-normal text-muted-foreground">
             {copy.body}
           </p>
         </div>
 
         {/* Figma "Details": a 3-row summary card. */}
         <div className="flex w-full shrink-0 flex-col items-start px-6 pt-6">
-          <div className="flex w-full shrink-0 flex-col items-start gap-3 overflow-clip rounded-[14px] bg-card p-[14px]">
+          <div className="flex w-full shrink-0 flex-col items-start gap-3 overflow-clip rounded-xl bg-card p-3.5">
             {copy.rows.map((row) => (
               <DetailRow
                 icon={row.icon}
@@ -195,7 +195,7 @@ export function PaymentProcessingScreen() {
             aria-label={t("processingTitle")}
             className="block size-11 shrink-0 animate-spin rounded-full border-[3px] border-border border-t-primary"
           />
-          <p className="font-thai mt-[64px] w-full text-center text-[24px] leading-[34px] font-semibold text-foreground">
+          <p className="mt-16 w-full text-center text-2xl font-semibold text-foreground">
             {t("processingTitle")}
           </p>
         </div>

@@ -15,7 +15,7 @@ export function Card({
   return (
     <div
       className={cn(
-        "flex w-full shrink-0 flex-col items-start overflow-clip rounded-[14px] bg-card",
+        "flex w-full shrink-0 flex-col items-start overflow-clip rounded-xl bg-card",
         className,
       )}
     >
@@ -47,17 +47,17 @@ export function StackRow({
   readonly centerIcon?: boolean;
   readonly href?: string;
 }) {
-  const rowClass = "flex h-16 w-full shrink-0 items-start gap-3 overflow-clip p-[14px]";
+  const rowClass = "flex h-16 w-full shrink-0 items-start gap-3 overflow-clip p-3.5";
   const content = (
     <>
       <Icon
-        className={cn("size-4 shrink-0 text-muted-foreground", centerIcon && "mt-[10px]")}
+        className={cn("size-4 shrink-0 text-muted-foreground", centerIcon && "mt-2.5")}
       />
-      <div className="flex min-w-px flex-1 flex-col items-start gap-[2px] overflow-clip">
-        <p className="font-thai w-full text-[14px] leading-[20px] font-medium text-foreground">
+      <div className="flex min-w-px flex-1 flex-col items-start gap-0.5 overflow-clip">
+        <p className="w-full text-sm font-medium text-foreground">
           {title}
         </p>
-        <p className="font-thai w-full text-[12px] leading-[18px] font-normal text-muted-foreground">
+        <p className="w-full text-xs font-normal text-muted-foreground">
           {body}
         </p>
       </div>
@@ -83,8 +83,8 @@ export function TimeMeta({
   readonly unread?: boolean;
 }) {
   return (
-    <div className="mt-[10px] flex items-center gap-2">
-      <span className="font-thai text-[12px] leading-[18px] font-normal whitespace-nowrap text-muted-foreground">
+    <div className="mt-2.5 flex items-center gap-2">
+      <span className="text-xs font-normal whitespace-nowrap text-muted-foreground">
         {time}
       </span>
       {unread ? <span className="size-2 shrink-0 rounded-full bg-primary" /> : null}
@@ -116,10 +116,10 @@ export function StatusHero({
       >
         <Icon className={cn("size-10 text-muted-foreground", iconClassName)} />
       </span>
-      <p className="font-thai mt-[20px] w-full text-center text-[28px] leading-[40px] font-semibold text-foreground">
+      <p className="mt-5 w-full text-center text-heading font-semibold text-foreground">
         {title}
       </p>
-      <p className="font-thai mt-2 w-full text-center text-[14px] leading-[20px] font-normal text-muted-foreground">
+      <p className="mt-2 w-full text-center text-sm font-normal text-muted-foreground">
         {subtitle}
       </p>
     </div>
@@ -139,14 +139,14 @@ export function DetailRow({
   readonly valueClassName?: string;
 }) {
   return (
-    <div className="flex h-5 w-full shrink-0 items-center gap-[10px]">
+    <div className="flex h-5 w-full shrink-0 items-center gap-2.5">
       <Icon className="size-4 shrink-0 text-muted-foreground" />
-      <span className="font-thai min-w-px flex-1 text-[14px] leading-[20px] font-normal text-muted-foreground">
+      <span className="min-w-px flex-1 text-sm font-normal text-muted-foreground">
         {label}
       </span>
       <span
         className={cn(
-          "font-thai shrink-0 text-[14px] leading-[20px] font-medium whitespace-nowrap text-foreground",
+          "shrink-0 text-sm font-medium whitespace-nowrap text-foreground",
           valueClassName,
         )}
       >
@@ -166,8 +166,8 @@ export function FootNote({
 }) {
   return (
     <div className="flex w-full shrink-0 items-start gap-2 px-6 pt-4">
-      <Icon className="size-[14px] shrink-0 text-muted-foreground" />
-      <p className="font-thai min-w-px flex-1 text-[12px] leading-[18px] font-normal text-muted-foreground">
+      <Icon className="size-3.5 shrink-0 text-muted-foreground" />
+      <p className="min-w-px flex-1 text-xs font-normal text-muted-foreground">
         {children}
       </p>
     </div>

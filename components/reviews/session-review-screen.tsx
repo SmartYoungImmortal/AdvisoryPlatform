@@ -3,6 +3,8 @@ import { Clock, Paperclip, Star, TriangleAlert } from "lucide-react";
 import { useTranslations } from "next-intl";
 
 import { sarahJenskins as sarah } from "@/lib/assets/r2";
+import { Button } from "@/components/ui/button";
+import { Textarea } from "@/components/ui/textarea";
 import { NeutralButton, PrimaryButton } from "@/components/mobile/buttons";
 import { HomeIndicator } from "@/components/mobile/home-indicator";
 import {
@@ -24,12 +26,12 @@ function SummaryRow({
   readonly value: string;
 }) {
   return (
-    <div className="flex h-5 w-full shrink-0 items-center gap-[10px]">
+    <div className="flex h-5 w-full shrink-0 items-center gap-2.5">
       <Icon className="size-4 shrink-0 text-muted-foreground" />
-      <span className="font-thai min-w-px flex-1 text-[14px] leading-[20px] font-normal text-muted-foreground">
+      <span className="min-w-px flex-1 text-sm font-normal text-muted-foreground">
         {label}
       </span>
-      <span className="font-thai shrink-0 text-[14px] leading-[20px] font-medium whitespace-nowrap text-foreground">
+      <span className="shrink-0 text-sm font-medium whitespace-nowrap text-foreground">
         {value}
       </span>
     </div>
@@ -53,11 +55,11 @@ export function SessionReviewScreen() {
             src={sarah}
             width={96}
           />
-          <div className="flex w-full shrink-0 flex-col items-center gap-[6px] px-6 pt-[18px] text-center">
-            <p className="font-thai w-full text-[28px] leading-[40px] font-semibold text-foreground">
+          <div className="flex w-full shrink-0 flex-col items-center gap-1.5 px-6 pt-4.5 text-center">
+            <p className="w-full text-heading font-semibold text-foreground">
               {t("endedTitle")}
             </p>
-            <p className="font-thai w-full text-[14px] leading-[20px] font-normal text-muted-foreground">
+            <p className="w-full text-sm font-normal text-muted-foreground">
               {t("endedSubtitle")}
             </p>
           </div>
@@ -65,7 +67,7 @@ export function SessionReviewScreen() {
 
         {/* Figma "Summary": card with duration and shared-file counts. */}
         <div className="flex w-full shrink-0 flex-col items-start px-6 pt-6">
-          <div className="flex w-full shrink-0 flex-col items-start gap-3 overflow-clip rounded-[14px] bg-card p-[14px]">
+          <div className="flex w-full shrink-0 flex-col items-start gap-3 overflow-clip rounded-xl bg-card p-3.5">
             <SummaryRow icon={Clock} label={t("durationLabel")} value={t("durationValue")} />
             <SummaryRow icon={Paperclip} label={t("filesLabel")} value={t("filesValue")} />
           </div>
@@ -73,34 +75,39 @@ export function SessionReviewScreen() {
 
         {/* Figma "Review Prompt": 24/20 copy, a 44px star row, then the comment box. */}
         <div className="flex w-full shrink-0 flex-col items-center px-6 pt-6">
-          <p className="font-thai w-full text-center text-[16px] leading-[24px] font-medium text-foreground">
+          <p className="w-full text-center text-base font-medium text-foreground">
             {t("promptTitle")}
           </p>
-          <p className="font-thai mt-[6px] w-full text-center text-[14px] leading-[20px] font-normal text-muted-foreground">
+          <p className="mt-1.5 w-full text-center text-sm font-normal text-muted-foreground">
             {t("promptBody")}
           </p>
-          <div className="mt-[14px] flex shrink-0 items-center gap-2">
+          <div className="mt-3.5 flex shrink-0 items-center gap-2">
             {[0, 1, 2, 3, 4].map((i) => (
-              <button
+              <Button
                 aria-label={`${i + 1}`}
-                className="flex size-11 shrink-0 items-center justify-center"
+                className="size-11 shrink-0"
                 key={i}
-                type="button"
+                size="icon"
+                variant="ghost"
               >
                 <Star className="size-7 fill-transparent text-primary" />
-              </button>
+              </Button>
             ))}
           </div>
-          <textarea
-            className="font-thai mt-[14px] h-24 w-full resize-none rounded-[8px] border border-destructive bg-muted px-3 py-[8px] text-[14px] leading-[20px] font-normal text-foreground outline-none placeholder:text-muted-foreground"
+          {/* The comment is over the length limit on this state, so the invalid
+              treatment comes from aria-invalid rather than a pinned red border —
+              that also announces the problem instead of only colouring it. */}
+          <Textarea
+            aria-invalid
+            className="mt-3.5 h-24 resize-none bg-muted px-3 text-sm shadow-none field-sizing-fixed"
             defaultValue={t("commentValue")}
           />
         </div>
 
         {/* Figma "Submit Error": 14px glyph beside a 12/18 destructive line. */}
         <div className="flex w-full shrink-0 items-start gap-2 px-6 pt-2">
-          <TriangleAlert className="size-[14px] shrink-0 text-destructive" />
-          <p className="font-thai min-w-px flex-1 text-[12px] leading-[18px] font-normal text-destructive">
+          <TriangleAlert className="size-3.5 shrink-0 text-destructive" />
+          <p className="min-w-px flex-1 text-xs font-normal text-destructive">
             {t("submitError")}
           </p>
         </div>

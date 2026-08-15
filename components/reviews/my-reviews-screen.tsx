@@ -17,11 +17,11 @@ import { ReviewCard, Stars } from "@/components/reviews/review-parts";
 /** Figma "Distribution" row — a 6px track with a proportional fill. */
 function DistributionRow({ label, fill }: { readonly label: string; readonly fill: number }) {
   return (
-    <div className="flex h-[14px] w-full shrink-0 items-center">
-      <span className="font-latin w-2 shrink-0 text-[12px] leading-[14px] font-normal text-muted-foreground">
+    <div className="flex h-3.5 w-full shrink-0 items-center">
+      <span className="font-latin w-2 shrink-0 text-xs leading-3.5 font-normal text-muted-foreground">
         {label}
       </span>
-      <div className="ml-2 h-[6px] min-w-px flex-1 overflow-clip rounded-full bg-muted">
+      <div className="ml-2 h-1.5 min-w-px flex-1 overflow-clip rounded-full bg-muted">
         <div className="h-full rounded-full bg-primary" style={{ width: `${fill}%` }} />
       </div>
     </div>
@@ -50,12 +50,12 @@ export function MyReviewsScreen({
           /* Figma "Empty State": 80px badge, 34/40 title block, then a 5-star row. */
           <div className="flex w-full shrink-0 flex-col items-center px-6 pt-[72px] text-center">
             <span className="flex size-20 shrink-0 items-center justify-center rounded-full bg-muted">
-              <Star className="size-[34px] text-muted-foreground" />
+              <Star className="size-8.5 text-muted-foreground" />
             </span>
-            <p className="font-thai mt-4 w-full text-[24px] leading-[34px] font-semibold text-foreground">
+            <p className="mt-4 w-full text-2xl font-semibold text-foreground">
               {t("emptyTitle")}
             </p>
-            <p className="font-thai mt-2 w-full text-[14px] leading-[20px] font-normal text-muted-foreground">
+            <p className="mt-2 w-full text-sm font-normal text-muted-foreground">
               <ThaiText>{t("emptyBody")}</ThaiText>
             </p>
             <Stars className="mt-4" filled={0} gap={3} size={18} />
@@ -64,13 +64,13 @@ export function MyReviewsScreen({
           <>
             {/* Figma "Summary Card": 4.9 score block beside the 5-bar distribution. */}
             <div className="flex w-full shrink-0 flex-col items-start px-6 pt-2">
-              <div className="flex w-full shrink-0 items-start gap-4 overflow-clip rounded-[14px] bg-card p-[14px]">
-                <div className="flex w-[72px] shrink-0 flex-col items-center gap-[10px] pt-[14px]">
-                  <p className="font-latin text-[20px] leading-[24px] font-semibold text-foreground">
+              <div className="flex w-full shrink-0 items-start gap-4 overflow-clip rounded-xl bg-card p-3.5">
+                <div className="flex w-[72px] shrink-0 flex-col items-center gap-2.5 pt-3.5">
+                  <p className="font-latin text-xl leading-6 font-semibold text-foreground">
                     4.9
                   </p>
                   <Stars gap={3} size={12} />
-                  <p className="font-thai text-[12px] leading-[18px] font-normal whitespace-nowrap text-muted-foreground">
+                  <p className="text-xs font-normal whitespace-nowrap text-muted-foreground">
                     {t("reviewCount")}
                   </p>
                 </div>

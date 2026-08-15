@@ -1,6 +1,7 @@
 import Link from "next/link";
 import type { LucideIcon } from "lucide-react";
 
+import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
 export type QuickAction = {
@@ -21,30 +22,26 @@ export function QuickActions({
   readonly actions: readonly QuickAction[];
   readonly className?: string;
 }) {
+  // `h-auto` because the tile is two stacked lines rather than the primitive's
+  // single 36px row; everything else it already provides.
   const tile =
-    "flex min-w-px flex-1 flex-col items-center gap-[6px] overflow-clip rounded-[12px] bg-card px-2 py-3";
+    "h-auto min-w-px flex-1 flex-col gap-1.5 overflow-clip rounded-[12px] bg-card px-2 py-3 whitespace-normal";
 
   return (
-    <div className={cn("flex w-full shrink-0 items-start gap-[10px] overflow-clip", className)}>
-      {actions.map(({ icon: Icon, label, href }) => {
-        const body = (
-          <>
-            <Icon className="size-5 shrink-0 text-muted-foreground" />
-            <span className="font-thai w-full text-center text-[12px] leading-[18px] font-medium text-foreground">
-              {label}
-            </span>
-          </>
-        );
-        return href ? (
-          <Link className={tile} href={href} key={label}>
-            {body}
-          </Link>
-        ) : (
-          <button className={tile} key={label} type="button">
-            {body}
-          </button>
-        );
-      })}
+    <div className={cn("flex w-full shrink-0 items-start gap-2.5 overflow-clip", className)}>
+      {actions.map(({ icon: Icon, label, href }) => (
+        <Button
+          className={tile}
+          key={label}
+          render={href ? <Link href={href} /> : undefined}
+          variant="ghost"
+        >
+          <Icon className="size-5 shrink-0 text-muted-foreground" />
+          <span className="w-full text-center text-xs font-medium text-foreground">
+            {label}
+          </span>
+        </Button>
+      ))}
     </div>
   );
 }

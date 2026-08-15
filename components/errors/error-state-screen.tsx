@@ -71,10 +71,10 @@ export function ErrorStateScreen({ kind }: { readonly kind: ErrorKind }) {
             style={{ width: spec.width, height: spec.height }}
           />
           {/* Figma "Error Text": 18px under the artwork, 40px title, 8px gap. */}
-          <p className="font-thai mt-[18px] w-full text-center text-[28px] leading-[40px] font-semibold text-foreground">
+          <p className="mt-4.5 w-full text-center text-heading font-semibold text-foreground">
             {spec.title}
           </p>
-          <p className="font-thai mt-2 w-full text-center text-[14px] leading-[20px] font-normal text-muted-foreground">
+          <p className="mt-2 w-full text-center text-sm font-normal text-muted-foreground">
             {spec.body}
           </p>
         </div>

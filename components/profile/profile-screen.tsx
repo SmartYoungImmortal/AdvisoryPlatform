@@ -47,7 +47,7 @@ export function ProfileScreen({
     <MobileScreen>
       <StatusBar />
       <TopBar unreadNotifications />
-      <ScreenBody className="pb-[6px]">
+      <ScreenBody className="pb-1.5">
         <div className="flex w-full shrink-0 flex-col items-start overflow-clip px-6 pt-4">
           <IdentityCard
             editHref="/profile/edit"

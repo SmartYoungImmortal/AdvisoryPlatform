@@ -52,23 +52,23 @@ export function ChatThreadScreen({
               <PartnerText>{t("thread.askAnything")}</PartnerText>
             </PartnerMessage>
             <DayDivider>{t("today")}</DayDivider>
-            <PartnerMessage bubbleClassName="items-start gap-[10px]" time="00.03">
+            <PartnerMessage bubbleClassName="items-start gap-2.5" time="00.03">
               <FileBody meta={t("thread.fileMeta")} name={t("thread.fileName")} />
             </PartnerMessage>
-            <MyMessage bubbleClassName="gap-[10px] bg-muted" time="00.05">
+            <MyMessage bubbleClassName="gap-2.5 bg-muted" time="00.05">
               <FileBody meta={t("thread.fileMeta")} name={t("thread.fileName")} />
             </MyMessage>
           </>
         )}
 
         <PartnerMessage
-          bubbleClassName="h-[213px] w-[184px] items-start gap-[10px]"
+          bubbleClassName="h-[213px] w-[184px] items-start gap-2.5"
           time="00.06"
         >
           <ImageBody src={doc} />
         </PartnerMessage>
         <MyMessage
-          bubbleClassName="h-[149px] w-[255px] gap-[10px] bg-brand-image"
+          bubbleClassName="h-[149px] w-[255px] gap-2.5 bg-brand-image"
           time="00.07"
         >
           <ImageBody src={desk} />

@@ -25,13 +25,13 @@ function PrimerRow({
   readonly body: string;
 }) {
   return (
-    <div className="flex h-16 w-full shrink-0 items-start gap-3 overflow-clip p-[14px]">
+    <div className="flex h-16 w-full shrink-0 items-start gap-3 overflow-clip p-3.5">
       <Icon className="size-4 shrink-0 text-muted-foreground" />
-      <div className="flex min-w-px flex-1 flex-col items-start gap-[2px] overflow-clip">
-        <p className="font-thai w-full text-[14px] leading-[20px] font-medium text-foreground">
+      <div className="flex min-w-px flex-1 flex-col items-start gap-0.5 overflow-clip">
+        <p className="w-full text-sm font-medium text-foreground">
           {title}
         </p>
-        <p className="font-thai w-full text-[12px] leading-[18px] font-normal text-muted-foreground">
+        <p className="w-full text-xs font-normal text-muted-foreground">
           {body}
         </p>
       </div>
@@ -57,7 +57,7 @@ export function PushPrimerScreen() {
 
         {/* Figma "What We Use": 12px top padding, then a 194px three-row card. */}
         <div className="flex w-full shrink-0 flex-col items-start px-6 pt-3">
-          <div className="flex w-full shrink-0 flex-col items-start overflow-clip rounded-[14px] bg-card">
+          <div className="flex w-full shrink-0 flex-col items-start overflow-clip rounded-xl bg-card">
             <PrimerRow
               body={t("primerBookingsBody")}
               icon={CalendarDays}

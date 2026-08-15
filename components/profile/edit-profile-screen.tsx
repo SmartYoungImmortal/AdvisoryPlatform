@@ -80,23 +80,23 @@ export function EditProfileScreen({
 
         {/* Figma "Email Locked": read-only card, then a 12/18 muted note. */}
         <div className="flex w-full shrink-0 flex-col items-start gap-2 px-6 pt-4">
-          <div className="flex w-full shrink-0 items-center gap-[10px] overflow-clip rounded-[14px] bg-card p-[14px]">
+          <div className="flex w-full shrink-0 items-center gap-2.5 overflow-clip rounded-xl bg-card p-3.5">
             <Lock className="size-4 shrink-0 text-muted-foreground" />
-            <div className="flex min-w-px flex-1 flex-col items-start gap-[2px] overflow-clip">
-              <p className="font-thai w-full text-[12px] leading-[18px] font-normal text-muted-foreground">
+            <div className="flex min-w-px flex-1 flex-col items-start gap-0.5 overflow-clip">
+              <p className="w-full text-xs font-normal text-muted-foreground">
                 {c("email")}
               </p>
-              <p className="font-latin w-full text-[14px] leading-[20px] font-medium text-foreground">
+              <p className="font-latin w-full text-sm font-medium text-foreground">
                 {c("emailValue")}
               </p>
             </div>
           </div>
-          <p className="font-thai w-full text-[12px] leading-[18px] font-normal text-muted-foreground">
+          <p className="w-full text-xs font-normal text-muted-foreground">
             {t("emailNote")}
           </p>
         </div>
 
-        <ScreenSpacer className={hasBanner ? "min-h-[46px]" : undefined} />
+        <ScreenSpacer className={hasBanner ? "min-h-11.5" : undefined} />
         <ScreenActions>
           <PrimaryButton href="/profile">
             {state === "save-failed" ? t("retry") : t("save")}

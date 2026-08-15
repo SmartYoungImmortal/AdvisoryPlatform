@@ -12,6 +12,9 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    // Wrangler's bundled dev output — vendored build artefacts, not our source.
+    // Linting it drowned the report in ~700 findings from third-party code.
+    ".wrangler/**",
   ]),
 ]);
 

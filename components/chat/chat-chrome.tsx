@@ -2,6 +2,8 @@ import Link from "next/link";
 import { ChevronLeft, Image as ImageIcon, Info, Plus, SendHorizontal, Video } from "lucide-react";
 import { useTranslations } from "next-intl";
 
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { ChatAvatar } from "@/components/chat/chat-avatar";
 import { cn } from "@/lib/utils";
 
@@ -19,21 +21,32 @@ export function ChatHeader() {
   return (
     <div className="relative flex w-full shrink-0 flex-col items-start pt-6 pb-5 after:absolute after:bottom-0 after:left-0 after:h-px after:w-full after:bg-border after:content-['']">
       <div className="flex w-full shrink-0 items-center gap-4 px-4">
-        <Link aria-label={c("back")} className="shrink-0 text-foreground" href="/chat">
+        <Button
+          aria-label={c("back")}
+          className="size-10 shrink-0"
+          render={<Link href="/chat" />}
+          size="icon"
+          variant="ghost"
+        >
           <ChevronLeft className="size-10" />
-        </Link>
+        </Button>
         <div className="flex min-w-px flex-1 items-center gap-2 self-stretch">
           <ChatAvatar size={40} />
-          <p className="font-latin shrink-0 text-[24px] leading-[24px] font-semibold tracking-[-0.625px] whitespace-nowrap text-foreground">
+          <p className="font-latin shrink-0 text-2xl leading-6 font-semibold tracking-[-0.625px] whitespace-nowrap text-foreground">
             {t("partner")}
           </p>
         </div>
-        <button aria-label={t("videoCall")} className="shrink-0 text-foreground" type="button">
+        <Button
+          aria-label={t("videoCall")}
+          className="size-6 shrink-0"
+          size="icon"
+          variant="ghost"
+        >
           <Video className="size-6" />
-        </button>
-        <button aria-label={t("info")} className="shrink-0 text-foreground" type="button">
+        </Button>
+        <Button aria-label={t("info")} className="size-6 shrink-0" size="icon" variant="ghost">
           <Info className="size-6" />
-        </button>
+        </Button>
       </div>
     </div>
   );
@@ -53,30 +66,35 @@ export function ChatFooter({
   return (
     <div className="relative flex w-full shrink-0 flex-col items-start pt-4 pb-6 before:absolute before:top-0 before:left-0 before:h-px before:w-full before:bg-border before:content-['']">
       <div className="flex w-full shrink-0 items-center gap-2 px-2">
-        <button aria-label={t("attach")} className="shrink-0 text-foreground" type="button">
+        {/* Figma draws these as bare 24px glyphs; as real buttons they keep that
+            box but gain the focus ring, hover and press states. */}
+        <Button aria-label={t("attach")} className="size-6 shrink-0" size="icon" variant="ghost">
           <Plus className="size-6" />
-        </button>
-        <button aria-label={t("attachImage")} className="shrink-0 text-foreground" type="button">
+        </Button>
+        <Button
+          aria-label={t("attachImage")}
+          className="size-6 shrink-0"
+          size="icon"
+          variant="ghost"
+        >
           <ImageIcon className="size-6" />
-        </button>
-        <input
+        </Button>
+        <Input
           aria-label={t("title")}
-          className="font-latin h-9 min-w-px flex-1 overflow-clip rounded-[8px] border border-input bg-muted px-3 py-[7.5px] text-[14px] leading-[20px] font-normal text-foreground outline-none placeholder:text-muted-foreground"
+          className="font-latin min-w-px flex-1 bg-muted px-3 text-sm shadow-none"
           placeholder={t("messagePlaceholder")}
           type="text"
         />
-        <button
+        <Button
           aria-label={t("send")}
           className={cn(
-            "flex size-9 min-h-9 min-w-9 shrink-0 items-center justify-center rounded-[8px] p-2",
-            sendVariant === "primary"
-              ? "bg-primary text-primary-foreground"
-              : "bg-border text-foreground",
+            "size-9 shrink-0 border-0",
+            sendVariant === "muted" && "bg-border text-foreground hover:bg-border/80",
           )}
-          type="button"
+          size="icon"
         >
           <SendHorizontal className="size-5" />
-        </button>
+        </Button>
       </div>
     </div>
   );
