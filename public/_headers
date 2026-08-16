@@ -12,3 +12,26 @@
 
 /_next/static/*
   Cache-Control: public, max-age=31536000, immutable
+
+# --- Level 2, not built yet: offline support -------------------------------
+#
+# The app is installable today (app/manifest.ts) but has no service worker, so
+# it still needs the network. When one lands, its headers belong here rather
+# than in `next.config.ts`: `headers()` does nothing under `output: "export"`,
+# which is why every cache rule in this file lives in the proxy instead.
+#
+# A service worker must never be cached — the browser checks it for a new build
+# on every load, and a stale copy pins users to an old app indefinitely:
+#
+#   /sw.js
+#     Cache-Control: no-cache, no-store, must-revalidate
+#     Content-Type: application/javascript; charset=utf-8
+#
+# Next's own guide points at Serwist for the worker itself. This app is a good
+# candidate — every route is prerendered and every record is a fixture, so
+# there is nothing dynamic to miss offline.
+#
+# Push notifications are a separate problem and are further off: the screen for
+# them already exists at /notifications/push-primer, but subscribing needs an
+# endpoint to store the subscription and VAPID keys to send with, and this
+# deploy has no server at all.
