@@ -1,70 +1,80 @@
-import Image, { type StaticImageData } from "next/image";
+import Image from "next/image";
 import Link from "next/link";
 import { ChevronLeft, ChevronUp } from "lucide-react";
 import { useTranslations } from "next-intl";
-import type { ReactNode } from "react";
 
 import {
-  christopherNolan as chris,
-  jamesGunn as james,
-  serviceAdvisorsDesk as coverTax,
-  serviceAdvisorsReview as coverBusiness,
-  serviceLaptopCode as coverTech,
-} from "@/lib/assets/r2";
+  getAdvisor,
+  getService,
+  type Service,
+} from "@/lib/catalogue/services";
 import { Button } from "@/components/ui/button";
 import { ChatAvatar } from "@/components/chat/chat-avatar";
 import {
   FilterButton,
   FilterChip,
   SearchField,
-  ServiceMeta,
+  ServicePrice,
+  ServiceProof,
+  VerifiedTick,
 } from "@/components/home/parts";
 import { MobileScreen, ScreenBody } from "@/components/mobile/screen";
+import { ThaiText } from "@/components/mobile/thai-text";
 import { BottomBar } from "@/components/bottombar";
 
-/** Figma "Result Card" — an 88px square cover beside the title, advisor and meta. */
-function ResultCard({
-  cover,
-  title,
-  advisor,
-  avatar,
-  rating,
-  reviews,
-  price,
-}: {
-  readonly cover: StaticImageData;
-  readonly title: string;
-  readonly advisor: string;
-  readonly avatar: ReactNode;
-  readonly rating: string;
-  readonly reviews: string;
-  readonly price: string;
-}) {
+/**
+ * Figma "Result Card" — an 88px square cover beside the title, advisor and meta.
+ *
+ * A results list whose rows go nowhere is a dead end, which is what this was
+ * until `/service/[id]` existed. It reads the same catalogue the home rails do,
+ * so a service found here and a service found there are the same record.
+ */
+function ResultCard({ service }: { readonly service: Service }) {
+  const advisor = getAdvisor(service.advisorId);
+  if (!advisor) return null;
+
   return (
-    <div className="flex w-full shrink-0 items-start gap-3 overflow-clip rounded-xl border bg-card p-2">
+    <Link
+      className="flex w-full shrink-0 items-start gap-3 overflow-clip rounded-xl border bg-card p-2"
+      href={`/service/${service.id}`}
+    >
       <Image
         alt=""
         className="size-22 shrink-0 rounded-xl object-cover"
-        src={cover}
+        src={service.cover}
       />
-      <div className="flex min-w-px flex-1 flex-col items-start gap-1 overflow-clip">
-        <p className="w-full text-sm font-semibold text-foreground">{title}</p>
-        <div className="flex w-full shrink-0 items-center gap-1 overflow-clip">
-          {avatar}
-          <p className="min-w-px flex-1 text-xs font-normal text-muted-foreground">
-            {advisor}
-          </p>
-        </div>
-        <ServiceMeta
-          price={price}
-          rating={rating}
-          reviews={reviews}
+      <span className="flex min-w-px flex-1 flex-col items-start gap-1 overflow-clip">
+        <span className="w-full text-sm font-semibold text-foreground">
+          <ThaiText>{service.title}</ThaiText>
+        </span>
+        <span className="flex w-full shrink-0 items-center gap-1 overflow-clip">
+          <ChatAvatar crop={advisor.crop} size={16} src={advisor.avatar} />
+          <span className="flex min-w-px flex-1 items-center gap-1 overflow-clip">
+            <span className="min-w-px truncate text-xs font-normal text-muted-foreground">
+              {advisor.name}
+            </span>
+            {advisor.verified ? <VerifiedTick /> : null}
+          </span>
+        </span>
+        <ServiceProof
+          bookings={service.bookings}
+          rating={advisor.rating}
+          reviews={advisor.reviews}
           starClassName="size-3"
         />
-      </div>
-    </div>
+        <ServicePrice minutes={service.minutes} price={service.price} />
+      </span>
+    </Link>
   );
 }
+
+/** The catalogue records this frame's query ("วางแผนภาษี") turns up. */
+const RESULT_IDS = [
+  "tax-freelance",
+  "tax-review",
+  "tax-corporate",
+  "tax-personal",
+];
 
 /**
  * Figma "Search results (Light)" — 1155:17475.
@@ -79,7 +89,7 @@ export function SearchResultsScreen() {
   const c = useTranslations("common");
 
   return (
-    <MobileScreen>
+    <MobileScreen className="pb-0">
       {/* Figma "Search Bar" — 16px side padding over a 28px back chevron. The
           glyph is #a3a3a3 in the design, which no token names; the muted ink at
           70% lands on the same grey and still follows the theme. */}
@@ -102,7 +112,7 @@ export function SearchResultsScreen() {
         <FilterButton iconClassName="size-4" label={c("filters")} />
       </div>
 
-      <ScreenBody>
+      <ScreenBody className="pb-18">
         {/* Figma "Page Content" — 24px side padding, 16px between blocks. */}
         <div className="flex w-full shrink-0 flex-col items-center gap-4 px-6 pt-2 pb-6">
           {/* Figma "Results Meta" */}
@@ -127,42 +137,12 @@ export function SearchResultsScreen() {
 
           {/* Figma "Results List" */}
           <div className="flex w-full shrink-0 flex-col items-start gap-3">
-            <ResultCard
-              advisor={t("r1Advisor")}
-              avatar={<ChatAvatar size={16} />}
-              cover={coverTax}
-              price={t("r1Price")}
-              rating={t("r1Rating")}
-              reviews={t("r1Reviews")}
-              title={t("r1Title")}
-            />
-            <ResultCard
-              advisor={t("r2Advisor")}
-              avatar={<ChatAvatar crop={false} size={16} src={chris} />}
-              cover={coverBusiness}
-              price={t("r2Price")}
-              rating={t("r2Rating")}
-              reviews={t("r2Reviews")}
-              title={t("r2Title")}
-            />
-            <ResultCard
-              advisor={t("r3Advisor")}
-              avatar={<ChatAvatar crop={false} size={16} src={james} />}
-              cover={coverTech}
-              price={t("r3Price")}
-              rating={t("r3Rating")}
-              reviews={t("r3Reviews")}
-              title={t("r3Title")}
-            />
-            <ResultCard
-              advisor={t("r4Advisor")}
-              avatar={<ChatAvatar size={16} />}
-              cover={coverTax}
-              price={t("r4Price")}
-              rating={t("r4Rating")}
-              reviews={t("r4Reviews")}
-              title={t("r4Title")}
-            />
+            {RESULT_IDS.map((id) => {
+              const service = getService(id);
+              return service ? (
+                <ResultCard key={id} service={service} />
+              ) : null;
+            })}
           </div>
         </div>
       </ScreenBody>

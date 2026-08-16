@@ -41,6 +41,18 @@
      the scroll flow, over whatever ground the frame already has. */
   --background-image-hero-wash: var(--hero-wash);
   --color-on-media: var(--on-media);
+  /* A `background-image` like `--hero-wash` — the bead behind a step number or
+     an FAQ toggle. */
+  --background-image-marker: var(--marker);
+  /* The only lifted surface in the app. Every other card sits flat on a border
+     hairline; a card that scrolls sideways needs to read as a loose object, and
+     a wide soft shadow is what says so. Tinted off `--scrim` rather than a
+     literal black so it follows the theme. */
+  --shadow-lift: 0 4px 30px color-mix(in srgb, var(--scrim) 12%, transparent);
+  --color-footer-surface: var(--footer-surface);
+  /* A `background-image`, like `--hero-wash`: it paints its own decorative
+     layer over the footer's ground rather than replacing it. */
+  --background-image-footer-glow: var(--footer-glow);
   --color-scrim: var(--scrim);
   --color-sidebar-ring: var(--sidebar-ring);
   --color-sidebar-border: var(--sidebar-border);
@@ -130,6 +142,36 @@
      on white. Everything else that inverts uses `bg-foreground text-background`. */
   --on-media: #ffffff;
   --scrim: #000000;
+
+  /* The round marker on a numbered step or an FAQ row: a bead lit from just
+     above its middle, so it reads as a raised dot rather than a flat swatch.
+     The sheen is the same white doubled as an inner shadow on the rim. */
+  --marker-sheen: color-mix(in srgb, var(--on-media) 80%, transparent);
+  --marker: radial-gradient(
+    52.81% 52.81% at 47.5% 54.06%,
+    var(--marker-sheen) 0%,
+    color-mix(in oklab, var(--primary) 34%, var(--card)) 100%
+  );
+
+  /* Figma 225:10503 draws the footer over a page-wide glow layer (node
+     1213:16952) of gaussian-blurred ellipses. Blurred ellipses are
+     radial-gradients, so they are drawn the way `--hero-wash` draws its two
+     rather than shipping a 10,656px-tall asset to show its bottom 9%.
+
+     Palette and geometry are the author's, tuned by eye on the running page.
+     Absent from `.dark` on purpose — like `--on-media` and `--scrim`, this
+     surface is already dark in both themes and flipping it would invert it. */
+  --footer-surface: #040413;
+  --footer-glow-blue: #278C9D;
+  --footer-glow-purple: #3229A8;
+  --footer-glow-red: #770056;
+  --footer-glow-cyan: #103A48;
+  --footer-glow:
+    radial-gradient(ellipse 84% 58% at 10% -4%, color-mix(in oklab, var(--footer-glow-blue) 35%, transparent), transparent 76%),
+    radial-gradient(ellipse 150% 150% at 120% -30%, color-mix(in oklab, var(--footer-glow-purple) 35%, transparent), transparent 76%),
+    radial-gradient(ellipse 150% 150% at 0% 150%, color-mix(in oklab, var(--footer-glow-red) 35%, transparent), transparent 76%),
+    radial-gradient(ellipse 150% 150% at 80% 120%, color-mix(in oklab, var(--footer-glow-cyan) 55%, transparent), transparent 76%),
+    radial-gradient(ellipse 86% 40% at 104% 35%, color-mix(in oklab, var(--footer-glow-red) 30%, transparent), transparent 76%);
   --chart-1: oklch(0.809 0.105 251.813);
   --chart-2: oklch(0.623 0.214 259.815);
   --chart-3: oklch(0.546 0.245 262.881);
