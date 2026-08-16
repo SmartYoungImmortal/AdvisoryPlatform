@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 // Noto Sans Thai carries the whole UI (--font-sans); Geist covers the Latin-only
 // runs that opt in with `font-latin`.
 import '@fontsource-variable/noto-sans-thai/wght.css';
@@ -12,6 +12,34 @@ import {getMessages} from 'next-intl/server';
 export const metadata: Metadata = {
   title: "Advisory Platform",
   description: "แพลตฟอร์มจับคู่ผู้ขอคำปรึกษากับที่ปรึกษา",
+  // iOS reads none of the manifest. The title it puts under the home-screen
+  // icon, the status-bar treatment and the icon itself all come from these
+  // instead — see `app/manifest.ts` for the Android half.
+  appleWebApp: {
+    capable: true,
+    title: "Advisory",
+    statusBarStyle: "default",
+  },
+  icons: { apple: "/apple-touch-icon.png" },
+};
+
+/**
+ * `themeColor` paints the browser and OS chrome around the app, so it has to
+ * track the surface actually behind that edge: `--card` at the top of a screen,
+ * where the nav bar sits, and its dark-theme value under `prefers-color-scheme`.
+ * It is a literal because this is metadata, not CSS — it cannot read the token.
+ *
+ * `viewportFit: "cover"` lets the frame reach into a notched phone's safe area,
+ * which is what the tab bar's extra 16px of bottom inset is already dressed for.
+ */
+export const viewport: Viewport = {
+  themeColor: [
+    { media: "(prefers-color-scheme: light)", color: "#ffffff" },
+    { media: "(prefers-color-scheme: dark)", color: "#18181b" },
+  ],
+  width: "device-width",
+  initialScale: 1,
+  viewportFit: "cover",
 };
 
 export default async function RootLayout({

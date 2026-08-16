@@ -1,7 +1,9 @@
 import Link from "next/link";
-import { Search, SlidersHorizontal, Star } from "lucide-react";
+import { BadgeCheck, Search, SlidersHorizontal, Star } from "lucide-react";
+import { useFormatter, useTranslations } from "next-intl";
 import type { ComponentProps, ReactNode } from "react";
 
+import { formatDuration } from "@/lib/catalogue/services";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -62,7 +64,13 @@ export function SearchField({
   );
 }
 
-/** Figma "Filter Button" — the 36px square that sits beside the search field. */
+/**
+ * Figma "Filter Button" — the square that sits beside the search field.
+ *
+ * Figma draws it at 36px against a 44px field, which leaves it floating short of
+ * the box it is paired with. It matches the field's height here and stays square,
+ * so the row reads as one control and not as a button that fell off it.
+ */
 export function FilterButton({
   label,
   iconClassName = "size-4.5",
@@ -73,7 +81,7 @@ export function FilterButton({
   return (
     <Button
       aria-label={label}
-      className="size-9 shrink-0 rounded-lg border-input bg-card shadow-none"
+      className="size-11 shrink-0 rounded-lg border-input bg-card shadow-none"
       size="icon"
       variant="outline"
     >
@@ -144,33 +152,106 @@ export function SectionHead({
 }
 
 /**
- * Figma "Meta" — the 4px row that closes a service card: an outline star, the
- * score, the review count, then the price pushed to the far edge.
+ * Figma "Meta" was one row: star, score, review count, price at the far edge.
+ * It is split in two here, because that single row was carrying the only two
+ * jobs a card has and doing neither — the proof and the offer read as one
+ * undifferentiated line of small grey text.
+ *
+ * The star is filled rather than outlined. A hollow star reads as a "save this"
+ * control; a rating is a filled one, and at 14px the outline was mostly the
+ * accent hairline anyway.
  */
-export function ServiceMeta({
+export function ServiceProof({
   rating,
   reviews,
-  price,
+  bookings,
   starClassName = "size-3.5",
 }: {
-  readonly rating: ReactNode;
-  readonly reviews: ReactNode;
-  readonly price: ReactNode;
+  readonly rating: string;
+  readonly reviews: number;
+  /** Consultations completed. Omitted where the card has no room for it. */
+  readonly bookings?: number;
   readonly starClassName?: string;
 }) {
+  const t = useTranslations("service");
+
   return (
     <div className="flex w-full shrink-0 items-center gap-1 overflow-clip">
-      <Star className={cn("shrink-0 text-primary", starClassName)} />
-      <p className="shrink-0 text-xs font-normal whitespace-nowrap text-foreground">
+      <Star className={cn("shrink-0 fill-primary text-primary", starClassName)} />
+      <span className="shrink-0 text-xs font-normal whitespace-nowrap text-foreground">
         {rating}
-      </p>
-      <p className="min-w-px flex-1 text-xs font-normal text-muted-foreground">
-        {reviews}
-      </p>
-      <p className="shrink-0 text-sm font-semibold whitespace-nowrap text-foreground">
-        {price}
-      </p>
+      </span>
+      <span className="shrink-0 text-xs font-normal whitespace-nowrap text-muted-foreground">
+        {t("reviewCount", { count: reviews })}
+      </span>
+      {bookings !== undefined ? (
+        <span className="min-w-px flex-1 truncate text-xs font-normal whitespace-nowrap text-muted-foreground">
+          · {t("bookings", { count: bookings })}
+        </span>
+      ) : null}
     </div>
+  );
+}
+
+/**
+ * The offer line: how long the consultation runs, and what it costs. Duration is
+ * the half that kept going missing — the catalogue sells hours, so a bare
+ * "฿1,200" cannot be read as expensive or cheap.
+ */
+export function ServicePrice({
+  minutes,
+  price,
+  from = false,
+}: {
+  readonly minutes?: number;
+  readonly price: number;
+  /** "starting at", for a card that stands for several services. */
+  readonly from?: boolean;
+}) {
+  const t = useTranslations("service");
+  const format = useFormatter();
+
+  return (
+    // Without a duration there is nothing to push the price away from, so the
+    // row shrinks to its content and lets the card align it — a lone price held
+    // to the right edge of a centred advisor card looked like a mistake.
+    <div
+      className={cn(
+        "flex shrink-0 items-baseline gap-1 overflow-clip",
+        minutes !== undefined && "w-full",
+      )}
+    >
+      {minutes !== undefined ? (
+        <span className="min-w-px flex-1 text-xs font-normal whitespace-nowrap text-muted-foreground">
+          {formatDuration(minutes)}
+        </span>
+      ) : null}
+      {from ? (
+        <span className="shrink-0 text-xs font-normal whitespace-nowrap text-muted-foreground">
+          {t("priceFrom")}
+        </span>
+      ) : null}
+      <span className="font-latin shrink-0 text-sm font-semibold whitespace-nowrap text-foreground">
+        {format.number(price, "baht")}
+      </span>
+    </div>
+  );
+}
+
+/**
+ * The identity-checked tick. `advisor.verified` has been in the copy since the
+ * onboarding flow shipped; the cards just never showed it. Compact by default
+ * because on a 240px rail card the full pill would take the row to itself.
+ */
+export function VerifiedTick({ className }: { readonly className?: string }) {
+  const t = useTranslations("service");
+
+  return (
+    <BadgeCheck
+      aria-label={t("verified")}
+      className={cn("size-3.5 shrink-0 text-success", className)}
+      role="img"
+    />
   );
 }
 
