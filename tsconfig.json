@@ -20,7 +20,8 @@
     ],
     "paths": {
       "@/*": ["./*"]
-    }
+    },
+    "types": ["omise-js-typed"]
   },
   "include": [
     "next-env.d.ts",
