@@ -7,6 +7,8 @@ export function AppShell() {
         <main className="flex flex-col w-full">
 
         </main>
-        <BottomBar selected={null} role="anon" className="absolute -bottom-14"/>
+        {/* Positioned by hand rather than laid out by a MobileScreen, so it drops
+            the negative margin the bar carries to reach that frame's bottom edge. */}
+        <BottomBar selected={null} role="anon" className="absolute -bottom-14 mb-0"/>
     </div>
 }

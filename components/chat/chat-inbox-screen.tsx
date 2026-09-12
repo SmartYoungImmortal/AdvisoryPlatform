@@ -61,9 +61,9 @@ export function ChatInboxScreen({
   const hasBanner = state === "session-banner";
 
   return (
-    <MobileScreen>
+    <MobileScreen className="pb-0">
       {/* Figma "Container": 2px side padding, 16px top padding, 16px between blocks. */}
-      <ScreenBody className="items-start gap-4 px-0.5 pb-[72px]">
+      <ScreenBody className="items-start gap-4 px-0.5 pb-[144px]">
         <TopBar unreadNotifications />
         {hasBanner ? (
           /* Figma "In-app banner" (995:11104) — a 64px accent-tinted strip above

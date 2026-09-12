@@ -1,46 +1,62 @@
-import Image, { type StaticImageData } from "next/image";
+import Image from "next/image";
 import Link from "next/link";
 import {
   Book,
   Brain,
   Briefcase,
-  ChevronRight,
   CodeXml,
   FileText,
   type LucideIcon,
-  Star,
   Wallet,
 } from "lucide-react";
 import { useTranslations } from "next-intl";
 import type { ReactNode } from "react";
 
 import {
-  christopherNolan as chris,
-  jamesGunn as james,
-  serviceAdvisorsDesk as coverTax,
-  serviceAdvisorsReview as coverBusiness,
-  serviceLaptopCode as coverTech,
-} from "@/lib/assets/r2";
+  advisorList,
+  formatDuration,
+  getAdvisor,
+  leadService,
+  priceFrom,
+  services,
+  soonestSlots,
+  type Advisor,
+  type Service,
+  type Slot,
+} from "@/lib/catalogue/services";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
 import { ChatAvatar } from "@/components/chat/chat-avatar";
 import { AutoScrollRail } from "@/components/home/auto-scroll-rail";
 import { HomeIntro } from "@/components/home/intro";
 import { TypingPlaceholder } from "@/components/home/typing-placeholder";
+import { HowToUse } from "@/components/home/how-to-use";
+import { VettingSection } from "@/components/home/vetting";
+import { FaqSection } from "@/components/marketing/faq-section";
+import { SiteFooter } from "@/components/marketing/site-footer";
 import {
   FilterButton,
-  FilterChip,
   IconBadge,
   SearchField,
   SectionHead,
-  ServiceMeta,
+  ServicePrice,
+  ServiceProof,
+  VerifiedTick,
 } from "@/components/home/parts";
 import { MobileScreen, ScreenBody } from "@/components/mobile/screen";
 import { ThaiText } from "@/components/mobile/thai-text";
 import { BottomBar } from "@/components/bottombar";
 import { TopBar } from "@/components/topbar";
 
-/** Figma "Category / …" — a 12px-radius tile with a muted icon circle over its label. */
+/**
+ * Figma "Category / …" — a 12px-radius tile with a muted icon circle over its
+ * label.
+ *
+ * The box is dropped here. This page is already a column of bordered white cards
+ * on a near-white ground (services, advisors, sessions), and six more of them
+ * turned the rail into another row of the same object. The circle is what names
+ * the category, so it carries the tile on its own and picks up the accent tint
+ * the muted grey was too close to the page to give it.
+ */
 function CategoryCard({
   icon: Icon,
   label,
@@ -49,137 +65,163 @@ function CategoryCard({
   readonly label: string;
 }) {
   return (
-    <div className="flex shrink-0 flex-col items-center justify-center gap-2 overflow-clip rounded-[12px] border bg-card p-3">
-      <IconBadge className="bg-muted">
-        <Icon className="size-4.5 text-primary" />
+    <Link
+      className="flex shrink-0 flex-col items-center gap-2 rounded-lg px-2 py-1"
+      href="/search"
+    >
+      <IconBadge className="size-12 bg-primary/10">
+        <Icon className="size-5 text-primary" />
       </IconBadge>
-      <p className="text-xs font-normal whitespace-nowrap text-foreground">
+      <span className="text-xs font-normal whitespace-nowrap text-foreground">
         {label}
-      </p>
-    </div>
+      </span>
+    </Link>
   );
 }
 
-/** Figma "Service Card" — a 240px rail card: 120px cover, title, advisor, meta. */
-function ServiceCard({
-  cover,
-  title,
-  advisor,
-  avatar,
-  rating,
-  reviews,
-  price,
-}: {
-  readonly cover: StaticImageData;
-  readonly title: string;
-  readonly advisor: string;
-  readonly avatar: ReactNode;
-  readonly rating: string;
-  readonly reviews: string;
-  readonly price: string;
-}) {
+/**
+ * Figma "Service Card" — a 240px rail card: 120px cover, title, advisor, meta.
+ *
+ * Two things arrive with the catalogue. It is a link, where before it was an
+ * inert `<div>` because there was no service route to point at. And it carries
+ * the proof and the offer on separate lines: score and completed bookings above,
+ * duration and price below. The duration is the part that had been missing
+ * everywhere but the search results — an hour of someone's time priced at
+ * ฿1,200 reads very differently from an unlabelled ฿1,200.
+ */
+function ServiceCard({ service }: { readonly service: Service }) {
+  const advisor = getAdvisor(service.advisorId);
+  if (!advisor) return null;
+
   return (
-    <div className="flex w-60 shrink-0 flex-col items-start gap-2 overflow-clip rounded-xl border bg-card">
-      <Image alt="" className="h-30 w-full shrink-0 object-cover" src={cover} />
+    <Link
+      className="flex w-60 shrink-0 flex-col items-start gap-2 overflow-clip rounded-xl border bg-card"
+      href={`/service/${service.id}`}
+    >
+      <Image
+        alt=""
+        className="h-30 w-full shrink-0 object-cover"
+        src={service.cover}
+      />
       <div className="flex w-full shrink-0 flex-col items-start gap-2 overflow-clip px-3 pb-3">
-        <p className="w-full text-sm font-semibold text-foreground">{title}</p>
-        <div className="flex w-full shrink-0 items-center gap-2 overflow-clip">
-          {avatar}
-          <p className="min-w-px flex-1 text-xs font-normal text-muted-foreground">
-            {advisor}
-          </p>
-        </div>
-        <ServiceMeta price={price} rating={rating} reviews={reviews} />
+        <span className="line-clamp-2 w-full text-sm font-semibold text-foreground">
+          <ThaiText>{service.title}</ThaiText>
+        </span>
+        {/* The tick rides with the name rather than at the far edge of the row,
+            where a flex-1 name left it stranded like a stray dot. */}
+        <span className="flex w-full shrink-0 items-center gap-1.5 overflow-clip">
+          <ChatAvatar crop={advisor.crop} size={20} src={advisor.avatar} />
+          <span className="flex min-w-px flex-1 items-center gap-1 overflow-clip">
+            <span className="min-w-px truncate text-xs font-normal text-muted-foreground">
+              {advisor.name}
+            </span>
+            {advisor.verified ? <VerifiedTick /> : null}
+          </span>
+        </span>
+        <ServiceProof
+          bookings={service.bookings}
+          rating={advisor.rating}
+          reviews={advisor.reviews}
+        />
+        <ServicePrice minutes={service.minutes} price={service.price} />
       </div>
-    </div>
+    </Link>
   );
 }
 
-/** Figma "Advisor Card" — a 56px portrait over name, field and score. */
-function AdvisorCard({
-  avatar,
-  name,
-  field,
-  rating,
-}: {
-  readonly avatar: ReactNode;
-  readonly name: string;
-  readonly field: string;
-  readonly rating: string;
-}) {
+/**
+ * Figma "Advisor Card" — a 56px portrait over name, field and score.
+ *
+ * The thinnest card on the page: it named someone and scored them, then left the
+ * reader with no way to find out what they charge or how to reach them. It now
+ * carries the verified tick, the review count behind the score and the price
+ * their cheapest consultation starts at.
+ *
+ * It links to that advisor's most-booked consultation rather than to a profile,
+ * because there is no public advisor route yet — see `leadService`.
+ */
+function AdvisorCard({ advisor }: { readonly advisor: Advisor }) {
+  const lead = leadService(advisor.id);
+  if (!lead) return null;
+
   return (
-    <div className="flex shrink-0 flex-col items-center gap-2 overflow-clip rounded-xl border bg-card p-3">
-      {avatar}
-      <p className="text-sm font-semibold whitespace-nowrap text-foreground">
-        {name}
-      </p>
-      <p className="text-xs font-normal whitespace-nowrap text-muted-foreground">
-        {field}
-      </p>
-      <div className="flex shrink-0 items-center gap-1 overflow-clip">
-        <Star className="size-3.5 shrink-0 text-primary" />
-        <p className="text-xs font-normal whitespace-nowrap text-foreground">
-          {rating}
-        </p>
-      </div>
-    </div>
+    <Link
+      className="flex w-36 shrink-0 flex-col items-center gap-2 overflow-clip rounded-xl border bg-card p-3"
+      href={`/service/${lead.id}`}
+    >
+      <ChatAvatar crop={advisor.crop} size={56} src={advisor.avatar} />
+      <span className="flex w-full shrink-0 items-center justify-center gap-1 overflow-clip">
+        <span className="truncate text-sm font-semibold text-foreground">
+          {advisor.name}
+        </span>
+        {advisor.verified ? <VerifiedTick /> : null}
+      </span>
+      <span className="w-full truncate text-center text-xs font-normal text-muted-foreground">
+        {advisor.field}
+      </span>
+      <ServiceProof rating={advisor.rating} reviews={advisor.reviews} />
+      <ServicePrice from price={priceFrom(advisor.id)} />
+    </Link>
   );
 }
 
-/** Figma "Session Row" — a 44px portrait, the session line, then a time chip over the price. */
+/**
+ * Figma "Session Row" — a 44px portrait, the session line, then a time chip over
+ * the price.
+ *
+ * Figma boxes each row separately, so three consecutive sessions arrive as three
+ * identical cards. They are one list, so they are drawn as one: the card and its
+ * radius move up to `SessionList` and the rows are separated by the hairline they
+ * were already carrying as a border.
+ *
+ * The row used to show a time and a price with no way to take either. It is now
+ * the slot's link, and a slot with one place left says so — the only urgency on
+ * this page that is a fact rather than a device.
+ */
 function SessionRow({
-  avatar,
-  title,
-  meta,
-  time,
-  price,
+  service,
+  slot,
 }: {
-  readonly avatar: ReactNode;
-  readonly title: string;
-  readonly meta: string;
-  readonly time: string;
-  readonly price: string;
+  readonly service: Service;
+  readonly slot: Slot;
 }) {
+  const t = useTranslations("service");
+  const advisor = getAdvisor(service.advisorId);
+  if (!advisor) return null;
+
   return (
-    <div className="flex w-full shrink-0 items-center gap-3 overflow-clip rounded-[12px] border bg-card p-3">
-      {avatar}
-      <div className="flex min-w-px flex-1 flex-col items-start gap-1 overflow-clip">
-        <p className="w-full text-sm font-semibold text-foreground">{title}</p>
-        <p className="w-full text-xs font-normal text-muted-foreground">{meta}</p>
-      </div>
-      <div className="flex shrink-0 flex-col items-end gap-1 overflow-clip">
+    <Link
+      className="flex w-full shrink-0 items-center gap-3 overflow-clip p-3"
+      href={`/service/${service.id}`}
+    >
+      <ChatAvatar crop={advisor.crop} size={44} src={advisor.avatar} />
+      <span className="flex min-w-px flex-1 flex-col items-start gap-1 overflow-clip">
+        <span className="w-full truncate text-sm font-semibold text-foreground">
+          {service.title}
+        </span>
+        <span className="w-full truncate text-xs font-normal text-muted-foreground">
+          {advisor.name} · {formatDuration(service.minutes)}
+        </span>
+      </span>
+      <span className="flex shrink-0 flex-col items-end gap-1 overflow-clip">
         <Badge className="h-auto rounded-full bg-primary/10 px-2 py-1 font-normal text-primary">
-          {time}
+          {slot.day === "today" ? t("today") : t("tomorrow")} {slot.time}
         </Badge>
-        <p className="text-sm font-semibold whitespace-nowrap text-foreground">
-          {price}
-        </p>
-      </div>
-    </div>
+        {slot.seatsLeft !== undefined ? (
+          <span className="text-xs font-normal whitespace-nowrap text-muted-foreground">
+            {t("seatsLeft", { count: slot.seatsLeft })}
+          </span>
+        ) : null}
+      </span>
+    </Link>
   );
 }
 
-/** Figma "Step" — a numbered accent circle over a 14/20 title and a 12/18 line. */
-function Step({
-  index,
-  title,
-  body,
-}: {
-  readonly index: string;
-  readonly title: string;
-  readonly body: string;
-}) {
+/** The card that holds the "Available Soon" sessions — see `SessionRow`. */
+function SessionList({ children }: { readonly children: ReactNode }) {
   return (
-    <div className="flex min-w-px flex-1 flex-col items-center gap-2 overflow-clip">
-      <IconBadge className="bg-primary/10">
-        <p className="text-sm font-semibold text-primary">{index}</p>
-      </IconBadge>
-      <p className="w-full text-center text-sm font-semibold text-foreground">
-        {title}
-      </p>
-      <p className="w-full text-center text-xs font-normal text-muted-foreground">
-        {body}
-      </p>
+    <div className="flex w-full shrink-0 flex-col items-stretch divide-y overflow-clip rounded-xl border bg-card">
+      {children}
     </div>
   );
 }
@@ -195,6 +237,12 @@ function Step({
  * Figma because a static frame cannot scroll. In the browser they scroll
  * horizontally, with the 24px page inset kept as the rail's own padding so the
  * first and last card still line up with the copy above them.
+ *
+ * Every record on this page now comes from `lib/catalogue/services`, which is
+ * also what `/search` and `/service/[id]` read. Before that the same three
+ * services were spelled out twice in `messages/th.json` — once for this screen,
+ * once for the results screen — with no id tying them together, which is why
+ * nothing on either screen could link anywhere.
  */
 export function HomeScreen() {
   const t = useTranslations("home");
@@ -209,9 +257,11 @@ export function HomeScreen() {
     t("searchExample4"),
     t("searchExample5"),
   ];
+  const suggested = services.slice(0, 3);
+  const upcoming = soonestSlots(3);
 
   return (
-    <MobileScreen>
+    <MobileScreen className="pb-0">
       <ScreenBody className="relative isolate">
         <TopBar unreadNotifications />
         {/* The wash belongs to the top of the page, not to the frame: absolutely
@@ -244,11 +294,6 @@ export function HomeScreen() {
               />
               <FilterButton label={c("filters")} />
             </div>
-            <div className="flex w-full shrink-0 items-start gap-2 overflow-x-auto">
-              <FilterChip active>{t("filterToday")}</FilterChip>
-              <FilterChip>{t("filterBudget")}</FilterChip>
-              <FilterChip>{t("filterRating")}</FilterChip>
-            </div>
           </div>
 
           {/* Figma "Categories" */}
@@ -268,65 +313,6 @@ export function HomeScreen() {
             </AutoScrollRail>
           </div>
 
-          {/* Figma "Matching Card" — the accent block that opens the matching flow.
-              Its icon badge is white-on-white in Figma, which renders as an empty
-              circle; the glyph is drawn in the accent here so it is actually
-              visible, mirroring the promo card below it. */}
-          <div className="flex w-full shrink-0 flex-col items-start px-6">
-            <div className="flex w-full shrink-0 flex-col items-start gap-3 overflow-clip rounded-xl bg-primary p-4">
-              <div className="flex w-full shrink-0 items-center gap-3 overflow-clip">
-                <IconBadge className="bg-primary-foreground">
-                  <Brain className="size-4.5 text-primary" />
-                </IconBadge>
-                <div className="flex min-w-px flex-1 flex-col items-start gap-1 overflow-clip text-primary-foreground">
-                  <p className="w-full text-base font-semibold">
-                    {t("matchTitle")}
-                  </p>
-                  <p className="w-full text-sm font-normal opacity-85">
-                    <ThaiText>{t("matchBody")}</ThaiText>
-                  </p>
-                </div>
-              </div>
-              <Button
-                className="h-auto w-full gap-1 rounded-lg border-0 bg-card px-4 py-2.5 font-semibold text-primary shadow-none hover:bg-card"
-                nativeButton={false}
-                render={<Link href="/matching" />}
-              >
-                {t("matchCta")}
-                <ChevronRight className="size-3.5" />
-              </Button>
-            </div>
-          </div>
-
-          {/* Figma "Promo Card" */}
-          <div className="flex w-full shrink-0 items-start px-6">
-            <div className="flex min-w-px flex-1 items-center gap-3 overflow-clip rounded-xl bg-primary/10 p-4">
-              <IconBadge className="bg-primary">
-                <Brain className="size-4.5 text-primary-foreground" />
-              </IconBadge>
-              <div className="flex min-w-px flex-1 flex-col items-start gap-1 overflow-clip">
-                <p className="w-full text-base font-semibold text-foreground">
-                  {t("promoTitle")}
-                </p>
-                <p className="w-full text-xs font-normal text-muted-foreground">
-                  <ThaiText>{t("promoBody")}</ThaiText>
-                </p>
-              </div>
-            </div>
-          </div>
-
-          {/* Figma "How to use" */}
-          <div className="flex w-full shrink-0 flex-col items-start gap-3 px-6">
-            <p className="w-full text-base font-semibold text-foreground">
-              {t("stepsTitle")}
-            </p>
-            <div className="flex w-full shrink-0 items-start gap-3">
-              <Step body={t("step1Body")} index="1" title={t("step1Title")} />
-              <Step body={t("step2Body")} index="2" title={t("step2Title")} />
-              <Step body={t("step3Body")} index="3" title={t("step3Title")} />
-            </div>
-          </div>
-
           {/* Figma "Suggested" */}
           <div className="flex w-full shrink-0 flex-col items-start gap-3">
             <SectionHead
@@ -335,33 +321,9 @@ export function HomeScreen() {
               title={t("suggested")}
             />
             <div className="flex w-full shrink-0 items-start gap-3 overflow-x-auto px-6">
-              <ServiceCard
-                advisor={t("s1Advisor")}
-                avatar={<ChatAvatar size={20} />}
-                cover={coverTax}
-                price={t("s1Price")}
-                rating={t("s1Rating")}
-                reviews={t("s1Reviews")}
-                title={t("s1Title")}
-              />
-              <ServiceCard
-                advisor={t("s2Advisor")}
-                avatar={<ChatAvatar crop={false} size={20} src={chris} />}
-                cover={coverBusiness}
-                price={t("s2Price")}
-                rating={t("s2Rating")}
-                reviews={t("s2Reviews")}
-                title={t("s2Title")}
-              />
-              <ServiceCard
-                advisor={t("s3Advisor")}
-                avatar={<ChatAvatar crop={false} size={20} src={james} />}
-                cover={coverTech}
-                price={t("s3Price")}
-                rating={t("s3Rating")}
-                reviews={t("s3Reviews")}
-                title={t("s3Title")}
-              />
+              {suggested.map((service) => (
+                <ServiceCard key={service.id} service={service} />
+              ))}
             </div>
           </div>
 
@@ -373,24 +335,9 @@ export function HomeScreen() {
               title={t("topAdvisors")}
             />
             <div className="flex w-full shrink-0 items-start gap-3 overflow-x-auto px-6">
-              <AdvisorCard
-                avatar={<ChatAvatar size={56} />}
-                field={t("a1Field")}
-                name={t("a1Name")}
-                rating={t("a1Rating")}
-              />
-              <AdvisorCard
-                avatar={<ChatAvatar crop={false} size={56} src={chris} />}
-                field={t("a2Field")}
-                name={t("a2Name")}
-                rating={t("a2Rating")}
-              />
-              <AdvisorCard
-                avatar={<ChatAvatar crop={false} size={56} src={james} />}
-                field={t("a3Field")}
-                name={t("a3Name")}
-                rating={t("a3Rating")}
-              />
+              {advisorList.map((advisor) => (
+                <AdvisorCard advisor={advisor} key={advisor.id} />
+              ))}
             </div>
           </div>
 
@@ -403,30 +350,40 @@ export function HomeScreen() {
               href="/search"
               title={t("availableSoon")}
             />
-            <SessionRow
-              avatar={<ChatAvatar crop={false} size={44} src={chris} />}
-              meta={t("n1Meta")}
-              price={t("n1Price")}
-              time={t("n1Time")}
-              title={t("n1Title")}
+            <SessionList>
+              {upcoming.map(({ service, slot }) => (
+                <SessionRow
+                  key={`${service.id}-${slot.day}-${slot.time}`}
+                  service={service}
+                  slot={slot}
+                />
+              ))}
+            </SessionList>
+          </div>
+
+          {/* The blocks below existed only on `/landing` — the page a reader
+              sees once, before they have an account, and never again. The four
+              steps, the vetting promise, the questions and the site links are
+              exactly what someone deciding whether to book needs, so they close
+              this page too. */}
+          <HowToUse />
+
+          <VettingSection />
+
+          <div className="flex w-full shrink-0 flex-col items-start gap-3 px-6">
+            <SectionHead
+              action={t("faqAll")}
+              className="px-0"
+              href="/landing#faq"
+              title={t("faqTitle")}
             />
-            <SessionRow
-              avatar={<ChatAvatar size={44} />}
-              meta={t("n2Meta")}
-              price={t("n2Price")}
-              time={t("n2Time")}
-              title={t("n2Title")}
-            />
-            <SessionRow
-              avatar={<ChatAvatar crop={false} size={44} src={james} />}
-              meta={t("n3Meta")}
-              price={t("n3Price")}
-              time={t("n3Time")}
-              title={t("n3Title")}
-            />
+            <FaqSection limit={5} />
           </div>
           </HomeIntro>
         </div>
+
+        {/* Runs under the tab bar, which is what the bar frosts against. */}
+        <SiteFooter className="pb-[101px]" />
       </ScreenBody>
       <BottomBar role="user" selected="home" />
     </MobileScreen>
