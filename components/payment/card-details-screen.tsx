@@ -11,36 +11,7 @@ import {
   ScreenTopBar,
 } from "@/components/mobile/screen";
 import { FootNote } from "@/components/screening/parts";
-
-/** Figma order-summary line — label left, amount right. */
-function SummaryLine({
-  label,
-  value,
-  strong = false,
-}: {
-  readonly label: string;
-  readonly value: string;
-  readonly strong?: boolean;
-}) {
-  return (
-    <div className="flex w-full shrink-0 items-center justify-between gap-3">
-      <span
-        className={`min-w-px flex-1 text-sm ${
-          strong ? "font-medium text-foreground" : "font-normal text-muted-foreground"
-        }`}
-      >
-        {label}
-      </span>
-      <span
-        className={`font-latin shrink-0 text-sm whitespace-nowrap ${
-          strong ? "font-semibold text-foreground" : "font-normal text-foreground"
-        }`}
-      >
-        {value}
-      </span>
-    </div>
-  );
-}
+import { SummaryLine } from "@/components/payment/summary-line";
 
 /**
  * Figma "Payment - Card details (Light)" (995:10140) and its error state

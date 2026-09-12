@@ -701,7 +701,19 @@
     "portfolioFee": "฿30",
     "portfolioTotal": "฿630",
     "downloadReceipt": "ดาวน์โหลดใบเสร็จ",
-    "payAgain": "ลองชำระอีกครั้ง"
+    "payAgain": "ลองชำระอีกครั้ง",
+    "methodSelection": {
+      "methodsTitle": "วิธีชำระเงิน",
+      "methods": {
+        "card": {
+          "title": "บัตรเครดิต / เดบิต",
+          "description": "Visa, Mastercard, JCB"
+        }
+      },
+      "title": "การชำระเงิน",
+      "total": "รวม",
+      "secured": "การชำระเงินดำเนินการโดย Omise โดย Advisory ไม่เห็นและไม่เก็บหมายเลขบัตรของคุณ"
+    }
   },
   "advisorOnboarding": {
     "introTitle": "สมัครเป็นที่ปรึกษา",
