@@ -42,8 +42,8 @@ export function ProfileScreen({
   const isView = variant === "view";
 
   return (
-    <MobileScreen>
-      <ScreenBody className="pb-1.5">
+    <MobileScreen className="pb-0">
+      <ScreenBody className="pb-19.5">
         <TopBar unreadNotifications />
         <div className="flex w-full shrink-0 flex-col items-start overflow-clip px-6 pt-4">
           <IdentityCard
