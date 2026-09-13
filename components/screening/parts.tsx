@@ -160,12 +160,14 @@ export function DetailRow({
 export function FootNote({
   icon: Icon,
   children,
+  className = "",
 }: {
   readonly icon: LucideIcon;
   readonly children: ReactNode;
+  readonly className?: string;
 }) {
   return (
-    <div className="flex w-full shrink-0 items-start gap-2 px-6 pt-4">
+    <div className={cn("flex w-full shrink-0 items-start gap-2 px-6 pt-4", className)}>
       <Icon className="size-3.5 shrink-0 text-muted-foreground" />
       <p className="min-w-px flex-1 text-xs font-normal text-muted-foreground">
         {children}

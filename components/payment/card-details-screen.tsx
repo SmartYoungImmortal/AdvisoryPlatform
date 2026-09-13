@@ -12,6 +12,7 @@ import {
 } from "@/components/mobile/screen";
 import { FootNote } from "@/components/screening/parts";
 import { SummaryLine } from "@/components/payment/summary-line";
+import { CardForm } from "@/components/payment/card-form";
 
 /**
  * Figma "Payment - Card details (Light)" (995:10140) and its error state
@@ -50,55 +51,12 @@ export function CardDetailsScreen({
           </div>
         </div>
 
-        {/* Figma "Form Fields": card number, a expiry/CVC row, then the name. */}
-        <div className="flex w-full shrink-0 flex-col items-start gap-4 px-6 pt-4">
-          <Field
-            defaultValue={err ? t("cardNumberFilled") : undefined}
-            error={err ? t("cardNumberError") : undefined}
-            id="card-number"
-            invalid={err}
-            label={t("cardNumberLabel")}
-            latin
-            placeholder={t("cardNumberPlaceholder")}
-          />
-          <div className="flex w-full shrink-0 items-start gap-3">
-            <div className="min-w-px flex-1">
-              <Field
-                defaultValue={err ? t("expiryFilled") : undefined}
-                error={err ? t("expiryError") : undefined}
-                id="card-expiry"
-                invalid={err}
-                label={t("expiryLabel")}
-                latin
-                placeholder={t("expiryPlaceholder")}
-              />
-            </div>
-            <div className="min-w-px flex-1">
-              <Field
-                defaultValue={err ? t("cvcFilled") : undefined}
-                error={err ? t("cvcError") : undefined}
-                id="card-cvc"
-                invalid={err}
-                label={t("cvcLabel")}
-                latin
-                placeholder={t("cvcPlaceholder")}
-              />
-            </div>
-          </div>
-          <Field
-            id="card-name"
-            label={t("cardNameLabel")}
-            latin
-            placeholder={t("cardNamePlaceholder")}
-          />
-        </div>
+        <CardForm />
 
-        <FootNote icon={Lock}>{t("secureNote")}</FootNote>
-
-        <ScreenSpacer />
-        <div className="flex w-full shrink-0 flex-col items-center px-6 pt-2 pb-2">
-          <PrimaryButton href="/checkout/processing">{t("pay")}</PrimaryButton>
-        </div>
+        {/* <ScreenSpacer /> */}
+        {/* <div className="flex w-full shrink-0 flex-col items-center px-6 pt-2 pb-2">
+          <PrimaryButton href="/checkout/processing">{t("methodForm.card.payButtonReady")}</PrimaryButton>
+        </div> */}
       </ScreenBody>
     </MobileScreen>
   );

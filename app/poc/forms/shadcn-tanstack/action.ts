@@ -15,6 +15,7 @@ const serverValidate = createServerValidate({
 })
 
 export default async function someAction(prev: unknown, formData: FormData) {
+  console.log(formData)
   try {
     const validatedData = await serverValidate(formData)
     console.log('validatedData', validatedData)
