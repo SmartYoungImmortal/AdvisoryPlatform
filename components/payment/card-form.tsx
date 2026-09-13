@@ -12,6 +12,7 @@ import {
   FieldSet,
 } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
+import { useCreateCardToken } from "@/lib/payment";
 import { useForm } from "@tanstack/react-form-nextjs";
 import { Lock } from "lucide-react";
 import { useTranslations } from "next-intl";
@@ -54,6 +55,7 @@ export function formatExpiryDate(value: string) {
 
 export function CardForm() {
   // const today = new Date();
+  const { mutateAsync: createToken } = useCreateCardToken();
 
   const t = useTranslations("payment");
   const tc = useTranslations("payment.methodForm.card");
@@ -71,7 +73,16 @@ export function CardForm() {
     },
     onSubmit: async ({ value }) => {
       console.log(value);
-      console.log(transformCardFormToOmiseDto(value))
+      const omiseCard = transformCardFormToOmiseDto(value)
+      console.log(omiseCard);
+      const res = await createToken(omiseCard, {
+        onSuccess: (result) => {
+          console.log(result);
+        },
+        onError: (err) => {
+          console.error(err);
+        },
+      });
     },
   });
 
