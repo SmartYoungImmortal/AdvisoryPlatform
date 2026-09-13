@@ -1,8 +1,4 @@
-import { $omiseVault, omiseVault, $omiseApi,omiseApi } from "@/lib/payment/omise/2019-05-29/client";
-
-export {
-    $omiseVault,
-    omiseVault,
-    $omiseApi,
-    omiseApi,
-}
+export { $omiseVault } from "@/lib/payment/omise/2019-05-29/client";
+export { omiseVault } from "@/lib/payment/omise/2019-05-29/client";
+export { $omiseApi } from "@/lib/payment/omise/2019-05-29/client";
+export { omiseApi } from "@/lib/payment/omise/2019-05-29/client";

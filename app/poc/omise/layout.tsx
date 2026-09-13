@@ -1,7 +1,7 @@
 export default function PaymentLayout({
   children,
 }: {
-  children: React.ReactNode
+  readonly children: React.ReactNode
 }) {
   return (
     <>

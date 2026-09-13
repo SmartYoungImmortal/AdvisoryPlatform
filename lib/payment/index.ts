@@ -1,6 +1,6 @@
-import { omiseApi, omiseVault } from "@/lib/payment/omise";
+import { omiseVault } from "@/lib/payment/omise";
 import { Card } from "@/lib/payment/types";
-import { QueryClient, useMutation, useQueryClient } from "@tanstack/react-query";
+import { QueryClient, useMutation } from "@tanstack/react-query";
 
 const queryClient = new QueryClient({});
 

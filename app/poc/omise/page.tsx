@@ -37,7 +37,7 @@ export default function PaymentPage() {
         });
       }}
     >
-      <button disabled={isPending}>
+      <button disabled={isPending} type="submit">
         {isPending ? "Processing..." : "Pay Now"}
       </button>
       {error && <p style={{ color: "red" }}>{error.message}</p>}
