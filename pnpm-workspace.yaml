@@ -5,6 +5,3 @@ allowBuilds:
   sharp: true
   unrs-resolver: true
   workerd: true
-ignoredBuiltDependencies:
-  - sharp
-  - unrs-resolver

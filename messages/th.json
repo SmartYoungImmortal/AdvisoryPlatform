@@ -585,22 +585,6 @@
     "platformFeeValue": "฿60",
     "total": "รวม",
     "totalValue": "฿1,260",
-    "cardNumberLabel": "หมายเลขบัตร",
-    "cardNumberPlaceholder": "0000 0000 0000 0000",
-    "expiryLabel": "วันหมดอายุ",
-    "expiryPlaceholder": "ดด / ปป",
-    "cvcLabel": "CVC",
-    "cvcPlaceholder": "123",
-    "cardNameLabel": "ชื่อบนบัตร",
-    "cardNamePlaceholder": "ARAYA SUWANNAKIT",
-    "secureNote": "เข้ารหัสและออกโทเคนโดย Omise เรียกเก็บเงินเมื่อยืนยันการจองแล้ว",
-    "pay": "ชำระ ฿1,260",
-    "cardNumberError": "หมายเลขบัตรไม่ถูกต้อง ตรวจสอบตัวเลขอีกครั้ง",
-    "expiryError": "บัตรนี้หมดอายุแล้ว",
-    "cvcError": "กรอกเลข 3 หลักหลังบัตร",
-    "cardNumberFilled": "4242 4242 4242 4241",
-    "expiryFilled": "03 / 24",
-    "cvcFilled": "12",
     "processingTitle": "กำลังดำเนินการ",
     "cancelPayment": "ยกเลิกการชำระเงิน",
     "successTitle": "ชำระเงินสำเร็จ",
@@ -693,7 +677,48 @@
     "portfolioFee": "฿30",
     "portfolioTotal": "฿630",
     "downloadReceipt": "ดาวน์โหลดใบเสร็จ",
-    "payAgain": "ลองชำระอีกครั้ง"
+    "payAgain": "ลองชำระอีกครั้ง",
+    "methodSelection": {
+      "methodsTitle": "วิธีชำระเงิน",
+      "methods": {
+        "card": {
+          "title": "บัตรเครดิต / เดบิต",
+          "description": "Visa, Mastercard, JCB"
+        }
+      },
+      "title": "การชำระเงิน",
+      "total": "รวม",
+      "secured": "การชำระเงินดำเนินการโดย Omise โดย Advisory ไม่เห็นและไม่เก็บหมายเลขบัตรของคุณ"
+    },
+    "methodForm": {
+      "card": {
+        "cardHolderName": {
+          "label": "ชื่อบนบัตร",
+          "placeholder": "ARAYA SUWANNAKIT"
+        },
+        "cardNumber": {
+          "label": "หมายเลขบัตร",
+          "placeholder": "0000 0000 0000 0000"
+        },
+        "expiryDate": {
+          "label": "วันหมดอายุ",
+          "placeholder": "12 / 34"
+        },
+        "securityCode": {
+          "label": "CVC",
+          "placeholder": "123"
+        },
+        "secureNote": "เข้ารหัสและออกโทเคนโดย Omise เรียกเก็บเงินเมื่อยืนยันการจองแล้ว",
+        "payButtonReady": "ชำระ ฿1,260",
+        "payButtonProcessing": "กำลังดำเนินการ...",
+        "cardNumberError": "หมายเลขบัตรไม่ถูกต้อง ตรวจสอบตัวเลขอีกครั้ง",
+        "expiryError": "บัตรนี้หมดอายุแล้ว",
+        "cvcError": "กรอกเลข 3 หลักหลังบัตร",
+        "cardNumberFilled": "4242 4242 4242 4241",
+        "expiryFilled": "03 / 24",
+        "cvcFilled": "12"
+      }
+    }
   },
   "advisorOnboarding": {
     "introTitle": "สมัครเป็นที่ปรึกษา",

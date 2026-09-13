@@ -1,3 +1,4 @@
 {
-    "robotcode.disableExtension": true
+    "robotcode.disableExtension": true,
+    "editor.tabSize": 2
 }
