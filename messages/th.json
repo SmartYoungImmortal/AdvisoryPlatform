@@ -1230,5 +1230,32 @@
       "sat": "เสาร์",
       "sun": "อาทิตย์"
     }
+  },
+  "advisorServices": {
+    "title": "บริการของฉัน",
+    "create": "สร้างบริการ",
+    "statTotal": "บริการทั้งหมด",
+    "statPublished": "เผยแพร่แล้ว",
+    "statProfiles": "ชุดเวลาว่าง",
+    "statusPublished": "เผยแพร่แล้ว",
+    "statusHidden": "ซ่อนอยู่",
+    "priceLine": "฿{price} · ช่วงละ {minutes} นาที",
+    "editService": "แก้ไขบริการ",
+    "statSlots": "ช่วงเวลา {days} วัน",
+    "statBooked": "จองแล้ว",
+    "statFree": "ยังว่าง",
+    "availabilityTitle": "เวลาว่างของบริการนี้",
+    "viewSchedule": "ดูตารางเวลา",
+    "editProfile": "แก้ไขชุดเวลา",
+    "ruleSlot": "ทีละ {minutes} นาที",
+    "ruleBuffer": "เว้น {minutes} นาที",
+    "ruleHorizon": "ล่วงหน้า {days} วัน",
+    "serviceCeiling": "เพดานของบริการนี้",
+    "ceilingUnlimited": "ไม่จำกัด",
+    "nextSlotsTitle": "ช่วงเวลาที่จองได้ถัดไป",
+    "bookingsTitle": "การจองของผู้รับคำปรึกษา",
+    "bookingsCount": "{count} รายการ",
+    "bookingUpcoming": "กำลังจะถึง",
+    "bookingCompleted": "เสร็จสิ้น"
   }
 }
