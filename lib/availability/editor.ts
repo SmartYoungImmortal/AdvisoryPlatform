@@ -94,3 +94,46 @@ export const BLOCKED_DATES: readonly BlockedDateFixture[] = [
 
 /** The profile these frames are editing. */
 export const EDITED_PROFILE_NAME = "งานให้คำปรึกษาทั่วไป";
+
+/**
+ * Figma "Create profile" (1594:31197, 31332, 31387, 32061).
+ *
+ * `create` is reached from a Service and offers to attach the new profile to it;
+ * `create-from-list` is reached from the profile list and has nothing to attach to,
+ * which is the only difference between the two frames.
+ */
+export type EditorMode = "edit" | "create" | "create-from-list";
+
+/** Figma "เริ่มจากรูปแบบสำเร็จรูป" — the shapes most weeks start as. */
+export const WEEK_PRESETS = [
+  { id: "weekdays", selected: true },
+  { id: "everyday", selected: false },
+  { id: "weekend", selected: false },
+  { id: "custom", selected: false },
+] as const;
+
+/** What the `weekdays` preset lays down: Monday to Friday, nine to five. */
+export const PRESET_WEEKLY_DAYS: readonly WeeklyDayFixture[] = WEEKDAYS.map(
+  (day) =>
+    day === "sat" || day === "sun"
+      ? { day, ranges: [] }
+      : { day, ranges: [{ start: "09:00", end: "17:00" }] },
+);
+
+/**
+ * Figma "Time picker" (1594:31672) — the list under an end-time trigger. Each row
+ * carries how long the range would become, which is the number the Advisor is
+ * actually choosing by.
+ */
+export const END_TIME_OPTIONS = [
+  { time: "09:30", minutes: 30 },
+  { time: "10:00", minutes: 60 },
+  { time: "10:30", minutes: 90 },
+  { time: "11:00", minutes: 120 },
+  { time: "11:30", minutes: 150 },
+  { time: "12:00", minutes: 180 },
+  { time: "12:30", minutes: 210 },
+  { time: "13:00", minutes: 240 },
+] as const;
+
+export const PICKED_END_TIME = "12:00";

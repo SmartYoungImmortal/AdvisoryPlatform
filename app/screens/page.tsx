@@ -179,6 +179,12 @@ const SECTIONS: ReadonlyArray<{
       { href: "/availability/profiles/edit/specific", label: "Profile editor – Specific dates" },
       { href: "/availability/profiles/edit/blocked", label: "Profile editor – Blocked dates" },
       { href: "/availability/profiles/edit/error", label: "Profile editor – Weekly validation error" },
+      { href: "/availability/profiles/edit/picker", label: "Profile editor – Time picker" },
+      { href: "/availability/profiles/add-date", label: "Profile editor – Add specific date" },
+      { href: "/availability/profiles/new", label: "Create profile – Weekly" },
+      { href: "/availability/profiles/new/specific", label: "Create profile – Specific dates" },
+      { href: "/availability/profiles/new/blocked", label: "Create profile – Blocked dates" },
+      { href: "/availability/profiles/new/from-list", label: "Create profile – From the list" },
     ],
   },
   {
