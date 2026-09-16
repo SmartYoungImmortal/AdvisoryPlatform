@@ -65,7 +65,8 @@ export function PdpaScreen() {
 
         <ScreenSpacer />
         <ScreenActions>
-          <PrimaryButton href="/profile">{t("accept")}</PrimaryButton>
+          {/* Consent is the last step of sign-up, so accepting lands on home. */}
+          <PrimaryButton href="/">{t("accept")}</PrimaryButton>
           <NeutralButton href="/terms">{t("readFull")}</NeutralButton>
         </ScreenActions>
       </ScreenBody>

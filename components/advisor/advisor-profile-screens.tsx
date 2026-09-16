@@ -26,6 +26,11 @@ import { useTranslations } from "next-intl";
 import { advisor } from "@/lib/assets/r2";
 import { advisorLevel } from "@/lib/catalogue/profiles";
 import { LevelBadge } from "@/components/advisor-public/level-badge";
+import {
+  AccountAvatar,
+  AccountLevelBadge,
+  AccountName,
+} from "@/components/session/account-bits";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
 import { NeutralButton, PrimaryButton } from "@/components/mobile/buttons";
@@ -67,25 +72,28 @@ export function AdvisorProfileScreen() {
         <div className="flex w-full shrink-0 flex-col items-start overflow-clip px-6 pt-4">
           <div className="flex w-full shrink-0 flex-col items-start gap-3 overflow-clip rounded-xl bg-card p-3.5">
             <div className="flex w-full shrink-0 items-center gap-3 overflow-clip">
-              <Image
-                alt=""
-                className="size-14 shrink-0 rounded-full object-cover"
-                height={56}
-                src={advisor}
-                width={56}
-              />
+              <AccountAvatar className="size-14" fallback={advisor} size={56} />
               <div className="flex min-w-px flex-1 flex-col items-start gap-1 overflow-clip">
                 <p className="font-latin flex w-full items-center gap-1 text-base font-medium text-foreground">
-                  {t("name")}
+                  <AccountName fallback={t("name")} />
                   <BadgeCheck className="size-4 shrink-0 text-primary" />
                 </p>
-                {level ? (
-                  <LevelBadge level={level} />
-                ) : (
-                  <p className="w-full text-xs font-normal text-muted-foreground">
-                    {t("role")}
-                  </p>
-                )}
+                <AccountLevelBadge
+                  fallback={
+                    level ? (
+                      <LevelBadge level={level} />
+                    ) : (
+                      <p className="w-full text-xs font-normal text-muted-foreground">
+                        {t("role")}
+                      </p>
+                    )
+                  }
+                  none={
+                    <p className="w-full text-xs font-normal text-muted-foreground">
+                      {t("role")}
+                    </p>
+                  }
+                />
               </div>
               <span className="flex size-9 shrink-0 items-center justify-center overflow-clip rounded-md bg-muted">
                 <UserRoundCog className="size-4.5 text-muted-foreground" />
