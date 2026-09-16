@@ -9,7 +9,7 @@ import { useId, useState } from "react";
 import { CmsButton } from "@/components/cms/button";
 import { CmsCard } from "@/components/cms/card";
 import { useCmsFeedback } from "@/components/cms/feedback";
-import { CmsFormField, CmsSelect, CmsTextarea } from "@/components/cms/fields";
+import { CmsFormField, CmsReasonField, CmsSelect } from "@/components/cms/fields";
 import { useAccountLookup, useActorId, useRecordId } from "@/components/cms/hooks";
 import { CmsPage } from "@/components/cms/layout";
 import { CmsDataRow, CmsMissing, CmsSidebarOptions } from "@/components/cms/sidebar-options";
@@ -44,7 +44,6 @@ function Review({ payout }: { readonly payout: Payout }) {
   const person = useAccountLookup();
   const { toast } = useCmsFeedback();
   const outcomeId = useId();
-  const reasonId = useId();
   const advisor = person(payout.advisorId);
   const [outcome, setOutcome] = useState<"paid" | "failed" | null>(null);
   const [reason, setReason] = useState("");
@@ -115,19 +114,16 @@ function Review({ payout }: { readonly payout: Payout }) {
                 />
               </CmsFormField>
               {outcome === "failed" ? (
-                <CmsFormField error={reasonError} htmlFor={reasonId} label={t("failReason")} required>
-                  <CmsTextarea
-                    id={reasonId}
-                    invalid={Boolean(reasonError)}
-                    onChange={(event) => {
-                      setReason(event.target.value);
-                      setReasonError(undefined);
-                    }}
-                    placeholder={t("failPlaceholder")}
-                    rows={3}
-                    value={reason}
-                  />
-                </CmsFormField>
+                <CmsReasonField
+                  error={reasonError}
+                  label={t("failReason")}
+                  onChange={(value) => {
+                    setReason(value);
+                    setReasonError(undefined);
+                  }}
+                  placeholder={t("failPlaceholder")}
+                  value={reason}
+                />
               ) : null}
             </>
           ) : (

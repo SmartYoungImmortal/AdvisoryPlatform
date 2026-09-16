@@ -83,6 +83,15 @@ function subscribeSidebarWidth(onChange: () => void): () => void {
   };
 }
 
+function writeSidebarWidth(next: number): void {
+  try {
+    window.localStorage.setItem(SIDEBAR_WIDTH_KEY, String(clampWidth(next)));
+  } catch {
+    // Private mode: the width simply resets on the next load.
+  }
+  window.dispatchEvent(new Event(SIDEBAR_WIDTH_EVENT));
+}
+
 /** The width Nuxt UI keeps in a cookie; here it lives in localStorage. */
 function useSidebarWidth(): readonly [number, (width: number) => void] {
   const width = useSyncExternalStore(
@@ -90,15 +99,7 @@ function useSidebarWidth(): readonly [number, (width: number) => void] {
     readSidebarWidth,
     () => SIDEBAR_WIDTH.initial,
   );
-  function setWidth(next: number) {
-    try {
-      window.localStorage.setItem(SIDEBAR_WIDTH_KEY, String(clampWidth(next)));
-    } catch {
-      // Private mode: the width simply resets on the next load.
-    }
-    window.dispatchEvent(new Event(SIDEBAR_WIDTH_EVENT));
-  }
-  return [width, setWidth];
+  return [width, writeSidebarWidth];
 }
 const SidebarContext = createContext<{
   readonly open: boolean;

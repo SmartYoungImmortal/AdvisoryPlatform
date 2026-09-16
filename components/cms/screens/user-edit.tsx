@@ -99,15 +99,17 @@ function UserEditor({ account }: { readonly account: Account }) {
   const self = account.id === actorId;
   const days = suspendDays(status);
 
+  // "Active" reads as the action that gets the account there from where it is.
+  const activeLabel = {
+    active: labels.account.active,
+    suspended: t("reinstate"),
+    locked: t("unlock"),
+  }[account.status];
+
   const statusItems: ReadonlyArray<CmsOption<StatusChoice>> = [
     {
       value: "active",
-      label:
-        account.status === "locked"
-          ? t("unlock")
-          : account.status === "suspended"
-            ? t("reinstate")
-            : labels.account.active,
+      label: activeLabel,
       icon: account.status === "locked" ? LockOpen : UserCheck,
     },
     ...(account.status === "active"

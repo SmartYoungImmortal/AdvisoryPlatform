@@ -10,7 +10,7 @@ import { useId, useState } from "react";
 import { CmsButton } from "@/components/cms/button";
 import { CmsCard } from "@/components/cms/card";
 import { useCmsFeedback } from "@/components/cms/feedback";
-import { CmsFormField, CmsLinkButton, CmsSelect, CmsTextarea } from "@/components/cms/fields";
+import { CmsFormField, CmsLinkButton, CmsReasonField, CmsSelect } from "@/components/cms/fields";
 import { useAccountLookup, useActorId, useRecordId } from "@/components/cms/hooks";
 import { CmsPage } from "@/components/cms/layout";
 import { CmsLightbox } from "@/components/cms/lightbox";
@@ -66,7 +66,6 @@ function Review({ request }: { readonly request: IdentityRequest }) {
   const person = useAccountLookup();
   const { toast } = useCmsFeedback();
   const outcomeId = useId();
-  const reasonId = useId();
   const account = person(request.accountId);
   const allProofs = useDatabase((db) => db.skillProofs);
   const allRequests = useDatabase((db) => db.identityRequests);
@@ -153,25 +152,17 @@ function Review({ request }: { readonly request: IdentityRequest }) {
                 />
               </CmsFormField>
               {outcome === "rejected" ? (
-                <CmsFormField
+                <CmsReasonField
                   error={reasonError}
                   help={t("rejectBody")}
-                  htmlFor={reasonId}
                   label={t("reason")}
-                  required
-                >
-                  <CmsTextarea
-                    id={reasonId}
-                    invalid={Boolean(reasonError)}
-                    onChange={(event) => {
-                      setReason(event.target.value);
-                      setReasonError(undefined);
-                    }}
-                    placeholder={t("rejectPlaceholder")}
-                    rows={4}
-                    value={reason}
-                  />
-                </CmsFormField>
+                  onChange={(value) => {
+                    setReason(value);
+                    setReasonError(undefined);
+                  }}
+                  placeholder={t("rejectPlaceholder")}
+                  value={reason}
+                />
               ) : null}
             </>
           ) : (

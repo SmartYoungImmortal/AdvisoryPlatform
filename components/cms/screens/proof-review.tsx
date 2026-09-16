@@ -10,7 +10,7 @@ import { useId, useState } from "react";
 import { CmsButton } from "@/components/cms/button";
 import { CmsCard } from "@/components/cms/card";
 import { useCmsFeedback } from "@/components/cms/feedback";
-import { CmsFormField, CmsSelect, CmsTextarea } from "@/components/cms/fields";
+import { CmsFormField, CmsReasonField, CmsSelect } from "@/components/cms/fields";
 import { useAccountLookup, useActorId, useRecordId } from "@/components/cms/hooks";
 import { CmsPage } from "@/components/cms/layout";
 import { CmsLightbox } from "@/components/cms/lightbox";
@@ -47,7 +47,6 @@ function Review({ proof }: { readonly proof: SkillProof }) {
   const person = useAccountLookup();
   const { toast } = useCmsFeedback();
   const outcomeId = useId();
-  const reasonId = useId();
   const advisor = person(proof.accountId);
   const [outcome, setOutcome] = useState<"approved" | "rejected" | null>(null);
   const [reason, setReason] = useState("");
@@ -112,19 +111,16 @@ function Review({ proof }: { readonly proof: SkillProof }) {
                 />
               </CmsFormField>
               {outcome === "rejected" ? (
-                <CmsFormField error={reasonError} htmlFor={reasonId} label={t("reason")} required>
-                  <CmsTextarea
-                    id={reasonId}
-                    invalid={Boolean(reasonError)}
-                    onChange={(event) => {
-                      setReason(event.target.value);
-                      setReasonError(undefined);
-                    }}
-                    placeholder={t("rejectPlaceholder")}
-                    rows={4}
-                    value={reason}
-                  />
-                </CmsFormField>
+                <CmsReasonField
+                  error={reasonError}
+                  label={t("reason")}
+                  onChange={(value) => {
+                    setReason(value);
+                    setReasonError(undefined);
+                  }}
+                  placeholder={t("rejectPlaceholder")}
+                  value={reason}
+                />
               ) : null}
             </>
           ) : (
