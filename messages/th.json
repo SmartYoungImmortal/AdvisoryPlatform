@@ -967,7 +967,9 @@
       "passwordLabel": "Password",
       "signIn": "Login",
       "errorTitle": "เข้าสู่ระบบไม่สำเร็จ",
-      "errorBody": "อีเมลหรือรหัสผ่านไม่ถูกต้อง หรือบัญชีนี้ไม่มีสิทธิ์ผู้ดูแล"
+      "errorBody": "อีเมลหรือรหัสผ่านไม่ถูกต้อง หรือบัญชีนี้ไม่มีสิทธิ์ผู้ดูแล",
+      "emailInvalid": "กรอกอีเมลให้ถูกต้อง",
+      "passwordRequired": "กรอกรหัสผ่าน"
     },
     "dashboard": {
       "title": "Dashboard",
