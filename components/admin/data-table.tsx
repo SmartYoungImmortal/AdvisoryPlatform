@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 import { ArrowUpDown } from "lucide-react";
+import { useTranslations } from "next-intl";
 
 import { Checkbox } from "@/components/ui/checkbox";
 import {
@@ -37,12 +38,14 @@ export function AdminTable<T extends { readonly id: string }>({
   readonly renderCell: (row: T, key: string) => ReactNode;
   readonly renderActions?: (row: T) => ReactNode;
 }) {
+  const t = useTranslations("admin.common");
+
   return (
     <Table>
       <TableHeader className="bg-muted/40">
         <TableRow>
           <TableHead className="w-8">
-            <Checkbox aria-label="เลือกทั้งหมด" />
+            <Checkbox aria-label={t("selectAll")} />
           </TableHead>
           {columns.map((column) => (
             <TableHead
@@ -67,7 +70,7 @@ export function AdminTable<T extends { readonly id: string }>({
         {rows.map((row) => (
           <TableRow key={row.id}>
             <TableCell>
-              <Checkbox aria-label="เลือกแถวนี้" />
+              <Checkbox aria-label={t("selectRow")} />
             </TableCell>
             {columns.map((column) => (
               <TableCell

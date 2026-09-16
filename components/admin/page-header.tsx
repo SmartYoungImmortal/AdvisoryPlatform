@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { ChevronLeft } from "lucide-react";
+import { useTranslations } from "next-intl";
 import type { ReactNode } from "react";
 
 import { Button } from "@/components/ui/button";
@@ -20,12 +21,14 @@ export function AdminPageHeader({
   readonly backHref?: string;
   readonly actions?: ReactNode;
 }) {
+  const t = useTranslations("admin.common");
+
   return (
     <div className="flex w-full items-start justify-between gap-4">
       <div className="flex min-w-0 items-start gap-2">
         {backHref ? (
           <Button
-            aria-label="ย้อนกลับ"
+            aria-label={t("back")}
             className="mt-0.5 shrink-0"
             nativeButton={false}
             render={<Link href={backHref} />}
