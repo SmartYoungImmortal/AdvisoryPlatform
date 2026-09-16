@@ -193,6 +193,12 @@ const SECTIONS: ReadonlyArray<{
     screens: [
       { href: "/advisor/services", label: "My services" },
       { href: "/advisor/services/tax-freelance", label: "Service detail – Advisor" },
+      { href: "/advisor/services/tax-freelance/schedule", label: "Service availability" },
+      { href: "/advisor/services/new", label: "Create service" },
+      { href: "/advisor/services/new/no-profile", label: "Create service – No profile yet" },
+      { href: "/advisor/services/new/limit", label: "Create service – Service limit on" },
+      { href: "/advisor/services/tax-freelance/edit", label: "Edit service" },
+      { href: "/advisor/services/tax-freelance/edit/delete", label: "Delete service confirm" },
     ],
   },
   {

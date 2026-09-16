@@ -13,15 +13,22 @@ import { WEEKDAYS, type Weekday } from "@/lib/availability/profiles";
  *
  * Shared by the profile list and the advisor's service detail, which show the same
  * week from two different screens.
+ *
+ * `compact` is the edit-service frame's preview of the chosen profile: the same
+ * table at 12/18 regular with 8px rows, because there it is a reminder under a
+ * select rather than the thing being read.
  */
 export function WeekTable({
   windows,
+  density = "regular",
   className,
 }: {
   readonly windows: Partial<Record<Weekday, string>>;
+  readonly density?: "regular" | "compact";
   readonly className?: string;
 }) {
   const t = useTranslations("availability");
+  const compact = density === "compact";
 
   return (
     <div
@@ -36,10 +43,16 @@ export function WeekTable({
         return (
           <div className="w-full" key={day}>
             {index > 0 ? <div className="h-px w-full bg-border" /> : null}
-            <div className="flex w-full shrink-0 items-center gap-2 overflow-clip px-3 py-2.5">
+            <div
+              className={cn(
+                "flex w-full shrink-0 items-center gap-2 overflow-clip px-3",
+                compact ? "py-2" : "py-2.5",
+              )}
+            >
               <p
                 className={cn(
-                  "shrink-0 text-sm font-medium whitespace-nowrap",
+                  "shrink-0 whitespace-nowrap",
+                  compact ? "text-xs font-normal" : "text-sm font-medium",
                   window
                     ? "text-foreground"
                     : "text-muted-foreground line-through",
@@ -50,7 +63,8 @@ export function WeekTable({
               <div className="h-px min-w-px flex-1" />
               <p
                 className={cn(
-                  "shrink-0 text-right text-sm font-normal whitespace-nowrap",
+                  "shrink-0 text-right font-normal whitespace-nowrap",
+                  compact ? "text-xs" : "text-sm",
                   window ? "text-foreground" : "text-muted-foreground",
                 )}
               >

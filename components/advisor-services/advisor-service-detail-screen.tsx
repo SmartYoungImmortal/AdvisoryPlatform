@@ -211,7 +211,7 @@ export function AdvisorServiceDetailScreen({
         <div className="flex w-full shrink-0 flex-col items-start gap-2.5 overflow-clip px-6">
           <SectionHead
             action={t("viewSchedule")}
-            href="/availability/profiles"
+            href={`/advisor/services/${serviceId}/schedule`}
             title={t("availabilityTitle")}
           />
 
