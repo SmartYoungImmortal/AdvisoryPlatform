@@ -4,12 +4,10 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { BadgeCheck, CircleX, Save } from "lucide-react";
 import { useTranslations } from "next-intl";
-import { useId, useState } from "react";
-
 import { CmsButton } from "@/components/cms/button";
 import { CmsCard } from "@/components/cms/card";
+import { CmsDecisionFields, useCmsDecision } from "@/components/cms/decision";
 import { useCmsFeedback } from "@/components/cms/feedback";
-import { CmsFormField, CmsReasonField, CmsSelect } from "@/components/cms/fields";
 import { useAccountLookup, useActorId, useRecordId } from "@/components/cms/hooks";
 import { CmsPage } from "@/components/cms/layout";
 import { CmsDataRow, CmsMissing, CmsSidebarOptions } from "@/components/cms/sidebar-options";
@@ -43,25 +41,19 @@ function Review({ payout }: { readonly payout: Payout }) {
   const actorId = useActorId();
   const person = useAccountLookup();
   const { toast } = useCmsFeedback();
-  const outcomeId = useId();
   const advisor = person(payout.advisorId);
-  const [outcome, setOutcome] = useState<"paid" | "failed" | null>(null);
-  const [reason, setReason] = useState("");
-  const [outcomeError, setOutcomeError] = useState<string | undefined>();
-  const [reasonError, setReasonError] = useState<string | undefined>();
+  const decision = useCmsDecision<"paid" | "failed">({
+    needsReason: (outcome) => outcome === "failed",
+    outcomeRequired: t("outcomeRequired"),
+    reasonRequired: t("reasonRequired"),
+  });
   const open = payout.status !== "paid";
 
   function save() {
-    if (!outcome) {
-      setOutcomeError(t("outcomeRequired"));
-      return;
-    }
-    if (outcome === "failed") {
-      if (!reason.trim()) {
-        setReasonError(t("reasonRequired"));
-        return;
-      }
-      markPayoutFailed(payout.id, reason.trim(), actorId);
+    const picked = decision.validate();
+    if (!picked) return;
+    if (picked.outcome === "failed") {
+      markPayoutFailed(payout.id, picked.reason, actorId);
       toast({ color: "warning", title: t("failed", { id: payout.id }) });
     } else {
       markPayoutsPaid([payout.id], actorId);
@@ -87,45 +79,21 @@ function Review({ payout }: { readonly payout: Payout }) {
           ]}
         >
           {open ? (
-            <>
-              <CmsFormField
-                error={outcomeError}
-                help={t("outcomeHelp")}
-                htmlFor={outcomeId}
-                label={t("outcome")}
-                required
-              >
-                <CmsSelect
-                  id={outcomeId}
-                  invalid={Boolean(outcomeError)}
-                  items={[
-                    { value: "paid", label: t("markPaid"), icon: BadgeCheck },
-                    ...(payout.status === "pending"
-                      ? [{ value: "failed" as const, label: t("markFailed"), icon: CircleX }]
-                      : []),
-                  ]}
-                  onValueChange={(value) => {
-                    setOutcome(value);
-                    setOutcomeError(undefined);
-                    setReasonError(undefined);
-                  }}
-                  placeholder={t("outcomePlaceholder")}
-                  value={outcome}
-                />
-              </CmsFormField>
-              {outcome === "failed" ? (
-                <CmsReasonField
-                  error={reasonError}
-                  label={t("failReason")}
-                  onChange={(value) => {
-                    setReason(value);
-                    setReasonError(undefined);
-                  }}
-                  placeholder={t("failPlaceholder")}
-                  value={reason}
-                />
-              ) : null}
-            </>
+            <CmsDecisionFields
+              decision={decision}
+              help={t("outcomeHelp")}
+              items={[
+                { value: "paid", label: t("markPaid"), icon: BadgeCheck },
+                // A failed transfer can only be retried, not failed again.
+                ...(payout.status === "pending"
+                  ? [{ value: "failed" as const, label: t("markFailed"), icon: CircleX }]
+                  : []),
+              ]}
+              label={t("outcome")}
+              placeholder={t("outcomePlaceholder")}
+              reasonLabel={t("failReason")}
+              reasonPlaceholder={t("failPlaceholder")}
+            />
           ) : (
             <dl className="space-y-3">
               <CmsDataRow label={t("col.status")}>

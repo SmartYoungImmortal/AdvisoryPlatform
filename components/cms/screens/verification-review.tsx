@@ -5,12 +5,13 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { CircleCheck, CircleX, Clock, FileText, Save, ShieldCheck, X } from "lucide-react";
 import { useTranslations } from "next-intl";
-import { useId, useState } from "react";
+import { useState } from "react";
 
 import { CmsButton } from "@/components/cms/button";
 import { CmsCard } from "@/components/cms/card";
+import { CmsDecisionFields, useCmsDecision } from "@/components/cms/decision";
 import { useCmsFeedback } from "@/components/cms/feedback";
-import { CmsFormField, CmsLinkButton, CmsReasonField, CmsSelect } from "@/components/cms/fields";
+import { CmsLinkButton } from "@/components/cms/fields";
 import { useAccountLookup, useActorId, useRecordId } from "@/components/cms/hooks";
 import { CmsPage } from "@/components/cms/layout";
 import { CmsLightbox } from "@/components/cms/lightbox";
@@ -65,15 +66,15 @@ function Review({ request }: { readonly request: IdentityRequest }) {
   const actorId = useActorId();
   const person = useAccountLookup();
   const { toast } = useCmsFeedback();
-  const outcomeId = useId();
   const account = person(request.accountId);
   const allProofs = useDatabase((db) => db.skillProofs);
   const allRequests = useDatabase((db) => db.identityRequests);
   const proofs = allProofs.filter((p) => p.accountId === request.accountId);
-  const [outcome, setOutcome] = useState<Outcome | null>(null);
-  const [reason, setReason] = useState("");
-  const [outcomeError, setOutcomeError] = useState<string | undefined>();
-  const [reasonError, setReasonError] = useState<string | undefined>();
+  const decision = useCmsDecision<Outcome>({
+    needsReason: (outcome) => outcome === "rejected",
+    outcomeRequired: t("outcomeRequired"),
+    reasonRequired: t("reasonRequired"),
+  });
   const [preview, setPreview] = useState(false);
   const pending = request.status === "submitted";
 
@@ -84,21 +85,15 @@ function Review({ request }: { readonly request: IdentityRequest }) {
   }
 
   function save() {
-    if (!outcome) {
-      setOutcomeError(t("outcomeRequired"));
-      return;
-    }
-    if (outcome === "rejected") {
-      if (!reason.trim()) {
-        setReasonError(t("reasonRequired"));
-        return;
-      }
-      rejectIdentity(request.id, reason.trim(), actorId);
+    const picked = decision.validate();
+    if (!picked) return;
+    if (picked.outcome === "rejected") {
+      rejectIdentity(request.id, picked.reason, actorId);
       toast({ color: "warning", title: t("rejected", { name: request.fullName }) });
       advance();
       return;
     }
-    const level = Number(outcome.slice("level-".length)) as AdvisorLevel;
+    const level = Number(picked.outcome.slice("level-".length)) as AdvisorLevel;
     approveIdentity(request.id, level, null, actorId);
     toast({ title: t("approved", { name: request.fullName, level }) });
     advance();
@@ -123,48 +118,23 @@ function Review({ request }: { readonly request: IdentityRequest }) {
           ]}
         >
           {pending ? (
-            <>
-              <CmsFormField
-                error={outcomeError}
-                help={t("levelHint")}
-                htmlFor={outcomeId}
-                label={t("outcome")}
-                required
-              >
-                <CmsSelect
-                  id={outcomeId}
-                  invalid={Boolean(outcomeError)}
-                  items={[
-                    ...LEVELS.map((level) => ({
-                      value: `level-${level}` as const,
-                      label: t("approveLevel", { level, title: advisorLevelTitles[level] }),
-                      icon: ShieldCheck,
-                    })),
-                    { value: "rejected" as const, label: t("reject"), icon: X },
-                  ]}
-                  onValueChange={(value) => {
-                    setOutcome(value);
-                    setOutcomeError(undefined);
-                    setReasonError(undefined);
-                  }}
-                  placeholder={t("outcomePlaceholder")}
-                  value={outcome}
-                />
-              </CmsFormField>
-              {outcome === "rejected" ? (
-                <CmsReasonField
-                  error={reasonError}
-                  help={t("rejectBody")}
-                  label={t("reason")}
-                  onChange={(value) => {
-                    setReason(value);
-                    setReasonError(undefined);
-                  }}
-                  placeholder={t("rejectPlaceholder")}
-                  value={reason}
-                />
-              ) : null}
-            </>
+            <CmsDecisionFields
+              decision={decision}
+              help={t("levelHint")}
+              items={[
+                ...LEVELS.map((level) => ({
+                  value: `level-${level}` as const,
+                  label: t("approveLevel", { level, title: advisorLevelTitles[level] }),
+                  icon: ShieldCheck,
+                })),
+                { value: "rejected" as const, label: t("reject"), icon: X },
+              ]}
+              label={t("outcome")}
+              placeholder={t("outcomePlaceholder")}
+              reasonHelp={t("rejectBody")}
+              reasonLabel={t("reason")}
+              reasonPlaceholder={t("rejectPlaceholder")}
+            />
           ) : (
             <dl className="space-y-3">
               <CmsDataRow label={t("col.status")}>

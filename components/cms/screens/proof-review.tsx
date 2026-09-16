@@ -5,12 +5,12 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Check, Save, X } from "lucide-react";
 import { useTranslations } from "next-intl";
-import { useId, useState } from "react";
+import { useState } from "react";
 
 import { CmsButton } from "@/components/cms/button";
 import { CmsCard } from "@/components/cms/card";
+import { CmsDecisionFields, useCmsDecision } from "@/components/cms/decision";
 import { useCmsFeedback } from "@/components/cms/feedback";
-import { CmsFormField, CmsReasonField, CmsSelect } from "@/components/cms/fields";
 import { useAccountLookup, useActorId, useRecordId } from "@/components/cms/hooks";
 import { CmsPage } from "@/components/cms/layout";
 import { CmsLightbox } from "@/components/cms/lightbox";
@@ -46,29 +46,24 @@ function Review({ proof }: { readonly proof: SkillProof }) {
   const actorId = useActorId();
   const person = useAccountLookup();
   const { toast } = useCmsFeedback();
-  const outcomeId = useId();
   const advisor = person(proof.accountId);
-  const [outcome, setOutcome] = useState<"approved" | "rejected" | null>(null);
-  const [reason, setReason] = useState("");
-  const [outcomeError, setOutcomeError] = useState<string | undefined>();
-  const [reasonError, setReasonError] = useState<string | undefined>();
+  const decision = useCmsDecision<"approved" | "rejected">({
+    needsReason: (outcome) => outcome === "rejected",
+    outcomeRequired: t("outcomeRequired"),
+    reasonRequired: t("reasonRequired"),
+  });
   const [preview, setPreview] = useState(false);
   const pending = proof.status === "pending";
 
   function save() {
-    if (!outcome) {
-      setOutcomeError(t("outcomeRequired"));
-      return;
-    }
-    if (outcome === "rejected" && !reason.trim()) {
-      setReasonError(t("reasonRequired"));
-      return;
-    }
-    decideSkillProofs([proof.id], outcome, outcome === "rejected" ? reason.trim() : null, actorId);
+    const picked = decision.validate();
+    if (!picked) return;
+    const rejected = picked.outcome === "rejected";
+    decideSkillProofs([proof.id], picked.outcome, rejected ? picked.reason : null, actorId);
     toast(
-      outcome === "approved"
-        ? { title: t("approvedProof", { count: 1 }) }
-        : { color: "warning", title: t("rejectedProof", { count: 1 }) },
+      rejected
+        ? { color: "warning", title: t("rejectedProof", { count: 1 }) }
+        : { title: t("approvedProof", { count: 1 }) },
     );
     router.push(BACK);
   }
@@ -92,37 +87,17 @@ function Review({ proof }: { readonly proof: SkillProof }) {
           ]}
         >
           {pending ? (
-            <>
-              <CmsFormField error={outcomeError} htmlFor={outcomeId} label={t("outcome")} required>
-                <CmsSelect
-                  id={outcomeId}
-                  invalid={Boolean(outcomeError)}
-                  items={[
-                    { value: "approved", label: t("approve"), icon: Check },
-                    { value: "rejected", label: t("reject"), icon: X },
-                  ]}
-                  onValueChange={(value) => {
-                    setOutcome(value);
-                    setOutcomeError(undefined);
-                    setReasonError(undefined);
-                  }}
-                  placeholder={t("outcomePlaceholder")}
-                  value={outcome}
-                />
-              </CmsFormField>
-              {outcome === "rejected" ? (
-                <CmsReasonField
-                  error={reasonError}
-                  label={t("reason")}
-                  onChange={(value) => {
-                    setReason(value);
-                    setReasonError(undefined);
-                  }}
-                  placeholder={t("rejectPlaceholder")}
-                  value={reason}
-                />
-              ) : null}
-            </>
+            <CmsDecisionFields
+              decision={decision}
+              items={[
+                { value: "approved", label: t("approve"), icon: Check },
+                { value: "rejected", label: t("reject"), icon: X },
+              ]}
+              label={t("outcome")}
+              placeholder={t("outcomePlaceholder")}
+              reasonLabel={t("reason")}
+              reasonPlaceholder={t("rejectPlaceholder")}
+            />
           ) : (
             <dl className="space-y-3">
               <CmsDataRow label={t("col.status")}>
