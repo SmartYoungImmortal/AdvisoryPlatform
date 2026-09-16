@@ -55,7 +55,7 @@ export function AccountLevelBadge({
   const account = useAccount();
   if (!account) return fallback;
   const profile = account.advisor;
-  if (!profile || profile.identity !== "verified") return none;
+  if (profile?.identity !== "verified") return none;
   return (
     <LevelBadge
       level={{ number: profile.level, title: advisorLevelTitles[profile.level] }}

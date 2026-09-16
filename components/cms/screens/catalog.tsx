@@ -131,22 +131,22 @@ function CategoryTable({
       id: "name",
       header: t("col.name"),
       sortable: true,
-      cell: (c) => <span className="font-medium text-highlighted">{c.name}</span>,
+      render: (c) => <span className="font-medium text-highlighted">{c.name}</span>,
     },
-    { id: "slug", header: t("col.slug"), className: "font-latin", cell: (c) => c.slug },
+    { id: "slug", header: t("col.slug"), className: "font-latin", render: (c) => c.slug },
     {
       id: "services",
       header: t("col.services"),
       sortable: true,
       className: "font-latin",
-      cell: (c) => usage.get(c.id) ?? 0,
+      render: (c) => usage.get(c.id) ?? 0,
     },
-    { id: "updatedAt", header: t("col.updatedAt"), sortable: true, cell: (c) => formatDate(c.updatedAt) },
+    { id: "updatedAt", header: t("col.updatedAt"), sortable: true, render: (c) => formatDate(c.updatedAt) },
     {
       id: "status",
       header: t("col.status"),
       align: "center",
-      cell: (c) => <CmsStatus group="publish" value={c.status} />,
+      render: (c) => <CmsStatus group="publish" value={c.status} />,
     },
   ];
 
@@ -191,10 +191,10 @@ function SkillTable({
       id: "name",
       header: t("col.name"),
       sortable: true,
-      cell: (s) => <span className="font-medium text-highlighted">{s.name}</span>,
+      render: (s) => <span className="font-medium text-highlighted">{s.name}</span>,
     },
-    { id: "category", header: t("col.category"), cell: (s) => categoryName.get(s.categoryId) ?? "—" },
-    { id: "updatedAt", header: t("col.updatedAt"), sortable: true, cell: (s) => formatDate(s.updatedAt) },
+    { id: "category", header: t("col.category"), render: (s) => categoryName.get(s.categoryId) ?? "—" },
+    { id: "updatedAt", header: t("col.updatedAt"), sortable: true, render: (s) => formatDate(s.updatedAt) },
   ];
 
   return (

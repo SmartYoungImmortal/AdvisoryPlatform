@@ -44,7 +44,8 @@ export type CmsColumn<Row> = {
   readonly className?: string;
   /** The cell holds its own controls, so a click there is not a row click. */
   readonly interactive?: boolean;
-  readonly cell: (row: Row) => ReactNode;
+  /** Draws the cell — a render prop, like Nexus's per-column slot. */
+  readonly render: (row: Row) => ReactNode;
 };
 
 const ALIGN = { start: "text-start", center: "text-center", end: "text-end" } as const;
@@ -203,7 +204,7 @@ export function CmsTable<Row extends { readonly id: string }>({
                     key={column.id}
                     onClick={column.interactive ? (event) => event.stopPropagation() : undefined}
                   >
-                    {column.cell(row)}
+                    {column.render(row)}
                   </TableCell>
                 ))}
               </TableRow>

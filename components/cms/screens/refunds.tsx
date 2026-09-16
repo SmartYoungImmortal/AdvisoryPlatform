@@ -53,7 +53,7 @@ export function RefundsScreen() {
     {
       id: "request",
       header: t("col.request"),
-      cell: (r) => (
+      render: (r) => (
         <span className="flex flex-col">
           <span className="font-latin font-medium text-highlighted">{r.id}</span>
           <span className="font-latin text-xs">{r.bookingRef}</span>
@@ -63,12 +63,12 @@ export function RefundsScreen() {
     {
       id: "requester",
       header: t("col.requester"),
-      cell: (r) => <CmsPerson account={person(r.requesterId)} detail={person(r.requesterId)?.email} />,
+      render: (r) => <CmsPerson account={person(r.requesterId)} detail={person(r.requesterId)?.email} />,
     },
     {
       id: "service",
       header: t("col.service"),
-      cell: (r) => (
+      render: (r) => (
         <span className="flex max-w-56 flex-col">
           <span className="truncate text-highlighted">{r.serviceTitle}</span>
           <span className="truncate text-xs">{person(r.advisorId)?.name ?? "—"}</span>
@@ -78,14 +78,14 @@ export function RefundsScreen() {
     {
       id: "reason",
       header: t("col.reason"),
-      cell: (r) => <span className="block max-w-64 truncate">{r.reason}</span>,
+      render: (r) => <span className="block max-w-64 truncate">{r.reason}</span>,
     },
     {
       id: "amount",
       header: t("col.amount"),
       sortable: true,
       className: "font-latin",
-      cell: (r) =>
+      render: (r) =>
         r.status === "approved" && r.refundedSatang !== null && r.refundedSatang !== r.paidSatang
           ? `${formatBaht(r.refundedSatang)} / ${formatBaht(r.paidSatang)}`
           : formatBaht(r.paidSatang),
@@ -94,13 +94,13 @@ export function RefundsScreen() {
       id: "requestedAt",
       header: t("col.requestedAt"),
       sortable: true,
-      cell: (r) => formatDateTime(r.requestedAt),
+      render: (r) => formatDateTime(r.requestedAt),
     },
     {
       id: "status",
       header: t("col.status"),
       align: "center",
-      cell: (r) => <CmsStatus group="refund" value={r.status} />,
+      render: (r) => <CmsStatus group="refund" value={r.status} />,
     },
   ];
 

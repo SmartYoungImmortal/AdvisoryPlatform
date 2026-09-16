@@ -157,7 +157,7 @@ export function ReportsScreen() {
     {
       id: "category",
       header: t("col.category"),
-      cell: (r) => (
+      render: (r) => (
         <CmsBadge color={r.category === "off-platform" || r.category === "scam" ? "error" : "neutral"}>
           {categoryLabels[r.category]}
         </CmsBadge>
@@ -166,20 +166,20 @@ export function ReportsScreen() {
     {
       id: "reported",
       header: t("col.reported"),
-      cell: (r) => <CmsPerson account={person(r.reportedId)} detail={person(r.reportedId)?.email} />,
+      render: (r) => <CmsPerson account={person(r.reportedId)} detail={person(r.reportedId)?.email} />,
     },
     {
       id: "detail",
       header: t("col.detail"),
-      cell: (r) => <span className="block max-w-72 truncate">{r.detail}</span>,
+      render: (r) => <span className="block max-w-72 truncate">{r.detail}</span>,
     },
-    { id: "reporter", header: t("col.reporter"), cell: (r) => person(r.reporterId)?.name ?? "—" },
-    { id: "createdAt", header: t("col.createdAt"), sortable: true, cell: (r) => formatDateTime(r.createdAt) },
+    { id: "reporter", header: t("col.reporter"), render: (r) => person(r.reporterId)?.name ?? "—" },
+    { id: "createdAt", header: t("col.createdAt"), sortable: true, render: (r) => formatDateTime(r.createdAt) },
     {
       id: "status",
       header: t("col.status"),
       align: "center",
-      cell: (r) => <CmsStatus group="report" value={r.status} />,
+      render: (r) => <CmsStatus group="report" value={r.status} />,
     },
   ];
 
@@ -285,7 +285,7 @@ export function OffPlatformScreen() {
     {
       id: "message",
       header: t("col.message"),
-      cell: (f) => (
+      render: (f) => (
         <span className="block max-w-80 truncate text-foreground">
           <HighlightedMessage flag={f} />
         </span>
@@ -294,7 +294,7 @@ export function OffPlatformScreen() {
     {
       id: "sender",
       header: t("col.sender"),
-      cell: (f) => (
+      render: (f) => (
         <CmsPerson
           account={person(f.senderId)}
           detail={t("flagCount", { count: repeat.get(f.senderId) ?? 0 })}
@@ -304,7 +304,7 @@ export function OffPlatformScreen() {
     {
       id: "signals",
       header: t("col.signals"),
-      cell: (f) => (
+      render: (f) => (
         <span className="flex flex-wrap gap-1">
           {f.matches.map((m) => (
             <CmsBadge key={`${m.signal}-${m.text}`} variant="outline">
@@ -318,14 +318,14 @@ export function OffPlatformScreen() {
       id: "risk",
       header: t("col.risk"),
       sortable: true,
-      cell: (f) => <CmsStatus group="risk" value={f.risk} />,
+      render: (f) => <CmsStatus group="risk" value={f.risk} />,
     },
-    { id: "detectedAt", header: t("col.detectedAt"), sortable: true, cell: (f) => formatDateTime(f.detectedAt) },
+    { id: "detectedAt", header: t("col.detectedAt"), sortable: true, render: (f) => formatDateTime(f.detectedAt) },
     {
       id: "status",
       header: t("col.status"),
       align: "center",
-      cell: (f) => <CmsStatus group="report" value={f.status} />,
+      render: (f) => <CmsStatus group="report" value={f.status} />,
     },
   ];
 

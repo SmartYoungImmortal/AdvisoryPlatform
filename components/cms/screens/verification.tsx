@@ -85,12 +85,12 @@ function IdentityTable({ requests }: { readonly requests: readonly IdentityReque
       id: "applicant",
       header: t("col.applicant"),
       sortable: true,
-      cell: (r) => <CmsPerson account={person(r.accountId)} detail={r.fullName} />,
+      render: (r) => <CmsPerson account={person(r.accountId)} detail={r.fullName} />,
     },
     {
       id: "credential",
       header: t("col.credential"),
-      cell: (r) => (
+      render: (r) => (
         <span className="flex flex-col">
           <span className="text-highlighted">{r.credential}</span>
           <span className="text-xs">{r.field}</span>
@@ -101,13 +101,13 @@ function IdentityTable({ requests }: { readonly requests: readonly IdentityReque
       id: "submittedAt",
       header: t("col.submittedAt"),
       sortable: true,
-      cell: (r) => formatDateTime(r.submittedAt),
+      render: (r) => formatDateTime(r.submittedAt),
     },
     {
       id: "status",
       header: t("col.status"),
       align: "center",
-      cell: (r) => <CmsStatus group="identity" value={r.status} />,
+      render: (r) => <CmsStatus group="identity" value={r.status} />,
     },
   ];
 
@@ -175,13 +175,13 @@ function ProofTable({ proofs }: { readonly proofs: readonly SkillProof[] }) {
     {
       id: "advisor",
       header: t("col.advisor"),
-      cell: (p) => <CmsPerson account={person(p.accountId)} detail={person(p.accountId)?.email} />,
+      render: (p) => <CmsPerson account={person(p.accountId)} detail={person(p.accountId)?.email} />,
     },
     {
       id: "skill",
       header: t("col.skill"),
       sortable: true,
-      cell: (p) => (
+      render: (p) => (
         <span className="flex flex-col gap-0.5">
           <span className="text-highlighted">{p.skill}</span>
           <span className="flex items-center gap-1 font-latin text-xs">
@@ -195,20 +195,20 @@ function ProofTable({ proofs }: { readonly proofs: readonly SkillProof[] }) {
       id: "submittedAt",
       header: t("col.submittedAt"),
       sortable: true,
-      cell: (p) => formatDateTime(p.submittedAt),
+      render: (p) => formatDateTime(p.submittedAt),
     },
     {
       id: "status",
       header: t("col.status"),
       align: "center",
-      cell: (p) => <CmsStatus group="proof" value={p.status} />,
+      render: (p) => <CmsStatus group="proof" value={p.status} />,
     },
     {
       id: "actions",
       header: "",
       align: "end",
       interactive: true,
-      cell: (p) =>
+      render: (p) =>
         p.status === "pending" ? (
           <span className="inline-flex gap-1">
             <CmsButton

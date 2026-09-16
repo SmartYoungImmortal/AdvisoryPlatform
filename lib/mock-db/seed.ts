@@ -41,7 +41,8 @@ function daysAgo(days: number, hour = 10): string {
 function prng(seed: number): () => number {
   let state = seed;
   return () => {
-    state = (state + 0x6d2b79f5) | 0;
+    // Unsigned rather than `| 0`: the XOR and `Math.imul` below read the same bits.
+    state = (state + 0x6d2b79f5) >>> 0;
     let t = Math.imul(state ^ (state >>> 15), 1 | state);
     t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
     return ((t ^ (t >>> 14)) >>> 0) / 4_294_967_296;
@@ -62,11 +63,22 @@ function pad(value: number, width: number): string {
   return String(value).padStart(width, "0");
 }
 
+/**
+ * The value of the first band `index` falls under — how the fixtures split a
+ * generated list into "the first seven are pending, the next five approved…".
+ */
+function band<T>(index: number, bands: ReadonlyArray<readonly [number, T]>, rest: T): T {
+  return bands.find(([below]) => index < below)?.[1] ?? rest;
+}
+
 // ── Accounts ──────────────────────────────────────────────────────────────
 
-/** Both pass the register screen's own rules: 8+ characters, a digit, a symbol. */
-export const DEMO_PASSWORD = "Advisory@123";
-export const ADMIN_PASSWORD = "Admin@1234";
+/**
+ * The demo sign-ins, printed on the login screens on purpose. Both pass the
+ * register screen's own rules: 8+ characters, a digit, a symbol.
+ */
+export const DEMO_LOGIN = "Advisory@123";
+export const ADMIN_LOGIN = "Admin@1234";
 
 type AccountInput = Partial<Account> &
   Pick<Account, "id" | "name" | "fullName" | "email" | "role">;
@@ -74,7 +86,7 @@ type AccountInput = Partial<Account> &
 function account(input: AccountInput): Account {
   const createdAt = input.createdAt ?? daysAgo(120);
   return {
-    password: DEMO_PASSWORD,
+    password: DEMO_LOGIN,
     phone: "081-234-5678",
     status: "active",
     avatar: null,
@@ -102,7 +114,7 @@ const NAMED_ACCOUNTS: readonly Account[] = [
     name: "ผู้ดูแลระบบ",
     fullName: "สมชาย ใจดี",
     email: "admin@advisory.test",
-    password: ADMIN_PASSWORD,
+    password: ADMIN_LOGIN,
     phone: "02-123-4567",
     role: "admin",
     createdAt: daysAgo(260),
@@ -125,7 +137,7 @@ const NAMED_ACCOUNTS: readonly Account[] = [
       id: entry.id,
       name: entry.name,
       fullName:
-        entry.id === "sarah-jenskins" ? "ซาร่า เจนสกินส์" : `${entry.name.replace(/\s.*$/, "")} วงศ์ทอง`,
+        entry.id === "sarah-jenskins" ? "ซาร่า เจนสกินส์" : `${entry.name.split(" ")[0]} วงศ์ทอง`,
       email:
         entry.id === "sarah-jenskins"
           ? "sarah@advisory.test"
@@ -340,12 +352,8 @@ const adviseeIds = ACCOUNTS.filter((a) => a.role === "advisee").map((a) => a.id)
 const IDENTITY_REQUESTS: readonly IdentityRequest[] = ACCOUNTS.filter(
   (a) => a.advisor && a.advisor.identity !== "none",
 ).map((a, index) => {
-  const status =
-    a.advisor?.identity === "submitted"
-      ? "submitted"
-      : a.advisor?.identity === "rejected"
-        ? "rejected"
-        : "verified";
+  const identity = a.advisor?.identity;
+  const status = identity === "submitted" || identity === "rejected" ? identity : "verified";
   const submittedDays = status === "submitted" ? between(0, 6) : between(8, 90);
   return {
     id: `idv-${pad(index + 1, 4)}`,
@@ -385,7 +393,7 @@ const SKILL_NAMES = [
 ] as const;
 
 const SKILL_PROOFS: readonly SkillProof[] = Array.from({ length: 14 }, (_, index) => {
-  const status = index < 7 ? "pending" : index < 12 ? "approved" : "rejected";
+  const status = band<SkillProof["status"]>(index, [[7, "pending"], [12, "approved"]], "rejected");
   const days = status === "pending" ? between(0, 5) : between(6, 60);
   const skill = SKILL_NAMES[index % SKILL_NAMES.length] ?? SKILL_NAMES[0];
   return {
@@ -515,8 +523,11 @@ const REFUND_REASONS = [
 const REFUNDS: readonly RefundRequest[] = Array.from({ length: 16 }, (_, index) => {
   const service = SERVICES[index % SERVICES.length] ?? SERVICES[0];
   const [reason, detail] = REFUND_REASONS[index % REFUND_REASONS.length] ?? REFUND_REASONS[0];
-  const status = index < 7 ? "pending" : index < 12 ? "approved" : "rejected";
+  const status = band<RefundRequest["status"]>(index, [[7, "pending"], [12, "approved"]], "rejected");
   const days = status === "pending" ? between(0, 4) : between(5, 45);
+  // Every other approval gave half back — the session had run for half its time.
+  const partial = index % 2 === 1;
+  const approvedNote = partial ? "คืนครึ่งหนึ่ง เพราะเซสชันดำเนินไปแล้วครึ่งเวลา" : null;
   return {
     id: `rf-${pad(index + 1, 4)}`,
     bookingRef: `BK-2026-${pad(between(1, 12), 2)}${pad(between(1, 28), 2)}-${pad(between(1, 9999), 4)}`,
@@ -532,9 +543,7 @@ const REFUNDS: readonly RefundRequest[] = Array.from({ length: 16 }, (_, index) 
     status,
     refundedSatang:
       status === "approved"
-        ? index % 2 === 0
-          ? service.priceSatang
-          : Math.round(service.priceSatang / 2)
+        ? Math.round(service.priceSatang / (partial ? 2 : 1))
         : null,
     decision:
       status === "pending"
@@ -542,12 +551,7 @@ const REFUNDS: readonly RefundRequest[] = Array.from({ length: 16 }, (_, index) 
         : {
             at: daysAgo(days - 1),
             by: "admin",
-            note:
-              status === "rejected"
-                ? "บันทึกการโทรแสดงว่าเซสชันครบเวลา"
-                : index % 2 === 0
-                  ? null
-                  : "คืนครึ่งหนึ่ง เพราะเซสชันดำเนินไปแล้วครึ่งเวลา",
+            note: status === "rejected" ? "บันทึกการโทรแสดงว่าเซสชันครบเวลา" : approvedNote,
           },
   };
 });
@@ -689,8 +693,18 @@ const OFF_PLATFORM_FLAGS: readonly OffPlatformFlag[] = Array.from({ length: 21 }
 
 const BANKS = ["กสิกรไทย", "ไทยพาณิชย์", "กรุงเทพ", "กรุงไทย", "กรุงศรี"] as const;
 
+function payoutStatus(index: number): Payout["status"] {
+  if (index < 6) return "pending";
+  return index === 6 || index === 11 ? "failed" : "paid";
+}
+
+function transactionStatus(index: number): Transaction["status"] {
+  if (index % 11 === 3) return "refunded";
+  return index % 13 === 5 ? "failed" : "paid";
+}
+
 const PAYOUTS: readonly Payout[] = Array.from({ length: 18 }, (_, index) => {
-  const status = index < 6 ? "pending" : index === 6 || index === 11 ? "failed" : "paid";
+  const status = payoutStatus(index);
   const days = status === "pending" ? between(0, 3) : between(4, 80);
   return {
     id: `PO-2026-${pad(between(1, 9), 2)}${pad(between(1, 28), 2)}-${pad(index + 1, 4)}`,
@@ -709,7 +723,7 @@ const PAYOUTS: readonly Payout[] = Array.from({ length: 18 }, (_, index) => {
 
 const TRANSACTIONS: readonly Transaction[] = Array.from({ length: 40 }, (_, index) => {
   const service = SERVICES[index % SERVICES.length] ?? SERVICES[0];
-  const status = index % 11 === 3 ? "refunded" : index % 13 === 5 ? "failed" : "paid";
+  const status = transactionStatus(index);
   return {
     id: `TX-${pad(index + 1, 5)}`,
     bookingRef: `BK-2026-${pad(between(1, 9), 2)}${pad(between(1, 28), 2)}-${pad(between(1, 9999), 4)}`,

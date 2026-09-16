@@ -78,11 +78,9 @@ let cached: { id: string | null; account: Account | undefined; session: Session 
 function snapshot(): Session {
   const id = readSessionId();
   const account = id ? getDatabase().accounts.find((a) => a.id === id) : undefined;
-  if (cached && cached.id === id && cached.account === account) return cached.session;
+  if (cached?.id === id && cached.account === account) return cached.session;
   const session: Session =
-    account && account.status === "active"
-      ? { status: "authenticated", account }
-      : ANONYMOUS;
+    account?.status === "active" ? { status: "authenticated", account } : ANONYMOUS;
   cached = { id, account, session };
   return session;
 }
@@ -197,8 +195,18 @@ export function passwordProblems(password: string): {
   };
 }
 
+/**
+ * One `@` with something on both sides and a dot inside the domain. Written
+ * without a regex: the pattern form backtracks badly on long hostile input.
+ */
 export function isEmail(value: string): boolean {
-  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value.trim());
+  const email = value.trim();
+  if (/\s/.test(email)) return false;
+  const at = email.indexOf("@");
+  if (at < 1 || at !== email.lastIndexOf("@")) return false;
+  const domain = email.slice(at + 1);
+  const dot = domain.lastIndexOf(".");
+  return dot > 0 && dot < domain.length - 1;
 }
 
 /** A new advisee, signed in straight away — the PDPA step follows. */

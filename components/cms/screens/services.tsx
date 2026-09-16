@@ -91,7 +91,7 @@ export function ServicesScreen() {
       id: "title",
       header: t("col.title"),
       sortable: true,
-      cell: (s) => {
+      render: (s) => {
         const advisor = person(s.advisorId);
         return (
           <span className="flex min-w-0 items-center gap-3">
@@ -104,22 +104,22 @@ export function ServicesScreen() {
         );
       },
     },
-    { id: "category", header: t("col.category"), cell: (s) => categoryName.get(s.categoryId) ?? "—" },
+    { id: "category", header: t("col.category"), render: (s) => categoryName.get(s.categoryId) ?? "—" },
     {
       id: "price",
       header: t("col.price"),
       sortable: true,
       className: "font-latin",
-      cell: (s) => `${formatBaht(s.priceSatang)} / ${t("minutes", { count: s.minutes })}`,
+      render: (s) => `${formatBaht(s.priceSatang)} / ${t("minutes", { count: s.minutes })}`,
     },
-    { id: "bookings", header: t("col.bookings"), sortable: true, className: "font-latin", cell: (s) => s.bookings },
-    { id: "rating", header: t("col.rating"), sortable: true, className: "font-latin", cell: (s) => s.rating.toFixed(1) },
-    { id: "updatedAt", header: t("col.updatedAt"), sortable: true, cell: (s) => formatDate(s.updatedAt) },
+    { id: "bookings", header: t("col.bookings"), sortable: true, className: "font-latin", render: (s) => s.bookings },
+    { id: "rating", header: t("col.rating"), sortable: true, className: "font-latin", render: (s) => s.rating.toFixed(1) },
+    { id: "updatedAt", header: t("col.updatedAt"), sortable: true, render: (s) => formatDate(s.updatedAt) },
     {
       id: "status",
       header: t("col.status"),
       align: "center",
-      cell: (s) => <CmsStatus group="publish" value={s.status} />,
+      render: (s) => <CmsStatus group="publish" value={s.status} />,
     },
   ];
 

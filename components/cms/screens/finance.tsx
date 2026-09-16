@@ -83,21 +83,21 @@ export function PayoutsScreen() {
     {
       id: "id",
       header: t("col.id"),
-      cell: (p) => <span className="font-latin font-medium text-highlighted">{p.id}</span>,
+      render: (p) => <span className="font-latin font-medium text-highlighted">{p.id}</span>,
     },
     {
       id: "advisor",
       header: t("col.advisor"),
-      cell: (p) => <CmsPerson account={person(p.advisorId)} detail={`${p.bank} ···${p.accountLast4}`} />,
+      render: (p) => <CmsPerson account={person(p.advisorId)} detail={`${p.bank} ···${p.accountLast4}`} />,
     },
-    { id: "amount", header: t("col.amount"), sortable: true, className: "font-latin", cell: (p) => formatBaht(p.amountSatang) },
-    { id: "invoices", header: t("col.invoices"), className: "font-latin", cell: (p) => p.invoiceCount },
-    { id: "requestedAt", header: t("col.requestedAt"), sortable: true, cell: (p) => formatDateTime(p.requestedAt) },
+    { id: "amount", header: t("col.amount"), sortable: true, className: "font-latin", render: (p) => formatBaht(p.amountSatang) },
+    { id: "invoices", header: t("col.invoices"), className: "font-latin", render: (p) => p.invoiceCount },
+    { id: "requestedAt", header: t("col.requestedAt"), sortable: true, render: (p) => formatDateTime(p.requestedAt) },
     {
       id: "status",
       header: t("col.status"),
       align: "center",
-      cell: (p) => (
+      render: (p) => (
         <span className="flex flex-col items-center gap-1">
           <CmsStatus group="payout" value={p.status} />
           {p.failureReason ? (
@@ -111,7 +111,7 @@ export function PayoutsScreen() {
       header: "",
       align: "end",
       interactive: true,
-      cell: (p) =>
+      render: (p) =>
         p.status === "paid" ? (
           <span className="text-xs">{formatDateTime(p.paidAt)}</span>
         ) : (
@@ -191,7 +191,7 @@ export function TransactionsScreen() {
     {
       id: "id",
       header: t("col.id"),
-      cell: (tx) => (
+      render: (tx) => (
         <span className="flex flex-col">
           <span className="font-latin font-medium text-highlighted">{tx.id}</span>
           <span className="font-latin text-xs">{tx.bookingRef}</span>
@@ -201,27 +201,27 @@ export function TransactionsScreen() {
     {
       id: "payer",
       header: t("col.payer"),
-      cell: (tx) => <CmsPerson account={person(tx.payerId)} />,
+      render: (tx) => <CmsPerson account={person(tx.payerId)} />,
     },
     {
       id: "service",
       header: t("col.service"),
-      cell: (tx) => (
+      render: (tx) => (
         <span className="flex max-w-56 flex-col">
           <span className="truncate text-highlighted">{tx.serviceTitle}</span>
           <span className="truncate text-xs">{person(tx.advisorId)?.name ?? "—"}</span>
         </span>
       ),
     },
-    { id: "amount", header: t("col.amount"), sortable: true, className: "font-latin", cell: (tx) => formatBaht(tx.amountSatang) },
-    { id: "fee", header: t("col.fee"), className: "font-latin", cell: (tx) => formatBaht(tx.feeSatang) },
-    { id: "method", header: t("col.method"), cell: (tx) => t(`method.${tx.method}`) },
-    { id: "createdAt", header: t("col.createdAt"), sortable: true, cell: (tx) => formatDateTime(tx.createdAt) },
+    { id: "amount", header: t("col.amount"), sortable: true, className: "font-latin", render: (tx) => formatBaht(tx.amountSatang) },
+    { id: "fee", header: t("col.fee"), className: "font-latin", render: (tx) => formatBaht(tx.feeSatang) },
+    { id: "method", header: t("col.method"), render: (tx) => t(`method.${tx.method}`) },
+    { id: "createdAt", header: t("col.createdAt"), sortable: true, render: (tx) => formatDateTime(tx.createdAt) },
     {
       id: "status",
       header: t("col.status"),
       align: "center",
-      cell: (tx) => <CmsStatus group="transaction" value={tx.status} />,
+      render: (tx) => <CmsStatus group="transaction" value={tx.status} />,
     },
   ];
 
