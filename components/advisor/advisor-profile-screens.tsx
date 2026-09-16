@@ -2,6 +2,7 @@ import Image from "next/image";
 import Link from "next/link";
 import {
   BadgeCheck,
+  Briefcase,
   CalendarDays,
   ChevronRight,
   ChevronsUpDown,
@@ -23,6 +24,8 @@ import {
 import { useTranslations } from "next-intl";
 
 import { advisor } from "@/lib/assets/r2";
+import { advisorLevel } from "@/lib/catalogue/profiles";
+import { LevelBadge } from "@/components/advisor-public/level-badge";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
 import { NeutralButton, PrimaryButton } from "@/components/mobile/buttons";
@@ -46,9 +49,15 @@ import { QuickActions } from "@/components/profile/quick-actions";
 import { BottomBar } from "@/components/bottombar";
 import { TopBar } from "@/components/topbar";
 
-/** Figma "Advisor profile - View (Light)" — 995:8633. */
+/**
+ * Figma "Advisor profile - View (Light)" — 995:8633, updated to 1390:25505: the
+ * level badge replaces the plain role line, and the tiles and rows that had no
+ * destination now open the service list and the "งานของฉัน" hub.
+ */
 export function AdvisorProfileScreen() {
   const t = useTranslations("advisor");
+  // The prototype's signed-in advisor.
+  const level = advisorLevel("sarah-jenskins");
 
   return (
     <MobileScreen className="pb-0">
@@ -65,14 +74,18 @@ export function AdvisorProfileScreen() {
                 src={advisor}
                 width={56}
               />
-              <div className="flex min-w-px flex-1 flex-col items-start gap-0.5 overflow-clip">
+              <div className="flex min-w-px flex-1 flex-col items-start gap-1 overflow-clip">
                 <p className="font-latin flex w-full items-center gap-1 text-base font-medium text-foreground">
                   {t("name")}
                   <BadgeCheck className="size-4 shrink-0 text-primary" />
                 </p>
-                <p className="w-full text-xs font-normal text-muted-foreground">
-                  {t("role")}
-                </p>
+                {level ? (
+                  <LevelBadge level={level} />
+                ) : (
+                  <p className="w-full text-xs font-normal text-muted-foreground">
+                    {t("role")}
+                  </p>
+                )}
               </div>
               <span className="flex size-9 shrink-0 items-center justify-center overflow-clip rounded-md bg-muted">
                 <UserRoundCog className="size-4.5 text-muted-foreground" />
@@ -107,9 +120,9 @@ export function AdvisorProfileScreen() {
         <div className="flex w-full shrink-0 flex-col items-start overflow-clip px-6 pt-4">
           <QuickActions
             actions={[
-              { icon: FileText, label: t("tileServices"), href: "/screening/requests" },
-              { icon: CalendarDays, label: t("tileBookings") },
-              { icon: Wallet, label: t("tileEarnings"), href: "/earnings" },
+              { icon: Briefcase, label: t("tileServices"), href: "/advisor/services" },
+              { icon: CalendarDays, label: t("tileBookings"), href: "/work/calendar" },
+              { icon: Wallet, label: t("tileEarnings"), href: "/work/earnings" },
               { icon: MessageSquare, label: t("tileChat"), href: "/chat" },
             ]}
           />
@@ -124,7 +137,7 @@ export function AdvisorProfileScreen() {
               value={<Badge className="size-5 p-0">3</Badge>}
             />
             <SettingsDivider />
-            <SettingsRow icon={CalendarDays} label={t("myBookings")} />
+            <SettingsRow href="/work/calendar" icon={CalendarDays} label={t("myBookings")} />
             <SettingsDivider />
             <SettingsRow href="/advisor/edit" icon={UserRoundCog} label={t("editAdvisor")} />
             <SettingsDivider />

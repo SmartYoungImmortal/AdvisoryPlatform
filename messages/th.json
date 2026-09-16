@@ -1403,5 +1403,32 @@
     "answersHeading": "คำตอบคัดกรองก่อนจอง",
     "answerCount": "{count} ข้อ",
     "openChat": "เปิดแชท"
+  },
+  "advisorProfile": {
+    "level": "ระดับ {number} · {title}",
+    "credentialField": "{credential} · {field}",
+    "statRating": "คะแนน",
+    "statConsultations": "การปรึกษา",
+    "statReviews": "รีวิว",
+    "tab": {
+      "services": "บริการ",
+      "about": "เกี่ยวกับ",
+      "reviews": "รีวิว"
+    },
+    "servicesTitle": "บริการทั้งหมด",
+    "serviceCount": "{count} บริการ",
+    "slotLength": "ช่วงละ 30 นาที",
+    "price": "฿{price}",
+    "pricePerSlot": "฿{price} / ช่วง",
+    "seeAllServices": "ดูบริการทั้งหมด ({count})",
+    "ofAdvisor": "ของ {name}",
+    "verifiedSkills": "ทักษะที่ยืนยันแล้ว",
+    "verifiedByTeam": "ยืนยันเอกสารโดยทีมงาน",
+    "verified": "ยืนยันแล้ว",
+    "reviewsTitle": "รีวิวจากผู้ใช้บริการ",
+    "reviewCount": "{count} รีวิว",
+    "seeAllReviews": "ดูรีวิวทั้งหมด ({count})",
+    "chat": "แชทกับที่ปรึกษา",
+    "chooseService": "เลือกบริการเพื่อจอง"
   }
 }
