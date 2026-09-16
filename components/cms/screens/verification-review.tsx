@@ -3,20 +3,20 @@
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Check, CircleCheck, CircleX, Clock, FileText, X } from "lucide-react";
+import { CircleCheck, CircleX, Clock, FileText, Save, ShieldCheck, X } from "lucide-react";
 import { useTranslations } from "next-intl";
-import { useState } from "react";
+import { useId, useState } from "react";
 
-import { CmsAvatar } from "@/components/cms/avatar";
 import { CmsButton } from "@/components/cms/button";
 import { CmsCard } from "@/components/cms/card";
 import { useCmsFeedback } from "@/components/cms/feedback";
+import { CmsFormField, CmsLinkButton, CmsSelect, CmsTextarea } from "@/components/cms/fields";
 import { useAccountLookup, useActorId, useRecordId } from "@/components/cms/hooks";
 import { CmsPage } from "@/components/cms/layout";
 import { CmsLightbox } from "@/components/cms/lightbox";
 import { CmsDataRow, CmsMissing, CmsSidebarOptions } from "@/components/cms/sidebar-options";
 import { CmsStatus } from "@/components/cms/status";
-import { documentPreview, thaiNationalId } from "@/lib/assets/r2";
+import { thaiNationalId } from "@/lib/assets/r2";
 import { approveIdentity, rejectIdentity } from "@/lib/mock-db/actions";
 import { formatDate, formatDateTime } from "@/lib/mock-db/format";
 import { useDatabase } from "@/lib/mock-db/store";
@@ -28,6 +28,8 @@ import {
 } from "@/lib/mock-db/types";
 import { cn } from "@/lib/utils";
 
+type Outcome = "level-1" | "level-2" | "level-3" | "rejected";
+
 const LEVELS: readonly AdvisorLevel[] = [1, 2, 3];
 
 const PROOF_ICON = {
@@ -37,10 +39,10 @@ const PROOF_ICON = {
 } as const;
 
 /**
- * Figma "Admin - Advisor verification & level" (1952:36339): the attached ID,
- * the applicant's details, their skills with proof, and the level they are
- * approved at. The frame's left-hand queue sits in the options column here, the
- * way Nexus puts secondary navigation beside an edit form.
+ * Figma "Admin - Advisor verification & level" (1952:36339) on Nexus's edit
+ * page: the attached ID, the applicant's details and their skills on the left;
+ * the outcome — approve at a level, or reject with a reason — in the options
+ * column, saved with one button.
  */
 export function VerificationReviewScreen() {
   const t = useTranslations("cms.verification");
@@ -62,49 +64,44 @@ function Review({ request }: { readonly request: IdentityRequest }) {
   const router = useRouter();
   const actorId = useActorId();
   const person = useAccountLookup();
-  const { confirm, prompt, toast } = useCmsFeedback();
+  const { toast } = useCmsFeedback();
+  const outcomeId = useId();
+  const reasonId = useId();
   const account = person(request.accountId);
   const allProofs = useDatabase((db) => db.skillProofs);
   const allRequests = useDatabase((db) => db.identityRequests);
   const proofs = allProofs.filter((p) => p.accountId === request.accountId);
-  const queue = allRequests.filter((r) => r.status === "submitted");
-  const [level, setLevel] = useState<AdvisorLevel>(
-    account?.advisor?.identity === "verified" ? account.advisor.level : 1,
-  );
-  const [preview, setPreview] = useState<{ title: string; kind: "id" | "doc" } | null>(null);
+  const [outcome, setOutcome] = useState<Outcome | null>(null);
+  const [reason, setReason] = useState("");
+  const [outcomeError, setOutcomeError] = useState<string | undefined>();
+  const [reasonError, setReasonError] = useState<string | undefined>();
+  const [preview, setPreview] = useState(false);
   const pending = request.status === "submitted";
 
   /** After a decision, move on to the next request still waiting. */
   function advance() {
-    const next = queue.find((r) => r.id !== request.id);
+    const next = allRequests.find((r) => r.status === "submitted" && r.id !== request.id);
     router.push(next ? `/admin/verification/review?id=${next.id}` : "/admin/verification");
   }
 
-  async function approve() {
-    const ok = await confirm({
-      type: "success",
-      title: t("approveTitle", { name: request.fullName, level }),
-      description: t("approveBody", { title: advisorLevelTitles[level] }),
-      confirmLabel: t("approveAs", { level }),
-    });
-    if (!ok) return;
+  function save() {
+    if (!outcome) {
+      setOutcomeError(t("outcomeRequired"));
+      return;
+    }
+    if (outcome === "rejected") {
+      if (!reason.trim()) {
+        setReasonError(t("reasonRequired"));
+        return;
+      }
+      rejectIdentity(request.id, reason.trim(), actorId);
+      toast({ color: "warning", title: t("rejected", { name: request.fullName }) });
+      advance();
+      return;
+    }
+    const level = Number(outcome.slice("level-".length)) as AdvisorLevel;
     approveIdentity(request.id, level, null, actorId);
     toast({ title: t("approved", { name: request.fullName, level }) });
-    advance();
-  }
-
-  async function reject() {
-    const note = await prompt({
-      type: "danger",
-      title: t("rejectTitle", { name: request.fullName }),
-      description: t("rejectBody"),
-      inputLabel: t("reason"),
-      placeholder: t("rejectPlaceholder"),
-      confirmLabel: t("reject"),
-    });
-    if (note === null) return;
-    rejectIdentity(request.id, note, actorId);
-    toast({ color: "warning", title: t("rejected", { name: request.fullName }) });
     advance();
   }
 
@@ -112,47 +109,89 @@ function Review({ request }: { readonly request: IdentityRequest }) {
     <CmsPage
       aside={
         <CmsSidebarOptions
+          actions={
+            pending ? (
+              <CmsButton block color="action" icon={Save} onClick={save} size="lg">
+                {t("save")}
+              </CmsButton>
+            ) : null
+          }
           info={[
             { label: t("submittedAt"), at: request.submittedAt },
             ...(request.decision
-              ? [
-                  {
-                    label: t("decidedAt"),
-                    by: person(request.decision.by)?.name,
-                    at: request.decision.at,
-                  },
-                ]
+              ? [{ label: t("decidedAt"), by: person(request.decision.by)?.name, at: request.decision.at }]
               : []),
           ]}
         >
-          <div className="flex items-center justify-between text-sm">
-            <span className="font-semibold text-highlighted">{t("queueTitle")}</span>
-            <span className="font-latin text-muted-foreground">{queue.length}</span>
-          </div>
-          <ul className="-mx-2 flex flex-col">
-            {queue.length === 0 ? (
-              <li className="px-2 text-sm text-muted-foreground">{t("queueEmpty")}</li>
-            ) : (
-              queue.slice(0, 8).map((item) => {
-                const applicant = person(item.accountId);
-                return (
-                  <li key={item.id}>
-                    <Link
-                      aria-current={item.id === request.id ? "page" : undefined}
-                      className={cn(
-                        "flex items-center gap-2 rounded-md px-2 py-2 text-sm transition-colors hover:bg-muted/50",
-                        item.id === request.id && "bg-muted text-highlighted",
-                      )}
-                      href={`/admin/verification/review?id=${item.id}`}
-                    >
-                      {applicant ? <CmsAvatar account={applicant} size="sm" /> : null}
-                      <span className="truncate">{applicant?.name ?? item.fullName}</span>
-                    </Link>
-                  </li>
-                );
-              })
-            )}
-          </ul>
+          {pending ? (
+            <>
+              <CmsFormField
+                error={outcomeError}
+                help={t("levelHint")}
+                htmlFor={outcomeId}
+                label={t("outcome")}
+                required
+              >
+                <CmsSelect
+                  id={outcomeId}
+                  invalid={Boolean(outcomeError)}
+                  items={[
+                    ...LEVELS.map((level) => ({
+                      value: `level-${level}` as const,
+                      label: t("approveLevel", { level, title: advisorLevelTitles[level] }),
+                      icon: ShieldCheck,
+                    })),
+                    { value: "rejected" as const, label: t("reject"), icon: X },
+                  ]}
+                  onValueChange={(value) => {
+                    setOutcome(value);
+                    setOutcomeError(undefined);
+                    setReasonError(undefined);
+                  }}
+                  placeholder={t("outcomePlaceholder")}
+                  value={outcome}
+                />
+              </CmsFormField>
+              {outcome === "rejected" ? (
+                <CmsFormField
+                  error={reasonError}
+                  help={t("rejectBody")}
+                  htmlFor={reasonId}
+                  label={t("reason")}
+                  required
+                >
+                  <CmsTextarea
+                    id={reasonId}
+                    invalid={Boolean(reasonError)}
+                    onChange={(event) => {
+                      setReason(event.target.value);
+                      setReasonError(undefined);
+                    }}
+                    placeholder={t("rejectPlaceholder")}
+                    rows={4}
+                    value={reason}
+                  />
+                </CmsFormField>
+              ) : null}
+            </>
+          ) : (
+            <dl className="space-y-3">
+              <CmsDataRow label={t("col.status")}>
+                <CmsStatus group="identity" value={request.status} />
+              </CmsDataRow>
+              {account?.advisor?.identity === "verified" ? (
+                <CmsDataRow label={t("levelTitle")}>
+                  {t("approveLevel", {
+                    level: account.advisor.level,
+                    title: advisorLevelTitles[account.advisor.level],
+                  })}
+                </CmsDataRow>
+              ) : null}
+              {request.decision?.note ? (
+                <CmsDataRow label={t("decisionNote")}>{request.decision.note}</CmsDataRow>
+              ) : null}
+            </dl>
+          )}
         </CmsSidebarOptions>
       }
       backHref="/admin/verification"
@@ -164,7 +203,7 @@ function Review({ request }: { readonly request: IdentityRequest }) {
           aria-label={t("openDocument")}
           className="block w-full overflow-hidden rounded-md p-0 ring-1 ring-border"
           color="neutral"
-          onClick={() => setPreview({ title: t("idCard"), kind: "id" })}
+          onClick={() => setPreview(true)}
           variant="ghost"
         >
           <Image
@@ -197,9 +236,6 @@ function Review({ request }: { readonly request: IdentityRequest }) {
           </CmsDataRow>
           <CmsDataRow label={t("credential")}>{request.credential}</CmsDataRow>
           <CmsDataRow label={t("field")}>{request.field}</CmsDataRow>
-          {request.decision?.note ? (
-            <CmsDataRow label={t("decisionNote")}>{request.decision.note}</CmsDataRow>
-          ) : null}
         </dl>
       </CmsCard>
 
@@ -212,76 +248,21 @@ function Review({ request }: { readonly request: IdentityRequest }) {
           {proofs.length === 0 ? (
             <li className="p-4 text-sm text-muted-foreground sm:px-6">{t("noSkills")}</li>
           ) : (
-            proofs.map((proof) => (
-              <ProofRow
-                key={proof.id}
-                onOpen={() => setPreview({ title: proof.documentName, kind: "doc" })}
-                proof={proof}
-              />
-            ))
+            proofs.map((proof) => <ProofRow key={proof.id} proof={proof} />)
           )}
         </ul>
       </CmsCard>
 
-      {pending ? (
-        <CmsCard description={t("levelHint")} title={t("levelTitle")}>
-          <div className="grid gap-3 sm:grid-cols-3" role="radiogroup">
-            {LEVELS.map((value) => (
-              <CmsButton
-                aria-checked={level === value}
-                className={cn(
-                  "h-auto justify-start gap-3 rounded-lg p-4 text-start ring-1 ring-inset",
-                  level === value
-                    ? "bg-action/10 ring-2 ring-action hover:bg-action/10"
-                    : "bg-card ring-border hover:bg-muted/50",
-                )}
-                color="neutral"
-                key={value}
-                onClick={() => setLevel(value)}
-                role="radio"
-                variant="ghost"
-              >
-                <span
-                  aria-hidden
-                  className={cn(
-                    "flex size-5 shrink-0 items-center justify-center rounded-full ring-1 ring-inset",
-                    level === value ? "bg-action ring-action" : "ring-accented",
-                  )}
-                >
-                  {level === value ? <span className="size-2 rounded-full bg-action-foreground" /> : null}
-                </span>
-                <span className="flex flex-col">
-                  <span className={cn("font-medium", level === value ? "text-action" : "text-highlighted")}>
-                    {t("level", { level: value })}
-                  </span>
-                  <span className="text-xs font-normal text-muted-foreground">
-                    {advisorLevelTitles[value]}
-                  </span>
-                </span>
-              </CmsButton>
-            ))}
-          </div>
-          <div className="mt-6 flex flex-wrap justify-end gap-3">
-            <CmsButton className="min-w-40 justify-center" color="error" icon={X} onClick={reject} size="lg">
-              {t("reject")}
-            </CmsButton>
-            <CmsButton className="min-w-40 justify-center" color="action" icon={Check} onClick={approve} size="lg">
-              {t("approveAs", { level })}
-            </CmsButton>
-          </div>
-        </CmsCard>
-      ) : null}
-
       <CmsLightbox
-        image={preview ? (preview.kind === "id" ? thaiNationalId : documentPreview) : null}
-        onClose={() => setPreview(null)}
-        title={preview?.title ?? ""}
+        image={preview ? thaiNationalId : null}
+        onClose={() => setPreview(false)}
+        title={t("idCard")}
       />
     </CmsPage>
   );
 }
 
-function ProofRow({ proof, onOpen }: { readonly proof: SkillProof; readonly onOpen: () => void }) {
+function ProofRow({ proof }: { readonly proof: SkillProof }) {
   const t = useTranslations("cms.verification");
   const { icon: Icon, className } = PROOF_ICON[proof.status];
   return (
@@ -294,9 +275,14 @@ function ProofRow({ proof, onOpen }: { readonly proof: SkillProof; readonly onOp
         </span>
       </div>
       <CmsStatus group="proof" value={proof.status} />
-      <CmsButton color="action" icon={FileText} onClick={onOpen} variant="link">
+      <CmsLinkButton
+        color="action"
+        href={`/admin/verification/proof?id=${proof.id}`}
+        icon={FileText}
+        variant="link"
+      >
         {t("viewDocument")}
-      </CmsButton>
+      </CmsLinkButton>
     </li>
   );
 }

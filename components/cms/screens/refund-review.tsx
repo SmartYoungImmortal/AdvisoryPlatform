@@ -3,7 +3,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Check, X } from "lucide-react";
+import { Check, Save, X } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { useId, useState } from "react";
 
@@ -11,7 +11,7 @@ import { CmsPerson } from "@/components/cms/avatar";
 import { CmsButton } from "@/components/cms/button";
 import { CmsCard } from "@/components/cms/card";
 import { useCmsFeedback } from "@/components/cms/feedback";
-import { CmsFormField, CmsInput, CmsTextarea } from "@/components/cms/fields";
+import { CmsFormField, CmsInput, CmsSelect, CmsTextarea } from "@/components/cms/fields";
 import { useAccountLookup, useActorId, useRecordId } from "@/components/cms/hooks";
 import { CmsPage } from "@/components/cms/layout";
 import { CmsLightbox } from "@/components/cms/lightbox";
@@ -22,7 +22,6 @@ import { approveRefund, rejectRefunds } from "@/lib/mock-db/actions";
 import { formatBaht, formatDateTime } from "@/lib/mock-db/format";
 import { useDatabase } from "@/lib/mock-db/store";
 import type { RefundRequest } from "@/lib/mock-db/types";
-import { cn } from "@/lib/utils";
 
 export function RefundReviewScreen() {
   const t = useTranslations("cms.refunds");
@@ -38,29 +37,49 @@ export function RefundReviewScreen() {
   return <Review key={refund.id} refund={refund} />;
 }
 
+type Outcome = "full" | "partial" | "rejected";
+
 /**
- * One refund case: what was paid for, what went wrong and the evidence, then the
- * decision — the whole amount or part of it, or a rejection with a reason.
+ * One refund case: what was paid for, what went wrong and the evidence, then
+ * the decision in the options column — the whole amount, part of it, or a
+ * rejection — saved with one button. Problems show under their fields.
  */
 function Review({ refund }: { readonly refund: RefundRequest }) {
   const t = useTranslations("cms.refunds");
   const router = useRouter();
   const actorId = useActorId();
   const person = useAccountLookup();
-  const { confirm, prompt, toast } = useCmsFeedback();
+  const { toast } = useCmsFeedback();
+  const outcomeId = useId();
   const noteId = useId();
   const amountId = useId();
-  const [mode, setMode] = useState<"full" | "partial">("full");
+  const [outcome, setOutcome] = useState<Outcome | null>(null);
   const [amount, setAmount] = useState(String(Math.round(refund.paidSatang / 200)));
   const [note, setNote] = useState("");
+  const [outcomeError, setOutcomeError] = useState<string | undefined>();
   const [amountError, setAmountError] = useState<string | undefined>();
+  const [noteError, setNoteError] = useState<string | undefined>();
   const [preview, setPreview] = useState<number | null>(null);
   const pending = refund.status === "pending";
   const paidBaht = refund.paidSatang / 100;
 
-  async function approve() {
+  function save() {
+    if (!outcome) {
+      setOutcomeError(t("outcomeRequired"));
+      return;
+    }
+    if (outcome === "rejected") {
+      if (!note.trim()) {
+        setNoteError(t("reasonRequired"));
+        return;
+      }
+      rejectRefunds([refund.id], note.trim(), actorId);
+      toast({ color: "warning", title: t("rejected", { count: 1 }) });
+      router.push("/admin/refunds");
+      return;
+    }
     let satang = refund.paidSatang;
-    if (mode === "partial") {
+    if (outcome === "partial") {
       const value = Number(amount);
       if (!Number.isFinite(value) || value <= 0 || value > paidBaht) {
         setAmountError(t("amountInvalid", { max: formatBaht(refund.paidSatang) }));
@@ -68,30 +87,8 @@ function Review({ refund }: { readonly refund: RefundRequest }) {
       }
       satang = Math.round(value * 100);
     }
-    const ok = await confirm({
-      type: "success",
-      title: t("approveTitle", { amount: formatBaht(satang) }),
-      description: t("approveBody", { name: person(refund.requesterId)?.name ?? "" }),
-      confirmLabel: t("approve"),
-    });
-    if (!ok) return;
-    approveRefund(refund.id, satang, note || null, actorId);
+    approveRefund(refund.id, satang, note.trim() || null, actorId);
     toast({ title: t("approved", { amount: formatBaht(satang) }) });
-    router.push("/admin/refunds");
-  }
-
-  async function reject() {
-    const reason = await prompt({
-      type: "danger",
-      title: t("rejectTitle", { count: 1 }),
-      inputLabel: t("reason"),
-      placeholder: t("rejectPlaceholder"),
-      defaultValue: note,
-      confirmLabel: t("reject"),
-    });
-    if (reason === null) return;
-    rejectRefunds([refund.id], reason, actorId);
-    toast({ color: "warning", title: t("rejected", { count: 1 }) });
     router.push("/admin/refunds");
   }
 
@@ -101,14 +98,9 @@ function Review({ refund }: { readonly refund: RefundRequest }) {
         <CmsSidebarOptions
           actions={
             pending ? (
-              <>
-                <CmsButton block color="action" icon={Check} onClick={approve} size="lg">
-                  {t("approve")}
-                </CmsButton>
-                <CmsButton block color="error" icon={X} onClick={reject} size="lg">
-                  {t("reject")}
-                </CmsButton>
-              </>
+              <CmsButton block color="action" icon={Save} onClick={save} size="lg">
+                {t("save")}
+              </CmsButton>
             ) : null
           }
           info={[
@@ -120,29 +112,25 @@ function Review({ refund }: { readonly refund: RefundRequest }) {
         >
           {pending ? (
             <>
-              <div className="flex flex-col gap-2 text-sm" role="radiogroup">
-                <span className="font-medium text-foreground">{t("amountTitle")}</span>
-                {(["full", "partial"] as const).map((value) => (
-                  <CmsButton
-                    aria-checked={mode === value}
-                    className={cn(
-                      "justify-between ring-1 ring-inset",
-                      mode === value ? "bg-action/10 text-action ring-action" : "ring-accented",
-                    )}
-                    color="neutral"
-                    key={value}
-                    onClick={() => setMode(value)}
-                    role="radio"
-                    variant="ghost"
-                  >
-                    <span>{value === "full" ? t("full") : t("partial")}</span>
-                    {value === "full" ? (
-                      <span className="font-latin">{formatBaht(refund.paidSatang)}</span>
-                    ) : null}
-                  </CmsButton>
-                ))}
-              </div>
-              {mode === "partial" ? (
+              <CmsFormField error={outcomeError} htmlFor={outcomeId} label={t("outcome")} required>
+                <CmsSelect
+                  id={outcomeId}
+                  invalid={Boolean(outcomeError)}
+                  items={[
+                    { value: "full", label: t("fullAmount", { amount: formatBaht(refund.paidSatang) }), icon: Check },
+                    { value: "partial", label: t("partial"), icon: Check },
+                    { value: "rejected", label: t("reject"), icon: X },
+                  ]}
+                  onValueChange={(value) => {
+                    setOutcome(value);
+                    setOutcomeError(undefined);
+                    setNoteError(undefined);
+                  }}
+                  placeholder={t("outcomePlaceholder")}
+                  value={outcome}
+                />
+              </CmsFormField>
+              {outcome === "partial" ? (
                 <CmsFormField error={amountError} htmlFor={amountId} label={t("amount")} required>
                   <CmsInput
                     id={amountId}
@@ -160,8 +148,23 @@ function Review({ refund }: { readonly refund: RefundRequest }) {
                   />
                 </CmsFormField>
               ) : null}
-              <CmsFormField help={t("noteHelp")} htmlFor={noteId} label={t("note")}>
-                <CmsTextarea id={noteId} onChange={(event) => setNote(event.target.value)} rows={3} value={note} />
+              <CmsFormField
+                error={noteError}
+                help={outcome === "rejected" ? t("reasonHelp") : t("noteHelp")}
+                htmlFor={noteId}
+                label={outcome === "rejected" ? t("reason") : t("note")}
+                required={outcome === "rejected"}
+              >
+                <CmsTextarea
+                  id={noteId}
+                  invalid={Boolean(noteError)}
+                  onChange={(event) => {
+                    setNote(event.target.value);
+                    setNoteError(undefined);
+                  }}
+                  rows={3}
+                  value={note}
+                />
               </CmsFormField>
             </>
           ) : (

@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Ban, CircleSlash, MessageSquareWarning } from "lucide-react";
+import { Ban, CircleSlash, MessageSquareWarning, Save } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { useId, useState, type ReactNode } from "react";
 
@@ -11,7 +11,7 @@ import { CmsAvatar, CmsPerson } from "@/components/cms/avatar";
 import { CmsButton } from "@/components/cms/button";
 import { CmsCard } from "@/components/cms/card";
 import { useCmsFeedback } from "@/components/cms/feedback";
-import { CmsFormField, CmsTextarea } from "@/components/cms/fields";
+import { CmsFormField, CmsSelect, CmsTextarea } from "@/components/cms/fields";
 import { useAccountLookup, useActorId, useRecordId } from "@/components/cms/hooks";
 import { CmsPage } from "@/components/cms/layout";
 import { CmsDataRow, CmsMissing, CmsSidebarOptions } from "@/components/cms/sidebar-options";
@@ -27,88 +27,94 @@ import { useDatabase } from "@/lib/mock-db/store";
 import type { Account, Decision, ReportStatus } from "@/lib/mock-db/types";
 
 /**
- * The decision column both case pages share: a note, then dismiss, warn or
- * suspend. Suspending needs the note — it becomes the reason on the account.
+ * The options column both case pages share, in `CmsSidebarOptions`' shape: a
+ * card holding the outcome select and the note, the Information card, then
+ * Save. Nothing opens on top of the page — suspending without a note shows the
+ * error under the note field, the way Nexus's `fieldErrors` do.
  */
 function CaseDecision({
   status,
   decision,
-  subject,
   onResolve,
   info,
 }: {
   readonly status: ReportStatus;
   readonly decision: Decision | null;
-  readonly subject: Account | undefined;
   readonly onResolve: (resolution: Resolution, note: string | null) => void;
   readonly info: ReadonlyArray<{ readonly label: string; readonly by?: string; readonly at: string | null }>;
 }) {
   const t = useTranslations("cms.cases");
   const person = useAccountLookup();
-  const { confirm } = useCmsFeedback();
+  const outcomeId = useId();
   const noteId = useId();
+  const [outcome, setOutcome] = useState<Resolution | null>(null);
   const [note, setNote] = useState("");
+  const [outcomeError, setOutcomeError] = useState<string | undefined>();
   const [noteError, setNoteError] = useState<string | undefined>();
   const open = status === "open";
 
-  async function decide(resolution: Resolution) {
-    if (resolution === "suspended" && !note.trim()) {
+  function save() {
+    if (!outcome) {
+      setOutcomeError(t("outcomeRequired"));
+      return;
+    }
+    if (outcome === "suspended" && !note.trim()) {
       setNoteError(t("noteRequired"));
       return;
     }
-    const ok = await confirm({
-      type: resolution === "suspended" ? "danger" : resolution === "warned" ? "warning" : "info",
-      title:
-        resolution === "suspended"
-          ? t("suspendTitle", { count: 1 })
-          : resolution === "warned"
-            ? t("warnTitle", { count: 1 })
-            : t("dismissTitle", { count: 1 }),
-      description:
-        resolution === "suspended"
-          ? t("suspendOne", { name: subject?.name ?? "" })
-          : resolution === "warned"
-            ? t("warnBody")
-            : t("dismissBody"),
-      confirmLabel:
-        resolution === "suspended" ? t("suspend") : resolution === "warned" ? t("warn") : t("dismiss"),
-    });
-    if (!ok) return;
-    onResolve(resolution, note.trim() || null);
+    onResolve(outcome, note.trim() || null);
   }
 
   return (
     <CmsSidebarOptions
       actions={
         open ? (
-          <>
-            <CmsButton block color="error" icon={Ban} onClick={() => decide("suspended")} size="lg">
-              {t("suspend30")}
-            </CmsButton>
-            <CmsButton block color="warning" icon={MessageSquareWarning} onClick={() => decide("warned")} size="lg" variant="soft">
-              {t("warn")}
-            </CmsButton>
-            <CmsButton block color="neutral" icon={CircleSlash} onClick={() => decide("dismissed")} size="lg" variant="outline">
-              {t("dismiss")}
-            </CmsButton>
-          </>
+          <CmsButton block color="action" icon={Save} onClick={save} size="lg">
+            {t("save")}
+          </CmsButton>
         ) : null
       }
       info={info}
     >
       {open ? (
-        <CmsFormField error={noteError} help={t("noteHelp")} htmlFor={noteId} label={t("note")}>
-          <CmsTextarea
-            id={noteId}
-            invalid={Boolean(noteError)}
-            onChange={(event) => {
-              setNote(event.target.value);
-              setNoteError(undefined);
-            }}
-            rows={4}
-            value={note}
-          />
-        </CmsFormField>
+        <>
+          <CmsFormField error={outcomeError} htmlFor={outcomeId} label={t("outcome")} required>
+            <CmsSelect
+              id={outcomeId}
+              invalid={Boolean(outcomeError)}
+              items={[
+                { value: "dismissed", label: t("dismiss"), icon: CircleSlash },
+                { value: "warned", label: t("warn"), icon: MessageSquareWarning },
+                { value: "suspended", label: t("suspend30"), icon: Ban },
+              ]}
+              onValueChange={(value) => {
+                setOutcome(value);
+                setOutcomeError(undefined);
+                if (value !== "suspended") setNoteError(undefined);
+              }}
+              placeholder={t("outcomePlaceholder")}
+              value={outcome}
+            />
+          </CmsFormField>
+          <CmsFormField
+            error={noteError}
+            help={t("noteHelp")}
+            htmlFor={noteId}
+            label={t("note")}
+            required={outcome === "suspended"}
+          >
+            <CmsTextarea
+              id={noteId}
+              invalid={Boolean(noteError)}
+              onChange={(event) => {
+                setNote(event.target.value);
+                setNoteError(undefined);
+              }}
+              rows={4}
+              value={note}
+            />
+          </CmsFormField>
+        </>
       ) : (
         <dl className="space-y-3">
           <CmsDataRow label={t("col.status")}>
@@ -204,7 +210,6 @@ export function ReportReviewScreen() {
             router.push("/admin/reports");
           }}
           status={report.status}
-          subject={subject}
         />
       }
       backHref="/admin/reports"
@@ -288,7 +293,6 @@ export function FlagReviewScreen() {
             router.push("/admin/off-platform");
           }}
           status={flag.status}
-          subject={sender}
         />
       }
       backHref="/admin/off-platform"
