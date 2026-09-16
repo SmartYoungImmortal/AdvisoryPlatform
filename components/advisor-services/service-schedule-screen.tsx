@@ -11,6 +11,7 @@ import {
 } from "@/components/mobile/screen";
 import { ThaiText } from "@/components/mobile/thai-text";
 import { cn } from "@/lib/utils";
+import { WEEKDAY_KEYS, buddhistYear } from "@/lib/calendar";
 import { advisorService } from "@/lib/advisor-services";
 import {
   AVAILABLE_DAYS,
@@ -23,8 +24,6 @@ import {
   monthGrid,
   type SlotKind,
 } from "@/lib/advisor-services/schedule";
-
-const WEEKDAY_KEYS = ["sun", "mon", "tue", "wed", "thu", "fri", "sat"] as const;
 
 /** Figma month-nav button — a small white square with a hairline and an arrow. */
 function MonthNav({
@@ -144,7 +143,7 @@ export function ServiceScheduleScreen({
   if (!record) notFound();
 
   const cells = monthGrid(SCHEDULE_YEAR, SCHEDULE_MONTH);
-  const monthLabel = t("month", { year: SCHEDULE_YEAR + 543 });
+  const monthLabel = t("month", { year: buddhistYear(SCHEDULE_YEAR) });
 
   return (
     <MobileScreen className="pb-0">

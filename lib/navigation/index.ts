@@ -1,5 +1,6 @@
 import { RoleKeys } from "@/lib/roles";
 import {
+  Briefcase,
   CalendarDays,
   Home,
   LucideIcon,
@@ -10,6 +11,7 @@ import {
 
 export const pageKeys = [
   "home",
+  "work",
   "bookings",
   "chat",
   "earnings",
@@ -24,6 +26,7 @@ export type PageKeys = (typeof pageKeys)[number];
  */
 export const pageHrefs: Partial<Record<PageKeys, string>> = {
   home: "/",
+  work: "/work",
   chat: "/chat",
   earnings: "/earnings",
   user: "/profile",
@@ -77,10 +80,17 @@ export const pages: Record<
       href: pageHrefs.user,
     },
   },
+  // Figma "Advisor - Home" (1374:20712): the Advisor's second tab is the
+  // "งานของฉัน" hub. Earnings did not leave — it is one of that hub's three views
+  // — so it no longer needs a tab of its own. Order follows the frame.
   advisor: {
     home: {
       icon: Home,
       href: pageHrefs.home,
+    },
+    work: {
+      icon: Briefcase,
+      href: pageHrefs.work,
     },
     bookings: {
       icon: CalendarDays,
@@ -89,10 +99,6 @@ export const pages: Record<
     chat: {
       icon: MessageSquare,
       href: pageHrefs.chat,
-    },
-    earnings: {
-      icon: Wallet,
-      href: pageHrefs.earnings,
     },
     user: {
       icon: UserRound,

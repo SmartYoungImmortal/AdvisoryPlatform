@@ -159,6 +159,7 @@
   },
   "navigation": {
     "home": "หน้าหลัก",
+    "work": "งานของฉัน",
     "bookings": "การจอง",
     "chat": "แชท",
     "earnings": "รายได้",
@@ -1343,5 +1344,62 @@
       "fri": "ศ",
       "sat": "ส"
     }
+  },
+  "work": {
+    "title": "งานของฉัน",
+    "tab": {
+      "today": "วันนี้",
+      "calendar": "ปฏิทิน",
+      "earnings": "รายได้"
+    },
+    "dateLabel": "{weekday} {day} {month} {year}",
+    "monthAbbr": "ส.ค.",
+    "monthLabel": "สิงหาคม {year}",
+    "weekdayAbbr": {
+      "sun": "อา.",
+      "mon": "จ.",
+      "tue": "อ.",
+      "wed": "พ.",
+      "thu": "พฤ.",
+      "fri": "ศ.",
+      "sat": "ส."
+    },
+    "todaySubtitle": "{date} · วันนี้มี {count} เซสชัน",
+    "calendarSubtitle": "ดูเซสชันและช่วงเวลาที่เปิดรับ",
+    "todaySessions": "เซสชันวันนี้",
+    "sessionCount": "{count} เซสชัน",
+    "nextSession": "เซสชันถัดไป",
+    "startsIn": "อีก {minutes} นาที",
+    "serviceAndLength": "{service} · {hours} ชั่วโมง",
+    "todayRange": "วันนี้ {range}",
+    "joinRoom": "เข้าห้องปรึกษา",
+    "details": "รายละเอียด",
+    "pendingTitle": "รอดำเนินการ",
+    "pending": {
+      "bookings": "คำขอจองใหม่",
+      "screening": "คำตอบคัดกรองรอตรวจ",
+      "reviews": "รีวิวรอตอบกลับ"
+    },
+    "legendSession": "มีเซสชัน",
+    "legendToday": "วันนี้",
+    "todayHeading": "วันนี้ · {date}",
+    "freeGaps": "ช่วงเวลาว่าง {count} ช่วง",
+    "manage": "จัดการ",
+    "recentTitle": "การให้คำปรึกษาล่าสุด",
+    "seeAll": "ดูทั้งหมด",
+    "consultationState": {
+      "pending": "รอยืนยัน",
+      "available": "พร้อมถอน"
+    },
+    "payoutAccount": "บัญชีรับเงิน",
+    "payoutHistory": "ประวัติการถอน",
+    "sessionTitle": "รายละเอียดการปรึกษา",
+    "startsInLong": "เริ่มในอีก {minutes} นาที",
+    "todayRangeLong": "วันนี้ {range} น.",
+    "adviseeHeading": "ผู้รับคำปรึกษา",
+    "serviceSlotsLength": "{service} · {slots} ช่วง · {hours} ชั่วโมง",
+    "answersHeading": "คำตอบคัดกรองก่อนจอง",
+    "answerCount": "{count} ข้อ",
+    "openChat": "เปิดแชท"
   }
 }
