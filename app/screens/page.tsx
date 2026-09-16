@@ -188,6 +188,14 @@ const SECTIONS: ReadonlyArray<{
     ],
   },
   {
+    title: "Advisor services",
+    node: "1594:29454",
+    screens: [
+      { href: "/advisor/services", label: "My services" },
+      { href: "/advisor/services/tax-freelance", label: "Service detail – Advisor" },
+    ],
+  },
+  {
     title: "Error states",
     node: "995:5918",
     screens: [
