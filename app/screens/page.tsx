@@ -172,6 +172,9 @@ const SECTIONS: ReadonlyArray<{
       { href: "/availability", label: "Global availability – Default" },
       { href: "/availability/configured", label: "Global availability – Configured" },
       { href: "/availability/custom", label: "Global availability – Custom values" },
+      { href: "/availability/profiles", label: "Availability profiles" },
+      { href: "/availability/profiles/empty", label: "Availability profiles – Empty" },
+      { href: "/availability/profiles/delete", label: "Availability profiles – Delete confirm" },
     ],
   },
   {
