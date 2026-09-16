@@ -1,5 +1,6 @@
-import { AdminLoginScreen } from "@/components/admin/admin-login-screen";
+import { CmsLoginScreen } from "@/components/cms/login-screen";
 
+/** The failed-login state, opened with its toast already up. */
 export default function AdminLoginErrorPage() {
-  return <AdminLoginScreen state="error" />;
+  return <CmsLoginScreen preset="error" />;
 }

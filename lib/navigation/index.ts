@@ -100,9 +100,10 @@ export const pages: Record<
       icon: MessageSquare,
       href: pageHrefs.chat,
     },
+    // An advisor's own profile is the workspace one, not the advisee's.
     user: {
       icon: UserRound,
-      href: pageHrefs.user,
+      href: "/advisor/profile",
     },
   },
   admin: {

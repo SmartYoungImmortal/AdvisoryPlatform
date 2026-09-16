@@ -22,6 +22,7 @@ import {
   SettingsSection,
 } from "@/components/mobile/settings-list";
 import { IdentityCard } from "@/components/profile/identity-card";
+import { AccountName, AccountStat } from "@/components/session/account-bits";
 import { QuickActions } from "@/components/profile/quick-actions";
 import { BottomBar } from "@/components/bottombar";
 import { TopBar } from "@/components/topbar";
@@ -49,14 +50,20 @@ export function ProfileScreen({
           <IdentityCard
             editHref="/profile/edit"
             editLabel={t("editProfileAction")}
-            name={t("name")}
+            name={<AccountName fallback={t("name")} />}
             stats={[
-              { value: "12", label: t("stats.sessions") },
               {
-                value: "1",
+                value: <AccountStat fallback="12" stat="sessions" />,
+                label: t("stats.sessions"),
+              },
+              {
+                value: <AccountStat fallback="1" stat="bookings" />,
                 label: isView ? t("stats.bookings") : t("stats.upcoming"),
               },
-              { value: "8", label: t("stats.reviews") },
+              {
+                value: <AccountStat fallback="8" stat="reviews" />,
+                label: t("stats.reviews"),
+              },
             ]}
             subtitle={isView ? t("role") : t("roleWithMember")}
           />
@@ -125,7 +132,7 @@ export function ProfileScreen({
           </SettingsCard>
         </SettingsSection>
       </ScreenBody>
-      <BottomBar role="anon" selected="user" />
+      <BottomBar role="user" selected="user" />
       {overlay}
     </MobileScreen>
   );

@@ -1,4 +1,4 @@
-import { RefundsScreen } from "@/components/admin/refunds-screen";
+import { RefundsScreen } from "@/components/cms/screens/refunds";
 
 export default function RefundsPage() {
   return <RefundsScreen />;

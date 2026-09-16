@@ -1,3 +1,5 @@
+"use client";
+
 import { useTranslations } from "next-intl";
 
 import {
@@ -9,6 +11,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { DestructiveButton, NeutralButton } from "@/components/mobile/buttons";
+import { signOut } from "@/lib/session";
 
 /**
  * Figma "Log out confirm" (995:7665): a 326 x 194 dialog on a scrim — surface,
@@ -19,7 +22,7 @@ import { DestructiveButton, NeutralButton } from "@/components/mobile/buttons";
  * what brings the focus trap, the Escape handler, the scroll lock and the
  * title/description being announced as the dialog's accessible name.
  */
-export function LogOutDialog() {
+export function LogOutDialog({ cancelHref = "/profile" }: { readonly cancelHref?: string }) {
   const t = useTranslations("logOut");
 
   return (
@@ -37,8 +40,18 @@ export function LogOutDialog() {
         {/* Figma stacks the actions; the default footer is a two-column grid at
             this size, so the stack is restated rather than inherited. */}
         <AlertDialogFooter className="flex flex-col gap-2.5 group-data-[size=sm]/alert-dialog-content:flex sm:flex-col">
-          <DestructiveButton href="/login">{t("confirm")}</DestructiveButton>
-          <NeutralButton href="/profile">{t("cancel")}</NeutralButton>
+          <DestructiveButton
+            onClick={() => {
+              signOut();
+              // A full load rather than `router.replace`: the gate on this guarded
+              // route reacts to the sign-out too, and its soft redirect would add a
+              // `?next=` pointing back at this dialog.
+              window.location.replace("/login");
+            }}
+          >
+            {t("confirm")}
+          </DestructiveButton>
+          <NeutralButton href={cancelHref}>{t("cancel")}</NeutralButton>
         </AlertDialogFooter>
       </AlertDialogContent>
     </AlertDialog>
