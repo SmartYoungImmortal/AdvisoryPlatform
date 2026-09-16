@@ -2,6 +2,7 @@ import Image, { type StaticImageData } from "next/image";
 import { FileText, TriangleAlert } from "lucide-react";
 import type { ReactNode } from "react";
 
+import { Badge } from "@/components/ui/badge";
 import { ChatAvatar } from "@/components/chat/chat-avatar";
 import { cn } from "@/lib/utils";
 
@@ -9,9 +10,9 @@ import { cn } from "@/lib/utils";
 export function DayDivider({ children }: { readonly children: ReactNode }) {
   return (
     <div className="flex w-full shrink-0 flex-col items-center">
-      <span className="font-thai flex shrink-0 items-center justify-center gap-1 rounded-full bg-border px-2 py-1 text-center text-[12px] leading-[18px] font-semibold whitespace-nowrap text-foreground">
+      <Badge className="h-auto bg-border py-1 font-semibold text-foreground">
         {children}
-      </span>
+      </Badge>
     </div>
   );
 }
@@ -21,7 +22,7 @@ function Stamp({ children, className }: { readonly children: ReactNode; readonly
   return (
     <p
       className={cn(
-        "font-latin text-[12px] leading-[14px] font-normal tracking-[0] text-foreground",
+        "font-latin text-xs leading-3.5 font-normal text-foreground",
         className,
       )}
     >
@@ -51,7 +52,7 @@ export function PartnerMessage({
           <div className="flex max-w-[276px] shrink-0 flex-col items-start gap-3">
             <div
               className={cn(
-                "flex max-w-[276px] shrink-0 items-center justify-center rounded-tl-[8px] rounded-tr-[8px] rounded-br-[8px] bg-muted p-2",
+                "flex max-w-[276px] shrink-0 items-center justify-center rounded-tl-md rounded-tr-md rounded-br-md bg-muted p-2",
                 bubbleClassName,
               )}
             >
@@ -70,7 +71,7 @@ export function PartnerMessage({
 /** Plain Thai body text inside a partner bubble (14/20, max 260px). */
 export function PartnerText({ children }: { readonly children: ReactNode }) {
   return (
-    <p className="font-thai max-w-[260px] min-w-px flex-1 text-[14px] leading-[20px] font-normal whitespace-pre-line text-foreground">
+    <p className="max-w-[260px] min-w-px flex-1 text-sm font-normal whitespace-pre-line text-foreground">
       {children}
     </p>
   );
@@ -91,11 +92,11 @@ export function MyMessage({
 }) {
   return (
     <div className="flex w-full shrink-0 flex-col items-end justify-end">
-      <div className="flex max-w-[296px] shrink-0 flex-col items-end justify-end gap-[10px] p-[10px]">
+      <div className="flex max-w-[296px] shrink-0 flex-col items-end justify-end gap-2.5 p-2.5">
         <div className="flex max-w-[276px] shrink-0 flex-col items-start">
           <div
             className={cn(
-              "flex max-w-[276px] shrink-0 items-start rounded-tl-[8px] rounded-tr-[8px] rounded-bl-[8px] bg-primary p-2",
+              "flex max-w-[276px] shrink-0 items-start rounded-tl-md rounded-tr-md rounded-bl-md bg-primary p-2",
               bubbleClassName,
             )}
           >
@@ -113,7 +114,7 @@ export function MyMessage({
 /** Thai body text inside my bubble (14/20 white, max 260px). */
 export function MyText({ children }: { readonly children: ReactNode }) {
   return (
-    <p className="font-thai max-w-[260px] text-[14px] leading-[20px] font-normal whitespace-pre-line text-white">
+    <p className="max-w-[260px] text-sm font-normal whitespace-pre-line text-primary-foreground">
       {children}
     </p>
   );
@@ -131,10 +132,10 @@ export function FileBody({
     <>
       <FileText className="size-9 shrink-0 text-foreground" />
       <div className="flex w-[214px] shrink-0 flex-col items-start gap-2 font-normal">
-        <p className="font-latin w-full text-[14px] leading-[20px] tracking-[0] text-foreground">
+        <p className="font-latin w-full text-sm text-foreground">
           {name}
         </p>
-        <p className="font-thai w-full text-[14px] leading-[20px] whitespace-pre-wrap text-muted-foreground">
+        <p className="w-full text-sm whitespace-pre-wrap text-muted-foreground">
           {meta}
         </p>
       </div>
@@ -172,14 +173,14 @@ export function FailedMessage({
     <div className="flex w-full shrink-0 items-start justify-end overflow-clip px-4">
       <div className="flex shrink-0 flex-col items-end gap-1 overflow-clip">
         {/* Figma "Bubble" is exactly 260 x 40 with the stroke drawn inside. */}
-        <div className="flex h-10 w-[260px] shrink-0 items-start overflow-clip rounded-[14px] border border-destructive bg-muted px-[14px] py-[10px]">
-          <p className="font-thai min-w-px flex-1 text-[14px] leading-[20px] font-normal text-muted-foreground">
+        <div className="flex h-10 w-[260px] shrink-0 items-start overflow-clip rounded-xl border border-destructive bg-muted px-3.5 py-2.5">
+          <p className="min-w-px flex-1 text-sm font-normal text-muted-foreground">
             {text}
           </p>
         </div>
-        <div className="flex shrink-0 items-center gap-[6px] overflow-clip">
+        <div className="flex shrink-0 items-center gap-1.5 overflow-clip">
           <TriangleAlert className="size-3 shrink-0 text-destructive" />
-          <p className="font-thai text-right text-[12px] leading-[18px] font-normal whitespace-nowrap text-destructive">
+          <p className="text-right text-xs font-normal whitespace-nowrap text-destructive">
             {meta}
           </p>
         </div>

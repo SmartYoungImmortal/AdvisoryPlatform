@@ -14,9 +14,7 @@ import {
 import { useTranslations } from "next-intl";
 import type { ReactNode } from "react";
 
-import { HomeIndicator } from "@/components/mobile/home-indicator";
 import { MobileScreen, ScreenBody } from "@/components/mobile/screen";
-import { StatusBar } from "@/components/mobile/status-bar";
 import {
   SettingsCard,
   SettingsDivider,
@@ -44,10 +42,9 @@ export function ProfileScreen({
   const isView = variant === "view";
 
   return (
-    <MobileScreen>
-      <StatusBar />
-      <TopBar unreadNotifications />
-      <ScreenBody className="pb-[6px]">
+    <MobileScreen className="pb-0">
+      <ScreenBody className="pb-19.5">
+        <TopBar unreadNotifications />
         <div className="flex w-full shrink-0 flex-col items-start overflow-clip px-6 pt-4">
           <IdentityCard
             editHref="/profile/edit"
@@ -129,7 +126,6 @@ export function ProfileScreen({
         </SettingsSection>
       </ScreenBody>
       <BottomBar role="anon" selected="user" />
-      <HomeIndicator />
       {overlay}
     </MobileScreen>
   );

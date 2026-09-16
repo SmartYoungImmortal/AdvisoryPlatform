@@ -11,8 +11,8 @@ import {
 import type { LucideIcon } from "lucide-react";
 import { useTranslations } from "next-intl";
 
+import { Badge } from "@/components/ui/badge";
 import { NeutralButton, PrimaryButton } from "@/components/mobile/buttons";
-import { HomeIndicator } from "@/components/mobile/home-indicator";
 import {
   MobileScreen,
   ScreenActions,
@@ -21,8 +21,8 @@ import {
   ScreenSpacer,
   ScreenTopBar,
 } from "@/components/mobile/screen";
-import { StatusBar } from "@/components/mobile/status-bar";
 import { DetailRow } from "@/components/screening/parts";
+import { cn } from "@/lib/utils";
 
 type Invoice = "paid" | "failed" | "refunded";
 
@@ -41,14 +41,14 @@ function Line({
   return (
     <div className="flex w-full shrink-0 items-center justify-between gap-3">
       <span
-        className={`font-thai min-w-px flex-1 text-[14px] leading-[20px] ${
+        className={`min-w-px flex-1 text-sm ${
           strong ? "font-medium text-foreground" : "font-normal text-muted-foreground"
         }`}
       >
         {label}
       </span>
       <span
-        className={`font-latin shrink-0 text-[14px] leading-[20px] whitespace-nowrap ${
+        className={`font-latin shrink-0 text-sm whitespace-nowrap ${
           strong ? "font-semibold" : "font-normal"
         } ${negative ? "text-destructive" : "text-foreground"}`}
       >
@@ -93,7 +93,7 @@ function useInvoiceCopy(state: Invoice): InvoiceCopy {
   const table: Record<Invoice, InvoiceCopy> = {
     paid: {
       icon: CircleCheckBig,
-      tint: "bg-[#ecfccb] text-foreground",
+      tint: "bg-success-surface text-foreground",
       amount: t("totalValue"),
       when: t("invoicePaidTime"),
       who: t("advisor"),
@@ -175,7 +175,6 @@ export function InvoiceDetailScreen({ state }: { readonly state: Invoice }) {
 
   return (
     <MobileScreen>
-      <StatusBar />
       <ScreenTopBar href="/transactions" label={c("back")} />
       <ScreenBody>
         {/* Figma "Hero": a 40px status badge, the amount, then the timestamp. */}
@@ -185,22 +184,22 @@ export function InvoiceDetailScreen({ state }: { readonly state: Invoice }) {
           >
             <HeroIcon className="size-5" />
           </span>
-          <p className="font-latin mt-3 w-full text-center text-[28px] leading-[40px] font-semibold text-foreground">
+          <p className="font-latin mt-3 w-full text-center text-heading font-semibold text-foreground">
             {copy.amount}
           </p>
-          <p className="font-thai mt-1 w-full text-center text-[12px] leading-[18px] font-normal text-muted-foreground">
+          <p className="mt-1 w-full text-center text-xs font-normal text-muted-foreground">
             {copy.when}
           </p>
         </div>
 
         {/* Figma "Session": who and when the consultation is for. */}
         <div className="flex w-full shrink-0 flex-col items-start px-6 pt-5">
-          <div className="flex w-full shrink-0 flex-col items-start gap-3 overflow-clip rounded-[14px] bg-card p-[14px]">
-            <div className="flex w-full flex-col items-start gap-[2px]">
-              <p className="font-latin w-full text-[14px] leading-[20px] font-medium text-foreground">
+          <div className="flex w-full shrink-0 flex-col items-start gap-3 overflow-clip rounded-xl bg-card p-3.5">
+            <div className="flex w-full flex-col items-start gap-0.5">
+              <p className="font-latin w-full text-sm font-medium text-foreground">
                 {copy.who}
               </p>
-              <p className="font-thai w-full text-[12px] leading-[18px] font-normal text-muted-foreground">
+              <p className="w-full text-xs font-normal text-muted-foreground">
                 {copy.what}
               </p>
             </div>
@@ -217,7 +216,7 @@ export function InvoiceDetailScreen({ state }: { readonly state: Invoice }) {
 
         {/* Figma "Breakdown": line items and the resulting total. */}
         <div className="flex w-full shrink-0 flex-col items-start px-6 pt-5">
-          <div className="flex w-full shrink-0 flex-col items-start gap-[10px] overflow-clip rounded-[14px] bg-card p-[14px]">
+          <div className="flex w-full shrink-0 flex-col items-start gap-2.5 overflow-clip rounded-xl bg-card p-3.5">
             {copy.lines.map((line) => (
               <Line
                 key={line.label}
@@ -233,7 +232,7 @@ export function InvoiceDetailScreen({ state }: { readonly state: Invoice }) {
 
         {/* Figma "Reference": payment method, invoice number and charge id. */}
         <div className="flex w-full shrink-0 flex-col items-start px-6 pt-5">
-          <div className="flex w-full shrink-0 flex-col items-start gap-3 overflow-clip rounded-[14px] bg-card p-[14px]">
+          <div className="flex w-full shrink-0 flex-col items-start gap-3 overflow-clip rounded-xl bg-card p-3.5">
             <DetailRow icon={CreditCard} label={copy.cardLabel} value={t("cardBrand")} />
             {state === "failed" ? (
               <DetailRow
@@ -260,7 +259,6 @@ export function InvoiceDetailScreen({ state }: { readonly state: Invoice }) {
           )}
         </ScreenActions>
       </ScreenBody>
-      <HomeIndicator />
     </MobileScreen>
   );
 }
@@ -292,22 +290,22 @@ function TxRow({
 
   return (
     <Link
-      className="flex h-16 w-full shrink-0 items-start gap-3 overflow-clip p-[14px]"
+      className="flex h-16 w-full shrink-0 items-start gap-3 overflow-clip p-3.5"
       href={href}
     >
-      <div className="flex min-w-px flex-1 flex-col items-start gap-[2px] overflow-clip">
-        <p className="font-thai w-full text-[14px] leading-[20px] font-medium text-foreground">
+      <div className="flex min-w-px flex-1 flex-col items-start gap-0.5 overflow-clip">
+        <p className="w-full text-sm font-medium text-foreground">
           {title}
         </p>
-        <p className="font-thai w-full text-[12px] leading-[18px] font-normal text-muted-foreground">
+        <p className="w-full text-xs font-normal text-muted-foreground">
           {sub}
         </p>
       </div>
-      <div className="flex shrink-0 flex-col items-end gap-[2px]">
-        <p className="font-latin text-[14px] leading-[20px] font-medium whitespace-nowrap text-foreground">
+      <div className="flex shrink-0 flex-col items-end gap-0.5">
+        <p className="font-latin text-sm font-medium whitespace-nowrap text-foreground">
           {amount}
         </p>
-        <p className={`font-thai text-[12px] leading-[18px] font-normal whitespace-nowrap ${toneClass}`}>
+        <p className={`text-xs font-normal whitespace-nowrap ${toneClass}`}>
           {status}
         </p>
       </div>
@@ -323,16 +321,15 @@ export function TransactionHistoryScreen() {
 
   return (
     <MobileScreen>
-      <StatusBar />
       <ScreenTopBar href="/profile" label={c("back")} />
       <ScreenBody>
         <ScreenHeading className="pt-4" title={t("historyTitle")} />
 
         {/* Figma "Summary": a single 44px wallet strip. */}
         <div className="flex w-full shrink-0 flex-col items-start px-6 pt-2">
-          <div className="flex h-11 w-full shrink-0 items-center gap-3 overflow-clip rounded-[14px] bg-card px-[14px]">
+          <div className="flex h-11 w-full shrink-0 items-center gap-3 overflow-clip rounded-xl bg-card px-3.5">
             <Wallet className="size-4 shrink-0 text-muted-foreground" />
-            <span className="font-latin text-[14px] leading-[20px] font-medium text-foreground">
+            <span className="font-latin text-sm font-medium text-foreground">
               {t("historySummary")}
             </span>
           </div>
@@ -341,14 +338,15 @@ export function TransactionHistoryScreen() {
         {/* Figma "Filters": pill row, first pill selected. */}
         <div className="flex w-full shrink-0 items-center gap-2 overflow-x-auto px-6 pt-3">
           {filters.map((f, i) => (
-            <span
-              className={`font-thai shrink-0 rounded-full px-3 py-[5px] text-[12px] leading-[18px] font-medium whitespace-nowrap ${
-                i === 0 ? "bg-foreground text-background" : "bg-card text-muted-foreground"
-              }`}
+            <Badge
+              className={cn(
+                "h-auto px-3 py-1.25",
+                i === 0 ? "bg-foreground text-background" : "bg-card text-muted-foreground",
+              )}
               key={f}
             >
               {f}
-            </span>
+            </Badge>
           ))}
         </div>
 
@@ -373,10 +371,10 @@ export function TransactionHistoryScreen() {
             className="flex w-full shrink-0 flex-col items-start gap-2 px-6 pt-5"
             key={group.month}
           >
-            <p className="font-thai w-full text-[12px] leading-[18px] font-normal text-muted-foreground">
+            <p className="w-full text-xs font-normal text-muted-foreground">
               {group.month}
             </p>
-            <div className="flex w-full shrink-0 flex-col items-start overflow-clip rounded-[14px] bg-card">
+            <div className="flex w-full shrink-0 flex-col items-start overflow-clip rounded-xl bg-card">
               {group.rows.map((r, i) => (
                 <div className="w-full" key={`${r.title}-${r.sub}`}>
                   {i > 0 ? <div className="h-px w-full shrink-0 bg-muted" /> : null}
@@ -389,7 +387,6 @@ export function TransactionHistoryScreen() {
 
         <ScreenSpacer />
       </ScreenBody>
-      <HomeIndicator />
     </MobileScreen>
   );
 }

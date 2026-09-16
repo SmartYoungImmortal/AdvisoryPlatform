@@ -3,7 +3,6 @@ import type { LucideIcon } from "lucide-react";
 import { useTranslations } from "next-intl";
 
 import { NeutralButton, PrimaryButton } from "@/components/mobile/buttons";
-import { HomeIndicator } from "@/components/mobile/home-indicator";
 import {
   MobileScreen,
   ScreenActions,
@@ -12,7 +11,6 @@ import {
   ScreenSpacer,
   ScreenTopBar,
 } from "@/components/mobile/screen";
-import { StatusBar } from "@/components/mobile/status-bar";
 
 /** Figma "Info Card" row — 64px tall: 16px glyph inset 14px, then a title/body stack. */
 function UseRow({
@@ -25,13 +23,13 @@ function UseRow({
   readonly body: string;
 }) {
   return (
-    <div className="flex h-16 w-full shrink-0 items-start gap-3 overflow-clip p-[14px]">
+    <div className="flex h-16 w-full shrink-0 items-start gap-3 overflow-clip p-3.5">
       <Icon className="size-4 shrink-0 text-muted-foreground" />
-      <div className="flex min-w-px flex-1 flex-col items-start gap-[2px] overflow-clip">
-        <p className="font-thai w-full text-[14px] leading-[20px] font-medium text-foreground">
+      <div className="flex min-w-px flex-1 flex-col items-start gap-0.5 overflow-clip">
+        <p className="w-full text-sm font-medium text-foreground">
           {title}
         </p>
-        <p className="font-thai w-full text-[12px] leading-[18px] font-normal text-muted-foreground">
+        <p className="w-full text-xs font-normal text-muted-foreground">
           {body}
         </p>
       </div>
@@ -46,14 +44,13 @@ export function PdpaScreen() {
 
   return (
     <MobileScreen>
-      <StatusBar />
       <ScreenTopBar href="/register" label={c("back")} />
       <ScreenBody>
         <ScreenHeading className="gap-2 pt-4" subtitle={t("subtitle")} title={t("title")} />
 
         {/* Figma "What We Use": card of three 64px rows split by hairlines. */}
         <div className="flex w-full shrink-0 flex-col items-start px-6 pt-3">
-          <div className="flex w-full shrink-0 flex-col items-start overflow-clip rounded-[14px] bg-card">
+          <div className="flex w-full shrink-0 flex-col items-start overflow-clip rounded-xl bg-card">
             <UseRow body={t("profileBody")} icon={UserRound} title={t("profileTitle")} />
             <div className="h-px w-full shrink-0 bg-muted" />
             <UseRow
@@ -72,7 +69,6 @@ export function PdpaScreen() {
           <NeutralButton href="/terms">{t("readFull")}</NeutralButton>
         </ScreenActions>
       </ScreenBody>
-      <HomeIndicator />
     </MobileScreen>
   );
 }
@@ -85,21 +81,20 @@ export function TermsScreen() {
 
   return (
     <MobileScreen>
-      <StatusBar />
       <ScreenTopBar href="/pdpa" label={c("back")} />
       <ScreenBody>
         <ScreenHeading className="pt-4" title={t("title")} />
         {/* Figma "Document": 8px top padding, 18px between sections, 6px title→body. */}
-        <div className="flex w-full shrink-0 flex-col items-start gap-[18px] px-6 pt-2">
+        <div className="flex w-full shrink-0 flex-col items-start gap-4.5 px-6 pt-2">
           {sections.map((n) => (
             <div
-              className="flex w-full shrink-0 flex-col items-start gap-[6px]"
+              className="flex w-full shrink-0 flex-col items-start gap-1.5"
               key={n}
             >
-              <p className="font-thai w-full text-[14px] leading-[20px] font-medium text-foreground">
+              <p className="w-full text-sm font-medium text-foreground">
                 {t(`s${n}Title`)}
               </p>
-              <p className="font-thai w-full text-[14px] leading-[20px] font-normal text-muted-foreground">
+              <p className="w-full text-sm font-normal text-muted-foreground">
                 {t(`s${n}Body`)}
               </p>
             </div>
@@ -107,7 +102,6 @@ export function TermsScreen() {
         </div>
         <ScreenSpacer />
       </ScreenBody>
-      <HomeIndicator />
     </MobileScreen>
   );
 }

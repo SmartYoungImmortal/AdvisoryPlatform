@@ -14,9 +14,7 @@ import { useTranslations } from "next-intl";
 
 import { walletFailed, walletSuccess } from "@/lib/assets/r2";
 import { NeutralButton, PrimaryButton } from "@/components/mobile/buttons";
-import { HomeIndicator } from "@/components/mobile/home-indicator";
 import { MobileScreen, ScreenActions, ScreenBody } from "@/components/mobile/screen";
-import { StatusBar } from "@/components/mobile/status-bar";
 import { DetailRow, FootNote } from "@/components/screening/parts";
 
 type Result = "success" | "failed" | "unconfirmed" | "slot-taken";
@@ -113,8 +111,7 @@ export function PaymentResultScreen({ state }: { readonly state: Result }) {
   const slotTaken = state === "slot-taken";
 
   return (
-    <MobileScreen>
-      <StatusBar />
+    <MobileScreen className="pt-6">
       <ScreenBody>
         {/* Figma "Hero": a 280px wallet illustration (or a 96px badge for the
             slot-taken frame), then the 28/40 title and 14/20 muted body. */}
@@ -130,7 +127,7 @@ export function PaymentResultScreen({ state }: { readonly state: Result }) {
               <Image alt="" className="size-full" src={success ? walletSuccess : walletFailed} />
               {success ? (
                 <Check
-                  className="absolute size-[49px] text-[#65a30d]"
+                  className="absolute size-[49px] text-success"
                   strokeWidth={3}
                   style={{ left: 188, top: 142.55 }}
                 />
@@ -138,21 +135,21 @@ export function PaymentResultScreen({ state }: { readonly state: Result }) {
             </div>
           )}
           {state === "unconfirmed" ? (
-            <p className="font-latin mt-4 w-full text-center text-[28px] leading-[40px] font-semibold text-foreground">
+            <p className="font-latin mt-4 w-full text-center text-heading font-semibold text-foreground">
               {t("unconfirmedAmount")}
             </p>
           ) : null}
-          <p className="font-thai mt-4 w-full text-center text-[28px] leading-[40px] font-semibold text-foreground">
+          <p className="mt-4 w-full text-center text-heading font-semibold text-foreground">
             {copy.title}
           </p>
-          <p className="font-thai mt-2 w-full text-center text-[14px] leading-[20px] font-normal text-muted-foreground">
+          <p className="mt-2 w-full text-center text-sm font-normal text-muted-foreground">
             {copy.body}
           </p>
         </div>
 
         {/* Figma "Details": a 3-row summary card. */}
         <div className="flex w-full shrink-0 flex-col items-start px-6 pt-6">
-          <div className="flex w-full shrink-0 flex-col items-start gap-3 overflow-clip rounded-[14px] bg-card p-[14px]">
+          <div className="flex w-full shrink-0 flex-col items-start gap-3 overflow-clip rounded-xl bg-card p-3.5">
             {copy.rows.map((row) => (
               <DetailRow
                 icon={row.icon}
@@ -176,7 +173,6 @@ export function PaymentResultScreen({ state }: { readonly state: Result }) {
           <NeutralButton href={copy.secondary.href}>{copy.secondary.label}</NeutralButton>
         </ScreenActions>
       </ScreenBody>
-      <HomeIndicator />
     </MobileScreen>
   );
 }
@@ -186,8 +182,7 @@ export function PaymentProcessingScreen() {
   const t = useTranslations("payment");
 
   return (
-    <MobileScreen>
-      <StatusBar />
+    <MobileScreen className="pt-6">
       <ScreenBody>
         <div className="w-full flex-1" />
         <div className="flex w-full shrink-0 flex-col items-center px-6">
@@ -195,7 +190,7 @@ export function PaymentProcessingScreen() {
             aria-label={t("processingTitle")}
             className="block size-11 shrink-0 animate-spin rounded-full border-[3px] border-border border-t-primary"
           />
-          <p className="font-thai mt-[64px] w-full text-center text-[24px] leading-[34px] font-semibold text-foreground">
+          <p className="mt-16 w-full text-center text-2xl font-semibold text-foreground">
             {t("processingTitle")}
           </p>
         </div>
@@ -204,7 +199,6 @@ export function PaymentProcessingScreen() {
           <NeutralButton href="/checkout/card">{t("cancelPayment")}</NeutralButton>
         </div>
       </ScreenBody>
-      <HomeIndicator />
     </MobileScreen>
   );
 }

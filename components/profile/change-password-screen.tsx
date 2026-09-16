@@ -4,7 +4,6 @@ import { useTranslations } from "next-intl";
 import { AlertBanner, InfoCard, InfoRow } from "@/components/mobile/banner";
 import { PrimaryButton } from "@/components/mobile/buttons";
 import { Field } from "@/components/mobile/field";
-import { HomeIndicator } from "@/components/mobile/home-indicator";
 import {
   MobileScreen,
   ScreenActions,
@@ -13,7 +12,6 @@ import {
   ScreenSpacer,
   ScreenTopBar,
 } from "@/components/mobile/screen";
-import { StatusBar } from "@/components/mobile/status-bar";
 
 /**
  * Figma "Change password" (995:7360) and its wrong-current-password state
@@ -30,7 +28,6 @@ export function ChangePasswordScreen({
 
   return (
     <MobileScreen>
-      <StatusBar />
       <ScreenTopBar href="/settings" label={c("back")} />
       <ScreenBody>
         <ScreenHeading title={t("title")} />
@@ -85,7 +82,6 @@ export function ChangePasswordScreen({
           <PrimaryButton href="/settings/updated">{t("submit")}</PrimaryButton>
         </ScreenActions>
       </ScreenBody>
-      <HomeIndicator />
     </MobileScreen>
   );
 }

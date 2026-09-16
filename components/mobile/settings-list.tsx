@@ -1,7 +1,16 @@
 import Link from "next/link";
-import { ChevronRight, type LucideIcon } from "lucide-react";
+import { ChevronRight, Plus, type LucideIcon } from "lucide-react";
 import type { ReactNode } from "react";
 
+import { Card } from "@/components/ui/card";
+import {
+  Item,
+  ItemActions,
+  ItemContent,
+  ItemMedia,
+  ItemTitle,
+} from "@/components/ui/item";
+import { Separator } from "@/components/ui/separator";
 import { cn } from "@/lib/utils";
 
 /**
@@ -25,16 +34,18 @@ export function SettingsSection({
       )}
     >
       {label ? (
-        <p className="font-thai w-full text-[14px] leading-[20px] font-medium text-muted-foreground">
-          {label}
-        </p>
+        <p className="w-full text-sm font-medium text-muted-foreground">{label}</p>
       ) : null}
       {children}
     </div>
   );
 }
 
-/** Figma "Card" — surface, 14px radius, rows stacked with hairline dividers. */
+/**
+ * Figma "Card" — surface, 14px radius, rows stacked flush against each other.
+ * `--card-spacing` is the card's own knob for its padding and row gap, so zeroing
+ * it is all it takes to get the edge-to-edge list the design draws.
+ */
 export function SettingsCard({
   children,
   className,
@@ -43,25 +54,43 @@ export function SettingsCard({
   readonly className?: string;
 }) {
   return (
-    <div
-      className={cn(
-        "flex w-full shrink-0 flex-col items-start overflow-clip rounded-[14px] bg-card",
-        className,
-      )}
-    >
+    <Card className={cn("w-full shadow-none ring-0 [--card-spacing:0]", className)}>
       {children}
-    </div>
+    </Card>
   );
 }
 
 /** Figma "Divider" — 1px of surface-muted between card rows. */
 export function SettingsDivider() {
-  return <div className="h-px w-full shrink-0 bg-muted" />;
+  return <Separator className="bg-muted" />;
+}
+
+/**
+ * Figma "Add …" row — the last row of an editable card list: a 48px line whose
+ * glyph and label both take the accent. Shares SettingsRow's metrics.
+ */
+export function AddRow({ label }: { readonly label: ReactNode }) {
+  return (
+    <Item
+      className="gap-3 rounded-none p-3.5 text-primary"
+      render={<button type="button" />}
+    >
+      <ItemMedia variant="icon">
+        <Plus />
+      </ItemMedia>
+      <ItemContent>
+        <ItemTitle className="w-full font-medium">{label}</ItemTitle>
+      </ItemContent>
+    </Item>
+  );
 }
 
 /**
  * Figma settings row — 48px tall: 14px padding, 12px gaps, 16px leading glyph,
  * 14/20 medium label, optional trailing value and 16px chevron.
+ *
+ * `Item` brings the focus ring and hover state the hand-rolled row never had;
+ * only the Figma metrics are restated here.
  */
 export function SettingsRow({
   icon: Icon,
@@ -80,42 +109,27 @@ export function SettingsRow({
   readonly href?: string;
   readonly showChevron?: boolean;
 }) {
-  const content = (
-    <>
-      <Icon className={cn("size-4 shrink-0 text-muted-foreground", iconClassName)} />
-      <span
-        className={cn(
-          "font-thai min-w-px flex-1 text-left text-[14px] leading-[20px] font-medium text-foreground",
-          labelClassName,
-        )}
-      >
-        {label}
-      </span>
-      {value ? (
-        <span className="font-latin shrink-0 text-[14px] leading-[20px] font-normal text-muted-foreground">
-          {value}
-        </span>
-      ) : null}
-      {showChevron ? (
-        <ChevronRight className="size-4 shrink-0 text-muted-foreground" />
-      ) : null}
-    </>
-  );
-
-  const rowClassName =
-    "flex w-full shrink-0 items-center gap-3 overflow-clip p-[14px]";
-
-  if (href) {
-    return (
-      <Link className={rowClassName} href={href}>
-        {content}
-      </Link>
-    );
-  }
-
   return (
-    <button className={rowClassName} type="button">
-      {content}
-    </button>
+    <Item
+      className="gap-3 rounded-none p-3.5"
+      render={href ? <Link href={href} /> : <button type="button" />}
+    >
+      <ItemMedia className={cn("text-muted-foreground", iconClassName)} variant="icon">
+        <Icon />
+      </ItemMedia>
+      <ItemContent>
+        <ItemTitle className={cn("w-full", labelClassName)}>{label}</ItemTitle>
+      </ItemContent>
+      {value || showChevron ? (
+        <ItemActions className="gap-3">
+          {value ? (
+            <span className="font-latin text-sm font-normal text-muted-foreground">
+              {value}
+            </span>
+          ) : null}
+          {showChevron ? <ChevronRight className="size-4 text-muted-foreground" /> : null}
+        </ItemActions>
+      ) : null}
+    </Item>
   );
 }

@@ -29,31 +29,56 @@ debt() { # minutes -> "2d 3h", "24m", "0m"
 }
 mval() { jq -r --arg k "$1" '.component.measures[]? | select(.metric==$k) | .value' "$2" 2>/dev/null; }
 
-# ── 1. wait for analysis, then decide the API scope ──────────────────
-if [ "$MODE" = "pr" ]; then
-  echo "Waiting for SonarCloud PR #${PR} analysis…"
-  OK=""
-  for i in $(seq 1 18); do
-    curl -sf "${API}/project_pull_requests/list?project=${PROJECT}" -o /tmp/prs.json || true
-    if jq -e --arg pr "$PR" '.pullRequests[]? | select(.key==$pr)' /tmp/prs.json >/dev/null 2>&1; then
-      OK=1; echo "PR #$PR analysis found."; break
+# ── 1. wait for SonarCloud to analyse *this* commit ──────────────────
+# Automatic Analysis is asynchronous, so the job has to wait for it. The check
+# used to be "does Sonar know about this PR yet?", which on the second and later
+# pushes to an open PR is true the instant the job starts — Sonar still held the
+# *previous* commit's analysis. The report was then built from that, so a PR
+# whose findings had just been fixed came back FAILED, quoting line numbers that
+# no longer existed in the commit being reported on.
+#
+# `project_pull_requests/list` and `project_branches/list` both pin their entry
+# to `commit.sha`, so waiting for that to reach HEAD_SHA is the real signal.
+poll_analysis() { # url, jq filter -> /tmp/entry.json, 0 when it matches HEAD_SHA
+  local url="$1" filter="$2" sha=""
+  for i in $(seq 1 30); do
+    if curl -sf "$url" -o /tmp/list.json; then
+      jq -e "$filter" /tmp/list.json >/tmp/entry.json 2>/dev/null || echo '{}' >/tmp/entry.json
+      sha=$(jq -r '.commit.sha // ""' /tmp/entry.json 2>/dev/null)
+      if [ -n "$sha" ] && [ "$sha" = "$HEAD_SHA" ]; then
+        echo "Analysis for ${COMMIT_SHORT} found (attempt ${i})."
+        return 0
+      fi
+      if [ -n "$sha" ]; then
+        echo "  …Sonar is still on $(echo "$sha" | cut -c1-7), waiting for ${COMMIT_SHORT} (${i}/30)"
+      else
+        echo "  …no analysis yet (${i}/30)"
+      fi
+    else
+      echo "  …SonarCloud API unreachable (${i}/30)"
     fi
-    echo "  …not ready yet ($i/18)"; sleep 10
+    sleep 10
   done
-  SCOPE=""; [ -n "$OK" ] && SCOPE="&pullRequest=${PR}"
+  return 1
+}
+
+FRESH=""
+if [ "$MODE" = "pr" ]; then
+  echo "Waiting for SonarCloud analysis of PR #${PR} at ${COMMIT_SHORT}…"
+  poll_analysis "${API}/project_pull_requests/list?project=${PROJECT}" \
+    ".pullRequests[]? | select(.key==\"${PR}\")" && FRESH=1
+  SCOPE="&pullRequest=${PR}"
   DASH="https://sonarcloud.io/summary/new_code?id=${PROJECT}&pullRequest=${PR}"
 else
-  echo "Waiting for SonarCloud branch analysis (${BRANCH})…"
-  for i in $(seq 1 18); do
-    curl -sf "${API}/measures/component?component=${PROJECT}&branch=${BRANCH}&metricKeys=alert_status" -o /tmp/chk.json || true
-    if jq -e '.component.measures[]? | select(.metric=="alert_status")' /tmp/chk.json >/dev/null 2>&1; then
-      echo "Branch analysis found."; break
-    fi
-    echo "  …not ready yet ($i/18)"; sleep 10
-  done
+  echo "Waiting for SonarCloud analysis of ${BRANCH} at ${COMMIT_SHORT}…"
+  poll_analysis "${API}/project_branches/list?project=${PROJECT}" \
+    ".branches[]? | select(.name==\"${BRANCH}\")" && FRESH=1
   SCOPE="&branch=${BRANCH}"
   DASH="https://sonarcloud.io/summary/new_code?id=${PROJECT}&branch=${BRANCH}"
 fi
+
+ANALYSED_SHA=$(jq -r '.commit.sha // ""' /tmp/entry.json 2>/dev/null)
+ANALYSED_SHORT="$(echo "${ANALYSED_SHA}" | cut -c1-7)"
 
 # ── 2. fetch measures / quality gate / issues ────────────────────────
 METRICS="alert_status,bugs,vulnerabilities,code_smells,security_hotspots,coverage,duplicated_lines_density,ncloc,statements,functions,sqale_index,sqale_rating,reliability_rating,security_rating,security_review_rating"
@@ -74,7 +99,15 @@ REL=$(rating "$(mval reliability_rating /tmp/m.json)")
 SEC=$(rating "$(mval security_rating /tmp/m.json)")
 MNT=$(rating "$(mval sqale_rating /tmp/m.json)")
 SECREV=$(rating "$(mval security_review_rating /tmp/m.json)")
-GATE=$(mval alert_status /tmp/m.json);      GATE=${GATE:-NONE}
+
+# The verdict comes from the commit-pinned entry rather than the `alert_status`
+# measure: the list endpoint carries the sha it belongs to, so the pass/fail can
+# never be attributed to the wrong commit even if the measures index lags behind.
+GATE=$(jq -r '.status.qualityGateStatus // ""' /tmp/entry.json 2>/dev/null)
+[ -z "${GATE}" ] && GATE=$(mval alert_status /tmp/m.json)
+GATE=${GATE:-NONE}
+# Never report a verdict that belongs to an older commit — say "checking" instead.
+[ -z "${FRESH}" ] && GATE="PENDING"
 
 # severity facet counts
 sev() { jq -r --arg s "$1" '(.facets[]?|select(.property=="severities").values[]?|select(.val==$s).count) // 0' /tmp/i.json 2>/dev/null | head -1; }
@@ -86,7 +119,11 @@ ISSUE_TOTAL=$(jq -r '.total // 0' /tmp/i.json)
 rscore() { case "$1" in A) echo 10;; B) echo 8;; C) echo 6;; D) echo 4;; E) echo 2;; *) echo 0;; esac; }
 OVERALL=$(( ( $(rscore "$REL") + $(rscore "$SEC") + $(rscore "$MNT") ) / 3 ))
 
-if [ "$GATE" = "OK" ]; then GATE_ICON="🟢"; GATE_TXT="✅ PASSED"; else GATE_ICON="🔴"; GATE_TXT="❌ FAILED"; fi
+case "${GATE}" in
+  OK)    GATE_ICON="🟢"; GATE_TXT="✅ PASSED" ;;
+  ERROR) GATE_ICON="🔴"; GATE_TXT="❌ FAILED" ;;
+  *)     GATE_ICON="🔍"; GATE_TXT="⏳ CHECKING — SonarCloud has not analysed \`${COMMIT_SHORT}\` yet" ;;
+esac
 ESLINT_STATUS="${ESLINT_STATUS:-"⏭️ Skipped"}"; ESLINT_DETAIL="${ESLINT_DETAIL:-"—"}"
 TSC_STATUS="${TSC_STATUS:-"⏭️ Skipped"}";       TSC_DETAIL="${TSC_DETAIL:-"—"}"
 
@@ -136,7 +173,15 @@ fi
 echo ""
 echo "</details>"
 echo ""
-echo "🔗 [Dashboard](${DASH}) · Branch: \`${BRANCH}\` · Commit: \`${COMMIT_SHORT}\` · Scanned via SonarCloud"
+# Naming the analysed commit keeps the numbers falsifiable: if it ever drifts
+# from the head commit again, the report says so instead of looking authoritative.
+if [ -n "${FRESH}" ]; then
+  echo "🔗 [Dashboard](${DASH}) · Branch: \`${BRANCH}\` · Commit: \`${COMMIT_SHORT}\` · Scanned via SonarCloud"
+else
+  echo "🔗 [Dashboard](${DASH}) · Branch: \`${BRANCH}\` · Head: \`${COMMIT_SHORT}\` · Last analysed: \`${ANALYSED_SHORT:-none}\` · Scanned via SonarCloud"
+  echo ""
+  echo "> ⏳ The figures above belong to \`${ANALYSED_SHORT:-an earlier run}\`, not to \`${COMMIT_SHORT}\`. Re-run this job once SonarCloud catches up."
+fi
 } > /tmp/report.md
 
 echo "----- report preview -----"; cat /tmp/report.md
@@ -179,5 +224,6 @@ case "${GATE}" in
   ERROR)
     echo "::error::Quality Gate FAILED"; exit 1 ;;
   *)
-    echo "::warning::Quality Gate status unavailable (${GATE}) — not failing the build"; exit 0 ;;
+    echo "::warning::SonarCloud has not analysed ${COMMIT_SHORT} yet (last analysed: ${ANALYSED_SHORT:-none}) — not failing the build on another commit's verdict"
+    exit 0 ;;
 esac

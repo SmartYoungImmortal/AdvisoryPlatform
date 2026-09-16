@@ -3,14 +3,12 @@ import { useTranslations } from "next-intl";
 
 import { errorNoConnection as noConnection, errorNotFound as notFound, errorSearch as serverError } from "@/lib/assets/r2";
 import { NeutralButton, PrimaryButton } from "@/components/mobile/buttons";
-import { HomeIndicator } from "@/components/mobile/home-indicator";
 import {
   MobileScreen,
   ScreenActions,
   ScreenBody,
   ScreenTopBar,
 } from "@/components/mobile/screen";
-import { StatusBar } from "@/components/mobile/status-bar";
 
 type ErrorKind = "no-connection" | "not-found" | "server";
 
@@ -59,7 +57,6 @@ export function ErrorStateScreen({ kind }: { readonly kind: ErrorKind }) {
 
   return (
     <MobileScreen>
-      <StatusBar />
       <ScreenTopBar href="/" label={c("back")} />
       <ScreenBody>
         <div className="w-full min-h-px flex-1" />
@@ -71,10 +68,10 @@ export function ErrorStateScreen({ kind }: { readonly kind: ErrorKind }) {
             style={{ width: spec.width, height: spec.height }}
           />
           {/* Figma "Error Text": 18px under the artwork, 40px title, 8px gap. */}
-          <p className="font-thai mt-[18px] w-full text-center text-[28px] leading-[40px] font-semibold text-foreground">
+          <p className="mt-4.5 w-full text-center text-heading font-semibold text-foreground">
             {spec.title}
           </p>
-          <p className="font-thai mt-2 w-full text-center text-[14px] leading-[20px] font-normal text-muted-foreground">
+          <p className="mt-2 w-full text-center text-sm font-normal text-muted-foreground">
             {spec.body}
           </p>
         </div>
@@ -84,7 +81,6 @@ export function ErrorStateScreen({ kind }: { readonly kind: ErrorKind }) {
           <NeutralButton>{spec.secondary}</NeutralButton>
         </ScreenActions>
       </ScreenBody>
-      <HomeIndicator />
     </MobileScreen>
   );
 }

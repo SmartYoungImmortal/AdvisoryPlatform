@@ -3,7 +3,6 @@ import { Bell, CalendarDays, CreditCard, MessageSquare } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { useTranslations } from "next-intl";
 
-import { HomeIndicator } from "@/components/mobile/home-indicator";
 import {
   MobileScreen,
   ScreenBody,
@@ -11,7 +10,6 @@ import {
   ScreenSpacer,
   ScreenTopBar,
 } from "@/components/mobile/screen";
-import { StatusBar } from "@/components/mobile/status-bar";
 
 /**
  * Figma notification row — 64px tall: a 16px glyph, a title/body stack and a
@@ -34,20 +32,20 @@ function NotificationRow({
 }) {
   return (
     <Link
-      className="flex h-16 w-full shrink-0 items-start gap-3 overflow-clip px-[14px] py-3"
+      className="flex h-16 w-full shrink-0 items-start gap-3 overflow-clip px-3.5 py-3"
       href={href}
     >
       <Icon className="mt-3 size-4 shrink-0 text-muted-foreground" />
-      <div className="flex min-w-px flex-1 flex-col items-start gap-[2px] overflow-clip">
-        <p className="font-thai w-full text-[14px] leading-[20px] font-medium text-foreground">
+      <div className="flex min-w-px flex-1 flex-col items-start gap-0.5 overflow-clip">
+        <p className="w-full text-sm font-medium text-foreground">
           {title}
         </p>
-        <p className="font-thai w-full text-[12px] leading-[18px] font-normal text-muted-foreground">
+        <p className="w-full text-xs font-normal text-muted-foreground">
           {body}
         </p>
       </div>
       <div className="mt-[11px] flex shrink-0 items-center gap-2">
-        <span className="font-thai text-[12px] leading-[18px] font-normal whitespace-nowrap text-muted-foreground">
+        <span className="text-xs font-normal whitespace-nowrap text-muted-foreground">
           {time}
         </span>
         {unread ? <span className="size-2 shrink-0 rounded-full bg-primary" /> : null}
@@ -66,10 +64,10 @@ function DayGroup({
 }) {
   return (
     <div className="flex w-full shrink-0 flex-col items-start gap-2 px-6 pt-5">
-      <p className="font-thai w-full text-[12px] leading-[18px] font-normal text-muted-foreground">
+      <p className="w-full text-xs font-normal text-muted-foreground">
         {label}
       </p>
-      <div className="flex w-full shrink-0 flex-col items-start overflow-clip rounded-[14px] bg-card">
+      <div className="flex w-full shrink-0 flex-col items-start overflow-clip rounded-xl bg-card">
         {children}
       </div>
     </div>
@@ -93,7 +91,6 @@ export function NotificationCenterScreen({
 
   return (
     <MobileScreen>
-      <StatusBar />
       <ScreenTopBar href="/profile" label={c("back")} />
       <ScreenBody>
         <ScreenHeading className="pt-4" title={t("title")} />
@@ -104,10 +101,10 @@ export function NotificationCenterScreen({
             <span className="flex size-[72px] shrink-0 items-center justify-center rounded-full bg-muted">
               <Bell className="size-7 text-muted-foreground" />
             </span>
-            <p className="font-thai w-full text-[20px] leading-[28px] font-semibold text-foreground">
+            <p className="w-full text-xl font-semibold text-foreground">
               {t("emptyTitle")}
             </p>
-            <p className="font-thai w-full text-[14px] leading-[20px] font-normal text-muted-foreground">
+            <p className="w-full text-sm font-normal text-muted-foreground">
               {t("emptyBody")}
             </p>
           </div>
@@ -163,7 +160,6 @@ export function NotificationCenterScreen({
 
         <ScreenSpacer />
       </ScreenBody>
-      <HomeIndicator />
     </MobileScreen>
   );
 }
