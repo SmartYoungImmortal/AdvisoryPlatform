@@ -1,4 +1,3 @@
-import Link from "next/link";
 import { useTranslations } from "next-intl";
 import type { ReactNode } from "react";
 
@@ -8,43 +7,26 @@ import {
   ScreenBody,
   ScreenHeading,
 } from "@/components/mobile/screen";
+import { SegmentedTabs } from "@/components/mobile/segmented-tabs";
 import { TopBar } from "@/components/topbar";
-import { cn } from "@/lib/utils";
 import { WORK_TAB_HREF, type WorkTab } from "@/lib/work";
 
 const TABS: readonly WorkTab[] = ["today", "calendar", "earnings"];
 
-/**
- * Figma "View Tabs" — a full-width track whose selected segment takes the accent
- * fill and a small lift. Each segment is a sibling route rather than client state,
- * the way the rest of the prototype's tabbed screens work.
- */
 function WorkTabs({ current }: { readonly current: WorkTab }) {
   const t = useTranslations("work");
 
   return (
-    <div className="flex w-full shrink-0 items-start overflow-clip px-6 pt-1 pb-2">
-      <nav
-        aria-label={t("title")}
-        className="flex min-w-px flex-1 items-center rounded-[12px] bg-muted p-1"
-      >
-        {TABS.map((tab) => (
-          <Link
-            aria-current={tab === current ? "page" : undefined}
-            className={cn(
-              "flex min-h-8 min-w-px flex-1 items-center justify-center rounded-lg px-2.5 py-[5.5px] text-sm font-medium whitespace-nowrap",
-              tab === current
-                ? "bg-primary text-primary-foreground shadow-sm"
-                : "text-muted-foreground",
-            )}
-            href={WORK_TAB_HREF[tab]}
-            key={tab}
-          >
-            {t(`tab.${tab}`)}
-          </Link>
-        ))}
-      </nav>
-    </div>
+    <SegmentedTabs
+      className="pt-1 pb-2"
+      current={current}
+      items={TABS.map((tab) => ({
+        key: tab,
+        label: t(`tab.${tab}`),
+        href: WORK_TAB_HREF[tab],
+      }))}
+      label={t("title")}
+    />
   );
 }
 

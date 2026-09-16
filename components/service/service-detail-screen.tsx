@@ -446,7 +446,7 @@ export function ServiceDetailScreen({ serviceId }: { readonly serviceId: string 
               <Button
                 className="h-auto p-0 text-sm font-medium whitespace-nowrap"
                 nativeButton={false}
-                render={<Link href={`/chat/${advisor.id}`} />}
+                render={<Link href={`/advisors/${advisor.id}`} />}
                 variant="link"
               >
                 {t("viewProfile")}

@@ -212,6 +212,16 @@ const SECTIONS: ReadonlyArray<{
     ],
   },
   {
+    title: "Advisor public profile",
+    node: "1564:22619",
+    screens: [
+      { href: "/advisors/sarah-jenskins", label: "Public profile – Services" },
+      { href: "/advisors/sarah-jenskins/about", label: "Public profile – About" },
+      { href: "/advisors/sarah-jenskins/reviews", label: "Public profile – Reviews" },
+      { href: "/advisors/sarah-jenskins/services", label: "Public profile – All services" },
+    ],
+  },
+  {
     title: "Error states",
     node: "995:5918",
     screens: [
