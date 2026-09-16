@@ -1,41 +1,36 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { X } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { useMemo } from "react";
 
-import { CmsPerson } from "@/components/cms/avatar";
-import { CmsButton } from "@/components/cms/button";
-import { useCmsFeedback } from "@/components/cms/feedback";
-import { useAccountLookup, useActorId } from "@/components/cms/hooks";
+import { CmsBadge } from "@/components/cms/badge";
+import { useAccountLookup } from "@/components/cms/hooks";
 import { CmsPage } from "@/components/cms/layout";
 import { CmsQueryTabs, useQueryTab } from "@/components/cms/query-tabs";
 import { CmsStatus } from "@/components/cms/status";
 import { CmsTable, type CmsColumn } from "@/components/cms/table";
 import { useCmsList } from "@/components/cms/use-cms-list";
-import { rejectRefunds } from "@/lib/mock-db/actions";
 import { formatBaht, formatDateTime, timeValue } from "@/lib/mock-db/format";
 import { useDatabase } from "@/lib/mock-db/store";
 import type { RefundRequest, RefundStatus } from "@/lib/mock-db/types";
 
 type Tab = RefundStatus | "all";
 
-/** The refund desk — requests land here from a booking's cancel/refund flow. */
+/**
+ * The refund desk — requests land here from a booking's cancel/refund flow and
+ * are decided on their own page.
+ */
 export function RefundsScreen() {
   const t = useTranslations("cms.refunds");
   const router = useRouter();
-  const actorId = useActorId();
   const person = useAccountLookup();
-  const { prompt, toast } = useCmsFeedback();
   const refunds = useDatabase((db) => db.refunds);
+  const pending = refunds.filter((r) => r.status === "pending").length;
 
   const tabs = (["pending", "approved", "rejected", "all"] as const).map((value) => ({
     value,
     label: t(`tab.${value}`),
-    count:
-      value === "pending" ? refunds.filter((r) => r.status === "pending").length : undefined,
-    alert: true,
   }));
   const tab = useQueryTab<Tab>(tabs);
   const rows = useMemo(
@@ -50,30 +45,12 @@ export function RefundsScreen() {
   });
 
   const columns: ReadonlyArray<CmsColumn<RefundRequest>> = [
-    {
-      id: "request",
-      header: t("col.request"),
-      render: (r) => (
-        <span className="flex flex-col">
-          <span className="font-latin font-medium text-highlighted">{r.id}</span>
-          <span className="font-latin text-xs">{r.bookingRef}</span>
-        </span>
-      ),
-    },
-    {
-      id: "requester",
-      header: t("col.requester"),
-      render: (r) => <CmsPerson account={person(r.requesterId)} detail={person(r.requesterId)?.email} />,
-    },
+    { id: "request", header: t("col.request"), className: "font-latin", render: (r) => r.bookingRef },
+    { id: "requester", header: t("col.requester"), render: (r) => person(r.requesterId)?.name ?? "—" },
     {
       id: "service",
       header: t("col.service"),
-      render: (r) => (
-        <span className="flex max-w-56 flex-col">
-          <span className="truncate text-highlighted">{r.serviceTitle}</span>
-          <span className="truncate text-xs">{person(r.advisorId)?.name ?? "—"}</span>
-        </span>
-      ),
+      render: (r) => <span className="block max-w-56 truncate">{r.serviceTitle}</span>,
     },
     {
       id: "reason",
@@ -105,37 +82,21 @@ export function RefundsScreen() {
   ];
 
   return (
-    <CmsPage title={t("title")}>
+    <CmsPage
+      badge={
+        <CmsBadge className="font-latin" variant="subtle">
+          {t("pendingBadge", { count: pending })}
+        </CmsBadge>
+      }
+      title={t("title")}
+    >
       <CmsQueryTabs items={tabs} />
       <CmsTable
-        bulkActions={(ids) => {
-          const pendingIds = ids.filter((id) => refunds.find((r) => r.id === id)?.status === "pending");
-          return pendingIds.length > 0 ? (
-            <CmsButton
-              color="error"
-              icon={X}
-              onClick={async () => {
-                const note = await prompt({
-                  type: "danger",
-                  title: t("rejectTitle", { count: pendingIds.length }),
-                  inputLabel: t("reason"),
-                  placeholder: t("rejectPlaceholder"),
-                  confirmLabel: t("reject"),
-                });
-                if (note === null) return;
-                rejectRefunds(pendingIds, note, actorId);
-                list.clearSelection();
-                toast({ color: "warning", title: t("rejected", { count: pendingIds.length }) });
-              }}
-            >
-              {t("rejectSelected", { count: pendingIds.length })}
-            </CmsButton>
-          ) : null;
-        }}
         columns={columns}
         list={list}
         onRowClick={(r) => router.push(`/admin/refunds/review?id=${r.id}`)}
         searchPlaceholder={t("search")}
+        selectable={false}
       />
     </CmsPage>
   );

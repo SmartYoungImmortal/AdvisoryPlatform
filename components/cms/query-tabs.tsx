@@ -2,24 +2,19 @@
 
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 
-import { CmsBadge } from "@/components/cms/badge";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { cn } from "@/lib/utils";
 
 export type CmsQueryTab<Value extends string> = {
   readonly value: Value;
   readonly label: string;
-  /** A count beside the label. */
-  readonly count?: number;
-  /** The count is work waiting — shown in the error colour while above zero. */
-  readonly alert?: boolean;
 };
 
 /**
- * Nexus's `CmsQueryTabs`: Nuxt UI link tabs (a hairline under the row, the
- * active label and its underline in the primary) that keep the active tab in
- * `?tab=`, so a queue view is linkable and survives a reload. Switching tabs
- * drops the list's page and selection, which belong to the previous tab.
+ * Nexus's `CmsQueryTabs`: Nuxt UI link tabs that share the row equally
+ * (`trigger: grow`), a hairline under the row and the active label's underline
+ * in the primary. The active tab lives in `?tab=`, so a queue view is linkable
+ * and survives a reload; switching drops the previous tab's page and selection.
  */
 export function CmsQueryTabs<Value extends string>({
   items,
@@ -46,24 +41,16 @@ export function CmsQueryTabs<Value extends string>({
       value={active}
     >
       <TabsList
-        className="h-auto w-full justify-start gap-0 overflow-x-auto rounded-none border-b border-border bg-transparent p-1 pb-0"
+        className="-mb-px h-auto w-full justify-start gap-0 overflow-x-auto rounded-none border-b border-border bg-transparent p-1 pb-1.5"
         variant="line"
       >
         {items.map((item) => (
           <TabsTrigger
-            className="h-auto flex-none gap-1.5 rounded-md border-0 px-3 py-1.5 text-sm font-medium text-muted-foreground shadow-none after:rounded-full after:bg-primary group-data-horizontal/tabs:after:-bottom-px group-data-horizontal/tabs:after:h-px hover:text-foreground data-active:text-primary"
+            className="h-auto shrink-0 grow justify-center gap-1.5 rounded-md border-0 px-3 py-1.5 text-sm font-medium text-muted-foreground shadow-none after:rounded-full after:bg-primary group-data-horizontal/tabs:after:bottom-0 group-data-horizontal/tabs:after:h-px hover:text-foreground data-active:text-primary"
             key={item.value}
             value={item.value}
           >
             {item.label}
-            {item.count !== undefined ? (
-              <CmsBadge
-                className="font-latin"
-                color={item.alert && item.count > 0 ? "error" : "neutral"}
-              >
-                {item.count}
-              </CmsBadge>
-            ) : null}
           </TabsTrigger>
         ))}
       </TabsList>

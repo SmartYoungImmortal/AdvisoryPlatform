@@ -223,6 +223,40 @@ export function CmsTextField({
   );
 }
 
+/**
+ * The required reason under a decision select — the text the other side is
+ * shown when something is rejected, failed or suspended.
+ */
+export function CmsReasonField({
+  label,
+  value,
+  onChange,
+  error,
+  help,
+  placeholder,
+}: {
+  readonly label: ReactNode;
+  readonly value: string;
+  readonly onChange: (value: string) => void;
+  readonly error?: ReactNode;
+  readonly help?: ReactNode;
+  readonly placeholder?: string;
+}) {
+  const id = useId();
+  return (
+    <CmsFormField error={error} help={help} htmlFor={id} label={label} required>
+      <CmsTextarea
+        id={id}
+        invalid={Boolean(error)}
+        onChange={(event) => onChange(event.target.value)}
+        placeholder={placeholder}
+        rows={3}
+        value={value}
+      />
+    </CmsFormField>
+  );
+}
+
 /** `CmsButton` as a link, with the Base UI prop a non-<button> needs. */
 export function CmsLinkButton({
   href,

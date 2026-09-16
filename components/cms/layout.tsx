@@ -16,11 +16,14 @@ import {
   createContext,
   useContext,
   useEffect,
+  useRef,
   useState,
+  useSyncExternalStore,
+  type KeyboardEvent,
+  type PointerEvent,
   type ReactNode,
 } from "react";
 
-import { CmsBadge } from "@/components/cms/badge";
 import { CmsButton } from "@/components/cms/button";
 import { useCmsFeedback } from "@/components/cms/feedback";
 import { CmsAvatar } from "@/components/cms/avatar";
@@ -41,17 +44,63 @@ import {
 import { Separator } from "@/components/ui/separator";
 import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
 import { logo } from "@/lib/assets/r2";
-import { resetDatabase, useDatabase } from "@/lib/mock-db/store";
+import { resetDatabase } from "@/lib/mock-db/store";
 import { cmsNav, isCmsNavActive, type CmsNavItem } from "@/lib/navigation/cms";
 import { signOut, useSession } from "@/lib/session";
 import { cn } from "@/lib/utils";
 
 /**
  * Nexus's `cms-flex` layout on Nuxt UI's dashboard components: a fixed-height
- * group, a 220px sidebar (brand row, navigation, user menu) and a panel whose
+ * group, a resizable sidebar (brand row, navigation, user menu) and a panel whose
  * navbar carries the page title. Below `lg` the sidebar moves into a sheet the
  * navbar's menu button opens, as `UDashboardSidebar` does.
  */
+
+/** `UDashboardSidebar` in cms-flex: `:default-size="220" :min-size="180" :max-size="360"`. */
+const SIDEBAR_WIDTH = { initial: 220, min: 180, max: 360 } as const;
+const SIDEBAR_WIDTH_KEY = "advisory:cms-sidebar-width";
+const SIDEBAR_WIDTH_EVENT = "advisory:cms-sidebar-width";
+
+function clampWidth(value: number): number {
+  return Math.min(SIDEBAR_WIDTH.max, Math.max(SIDEBAR_WIDTH.min, Math.round(value)));
+}
+
+function readSidebarWidth(): number {
+  try {
+    const saved = Number(window.localStorage.getItem(SIDEBAR_WIDTH_KEY));
+    return saved > 0 ? clampWidth(saved) : SIDEBAR_WIDTH.initial;
+  } catch {
+    return SIDEBAR_WIDTH.initial;
+  }
+}
+
+function subscribeSidebarWidth(onChange: () => void): () => void {
+  window.addEventListener(SIDEBAR_WIDTH_EVENT, onChange);
+  window.addEventListener("storage", onChange);
+  return () => {
+    window.removeEventListener(SIDEBAR_WIDTH_EVENT, onChange);
+    window.removeEventListener("storage", onChange);
+  };
+}
+
+function writeSidebarWidth(next: number): void {
+  try {
+    window.localStorage.setItem(SIDEBAR_WIDTH_KEY, String(clampWidth(next)));
+  } catch {
+    // Private mode: the width simply resets on the next load.
+  }
+  window.dispatchEvent(new Event(SIDEBAR_WIDTH_EVENT));
+}
+
+/** The width Nuxt UI keeps in a cookie; here it lives in localStorage. */
+function useSidebarWidth(): readonly [number, (width: number) => void] {
+  const width = useSyncExternalStore(
+    subscribeSidebarWidth,
+    readSidebarWidth,
+    () => SIDEBAR_WIDTH.initial,
+  );
+  return [width, writeSidebarWidth];
+}
 const SidebarContext = createContext<{
   readonly open: boolean;
   readonly setOpen: (open: boolean) => void;
@@ -76,12 +125,17 @@ export function CmsThemeScope({ children }: { readonly children: ReactNode }) {
 export function CmsDashboard({ children }: { readonly children: ReactNode }) {
   const t = useTranslations("cms.nav");
   const [open, setOpen] = useState(false);
+  const [width, setWidth] = useSidebarWidth();
 
   return (
     <SidebarContext.Provider value={{ open, setOpen }}>
       <div className="fixed inset-0 flex overflow-hidden">
-        <aside className="relative hidden min-h-svh w-[220px] min-w-16 shrink-0 flex-col border-e border-border lg:flex">
+        <aside
+          className="relative hidden min-h-svh shrink-0 flex-col border-e border-border lg:flex"
+          style={{ width }}
+        >
           <SidebarBody />
+          <ResizeHandle onResize={setWidth} width={width} />
         </aside>
         <Sheet onOpenChange={setOpen} open={open}>
           <SheetContent
@@ -99,9 +153,62 @@ export function CmsDashboard({ children }: { readonly children: ReactNode }) {
   );
 }
 
+/**
+ * `UDashboardResizeHandle`: a hairline on the sidebar's edge that darkens on
+ * hover. Dragging sets the width, arrow keys nudge it, a double click resets it.
+ */
+function ResizeHandle({
+  width,
+  onResize,
+}: {
+  readonly width: number;
+  readonly onResize: (width: number) => void;
+}) {
+  const t = useTranslations("cms.nav");
+  const drag = useRef<{ readonly x: number; readonly width: number } | null>(null);
+
+  function onPointerDown(event: PointerEvent<HTMLButtonElement>) {
+    event.preventDefault();
+    event.currentTarget.setPointerCapture(event.pointerId);
+    drag.current = { x: event.clientX, width };
+  }
+
+  function onPointerMove(event: PointerEvent<HTMLButtonElement>) {
+    if (drag.current) onResize(drag.current.width + event.clientX - drag.current.x);
+  }
+
+  function endDrag() {
+    drag.current = null;
+  }
+
+  function onKeyDown(event: KeyboardEvent<HTMLButtonElement>) {
+    if (event.key === "ArrowLeft") onResize(width - 10);
+    else if (event.key === "ArrowRight") onResize(width + 10);
+    else return;
+    event.preventDefault();
+  }
+
+  return (
+    <button
+      aria-label={t("resize")}
+      className="absolute inset-y-0 -end-1 z-10 w-2 cursor-ew-resize touch-none after:absolute after:inset-y-0 after:start-1/2 after:w-px after:transition-colors hover:after:bg-accented focus-visible:outline-none focus-visible:after:bg-primary"
+      onDoubleClick={() => onResize(SIDEBAR_WIDTH.initial)}
+      onKeyDown={onKeyDown}
+      onPointerCancel={endDrag}
+      onPointerDown={onPointerDown}
+      onPointerMove={onPointerMove}
+      onPointerUp={endDrag}
+      type="button"
+    />
+  );
+}
+
 function SidebarBody() {
   const t = useTranslations("cms.nav");
   const pathname = usePathname();
+  // Nexus re-keys its menu on the open group, so moving to another desk
+  // collapses the group left behind and opens the new one.
+  const openGroup = cmsNav.find((item) => item.children && isCmsNavActive(item, pathname))?.key;
 
   return (
     <>
@@ -119,7 +226,7 @@ function SidebarBody() {
         aria-label={t("label")}
         className="flex flex-1 flex-col gap-4 overflow-y-auto px-4 py-2"
       >
-        <ul className="isolate flex min-w-0 flex-col">
+        <ul className="isolate flex min-w-0 flex-col" key={openGroup ?? "none"}>
           {cmsNav.map((item) => (
             <NavEntry item={item} key={item.key} pathname={pathname} />
           ))}
@@ -154,7 +261,6 @@ function NavEntry({
   const t = useTranslations("cms.nav");
   const { setOpen } = useContext(SidebarContext);
   const active = isCmsNavActive(item, pathname);
-  const pending = useDatabase((db) => (item.pending ? item.pending(db) : 0));
   const Icon = item.icon;
   const icon = (
     <Icon
@@ -169,8 +275,10 @@ function NavEntry({
   if (item.children) {
     return (
       <li className="min-w-0">
-        <Collapsible defaultOpen={active || !nested}>
-          <CollapsibleTrigger className={cn(linkBase, linkState(active))}>
+        {/* Only the group holding the current page starts open, as in Nexus. */}
+        <Collapsible defaultOpen={active}>
+          {/* Nexus weights its section headers with `font-semibold`. */}
+          <CollapsibleTrigger className={cn(linkBase, linkState(active), !nested && "font-semibold")}>
             {icon}
             <span className="truncate">{t(item.key)}</span>
             <ChevronDown
@@ -208,11 +316,6 @@ function NavEntry({
       >
         {icon}
         <span className="truncate">{t(item.key)}</span>
-        {pending > 0 ? (
-          <CmsBadge className="ms-auto font-latin" color="error">
-            {pending}
-          </CmsBadge>
-        ) : null}
       </Link>
     </li>
   );
@@ -222,7 +325,7 @@ function NavEntry({
 function UserMenu() {
   const t = useTranslations("cms.userMenu");
   const session = useSession();
-  const { confirm, toast } = useCmsFeedback();
+  const { toast } = useCmsFeedback();
   const account = session.status === "authenticated" ? session.account : null;
 
   return (
@@ -269,16 +372,9 @@ function UserMenu() {
           </DropdownMenuItem>
           <DropdownMenuItem
             className="rounded-md p-1.5 text-foreground"
-            onClick={async () => {
-              const ok = await confirm({
-                type: "warning",
-                title: t("resetTitle"),
-                description: t("resetBody"),
-                confirmLabel: t("resetConfirm"),
-              });
-              if (!ok) return;
+            onClick={() => {
               resetDatabase();
-              toast({ title: t("resetDone") });
+              toast({ title: t("resetDone"), description: t("resetBody") });
             }}
           >
             <RotateCcw className="size-5 text-dimmed" />

@@ -51,15 +51,16 @@ export type CmsColumn<Row> = {
 const ALIGN = { start: "text-start", center: "text-center", end: "text-end" } as const;
 
 /**
- * Nexus's `CmsTable`: a white card with a toolbar band (search on the left,
- * bulk action and filters on the right), the table, and a footer band (rows per
- * page, range, pagination). Selection persists across pages the way Nexus's
- * `selectedIds` does.
+ * Nexus's `CmsTable`: a white card with a toolbar band (search and the page's
+ * own `#extraFilters` on the left; bulk action and the status filter on the
+ * right), the table, and a footer band (rows per page, range, pagination).
+ * Selection persists across pages the way Nexus's `selectedIds` does.
  */
 export function CmsTable<Row extends { readonly id: string }>({
   list,
   columns,
   searchPlaceholder,
+  extraFilters,
   filters,
   bulkActions,
   onRowClick,
@@ -69,6 +70,9 @@ export function CmsTable<Row extends { readonly id: string }>({
   readonly list: CmsListState<Row>;
   readonly columns: ReadonlyArray<CmsColumn<Row>>;
   readonly searchPlaceholder?: string;
+  /** Nexus's `#extraFilters` slot, beside the search box. */
+  readonly extraFilters?: ReactNode;
+  /** The right-hand filters — where Nexus puts "All statuses". */
   readonly filters?: ReactNode;
   /** Rendered in the toolbar while rows are selected. */
   readonly bulkActions?: (ids: readonly string[]) => ReactNode;
@@ -118,6 +122,7 @@ export function CmsTable<Row extends { readonly id: string }>({
             }
             value={list.search}
           />
+          {extraFilters}
         </div>
         <div className="flex w-full flex-wrap items-center justify-end gap-4 sm:w-auto">
           {selected.size > 0 && bulkActions ? bulkActions([...selected]) : null}
@@ -126,7 +131,7 @@ export function CmsTable<Row extends { readonly id: string }>({
       </div>
 
       <Table className="min-w-full">
-        <TableHeader className="[&_tr]:border-b-0">
+        <TableHeader>
           <TableRow className="border-b border-border hover:bg-transparent">
             {selectable ? (
               <TableHead className="w-5 px-4 py-4 pe-0">
@@ -156,7 +161,7 @@ export function CmsTable<Row extends { readonly id: string }>({
             ))}
           </TableRow>
         </TableHeader>
-        <TableBody className="divide-y divide-border">
+        <TableBody>
           {rows.length === 0 ? (
             <TableRow className="hover:bg-transparent">
               <TableCell
@@ -175,7 +180,8 @@ export function CmsTable<Row extends { readonly id: string }>({
             rows.map((row) => (
               <TableRow
                 className={cn(
-                  "border-0 transition-colors duration-150 data-[state=selected]:bg-muted/50",
+                  // Nexus's `tbody: divide-y`: a hairline between rows, none under the last.
+                  "border-b border-border transition-colors duration-150 last:border-b-0 hover:bg-transparent data-[state=selected]:bg-muted/50",
                   onRowClick && "cursor-pointer hover:bg-muted/50",
                 )}
                 data-state={selected.has(row.id) ? "selected" : undefined}
