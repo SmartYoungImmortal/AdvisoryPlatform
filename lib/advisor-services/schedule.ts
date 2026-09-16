@@ -1,10 +1,11 @@
+export { monthGrid, type CalendarCell } from "@/lib/calendar";
+
 /**
  * Figma "Service availability" (1594:33136) — one service's month, one selected day,
  * and where that day's bookable slots came from.
  *
- * The month is a fixed September 2026 (พ.ศ. 2569) and the grid is computed from it
- * in UTC. Fixed, because the frame is a specific month; UTC, because a grid built
- * from local midnight would shift a column for any viewer west of Greenwich.
+ * The month is a fixed September 2026 (พ.ศ. 2569); the grid comes from
+ * `lib/calendar`, computed in UTC.
  */
 
 export const SCHEDULE_YEAR = 2026;
@@ -16,33 +17,6 @@ export const SELECTED_DAY = 22;
 export const AVAILABLE_DAYS: ReadonlySet<number> = new Set([
   18, 22, 23, 24, 25, 29,
 ]);
-
-export interface CalendarCell {
-  readonly day: number;
-  readonly inMonth: boolean;
-}
-
-/**
- * The 5- or 6-week grid for a month, Sunday first, padded with the neighbouring
- * months' dates so every row is full.
- */
-export function monthGrid(year: number, month: number): readonly CalendarCell[] {
-  const firstWeekday = new Date(Date.UTC(year, month - 1, 1)).getUTCDay();
-  const daysInMonth = new Date(Date.UTC(year, month, 0)).getUTCDate();
-  const daysInPrevious = new Date(Date.UTC(year, month - 1, 0)).getUTCDate();
-
-  const cells: CalendarCell[] = [];
-  for (let i = firstWeekday - 1; i >= 0; i -= 1) {
-    cells.push({ day: daysInPrevious - i, inMonth: false });
-  }
-  for (let day = 1; day <= daysInMonth; day += 1) {
-    cells.push({ day, inMonth: true });
-  }
-  for (let day = 1; cells.length % 7 !== 0; day += 1) {
-    cells.push({ day, inMonth: false });
-  }
-  return cells;
-}
 
 export const MONTH_SUMMARY = { freeDays: 12, bookings: 4 } as const;
 

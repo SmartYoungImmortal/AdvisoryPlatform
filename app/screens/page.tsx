@@ -202,6 +202,16 @@ const SECTIONS: ReadonlyArray<{
     ],
   },
   {
+    title: "Advisor home",
+    node: "1374:20712",
+    screens: [
+      { href: "/work", label: "Advisor dashboard – Today" },
+      { href: "/work/calendar", label: "Advisor dashboard – Calendar" },
+      { href: "/work/earnings", label: "Advisor dashboard – Earnings" },
+      { href: "/work/session", label: "Session detail – Advisor" },
+    ],
+  },
+  {
     title: "Error states",
     node: "995:5918",
     screens: [

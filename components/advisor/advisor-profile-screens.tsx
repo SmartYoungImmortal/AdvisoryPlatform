@@ -657,7 +657,8 @@ export function EarningsScreen() {
           </SettingsCard>
         </SettingsSection>
       </ScreenBody>
-      <BottomBar role="advisor" selected="earnings" />
+      {/* Earnings now lives inside the "งานของฉัน" hub, so that is the tab it lights. */}
+      <BottomBar role="advisor" selected="work" />
     </MobileScreen>
   );
 }
