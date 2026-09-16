@@ -166,6 +166,15 @@ const SECTIONS: ReadonlyArray<{
     ],
   },
   {
+    title: "Advisor availability",
+    node: "1594:30832",
+    screens: [
+      { href: "/availability", label: "Global availability – Default" },
+      { href: "/availability/configured", label: "Global availability – Configured" },
+      { href: "/availability/custom", label: "Global availability – Custom values" },
+    ],
+  },
+  {
     title: "Error states",
     node: "995:5918",
     screens: [
