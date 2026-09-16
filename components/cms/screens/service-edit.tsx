@@ -69,6 +69,10 @@ function ServiceEditor({ service }: { readonly service: MarketService }) {
   const [form, setForm] = useState(initial);
   const [errors, setErrors] = useState<{ title?: string; price?: string; reason?: string }>({});
 
+  const dirty = (Object.keys(initial) as Array<keyof typeof initial>).some(
+    (key) => form[key] !== initial[key],
+  );
+
   function save() {
     const price = Number(form.price);
     const next: typeof errors = {};
@@ -105,7 +109,7 @@ function ServiceEditor({ service }: { readonly service: MarketService }) {
         <CmsSidebarOptions
           actions={
             <>
-              <CmsButton block color="action" icon={Save} onClick={save} size="lg">
+              <CmsButton block color="action" disabled={!dirty} icon={Save} onClick={save} size="lg">
                 {t("save")}
               </CmsButton>
               {service.catalogueId ? (

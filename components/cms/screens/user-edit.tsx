@@ -3,23 +3,17 @@
 import Link from "next/link";
 import { Ban, LockOpen, Save, UserCheck } from "lucide-react";
 import { useTranslations } from "next-intl";
-import { useId, useState } from "react";
+import { useState } from "react";
 
 import { CmsAvatar } from "@/components/cms/avatar";
 import { CmsButton } from "@/components/cms/button";
 import { CmsCard } from "@/components/cms/card";
 import { useCmsFeedback } from "@/components/cms/feedback";
-import {
-  CmsFormField,
-  CmsSelect,
-  CmsTextarea,
-  CmsTextField,
-  type CmsOption,
-} from "@/components/cms/fields";
+import { CmsTextField } from "@/components/cms/fields";
 import { useAccountLookup, useActorId, useRecordId } from "@/components/cms/hooks";
 import { CmsPage } from "@/components/cms/layout";
 import { CmsDataRow, CmsMissing, CmsSidebarOptions } from "@/components/cms/sidebar-options";
-import { CmsStatus, useStatusLabels } from "@/components/cms/status";
+import { CmsStatus } from "@/components/cms/status";
 import {
   reinstateAccount,
   suspendAccounts,
@@ -27,7 +21,7 @@ import {
 } from "@/lib/mock-db/actions";
 import { formatDate, formatDateTime } from "@/lib/mock-db/format";
 import { useDatabase } from "@/lib/mock-db/store";
-import { advisorLevelTitles, type Account, type AccountStatus } from "@/lib/mock-db/types";
+import { advisorLevelTitles, type Account } from "@/lib/mock-db/types";
 import { isEmail } from "@/lib/session";
 
 const SUSPEND_OPTIONS = [7, 30, 0] as const;
@@ -50,33 +44,19 @@ export function UserEditScreen() {
   return <UserEditor account={account} key={`${account.id}:${account.updatedAt}`} />;
 }
 
-/** What the status select can set: keep or restore access, or suspend for a length. */
-type StatusChoice = AccountStatus | "suspend-7" | "suspend-30" | "suspend-0";
-
-const SUSPEND_PREFIX = "suspend-";
-
-/** The suspension length a choice stands for (0 = indefinite), or null for none. */
-function suspendDays(choice: StatusChoice): number | null {
-  return choice.startsWith(SUSPEND_PREFIX) ? Number(choice.slice(SUSPEND_PREFIX.length)) : null;
-}
-
 function UserEditor({ account }: { readonly account: Account }) {
   const t = useTranslations("cms.userEdit");
-  const labels = useStatusLabels();
   const actorId = useActorId();
   const person = useAccountLookup();
-  const { toast } = useCmsFeedback();
-  const statusId = useId();
-  const reasonId = useId();
+  const { confirm, prompt, toast } = useCmsFeedback();
   const [form, setForm] = useState({
     name: account.name,
     fullName: account.fullName,
     email: account.email,
     phone: account.phone,
   });
-  const [status, setStatus] = useState<StatusChoice>(account.status);
-  const [reason, setReason] = useState("");
-  const [errors, setErrors] = useState<{ name?: string; email?: string; reason?: string }>({});
+  const [errors, setErrors] = useState<{ name?: string; email?: string }>({});
+  const [suspendDays, setSuspendDays] = useState<(typeof SUSPEND_OPTIONS)[number]>(30);
 
   const emailTaken = useDatabase((db) =>
     db.accounts.some(
@@ -96,40 +76,20 @@ function UserEditor({ account }: { readonly account: Account }) {
   ].sort((a, b) => b.at.localeCompare(a.at));
   const history = audit.filter((entry) => entry.targetId === account.id);
 
+  const dirty =
+    form.name !== account.name ||
+    form.fullName !== account.fullName ||
+    form.email !== account.email ||
+    form.phone !== account.phone;
   const self = account.id === actorId;
-  const days = suspendDays(status);
-
-  // "Active" reads as the action that gets the account there from where it is.
-  const activeLabel = {
-    active: labels.account.active,
-    suspended: t("reinstate"),
-    locked: t("unlock"),
-  }[account.status];
-
-  const statusItems: ReadonlyArray<CmsOption<StatusChoice>> = [
-    {
-      value: "active",
-      label: activeLabel,
-      icon: account.status === "locked" ? LockOpen : UserCheck,
-    },
-    ...(account.status === "active"
-      ? SUSPEND_OPTIONS.map((length) => ({
-          value: `suspend-${length}` as const,
-          label: length === 0 ? t("suspendForeverOption") : t("suspendOption", { days: length }),
-          icon: Ban,
-        }))
-      : [{ value: account.status, label: labels.account[account.status], icon: Ban }]),
-  ];
 
   function save() {
     const next: typeof errors = {};
     if (!form.name.trim()) next.name = t("nameRequired");
     if (!isEmail(form.email)) next.email = t("emailInvalid");
     else if (emailTaken) next.email = t("emailTaken");
-    if (days !== null && !reason.trim()) next.reason = t("reasonRequired");
     setErrors(next);
-    if (next.name || next.email || next.reason) return;
-
+    if (next.name || next.email) return;
     updateAccountDetails(
       account.id,
       {
@@ -140,16 +100,39 @@ function UserEditor({ account }: { readonly account: Account }) {
       },
       actorId,
     );
-    if (days !== null) {
-      const until = days === 0 ? null : new Date(Date.now() + days * 86_400_000).toISOString();
-      suspendAccounts([account.id], reason.trim(), until, actorId);
-      toast({ color: "warning", title: t("suspended", { name: account.name }) });
-    } else if (status === "active" && account.status !== "active") {
-      reinstateAccount(account.id, actorId);
-      toast({ title: t("reinstated", { name: account.name }) });
-    } else {
-      toast({ title: t("saved") });
-    }
+    toast({ title: t("saved") });
+  }
+
+  async function suspend() {
+    const reason = await prompt({
+      type: "danger",
+      title: t("suspendTitle", { name: account.name }),
+      description:
+        suspendDays === 0 ? t("suspendForever") : t("suspendFor", { days: suspendDays }),
+      inputLabel: t("reason"),
+      placeholder: t("reasonPlaceholder"),
+      confirmLabel: t("suspend"),
+    });
+    if (reason === null) return;
+    const until =
+      suspendDays === 0 ? null : new Date(Date.now() + suspendDays * 86_400_000).toISOString();
+    suspendAccounts([account.id], reason, until, actorId);
+    toast({ color: "warning", title: t("suspended", { name: account.name }) });
+  }
+
+  async function reinstate() {
+    const ok = await confirm({
+      type: "success",
+      title:
+        account.status === "locked"
+          ? t("unlockTitle", { name: account.name })
+          : t("reinstateTitle", { name: account.name }),
+      description: t("reinstateBody"),
+      confirmLabel: account.status === "locked" ? t("unlock") : t("reinstate"),
+    });
+    if (!ok) return;
+    reinstateAccount(account.id, actorId);
+    toast({ title: t("reinstated", { name: account.name }) });
   }
 
   return (
@@ -157,9 +140,26 @@ function UserEditor({ account }: { readonly account: Account }) {
       aside={
         <CmsSidebarOptions
           actions={
-            <CmsButton block color="action" icon={Save} onClick={save} size="lg">
-              {t("save")}
-            </CmsButton>
+            <>
+              <CmsButton block color="action" disabled={!dirty} icon={Save} onClick={save} size="lg">
+                {t("save")}
+              </CmsButton>
+              {account.status === "active" ? (
+                <CmsButton block color="error" disabled={self} icon={Ban} onClick={suspend} size="lg">
+                  {t("suspend")}
+                </CmsButton>
+              ) : (
+                <CmsButton
+                  block
+                  color="success"
+                  icon={account.status === "locked" ? LockOpen : UserCheck}
+                  onClick={reinstate}
+                  size="lg"
+                >
+                  {account.status === "locked" ? t("unlock") : t("reinstate")}
+                </CmsButton>
+              )}
+            </>
           }
           info={[
             { label: t("created"), at: account.createdAt },
@@ -167,43 +167,10 @@ function UserEditor({ account }: { readonly account: Account }) {
             { label: t("lastLogin"), at: account.lastLoginAt },
           ]}
         >
-          <CmsFormField
-            help={self ? t("selfHelp") : undefined}
-            htmlFor={statusId}
-            label={t("status")}
-          >
-            <CmsSelect
-              disabled={self}
-              id={statusId}
-              items={statusItems}
-              onValueChange={(value) => {
-                setStatus(value);
-                setErrors({ ...errors, reason: undefined });
-              }}
-              value={status}
-            />
-          </CmsFormField>
-          {days !== null ? (
-            <CmsFormField
-              error={errors.reason}
-              help={t("reasonHelp")}
-              htmlFor={reasonId}
-              label={t("reason")}
-              required
-            >
-              <CmsTextarea
-                id={reasonId}
-                invalid={Boolean(errors.reason)}
-                onChange={(event) => {
-                  setReason(event.target.value);
-                  setErrors({ ...errors, reason: undefined });
-                }}
-                placeholder={t("reasonPlaceholder")}
-                rows={3}
-                value={reason}
-              />
-            </CmsFormField>
-          ) : null}
+          <div className="flex flex-col gap-1.5 text-sm">
+            <span className="font-medium text-foreground">{t("status")}</span>
+            <CmsStatus group="account" value={account.status} />
+          </div>
           {account.suspension ? (
             <div className="rounded-md bg-destructive/10 p-3 text-sm text-destructive">
               <p className="font-medium">{account.suspension.reason}</p>
@@ -214,6 +181,27 @@ function UserEditor({ account }: { readonly account: Account }) {
                 {" · "}
                 {t("by", { name: person(account.suspension.by)?.name ?? account.suspension.by })}
               </p>
+            </div>
+          ) : null}
+          {account.status === "active" && !self ? (
+            <div className="flex flex-col gap-1.5 text-sm">
+              <span className="font-medium text-foreground">{t("suspendLength")}</span>
+              <div className="flex gap-1.5" role="radiogroup">
+                {SUSPEND_OPTIONS.map((days) => (
+                  <CmsButton
+                    aria-checked={suspendDays === days}
+                    className="flex-1 justify-center"
+                    color="neutral"
+                    key={days}
+                    onClick={() => setSuspendDays(days)}
+                    role="radio"
+                    size="sm"
+                    variant={suspendDays === days ? "solid" : "outline"}
+                  >
+                    {days === 0 ? t("forever") : t("days", { days })}
+                  </CmsButton>
+                ))}
+              </div>
             </div>
           ) : null}
           {account.failedLogins > 0 ? (
