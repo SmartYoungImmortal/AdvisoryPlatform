@@ -175,6 +175,10 @@ const SECTIONS: ReadonlyArray<{
       { href: "/availability/profiles", label: "Availability profiles" },
       { href: "/availability/profiles/empty", label: "Availability profiles – Empty" },
       { href: "/availability/profiles/delete", label: "Availability profiles – Delete confirm" },
+      { href: "/availability/profiles/edit", label: "Profile editor – Weekly" },
+      { href: "/availability/profiles/edit/specific", label: "Profile editor – Specific dates" },
+      { href: "/availability/profiles/edit/blocked", label: "Profile editor – Blocked dates" },
+      { href: "/availability/profiles/edit/error", label: "Profile editor – Weekly validation error" },
     ],
   },
   {
