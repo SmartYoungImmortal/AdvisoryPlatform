@@ -75,8 +75,12 @@ export function AccountSettingsScreen({
 
         <SettingsSection className={isUpdated ? next : first} label={t("signInLabel")}>
           <SettingsCard>
-            {/* No Figma frame for the change-email screen yet, so this row is inert. */}
-            <SettingsRow icon={Mail} label={c("email")} value={c("emailValue")} />
+            <SettingsRow
+              href="/settings/email"
+              icon={Mail}
+              label={c("email")}
+              value={c("emailValue")}
+            />
             <SettingsDivider />
             <SettingsRow href="/settings/password" icon={Lock} label={t("password")} />
           </SettingsCard>
