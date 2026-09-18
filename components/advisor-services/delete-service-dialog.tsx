@@ -36,7 +36,9 @@ export function DeleteServiceDialog({
   return (
     <AlertDialog defaultOpen>
       <AlertDialogContent
-        className="w-[326px] gap-4 p-5 shadow-none max-sm:max-w-[calc(100%---spacing(8))]"
+        // Figma's desktop "Dialog" (1998:29707) is the same panel at 420 x 260,
+        // which is the phone's 326 given the room a 1440 page has for it.
+        className="w-[326px] gap-4 p-5 shadow-none max-sm:max-w-[calc(100%---spacing(8))] lg:w-[420px] lg:p-6"
         size="sm"
       >
         <AlertDialogHeader className="place-items-center gap-2 text-center">

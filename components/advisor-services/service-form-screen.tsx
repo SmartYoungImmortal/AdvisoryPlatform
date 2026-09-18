@@ -6,6 +6,7 @@ import type { ReactNode } from "react";
 
 import { DeleteServiceDialog } from "@/components/advisor-services/delete-service-dialog";
 import { WeekTable } from "@/components/availability/week-table";
+import { SiteFooter } from "@/components/marketing/site-footer";
 import { NeutralButton, PrimaryButton } from "@/components/mobile/buttons";
 import {
   MobileScreen,
@@ -13,6 +14,7 @@ import {
   ScreenTopBar,
 } from "@/components/mobile/screen";
 import { ThaiText } from "@/components/mobile/thai-text";
+import { TopBar } from "@/components/topbar";
 import { Input } from "@/components/ui/input";
 import {
   Select,
@@ -37,6 +39,16 @@ import {
   type ServiceFormMode,
   type ServiceFormState,
 } from "@/lib/advisor-services/form";
+
+/**
+ * Figma "Back Bar" — the 52px row under the app's nav, at the page inset, and
+ * the white "Head Band" the title sits in above the grey body.
+ */
+const BACK_BAR = "lg:h-13 lg:bg-card lg:pt-0 lg:pb-0 lg:pl-10 xl:pl-30";
+const HEAD_BAND = "w-full shrink-0 lg:border-b lg:border-border lg:bg-card";
+
+/** The 1200 content column, inset 120 from the 1440 page. */
+const COLUMN = "lg:mx-auto lg:w-full lg:max-w-[1440px] lg:px-10 xl:px-30";
 
 /** Figma field label — the form's 14/20 semibold. */
 function FieldLabel({
@@ -324,28 +336,66 @@ export function ServiceFormScreen({
     ? `/advisor/services/${record.serviceId}`
     : "/advisor/services";
 
-  return (
-    <MobileScreen className="pb-0">
-      <ScreenTopBar href={backHref} label={c("back")} />
+  // The pair the phone pins to its bottom edge and the desktop frame parks at the
+  // foot of the rail. Written once, placed twice — the bar is the phone's answer
+  // to the same need and stops at `lg`.
+  const actions = (
+    <>
+      <NeutralButton className="w-30 shrink-0" href={backHref}>
+        {edit ? c("cancel") : t("saveDraft")}
+      </NeutralButton>
+      <PrimaryButton
+        className="min-w-px flex-1"
+        disabled={noProfile}
+        href={noProfile ? undefined : backHref}
+      >
+        {edit ? t("saveChanges") : t("publish")}
+      </PrimaryButton>
+    </>
+  );
 
-      <ScreenBody className="gap-4 pb-6">
-        <div className="flex w-full shrink-0 flex-col items-start gap-1.5 overflow-clip px-6">
-          <h1 className="w-full text-2xl font-semibold text-foreground">
-            {edit ? t("editTitle") : t("createTitle")}
-          </h1>
-          {edit ? null : (
-            <p className="text-sm font-normal text-muted-foreground">
-              <ThaiText>{t("createSubtitle")}</ThaiText>
-            </p>
-          )}
+  return (
+    // Figma "Desktop / Create service (Light)" (1998:28438) and "Edit service"
+    // (1998:29262): the phone's single column becomes the 788px form beside a
+    // 380px rail holding the availability profile it will be booked against —
+    // and, at the foot of that rail, the actions the phone pins to its edge.
+    <MobileScreen className="pb-0" wide>
+      <div className="hidden w-full lg:block">
+        <TopBar unreadNotifications />
+      </div>
+      <ScreenTopBar className={BACK_BAR} href={backHref} label={c("back")} />
+
+      <ScreenBody className="gap-4 pb-6 lg:gap-0 lg:pb-0">
+        <div className={HEAD_BAND}>
+          <div className={cn("flex w-full shrink-0 flex-col items-start gap-1.5 overflow-clip px-6", COLUMN, "lg:py-6")}>
+            <h1 className="w-full text-2xl font-semibold text-foreground">
+              {edit ? t("editTitle") : t("createTitle")}
+            </h1>
+            {edit ? null : (
+              <p className="text-sm font-normal text-muted-foreground">
+                <ThaiText>{t("createSubtitle")}</ThaiText>
+              </p>
+            )}
+          </div>
         </div>
 
-        <div className="flex w-full shrink-0 flex-col items-start gap-2 overflow-clip px-6">
+        {/* Figma "Body" (1998:28469). `contents` keeps the phone's one column;
+            from `lg` the same blocks fall into the two, and `order` is what
+            keeps the profile between the category and the switches on the
+            phone while it rides in the rail here. */}
+        <div
+          className={cn(
+            "contents lg:grid lg:grid-cols-[minmax(0,1fr)_380px] lg:items-start lg:gap-x-8 lg:pt-10 lg:pb-22",
+            COLUMN,
+          )}
+        >
+        <div className="contents lg:col-start-1 lg:row-start-1 lg:flex lg:flex-col lg:gap-3.5">
+        <div className="order-1 flex w-full shrink-0 flex-col items-start gap-2 overflow-clip px-6 lg:px-0">
           <FieldLabel>{t("imagesLabel")}</FieldLabel>
           {edit && record ? <ImageStrip record={record} /> : <ImageDropzone />}
         </div>
 
-        <div className="flex w-full shrink-0 flex-col items-start gap-3.5 overflow-clip px-6">
+        <div className="order-2 flex w-full shrink-0 flex-col items-start gap-3.5 overflow-clip px-6 lg:px-0">
           <FieldBlock>
             <FieldLabel htmlFor="service-name">{t("nameLabel")}</FieldLabel>
             <Input
@@ -413,30 +463,12 @@ export function ServiceFormScreen({
               placeholder={t("categoryPlaceholder")}
             />
           </FieldBlock>
+        </div>
 
-          <div className="flex w-full shrink-0 flex-col items-start gap-1.5 overflow-clip">
-            <label
-              className="w-full text-sm font-medium text-foreground"
-              htmlFor="service-profile"
-            >
-              {t("profileLabel")}
-            </label>
-            <OptionSelect
-              defaultValue={noProfile ? undefined : EDIT_VALUES.profile}
-              id="service-profile"
-              items={noProfile ? [] : PROFILE_OPTIONS}
-              placeholder={t("noProfilePlaceholder")}
-            />
-            {noProfile ? (
-              <p className="w-full text-center text-xs font-normal text-muted-foreground">
-                <ThaiText>{t("noProfileHint")}</ThaiText>
-              </p>
-            ) : (
-              <ProfilePreview density={edit ? "compact" : "regular"} />
-            )}
-            <CreateProfileRow />
-          </div>
-
+        {/* The three switches the phone stacks under the profile select. On the
+            desktop frame the profile has moved to the rail, so these close the
+            form column instead — `order-4` is what keeps the phone's sequence. */}
+        <div className="order-4 flex w-full shrink-0 flex-col items-start gap-3.5 overflow-clip px-6 lg:px-0">
           <div className="flex w-full shrink-0 flex-col items-start gap-2 overflow-clip">
             <SettingRow
               caption={limitOn ? t("limitOnCaption") : t("limitOffCaption")}
@@ -532,7 +564,7 @@ export function ServiceFormScreen({
         {edit && record ? (
           /* Figma "Danger Zone" — hiding is reversible and keeps existing bookings;
              deleting is neither, which is why only it opens a confirmation. */
-          <div className="flex w-full shrink-0 flex-col items-start gap-2 overflow-clip px-6">
+          <div className="order-5 flex w-full shrink-0 flex-col items-start gap-2 overflow-clip px-6 lg:px-0">
             <SettingRow
               caption={t("hideCaption")}
               title={t("hideTitle")}
@@ -547,19 +579,46 @@ export function ServiceFormScreen({
             />
           </div>
         ) : null}
+        </div>
+
+        {/* Figma's rail (1998:28470) — the availability profile the service is
+            booked against, previewed, with the actions parked under it. */}
+        <div className="contents lg:col-start-2 lg:row-start-1 lg:flex lg:flex-col lg:gap-3.5">
+          <div className="order-3 flex w-full shrink-0 flex-col items-start gap-1.5 overflow-clip px-6 lg:px-0">
+            <label
+              className="w-full text-sm font-medium text-foreground"
+              htmlFor="service-profile"
+            >
+              {t("profileLabel")}
+            </label>
+            <OptionSelect
+              defaultValue={noProfile ? undefined : EDIT_VALUES.profile}
+              id="service-profile"
+              items={noProfile ? [] : PROFILE_OPTIONS}
+              placeholder={t("noProfilePlaceholder")}
+            />
+            {noProfile ? (
+              <p className="w-full text-center text-xs font-normal text-muted-foreground">
+                <ThaiText>{t("noProfileHint")}</ThaiText>
+              </p>
+            ) : (
+              <ProfilePreview density={edit ? "compact" : "regular"} />
+            )}
+            <CreateProfileRow />
+          </div>
+
+          <div className="order-6 hidden w-full shrink-0 items-center gap-3 lg:flex">
+            {actions}
+          </div>
+        </div>
+        </div>
+
+        <SiteFooter className="mt-auto hidden lg:flex" />
       </ScreenBody>
 
-      <div className="flex w-full shrink-0 items-start gap-3 overflow-clip border-t border-border bg-card px-6 py-3">
-        <NeutralButton className="w-30 shrink-0" href={backHref}>
-          {edit ? c("cancel") : t("saveDraft")}
-        </NeutralButton>
-        <PrimaryButton
-          className="min-w-px flex-1"
-          disabled={noProfile}
-          href={noProfile ? undefined : backHref}
-        >
-          {edit ? t("saveChanges") : t("publish")}
-        </PrimaryButton>
+      {/* The desktop rail carries the same pair, so the pinned bar stops here. */}
+      <div className="flex w-full shrink-0 items-start gap-3 overflow-clip border-t border-border bg-card px-6 py-3 lg:hidden">
+        {actions}
       </div>
 
       {state === "delete" && record ? (

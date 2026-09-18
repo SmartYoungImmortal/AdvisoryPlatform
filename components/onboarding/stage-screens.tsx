@@ -17,7 +17,7 @@ import {
   Wallet,
 } from "lucide-react";
 import { useTranslations } from "next-intl";
-import { useId, useState } from "react";
+import { Fragment, useId, useState } from "react";
 
 import { thaiNationalId as idCard } from "@/lib/assets/r2";
 import { Button } from "@/components/ui/button";
@@ -33,9 +33,11 @@ import {
   ScreenSpacer,
   ScreenTopBar,
 } from "@/components/mobile/screen";
+import { SiteFooter } from "@/components/marketing/site-footer";
 import { FilePickButton } from "@/components/onboarding/file-pick";
 import { BulletLine, CheckLine, DropZone, StageHeader } from "@/components/onboarding/parts";
 import { Card, CardDivider, StackRow } from "@/components/screening/parts";
+import { TopBar } from "@/components/topbar";
 import { submitAdvisorApplication } from "@/lib/mock-db/actions";
 import { useDatabase } from "@/lib/mock-db/store";
 import { useSession } from "@/lib/session";
@@ -47,6 +49,37 @@ import {
   useOnboardingDraft,
 } from "@/lib/session/onboarding";
 import { cn } from "@/lib/utils";
+
+/**
+ * Figma "Back Bar" (1787:24447) — the 52px row the desktop onboarding frames put
+ * under the app's nav: the same chevron the phone frame carries, re-seated on the
+ * card surface at the 120px page inset. It is the phone's own top bar with `lg:`
+ * metrics, not a second control.
+ */
+const BACK_BAR = "lg:h-13 lg:bg-card lg:pt-0 lg:pb-0 lg:pl-10 xl:pl-30";
+
+/**
+ * Figma "Step Band" / "Head Band" — the white band that holds the heading above
+ * the grey form band, with the content in the same 800px column as the card.
+ */
+const HEAD_BAND = "w-full shrink-0 lg:border-b lg:border-border lg:bg-card lg:pb-8";
+
+/** The 800px column the band's heading and the card below it both sit in. */
+const COLUMN = "lg:mx-auto lg:w-[800px] lg:px-0";
+
+/**
+ * Figma "Card" (1787:24374) — the 800px panel every stage's form becomes at 1440:
+ * a 40px inset on the card surface, 48px clear of the band above it.
+ *
+ * On the phone the form is the screen itself, so this is a set of `lg:` classes
+ * spread onto the block that already holds it rather than a wrapper of its own.
+ */
+const FORM_CARD =
+  "flex w-full flex-1 flex-col lg:my-12 lg:w-[800px] lg:flex-none lg:gap-6 lg:rounded-2xl lg:border lg:border-border lg:bg-card lg:p-10";
+
+/** Figma "Actions" — the stage button stops filling the width and holds the end. */
+const CARD_ACTIONS = "lg:items-end lg:px-0 lg:pt-2 lg:pb-0";
+const CARD_ACTION_BUTTON = "lg:h-11 lg:w-50";
 
 /** The signed-in account's latest application, if it has one. */
 function useLatestApplication() {
@@ -69,35 +102,96 @@ export function BecomeAdvisorScreen() {
   const isAdvisor = session.status === "authenticated" && session.account.role === "advisor";
   const startHref = application ? "/advisor-onboarding/pending" : "/advisor-onboarding/stage-1";
 
+  // One list, drawn twice: as the phone's hairline-separated card rows, and as
+  // Figma "Cards" (1787:24292) — three 384px panels across the 1200 column. The
+  // desktop panel stacks a 48px icon box over its title, which `StackRow`'s fixed
+  // 64px row cannot become, so the two shapes are spelled out against one source
+  // rather than letting the copy drift between them.
+  const promises = [
+    { icon: BadgeCheck, title: t("verifyTitle"), body: t("verifyBody") },
+    { icon: CalendarDays, title: t("scheduleTitle"), body: t("scheduleBody") },
+    { icon: Wallet, title: t("earnTitle"), body: t("earnBody") },
+  ];
+
+  // The phone frame ends on these; the desktop frame opens on them, under the
+  // hero. Same pair either way, so it is written once and placed twice.
+  const actions = (
+    <>
+      {isAdvisor ? (
+        <PrimaryButton className={CARD_ACTION_BUTTON} href="/work">
+          {t("goToWork")}
+        </PrimaryButton>
+      ) : (
+        <PrimaryButton className={CARD_ACTION_BUTTON} href={startHref}>
+          {application ? t("seeStatus") : t("start")}
+        </PrimaryButton>
+      )}
+      <NeutralButton className="lg:h-9 lg:w-50" href="/profile">
+        {t("later")}
+      </NeutralButton>
+    </>
+  );
+
   return (
-    <MobileScreen>
-      <ScreenTopBar href="/profile" label={c("back")} />
+    // Figma "Desktop / Become an advisor (Light)" (1787:24258): the phone frame's
+    // heading becomes a centred hero band, its card becomes three panels on the
+    // grey ground below, and the page closes on the site footer.
+    <MobileScreen wide>
+      <div className="hidden w-full lg:block">
+        <TopBar unreadNotifications />
+      </div>
+      <ScreenTopBar className={BACK_BAR} href="/profile" label={c("back")} />
       <ScreenBody>
-        <ScreenHeading
-          className="gap-2 pt-4"
-          subtitle={t("introSubtitle")}
-          title={t("introTitle")}
-        />
-        <div className="flex w-full shrink-0 flex-col items-start px-6 pt-3">
-          <Card>
-            <StackRow body={t("verifyBody")} icon={BadgeCheck} title={t("verifyTitle")} />
-            <CardDivider />
-            <StackRow body={t("scheduleBody")} icon={CalendarDays} title={t("scheduleTitle")} />
-            <CardDivider />
-            <StackRow body={t("earnBody")} icon={Wallet} title={t("earnTitle")} />
-          </Card>
+        {/* Figma "Hero" (1787:24284) — a 760px column, centred, 40/60 over a
+            line of body and the two actions side by side. */}
+        <div className={cn(HEAD_BAND, "lg:pt-16 lg:pb-14")}>
+          <ScreenHeading
+            className="gap-2 pt-4 lg:mx-auto lg:w-[760px] lg:items-center lg:gap-4 lg:px-0 lg:pt-0 lg:pb-0 lg:text-center [&_h1]:lg:text-display [&_p]:lg:text-base"
+            subtitle={t("introSubtitle")}
+            title={t("introTitle")}
+          />
+          <ScreenActions className="hidden lg:mx-auto lg:flex lg:w-[392px] lg:flex-row lg:items-center lg:gap-3 lg:px-0 lg:pt-8 lg:pb-0">
+            {actions}
+          </ScreenActions>
         </div>
-        <ScreenSpacer />
-        <ScreenActions>
-          {isAdvisor ? (
-            <PrimaryButton href="/work">{t("goToWork")}</PrimaryButton>
-          ) : (
-            <PrimaryButton href={startHref}>
-              {application ? t("seeStatus") : t("start")}
-            </PrimaryButton>
-          )}
-          <NeutralButton href="/profile">{t("later")}</NeutralButton>
-        </ScreenActions>
+
+        {/* Figma "What We Use" (1787:24291) — the same three promises on the
+            grey band, one 384px panel each. */}
+        <div className="flex w-full shrink-0 flex-col items-start px-6 pt-3 lg:mx-auto lg:max-w-[1440px] lg:px-10 xl:px-30 lg:pt-18 lg:pb-22">
+          <Card className="lg:hidden">
+            {promises.map(({ icon, title, body }, index) => (
+              <Fragment key={title}>
+                {index === 0 ? null : <CardDivider />}
+                <StackRow body={body} icon={icon} title={title} />
+              </Fragment>
+            ))}
+          </Card>
+          <div className="hidden w-full lg:grid lg:grid-cols-3 lg:gap-6">
+            {promises.map(({ icon: Icon, title, body }) => (
+              <div
+                className="flex flex-col items-start rounded-xl border border-border bg-card p-7"
+                key={title}
+              >
+                <span className="flex size-12 shrink-0 items-center justify-center rounded-xl bg-muted">
+                  <Icon className="size-5.5 text-muted-foreground" />
+                </span>
+                <p className="w-full pt-3.5 text-lg leading-7 font-semibold text-foreground">
+                  {title}
+                </p>
+                <p className="w-full pt-3.5 text-sm font-normal text-muted-foreground">
+                  {body}
+                </p>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* The phone frame pins its actions to the bottom edge; the desktop hero
+            already carries them, so the spacer and the stack stop at `lg`. */}
+        <ScreenSpacer className="lg:hidden" />
+        <ScreenActions className="lg:hidden">{actions}</ScreenActions>
+
+        <SiteFooter className="mt-auto hidden lg:flex" />
       </ScreenBody>
     </MobileScreen>
   );
@@ -134,20 +228,37 @@ export function OnboardingStage1Screen({
   }
 
   return (
-    <MobileScreen>
-      <ScreenTopBar href="/advisor/apply" label={c("back")} />
+    // Figma "Desktop / Advisor onboarding - Stage 1 (Light)" (1787:24342): the
+    // track and title become a white step band, and the form becomes an 800px
+    // card on the grey ground — two fields to a row, the action holding the end.
+    <MobileScreen wide>
+      <div className="hidden w-full lg:block">
+        <TopBar unreadNotifications />
+      </div>
+      <ScreenTopBar className={BACK_BAR} href="/advisor/apply" label={c("back")} />
       <ScreenBody>
-        <StageHeader label={t("stepOf", { n: 1 })} step={1} title={t("s1Title")} />
+        <div className={HEAD_BAND}>
+          <StageHeader
+            className={cn(COLUMN, "lg:pt-7")}
+            label={t("stepOf", { n: 1 })}
+            step={1}
+            title={t("s1Title")}
+          />
+        </div>
 
+        <div className={FORM_CARD}>
         {failed ? (
           <AlertBanner
             body={t("s1ErrorBody")}
+            className="lg:px-0 lg:pt-0"
             icon={TriangleAlert}
             title={t("s1ErrorTitle")}
           />
         ) : null}
 
-        <div className="flex w-full shrink-0 flex-col items-start gap-4 px-6 pt-2">
+        {/* Figma "Identity Row" / "Birth Row" — 350px fields, 20px apart, with
+            the bio spanning both. The phone stacks the same five. */}
+        <div className="flex w-full shrink-0 flex-col items-start gap-4 px-6 pt-2 lg:grid lg:grid-cols-2 lg:gap-x-5 lg:gap-y-6 lg:px-0 lg:pt-0">
           <Field
             autoComplete="name"
             error={errors.name}
@@ -192,7 +303,7 @@ export function OnboardingStage1Screen({
             placeholder={failed ? t("dobFilledPlaceholder") : t("dobPlaceholder")}
             value={draft.birthDate}
           />
-          <div className="flex w-full shrink-0 flex-col items-start gap-1.5">
+          <div className="flex w-full shrink-0 flex-col items-start gap-1.5 lg:col-span-2">
             <label
               className="w-full text-sm font-medium text-foreground"
               htmlFor="ob-bio"
@@ -212,16 +323,19 @@ export function OnboardingStage1Screen({
           </div>
         </div>
 
-        <ScreenSpacer />
-        <div className="flex w-full shrink-0 flex-col items-center px-6 pb-2">
+        <ScreenSpacer className="lg:hidden" />
+        <div className={cn("flex w-full shrink-0 flex-col items-center px-6 pb-2", CARD_ACTIONS)}>
           <PrimaryButton
-            className="disabled:opacity-40"
+            className={cn("disabled:opacity-40", CARD_ACTION_BUTTON)}
             disabled={!draft.legalName.trim() || !draft.phone.trim() || !draft.birthDate.trim()}
             onClick={next}
           >
             {t("continue")}
           </PrimaryButton>
         </div>
+        </div>
+
+        <SiteFooter className="mt-auto hidden lg:flex" />
       </ScreenBody>
     </MobileScreen>
   );
@@ -265,20 +379,38 @@ export function OnboardingStage2Screen({
   );
 
   return (
-    <MobileScreen>
-      <ScreenTopBar href="/advisor-onboarding/stage-1" label={c("back")} />
+    // Figma "Desktop / Advisor onboarding - Stage 2 (Light)" (1787:24424) and its
+    // uploaded (1787:24512) and rejected (1787:24772) states: the same card, with
+    // the document on the left of a 344/344 split and the guidance beside it.
+    <MobileScreen wide>
+      <div className="hidden w-full lg:block">
+        <TopBar unreadNotifications />
+      </div>
+      <ScreenTopBar className={BACK_BAR} href="/advisor-onboarding/stage-1" label={c("back")} />
       <ScreenBody>
-        <StageHeader label={t("stepOf", { n: 2 })} step={2} title={t("s2Title")} />
+        <div className={HEAD_BAND}>
+          <StageHeader
+            className={cn(COLUMN, "lg:pt-7")}
+            label={t("stepOf", { n: 2 })}
+            step={2}
+            title={t("s2Title")}
+          />
+        </div>
 
+        <div className={FORM_CARD}>
         {rejected ? (
           <AlertBanner
             body={t("s2ErrorBody")}
+            className="lg:px-0 lg:pt-0"
             icon={TriangleAlert}
             title={t("s2ErrorTitle")}
           />
         ) : null}
 
-        <div className="flex w-full shrink-0 flex-col items-start px-6 pt-2">
+        {/* Figma "Split" (1787:24457) — the document and what to check about it
+            side by side, where the phone can only stack them. */}
+        <div className="contents lg:grid lg:w-full lg:grid-cols-2 lg:items-start lg:gap-8">
+        <div className="flex w-full shrink-0 flex-col items-start px-6 pt-2 lg:px-0 lg:pt-0">
           {uploaded ? (
             /* Figma "Uploaded Document" (402 x 262): a 354 x 208 preview, a 10px
                gap, then the 36px file-info row; the actions row follows 12px down. */
@@ -325,7 +457,7 @@ export function OnboardingStage2Screen({
         </div>
 
         {/* Figma guidance / next-steps list. */}
-        <div className={cn("flex w-full shrink-0 flex-col items-start gap-1.5 px-6", uploaded ? "pt-6" : "pt-5")}>
+        <div className={cn("flex w-full shrink-0 flex-col items-start gap-1.5 px-6 lg:px-0 lg:pt-0", uploaded ? "pt-6" : "pt-5")}>
           <p className="mb-0.5 w-full text-sm font-medium text-foreground">
             {uploaded ? t("nextHeading") : t("guidance")}
           </p>
@@ -342,11 +474,12 @@ export function OnboardingStage2Screen({
             </>
           )}
         </div>
+        </div>
 
-        <ScreenSpacer />
-        <div className="flex w-full shrink-0 flex-col items-center px-6 pb-2">
+        <ScreenSpacer className="lg:hidden" />
+        <div className={cn("flex w-full shrink-0 flex-col items-center px-6 pb-2", CARD_ACTIONS)}>
           <PrimaryButton
-            className="disabled:opacity-40"
+            className={cn("disabled:opacity-40", CARD_ACTION_BUTTON)}
             disabled={!uploaded}
             onClick={() => {
               if (!draft.idFileName && fileName) updateDraft({ idFileName: fileName });
@@ -356,6 +489,9 @@ export function OnboardingStage2Screen({
             {t("continue")}
           </PrimaryButton>
         </div>
+        </div>
+
+        <SiteFooter className="mt-auto hidden lg:flex" />
       </ScreenBody>
     </MobileScreen>
   );
@@ -411,20 +547,37 @@ export function OnboardingStage3Screen({
   }
 
   return (
-    <MobileScreen>
-      <ScreenTopBar href="/advisor-onboarding/stage-2" label={c("back")} />
+    // Figma "Desktop / Advisor onboarding - Stage 3 (Light)" (1787:24606) and the
+    // missing-proof state (1787:24866): the intro line moves up into the step
+    // band, and the skill cards fill the 800px card below it.
+    <MobileScreen wide>
+      <div className="hidden w-full lg:block">
+        <TopBar unreadNotifications />
+      </div>
+      <ScreenTopBar className={BACK_BAR} href="/advisor-onboarding/stage-2" label={c("back")} />
       <ScreenBody>
-        <StageHeader label={t("stepOf", { n: 3 })} step={3} title={t("s3Title")} />
+        <div className={HEAD_BAND}>
+          <StageHeader
+            className={cn(COLUMN, "lg:pt-7")}
+            label={t("stepOf", { n: 3 })}
+            step={3}
+            subtitle={t("s3Intro")}
+            title={t("s3Title")}
+          />
+        </div>
 
+        <div className={FORM_CARD}>
         {missing ? (
           <AlertBanner
             body={t("s3ErrorBody")}
+            className="lg:px-0 lg:pt-0"
             icon={TriangleAlert}
             title={t("s3ErrorTitle")}
           />
         ) : null}
 
-        <div className="flex w-full shrink-0 flex-col items-start px-6 pt-2">
+        {/* The desktop step band already carries this line. */}
+        <div className="flex w-full shrink-0 flex-col items-start px-6 pt-2 lg:hidden">
           <p className="w-full text-xs font-normal text-muted-foreground">
             {t("s3Intro")}
           </p>
@@ -437,7 +590,7 @@ export function OnboardingStage3Screen({
         </datalist>
 
         {/* Figma "Skill Card": skill picker plus a proof drop zone, one per skill. */}
-        <div className="flex w-full shrink-0 flex-col items-start gap-3 px-6 pt-4">
+        <div className="flex w-full shrink-0 flex-col items-start gap-3 px-6 pt-4 lg:px-0 lg:pt-0 lg:pb-1">
           {draft.skills.map((entry, index) => {
             const invalid = missing && (!entry.proof || !entry.skill.trim());
             return (
@@ -529,16 +682,19 @@ export function OnboardingStage3Screen({
           </NeutralButton>
         </div>
 
-        <ScreenSpacer />
-        <div className="flex w-full shrink-0 flex-col items-center px-6 pt-4 pb-2">
+        <ScreenSpacer className="lg:hidden" />
+        <div className={cn("flex w-full shrink-0 flex-col items-center px-6 pt-4 pb-2", CARD_ACTIONS)}>
           <PrimaryButton
-            className="disabled:opacity-40"
+            className={cn("disabled:opacity-40", CARD_ACTION_BUTTON)}
             disabled={!draft.skills.some((s) => s.skill.trim())}
             onClick={submit}
           >
             {t("submitReview")}
           </PrimaryButton>
         </div>
+        </div>
+
+        <SiteFooter className="mt-auto hidden lg:flex" />
       </ScreenBody>
     </MobileScreen>
   );
