@@ -21,12 +21,14 @@ export const pageKeys = [
 export type PageKeys = (typeof pageKeys)[number];
 
 /**
- * `bookings` has no Figma frame yet, so it has no destination — the tab bar
- * renders those entries as plain labels instead of dead links.
+ * A tab with no entry here has no destination — the tab bar renders it as a
+ * plain label rather than a dead link. `bookings` was one of those until Figma
+ * 1326:18632 landed.
  */
 export const pageHrefs: Partial<Record<PageKeys, string>> = {
   home: "/",
   work: "/work",
+  bookings: "/bookings",
   chat: "/chat",
   earnings: "/earnings",
   user: "/profile",
