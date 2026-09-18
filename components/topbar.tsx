@@ -2,6 +2,7 @@
 
 import Image from "next/image";
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { useEffect, useRef, useState, type CSSProperties } from "react";
 import { useGSAP } from "@gsap/react";
 import gsap from "gsap";
@@ -9,6 +10,8 @@ import { useTranslations } from "next-intl";
 import { Bell, ChevronLeft, LogIn } from "lucide-react";
 
 import { logo } from "@/lib/assets/r2";
+import { avatarImage, initials } from "@/lib/mock-db/avatars";
+import { useSession } from "@/lib/session";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
@@ -139,11 +142,15 @@ function Lockup({ reversed }: { readonly reversed: boolean }) {
     // the script's descenders weight the lower half — so centring the box leaves
     // the wordmark visibly low against the glyphs either side. The nudge is
     // optical only, hence a transform rather than margin.
-    <span className="relative block h-14 shrink-0 -translate-y-[3px]">
+    // Figma's desktop nav (1564:24845) sets the lockup 20px tall in a 68px bar.
+    // That is the flat wordmark; this asset is the script over PLATFORM, so it
+    // needs the height its two lines ask for — 36px lands the script on the same
+    // cap height as the frame's mark without crowding the 68px row.
+    <span className="relative block h-14 shrink-0 -translate-y-[3px] lg:h-9 lg:translate-y-0">
       {/* The asset is #18181b, so the reversed bar flattens it to white. */}
       <Image
         alt="Advisory Platform"
-        className={cn("h-14 w-auto", reversed && "brightness-0 invert")}
+        className={cn("h-14 w-auto lg:h-9", reversed && "brightness-0 invert")}
         priority
         src={logo}
       />
@@ -182,6 +189,48 @@ function Lockup({ reversed }: { readonly reversed: boolean }) {
 const SHEEN_BAND =
   "linear-gradient(105deg, transparent 8%, rgb(0 0 0 / 35%) 32%, #000 50%, rgb(0 0 0 / 35%) 68%, transparent 92%)";
 
+/**
+ * Figma "Avatar" (1564:24865) — the 36px portrait at the right of the desktop
+ * nav, the way back to the reader's own profile. It only exists from `lg`: the
+ * phone frame keeps the profile on its tab bar, and the nav there has no room.
+ *
+ * Signed out there is no portrait to draw, so nothing renders and the bell (or
+ * the sign-in link) holds the edge on its own.
+ */
+function NavAvatar() {
+  const t = useTranslations("common");
+  const session = useSession();
+  if (session.status !== "authenticated") return null;
+
+  const { account } = session;
+  const image = avatarImage(account.avatar);
+
+  return (
+    <Link
+      aria-label={t("profile")}
+      className="hidden shrink-0 lg:block"
+      href="/profile"
+    >
+      {image ? (
+        <Image
+          alt=""
+          className="size-9 rounded-full object-cover"
+          height={36}
+          src={image}
+          width={36}
+        />
+      ) : (
+        <span
+          aria-hidden
+          className="flex size-9 items-center justify-center rounded-full bg-muted text-sm font-medium text-muted-foreground"
+        >
+          {initials(account)}
+        </span>
+      )}
+    </Link>
+  );
+}
+
 const FROSTED = (() => {
   const white = (pct: number) => `color-mix(in srgb, var(--on-media) ${pct}%, transparent)`;
   return [
@@ -213,8 +262,18 @@ export function TopBar({
   readonly className?: string;
 }) {
   const t = useTranslations("common");
+  const nav = useTranslations("navigation");
+  const pathname = usePathname();
   const [frosted, setFrosted] = useState(false);
   const sentinelRef = useRef<HTMLDivElement>(null);
+
+  // Figma's desktop nav carries four: find an advisor, bookings, chat, about.
+  const links = [
+    { label: t("findAdvisor"), href: "/search" },
+    { label: nav("bookings"), href: "/bookings" },
+    { label: nav("chat"), href: "/chat" },
+    { label: t("about"), href: "/landing#about" },
+  ];
 
   useEffect(() => {
     const sentinel = sentinelRef.current;
@@ -253,6 +312,10 @@ export function TopBar({
             frosted
               ? "border-on-media/20 backdrop-blur-sm"
               : "border-transparent bg-transparent",
+            // Figma "Top Nav" (1564:24844): 68px on the card surface behind a
+            // real border, not the phone bar's glass. The wash is an inline
+            // gradient, which a class cannot outrank, hence the `!` pair.
+            "lg:h-17 lg:border-border lg:bg-card! lg:bg-none! lg:px-0 lg:py-4 lg:backdrop-blur-none",
             className,
           )}
           style={frosted ? { background: FROSTED } : undefined}
@@ -260,65 +323,109 @@ export function TopBar({
           {/* Equal flex slots either side, so the wordmark lands on the centre of
               the bar whatever the two edges hold. `justify-between` alone would
               shift it whenever the leading glyph and the trailing item differ in
-              width — which the sign-in link makes obvious. */}
-          <div className="flex flex-1 items-center justify-start">
-            {backHref ? (
-              <Button
-                aria-label={t("back")}
-                className={cn(trigger, ink)}
-                nativeButton={false}
-                render={<Link href={backHref} />}
-                size="icon"
-                variant="ghost"
-              >
-                <ChevronLeft className="size-6" />
-              </Button>
-            ) : (
-              <Button
-                aria-label={t("menu")}
-                className={cn(trigger, ink, "size-9")}
-                size="icon"
-                variant="ghost"
-              >
-                <MenuGlyph className="size-7" />
-              </Button>
-            )}
-          </div>
+              width — which the sign-in link makes obvious.
 
-          {/* The lockup is the way home from anywhere — the convention every
-              site the readers already use follows, and the only one this app had
-              no affordance for once the back chevron came off the detail bar. */}
-          <Link className="shrink-0" href="/">
-            <Lockup reversed={onMedia} />
-          </Link>
+              From `lg` the frame stops centring it: the lockup goes hard left at
+              the 120px page inset, the links follow it, and the actions hold the
+              right edge — so the row becomes logo, nav, actions inside a 1440
+              container. */}
+          <div className="flex w-full items-center justify-between lg:mx-auto lg:max-w-[1440px] lg:justify-start lg:px-30">
+            <div
+              className={cn(
+                "flex flex-1 items-center justify-start",
+                backHref ? "lg:flex-none lg:pr-4" : "lg:hidden",
+              )}
+            >
+              {backHref ? (
+                <Button
+                  aria-label={t("back")}
+                  className={cn(trigger, ink)}
+                  nativeButton={false}
+                  render={<Link href={backHref} />}
+                  size="icon"
+                  variant="ghost"
+                >
+                  <ChevronLeft className="size-6" />
+                </Button>
+              ) : (
+                <Button
+                  aria-label={t("menu")}
+                  className={cn(trigger, ink, "size-9")}
+                  size="icon"
+                  variant="ghost"
+                >
+                  <MenuGlyph className="size-7" />
+                </Button>
+              )}
+            </div>
 
-          <div className="flex flex-1 items-center justify-end">
-            {login ? (
-              <Link
-                className={cn(
-                  "flex shrink-0 items-center gap-1.5 text-sm font-semibold whitespace-nowrap",
-                  onMedia ? "text-on-media" : "text-foreground",
-                )}
-                href="/login"
-              >
-                <LogIn className="size-4 shrink-0" />
-                {t("login")}
-              </Link>
-            ) : (
-              <Button
-                aria-label={t("notifications")}
-                className={cn(trigger, ink)}
-                nativeButton={false}
-                render={<Link href="/notifications" />}
-                size="icon"
-                variant="ghost"
-              >
-                <Bell className="size-6" />
-                {unreadNotifications ? (
-                  <span className="absolute top-px left-[15px] size-2 rounded-full bg-primary" />
-                ) : null}
-              </Button>
-            )}
+            {/* The lockup is the way home from anywhere — the convention every
+                site the readers already use follows, and the only one this app had
+                no affordance for once the back chevron came off the detail bar. */}
+            <Link className="shrink-0" href="/">
+              <Lockup reversed={onMedia} />
+            </Link>
+
+            {/* Figma "Links" (1564:24858) — 48px after the lockup, 28px apart,
+                14/20 medium, the current section in full ink. No phone frame
+                draws them, so they start at `lg`. */}
+            <nav className="hidden lg:flex lg:min-w-px lg:flex-1 lg:items-center lg:gap-7 lg:pl-12">
+              {links.map(({ label, href }) => {
+                const path = href.split("#")[0];
+                const current =
+                  path === "/"
+                    ? pathname === "/"
+                    : pathname === path || pathname.startsWith(`${path}/`);
+                return (
+                  <Link
+                    aria-current={current ? "page" : undefined}
+                    className={cn(
+                      "text-sm leading-5 font-medium whitespace-nowrap transition-colors",
+                      current
+                        ? "text-foreground"
+                        : "text-muted-foreground hover:text-foreground",
+                    )}
+                    href={href}
+                    key={href}
+                  >
+                    {label}
+                  </Link>
+                );
+              })}
+            </nav>
+
+            <div className="flex flex-1 items-center justify-end lg:flex-none lg:gap-4">
+              {login ? (
+                <Link
+                  className={cn(
+                    "flex shrink-0 items-center gap-1.5 text-sm font-semibold whitespace-nowrap",
+                    onMedia ? "text-on-media" : "text-foreground",
+                  )}
+                  href="/login"
+                >
+                  <LogIn className="size-4 shrink-0" />
+                  {t("login")}
+                </Link>
+              ) : (
+                <Button
+                  aria-label={t("notifications")}
+                  className={cn(trigger, ink)}
+                  nativeButton={false}
+                  render={<Link href="/notifications" />}
+                  size="icon"
+                  variant="ghost"
+                >
+                  <Bell className="size-6" />
+                  {unreadNotifications ? (
+                    <span className="absolute top-px left-[15px] size-2 rounded-full bg-primary" />
+                  ) : null}
+                </Button>
+              )}
+              {/* Figma "Actions" (1564:24863) pairs the bell with a 36px
+                  portrait. The phone frame has no room for it and keeps the
+                  profile on its tab bar, which is why this is `lg`-only. */}
+              <NavAvatar />
+            </div>
           </div>
         </div>
       </div>

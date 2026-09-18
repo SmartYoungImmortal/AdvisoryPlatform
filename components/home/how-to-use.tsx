@@ -27,8 +27,11 @@ export function HowToUse() {
   const t = useTranslations("landing");
 
   return (
-    <div className="flex w-full shrink-0 flex-col items-start gap-3">
-      <p className="w-full px-6 text-base font-semibold text-foreground">
+    // Figma "How it works" (1564:25001) runs the steps as a row of cards across
+    // the 1200 column with a 24/34 head. Same four steps, same cards — the rail
+    // just stops being a rail once there is room to lay them side by side.
+    <div className="flex w-full shrink-0 flex-col items-start gap-3 lg:mx-auto lg:max-w-[1440px] lg:gap-6 lg:px-30">
+      <p className="w-full px-6 text-base font-semibold text-foreground lg:px-0 lg:text-2xl">
         {t("stepsTitle")}
       </p>
       {/* A rail of cards rather than a stacked list. Three text lists in a row —
@@ -42,10 +45,10 @@ export function HowToUse() {
           16px between the glyph and the copy, on a 0 4px 30px / 12% shadow. The
           rail itself carries no gap — the item's own lead is the gap. First and
           last leads are this page's 24px inset, not the reference's 40. */}
-      <ol className="flex w-full shrink-0 snap-x snap-mandatory items-stretch overflow-x-auto">
+      <ol className="flex w-full shrink-0 snap-x snap-mandatory items-stretch overflow-x-auto lg:grid lg:grid-cols-4 lg:gap-6 lg:overflow-visible">
         {STEPS.map(({ icon: Icon, title, body }) => (
           <li
-            className="min-w-0 shrink-0 basis-[90%] snap-center py-6 pl-4 first:pl-6 last:pr-6"
+            className="min-w-0 shrink-0 basis-[90%] snap-center py-6 pl-4 first:pl-6 last:pr-6 lg:basis-auto lg:p-0 lg:first:pl-0 lg:last:pr-0"
             key={title}
           >
             <div className="flex h-full flex-col items-center justify-center gap-4 rounded-[12px] bg-card p-8 text-center shadow-lift">

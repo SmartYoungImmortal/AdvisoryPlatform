@@ -1,6 +1,14 @@
 {
   "home": {
     "searchTitle": "อยากปรึกษาเรื่องอะไรดี",
+    "heroTitle": "ปรึกษาผู้เชี่ยวชาญตัวจริง ได้ในไม่กี่นาที",
+    "heroSubtitle": "ค้นหาผู้เชี่ยวชาญที่ยืนยันตัวตนแล้ว จองเวลา และคุยผ่านวิดีโอคอลได้ในที่เดียว",
+    "promoMatchTitle": "ไม่รู้จะเลือกใครดี",
+    "promoMatchBody": "เล่าปัญหาสั้น ๆ แล้วเราจะหาผู้เชี่ยวชาญที่ตรงที่สุดให้",
+    "promoMatchCta": "เล่าปัญหาของคุณ",
+    "promoTrialTitle": "ทดลองปรึกษาฟรี 15 นาที",
+    "promoTrialBody": "คุยสั้น ๆ ก่อนตัดสินใจจอง กับผู้เชี่ยวชาญที่ร่วมรายการ",
+    "promoTrialCta": "ดูผู้ที่ให้ทดลองฟรี",
     "searchPlaceholder": "ค้นหาผู้เชี่ยวชาญ หรือหัวข้อที่อยากปรึกษา",
     "searchExample1": "จดทะเบียนบริษัทต้องเตรียมอะไรบ้าง...",
     "searchExample2": "วางแผนภาษีสำหรับฟรีแลนซ์...",
@@ -155,7 +163,21 @@
     "footerPhone": "Phone: +66 (0) 2 000 0000",
     "footerPhoneNumber": "+6620000000",
     "footerX": "X",
-    "footerFacebook": "Facebook"
+    "footerFacebook": "Facebook",
+    "footerTagline": "ปรึกษาผู้เชี่ยวชาญที่ยืนยันตัวตนแล้ว จบครบในที่เดียว",
+    "footerColumnService": "บริการ",
+    "footerColumnAdvisor": "ผู้ให้คำปรึกษา",
+    "footerColumnCompany": "บริษัท",
+    "footerLinkSearch": "ค้นหาผู้เชี่ยวชาญ",
+    "footerLinkCategories": "หมวดหมู่",
+    "footerLinkPricing": "ราคาและค่าบริการ",
+    "footerLinkBecomeAdvisor": "สมัครเป็นผู้ให้คำปรึกษา",
+    "footerLinkHowItWorks": "วิธีใช้งาน",
+    "footerLinkHelp": "ศูนย์ช่วยเหลือ",
+    "footerLinkAbout": "เกี่ยวกับเรา",
+    "footerLinkTerms": "ข้อกำหนดการใช้งาน",
+    "footerLinkPrivacy": "นโยบายความเป็นส่วนตัว",
+    "footerCopyright": "© 2569 Advisory Platform"
   },
   "navigation": {
     "home": "หน้าหลัก",
@@ -166,14 +188,17 @@
     "user": "ผู้ใช้"
   },
   "common": {
+    "about": "เกี่ยวกับเรา",
     "back": "ย้อนกลับ",
     "cancel": "ยกเลิก",
     "email": "อีเมล",
     "emailValue": "araya.s@kmitl.ac.th",
     "filters": "ตัวกรอง",
+    "findAdvisor": "ค้นหาผู้เชี่ยวชาญ",
     "login": "เข้าสู่ระบบ",
     "menu": "เมนู",
     "notifications": "การแจ้งเตือน",
+    "profile": "โปรไฟล์",
     "search": "ค้นหา"
   },
   "profile": {

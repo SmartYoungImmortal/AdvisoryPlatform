@@ -128,10 +128,43 @@ export function SiteFooter({ className }: { readonly className?: string }) {
     { label: t("footerPrivacy"), href: "/pdpa" },
   ];
 
+  // Figma "Footer" (1564:25052) — the desktop frame's footer is a different
+  // object from the phone's: the page surface rather than the dark band, four
+  // columns on the 1200 grid, a rule, and the copyright line. Same component,
+  // because it is the same footer on the same route; the phone's stack and this
+  // are two states of it, not two files.
+  const columns = [
+    {
+      heading: t("footerColumnService"),
+      links: [
+        { label: t("footerLinkSearch"), href: "/search" },
+        { label: t("footerLinkCategories"), href: "/search" },
+        { label: t("footerLinkPricing"), href: "/landing#good-to-know" },
+      ],
+    },
+    {
+      heading: t("footerColumnAdvisor"),
+      links: [
+        { label: t("footerLinkBecomeAdvisor"), href: "/advisor/apply" },
+        { label: t("footerLinkHowItWorks"), href: "/landing#how-it-works" },
+        { label: t("footerLinkHelp"), href: "/landing#faq" },
+      ],
+    },
+    {
+      heading: t("footerColumnCompany"),
+      links: [
+        { label: t("footerLinkAbout"), href: "/landing#about" },
+        { label: t("footerLinkTerms"), href: "/terms" },
+        { label: t("footerLinkPrivacy"), href: "/pdpa" },
+      ],
+    },
+  ];
+
   return (
     <footer
       className={cn(
         "relative isolate flex w-full shrink-0 flex-col items-center gap-9 bg-footer-surface px-4 pt-12 pb-[29px]",
+        "lg:gap-0 lg:border-t lg:border-border lg:bg-card lg:px-30 lg:pt-12 lg:pb-8",
         className,
       )}
     >
@@ -142,10 +175,47 @@ export function SiteFooter({ className }: { readonly className?: string }) {
           without leaking behind the page. */}
       <div
         aria-hidden
-        className="pointer-events-none absolute inset-0 -z-10 bg-footer-glow"
+        className="pointer-events-none absolute inset-0 -z-10 bg-footer-glow lg:hidden"
       />
 
-      <div className="flex w-full shrink-0 flex-col items-center gap-12">
+      {/* The desktop footer: brand, three link columns, rule, copyright. */}
+      <div className="hidden w-full lg:mx-auto lg:block lg:max-w-[1200px]">
+        <div className="grid grid-cols-4 gap-6">
+          <div className="flex flex-col items-start gap-2.5">
+            <Image
+              alt="Advisory Platform"
+              className="h-8 w-auto"
+              src={logo}
+            />
+            <p className="text-sm font-normal text-muted-foreground">
+              {t("footerTagline")}
+            </p>
+          </div>
+          {columns.map(({ heading, links: items }) => (
+            <nav className="flex flex-col items-start gap-2.5" key={heading}>
+              <p className="text-sm leading-5 font-semibold text-foreground">
+                {heading}
+              </p>
+              {items.map(({ label, href }) => (
+                <Link
+                  className="text-sm font-normal text-muted-foreground transition-colors hover:text-foreground"
+                  href={href}
+                  key={label}
+                >
+                  {label}
+                </Link>
+              ))}
+            </nav>
+          ))}
+        </div>
+        <div className="mt-6 border-t border-border pt-6">
+          <p className="font-latin text-sm font-normal text-muted-foreground">
+            {t("footerCopyright")}
+          </p>
+        </div>
+      </div>
+
+      <div className="flex w-full shrink-0 flex-col items-center gap-12 lg:hidden">
         <Wordmark />
 
         <nav className="flex w-full shrink-0 flex-col items-center gap-6 border-b border-on-media/20 pb-[45px] font-latin text-base leading-5 font-bold whitespace-nowrap text-background">
@@ -168,7 +238,7 @@ export function SiteFooter({ className }: { readonly className?: string }) {
           `text-box-trim: trim-both` on a cap-alphabetic edge, which is why the
           frame measures 24px copy at 17px and 16px copy at 11px; without the
           trim the block stands ~30px taller than the 182px Figma reports. */}
-      <div className="flex w-full shrink-0 flex-col items-start gap-6 px-3">
+      <div className="flex w-full shrink-0 flex-col items-start gap-6 px-3 lg:hidden">
         <p className="font-latin text-2xl leading-6 font-bold whitespace-nowrap text-on-media [text-box:trim-both_cap_alphabetic]">
           {t("footerContact")}
         </p>

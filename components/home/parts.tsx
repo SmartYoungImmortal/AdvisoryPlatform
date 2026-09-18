@@ -25,20 +25,33 @@ import { cn } from "@/lib/utils";
  */
 export function SearchField({
   href,
+  groupClassName,
   iconClassName = "size-4.5",
+  inputClassName,
   linkLabel,
   overlay,
+  trailing,
   ...inputProps
 }: {
   readonly href?: string;
+  /** The box itself — how the desktop hero grows it to its 64px field. */
+  readonly groupClassName?: string;
   readonly iconClassName?: string;
+  readonly inputClassName?: string;
   readonly linkLabel?: string;
   /** Drawn over the control's own box — see `TypingPlaceholder`. */
   readonly overlay?: ReactNode;
+  /** Sits inside the box at its trailing edge — the hero's search button. */
+  readonly trailing?: ReactNode;
 } & ComponentProps<"input">) {
   return (
     <div className="relative flex min-w-px flex-1 items-start">
-      <InputGroup className="h-11 gap-2 rounded-lg border-input bg-card px-3 shadow-none">
+      <InputGroup
+        className={cn(
+          "h-11 gap-2 rounded-lg border-input bg-card px-3 shadow-none",
+          groupClassName,
+        )}
+      >
         <InputGroupAddon className="p-0 text-muted-foreground">
           <Search className={iconClassName} />
         </InputGroupAddon>
@@ -46,12 +59,21 @@ export function SearchField({
           // The overlay is positioned against the control rather than the group,
           // so it starts where the placeholder starts, past the icon.
           <div className="relative flex min-w-px flex-1 items-center">
-            <InputGroupInput className="px-0 text-sm" type="search" {...inputProps} />
+            <InputGroupInput
+              className={cn("px-0 text-sm", inputClassName)}
+              type="search"
+              {...inputProps}
+            />
             {overlay}
           </div>
         ) : (
-          <InputGroupInput className="px-0 text-sm" type="search" {...inputProps} />
+          <InputGroupInput
+            className={cn("px-0 text-sm", inputClassName)}
+            type="search"
+            {...inputProps}
+          />
         )}
+        {trailing}
       </InputGroup>
       {href ? (
         <Link
@@ -73,15 +95,20 @@ export function SearchField({
  */
 export function FilterButton({
   label,
+  className,
   iconClassName = "size-4.5",
 }: {
   readonly label: string;
+  readonly className?: string;
   readonly iconClassName?: string;
 }) {
   return (
     <Button
       aria-label={label}
-      className="size-11 shrink-0 rounded-lg border-input bg-card shadow-none"
+      className={cn(
+        "size-11 shrink-0 rounded-lg border-input bg-card shadow-none",
+        className,
+      )}
       size="icon"
       variant="outline"
     >
@@ -119,7 +146,13 @@ export function FilterChip({
   );
 }
 
-/** Figma "Section Head" — a 16/24 title with the accent "see all" link trailing. */
+/**
+ * Figma "Section Head" — a 16/24 title with the accent "see all" link trailing.
+ *
+ * The desktop frames (e.g. 1564:24890) set the same head at 24/34 over a 1200
+ * column, so the title carries a second size from `lg` rather than the page
+ * having a head of its own.
+ */
 export function SectionHead({
   title,
   action,
@@ -138,7 +171,7 @@ export function SectionHead({
         className,
       )}
     >
-      <p className="min-w-px flex-1 text-base font-semibold text-foreground">
+      <p className="min-w-px flex-1 text-base font-semibold text-foreground lg:text-2xl">
         {title}
       </p>
       <Link

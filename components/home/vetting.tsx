@@ -25,14 +25,16 @@ export function VettingSection() {
   const t = useTranslations("home");
 
   return (
-    <div className="flex w-full shrink-0 flex-col items-start gap-3 px-6">
-      <p className="w-full text-base font-semibold text-foreground">
+    // One card of three rows on the phone; three cards across the desktop
+    // column, on the same 1200 grid every other band there uses.
+    <div className="flex w-full shrink-0 flex-col items-start gap-3 px-6 lg:mx-auto lg:max-w-[1440px] lg:gap-6 lg:px-30">
+      <p className="w-full text-base font-semibold text-foreground lg:text-2xl">
         {t("vettingTitle")}
       </p>
-      <div className="flex w-full shrink-0 flex-col items-stretch divide-y overflow-clip rounded-xl border bg-card">
+      <div className="flex w-full shrink-0 flex-col items-stretch divide-y overflow-clip rounded-xl border bg-card lg:grid lg:grid-cols-3 lg:gap-6 lg:divide-y-0 lg:overflow-visible lg:rounded-none lg:border-0 lg:bg-transparent">
         {STEPS.map(({ icon: Icon, title, body }) => (
           <div
-            className="flex w-full shrink-0 items-start gap-3 p-3"
+            className="flex w-full shrink-0 items-start gap-3 p-3 lg:rounded-xl lg:border lg:bg-card lg:p-5"
             key={title}
           >
             <Icon aria-hidden className="mt-0.5 size-4.5 shrink-0 text-success" />
