@@ -1,6 +1,7 @@
 import { Lock } from "lucide-react";
 import { useTranslations } from "next-intl";
 
+import { SiteFooter } from "@/components/marketing/site-footer";
 import { PrimaryButton } from "@/components/mobile/buttons";
 import { Field } from "@/components/mobile/field";
 import {
@@ -10,7 +11,9 @@ import {
   ScreenSpacer,
   ScreenTopBar,
 } from "@/components/mobile/screen";
+import { PAGE_BAND, PAGE_HEAD_BAND } from "@/components/payment/invoice-screens";
 import { FootNote } from "@/components/screening/parts";
+import { TopBar } from "@/components/topbar";
 
 /** Figma order-summary line — label left, amount right. */
 function SummaryLine({
@@ -33,7 +36,9 @@ function SummaryLine({
       </span>
       <span
         className={`font-latin shrink-0 text-sm whitespace-nowrap ${
-          strong ? "font-semibold text-foreground" : "font-normal text-foreground"
+          strong
+            ? "font-semibold text-foreground lg:text-base"
+            : "font-normal text-foreground"
         }`}
       >
         {value}
@@ -45,6 +50,15 @@ function SummaryLine({
 /**
  * Figma "Payment - Card details (Light)" (995:10140) and its error state
  * (995:10190), which fills the fields and adds inline messages.
+ *
+ * "Desktop / Payment - Card details (Light)" (1952:34120) keeps every part and
+ * deals them into two columns of the 1200 grid: the form runs down the 788
+ * column on the left, and the order summary — which the phone stacks above the
+ * fields — becomes a 380 aside on the right with the pay button under it.
+ *
+ * The three blocks stay siblings rather than being regrouped into two wrappers,
+ * so the phone order (summary, fields, note, action at the bottom edge) is
+ * untouched; the grid places each one explicitly from `lg` up.
  */
 export function CardDetailsScreen({
   state = "default",
@@ -56,78 +70,101 @@ export function CardDetailsScreen({
   const err = state === "errors";
 
   return (
-    <MobileScreen>
-      <ScreenTopBar href="/screening/accepted" label={c("back")} />
+    <MobileScreen wide>
+      <ScreenTopBar className="lg:hidden" href="/screening/accepted" label={c("back")} />
       <ScreenBody>
-        <ScreenHeading className="pt-4" title={t("cardTitle")} />
+        <div className="hidden w-full lg:block">
+          <TopBar backHref="/screening/accepted" />
+        </div>
 
-        {/* Figma "Order Summary": caption, advisor line, fees, then the total. */}
-        <div className="flex w-full shrink-0 flex-col items-start px-6 pt-2">
-          <div className="flex w-full shrink-0 flex-col items-start gap-2.5 overflow-clip rounded-xl bg-card p-3.5">
-            <div className="flex w-full items-center justify-between gap-3">
-              <span className="text-xs font-normal text-muted-foreground">
-                {t("orderSummary")}
-              </span>
-              <span className="font-latin text-xs font-normal text-muted-foreground">
-                {t("advisor")}
-              </span>
+        <div className={PAGE_HEAD_BAND}>
+          <ScreenHeading className={`pt-4 ${PAGE_BAND} lg:pt-5 lg:pb-9`} title={t("cardTitle")} />
+        </div>
+
+        {/* Figma "Body" — 788 + 32 + 380 on the 1200 column. The third row is
+            the flexible one, so the aside's two blocks sit tight together at
+            the top while the form column runs past them. */}
+        <div className="flex w-full flex-1 flex-col lg:mx-auto lg:grid lg:max-w-[1440px] lg:grid-cols-[minmax(0,1fr)_380px] lg:grid-rows-[auto_auto_minmax(0,1fr)] lg:gap-x-8 lg:px-10 xl:px-30 lg:pt-12 lg:pb-14">
+          {/* Figma "Order Summary": caption, advisor line, fees, then the total. */}
+          <div className="flex w-full shrink-0 flex-col items-start px-6 pt-2 lg:col-start-2 lg:row-start-1 lg:px-0 lg:pt-0">
+            <div className="flex w-full shrink-0 flex-col items-start gap-2.5 overflow-clip rounded-xl bg-card p-3.5 lg:border lg:border-border">
+              <div className="flex w-full items-center justify-between gap-3">
+                <span className="text-xs font-normal text-muted-foreground lg:text-sm">
+                  {t("orderSummary")}
+                </span>
+                <span className="font-latin text-xs font-normal text-muted-foreground">
+                  {t("advisor")}
+                </span>
+              </div>
+              <SummaryLine label={t("session")} value={t("sessionPrice")} />
+              <SummaryLine label={t("platformFee")} value={t("platformFeeValue")} />
+              <div className="h-px w-full shrink-0 bg-muted" />
+              <SummaryLine label={t("total")} strong value={t("totalValue")} />
             </div>
-            <SummaryLine label={t("session")} value={t("sessionPrice")} />
-            <SummaryLine label={t("platformFee")} value={t("platformFeeValue")} />
-            <div className="h-px w-full shrink-0 bg-muted" />
-            <SummaryLine label={t("total")} strong value={t("totalValue")} />
+          </div>
+
+          {/* The form column. `lg:*:px-0` drops the phone's 24px gutter off both
+              blocks inside it — the grid already holds the 120px page inset. */}
+          <div className="flex w-full flex-col lg:col-start-1 lg:row-span-3 lg:row-start-1 lg:*:px-0">
+            {/* Figma "Form Fields": card number, an expiry/CVC row, then the
+                name. The row is already two halves, which is what the frame's
+                388 + 12 + 388 comes to inside the 788 column. */}
+            <div className="flex w-full shrink-0 flex-col items-start gap-4 px-6 pt-4 lg:pt-0">
+              <Field
+                defaultValue={err ? t("cardNumberFilled") : undefined}
+                error={err ? t("cardNumberError") : undefined}
+                id="card-number"
+                invalid={err}
+                label={t("cardNumberLabel")}
+                latin
+                placeholder={t("cardNumberPlaceholder")}
+              />
+              <div className="flex w-full shrink-0 items-start gap-3">
+                <div className="min-w-px flex-1">
+                  <Field
+                    defaultValue={err ? t("expiryFilled") : undefined}
+                    error={err ? t("expiryError") : undefined}
+                    id="card-expiry"
+                    invalid={err}
+                    label={t("expiryLabel")}
+                    latin
+                    placeholder={t("expiryPlaceholder")}
+                  />
+                </div>
+                <div className="min-w-px flex-1">
+                  <Field
+                    defaultValue={err ? t("cvcFilled") : undefined}
+                    error={err ? t("cvcError") : undefined}
+                    id="card-cvc"
+                    invalid={err}
+                    label={t("cvcLabel")}
+                    latin
+                    placeholder={t("cvcPlaceholder")}
+                  />
+                </div>
+              </div>
+              <Field
+                id="card-name"
+                label={t("cardNameLabel")}
+                latin
+                placeholder={t("cardNamePlaceholder")}
+              />
+            </div>
+
+            <FootNote icon={Lock}>{t("secureNote")}</FootNote>
+          </div>
+
+          {/* The phone pins the action to the bottom edge; the 1440 frame sets
+              it 20px under the summary, as wide as the aside. */}
+          <ScreenSpacer className="lg:hidden" />
+          <div className="flex w-full shrink-0 flex-col items-center px-6 pt-2 pb-2 lg:col-start-2 lg:row-start-2 lg:px-0 lg:pt-5 lg:pb-0">
+            <PrimaryButton className="lg:h-11" href="/checkout/processing">
+              {t("pay")}
+            </PrimaryButton>
           </div>
         </div>
 
-        {/* Figma "Form Fields": card number, a expiry/CVC row, then the name. */}
-        <div className="flex w-full shrink-0 flex-col items-start gap-4 px-6 pt-4">
-          <Field
-            defaultValue={err ? t("cardNumberFilled") : undefined}
-            error={err ? t("cardNumberError") : undefined}
-            id="card-number"
-            invalid={err}
-            label={t("cardNumberLabel")}
-            latin
-            placeholder={t("cardNumberPlaceholder")}
-          />
-          <div className="flex w-full shrink-0 items-start gap-3">
-            <div className="min-w-px flex-1">
-              <Field
-                defaultValue={err ? t("expiryFilled") : undefined}
-                error={err ? t("expiryError") : undefined}
-                id="card-expiry"
-                invalid={err}
-                label={t("expiryLabel")}
-                latin
-                placeholder={t("expiryPlaceholder")}
-              />
-            </div>
-            <div className="min-w-px flex-1">
-              <Field
-                defaultValue={err ? t("cvcFilled") : undefined}
-                error={err ? t("cvcError") : undefined}
-                id="card-cvc"
-                invalid={err}
-                label={t("cvcLabel")}
-                latin
-                placeholder={t("cvcPlaceholder")}
-              />
-            </div>
-          </div>
-          <Field
-            id="card-name"
-            label={t("cardNameLabel")}
-            latin
-            placeholder={t("cardNamePlaceholder")}
-          />
-        </div>
-
-        <FootNote icon={Lock}>{t("secureNote")}</FootNote>
-
-        <ScreenSpacer />
-        <div className="flex w-full shrink-0 flex-col items-center px-6 pt-2 pb-2">
-          <PrimaryButton href="/checkout/processing">{t("pay")}</PrimaryButton>
-        </div>
+        <SiteFooter className="hidden lg:flex" />
       </ScreenBody>
     </MobileScreen>
   );

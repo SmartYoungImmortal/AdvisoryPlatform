@@ -3,6 +3,7 @@ import { Bell, CalendarDays, CreditCard, MessageSquare } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { useTranslations } from "next-intl";
 
+import { SiteFooter } from "@/components/marketing/site-footer";
 import {
   MobileScreen,
   ScreenBody,
@@ -10,6 +11,15 @@ import {
   ScreenSpacer,
   ScreenTopBar,
 } from "@/components/mobile/screen";
+import { TopBar } from "@/components/topbar";
+
+/**
+ * The 800px reading column the desktop notification frames centre in the page —
+ * every band inside "Desktop / Notification center (Light)" (1952:35428) lays
+ * its content out on it, at x=320 of the 1440 frame. The phone frame has no such
+ * column, so it is a `lg:`-only cap on the block that already spans the width.
+ */
+export const FEED_COLUMN = "lg:mx-auto lg:max-w-200 lg:px-0";
 
 /**
  * Figma notification row — 64px tall: a 16px glyph, a title/body stack and a
@@ -63,11 +73,13 @@ function DayGroup({
   readonly children: React.ReactNode;
 }) {
   return (
-    <div className="flex w-full shrink-0 flex-col items-start gap-2 px-6 pt-5">
+    <div className={`flex w-full shrink-0 flex-col items-start gap-2 px-6 pt-5 lg:pt-6 ${FEED_COLUMN}`}>
       <p className="w-full text-xs font-normal text-muted-foreground">
         {label}
       </p>
-      <div className="flex w-full shrink-0 flex-col items-start overflow-clip rounded-xl bg-card">
+      {/* On the page ground the desktop frame puts behind this band the card
+          needs its own hairline; on the phone the surface change carries it. */}
+      <div className="flex w-full shrink-0 flex-col items-start overflow-clip rounded-xl bg-card lg:border lg:border-border">
         {children}
       </div>
     </div>
@@ -80,6 +92,11 @@ function Divider() {
 
 /**
  * Figma "Notification center (Light)" (995:10813) and its empty state (995:10894).
+ *
+ * "Desktop / Notification center (Light)" (1952:35428) is the same three parts
+ * at 1440: the app nav carrying the back control, a white heading band across
+ * the page, and the feed on the page ground — both laid out on one 800px column
+ * centred in the frame, closing on the site footer.
  */
 export function NotificationCenterScreen({
   state = "default",
@@ -90,14 +107,28 @@ export function NotificationCenterScreen({
   const c = useTranslations("common");
 
   return (
-    <MobileScreen>
-      <ScreenTopBar href="/profile" label={c("back")} />
+    <MobileScreen wide>
+      <ScreenTopBar className="lg:hidden" href="/profile" label={c("back")} />
       <ScreenBody>
-        <ScreenHeading className="pt-4" title={t("title")} />
+        <div className="hidden w-full lg:block">
+          <TopBar backHref="/profile" />
+        </div>
+
+        {/* Figma "Head Band" — the title sits on the card surface rather than
+            the page, so the band is full-bleed and only its content is capped. */}
+        <div className="w-full shrink-0 lg:border-b lg:border-border lg:bg-card">
+          <ScreenHeading
+            className={`pt-4 lg:pt-5 lg:pb-9 ${FEED_COLUMN}`}
+            title={t("title")}
+          />
+        </div>
 
         {state === "empty" ? (
-          /* Figma "Empty State": 72px circle, 12px gaps, 306px copy column. */
-          <div className="flex w-full shrink-0 flex-col items-center gap-3 px-12 pt-20 text-center">
+          /* Figma "Empty State": 72px circle, 12px gaps, 306px copy column —
+             the desktop frame keeps all three and only widens the column. */
+          <div
+            className={`flex w-full shrink-0 flex-col items-center gap-3 px-12 pt-20 text-center ${FEED_COLUMN}`}
+          >
             <span className="flex size-[72px] shrink-0 items-center justify-center rounded-full bg-muted">
               <Bell className="size-7 text-muted-foreground" />
             </span>
@@ -158,7 +189,8 @@ export function NotificationCenterScreen({
           </>
         )}
 
-        <ScreenSpacer />
+        <ScreenSpacer className="lg:min-h-14" />
+        <SiteFooter className="hidden lg:flex" />
       </ScreenBody>
     </MobileScreen>
   );
