@@ -6,6 +6,7 @@ import { Ban, Lock, Mail, TriangleAlert } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { useState, type FormEvent } from "react";
 
+import { AUTH_CARD, AuthFooter, AuthTopNav } from "@/components/auth/auth-chrome";
 import { BrandLockup } from "@/components/auth/brand-lockup";
 import { AlertBanner } from "@/components/mobile/banner";
 import { NeutralButton, PrimaryButton } from "@/components/mobile/buttons";
@@ -20,6 +21,7 @@ import {
 } from "@/components/mobile/screen";
 import { DemoAccounts } from "@/components/session/demo-accounts";
 import { roleHome, safeNext, signIn } from "@/lib/session";
+import { cn } from "@/lib/utils";
 
 type Failure = "locked" | "invalid" | "suspended" | "required";
 
@@ -78,11 +80,23 @@ export function LoginScreen({
   const locked = failure === "locked";
 
   return (
-    <MobileScreen>
-      <ScreenTopBar href="/" label={c("back")} />
-      <ScreenBody>
-        <form className="flex w-full flex-1 flex-col items-center" noValidate onSubmit={submit}>
-          <BrandLockup />
+    // Figma "Desktop / Login (Light)" (1787:23715) keeps every part of the phone
+    // frame and re-seats it: the guest nav above, the same form as a 448px card
+    // centred in the page, the legal footer below.
+    <MobileScreen wide>
+      <ScreenTopBar className="lg:hidden" href="/" label={c("back")} />
+      <ScreenBody className="lg:items-stretch lg:justify-center">
+        <AuthTopNav />
+        <form
+          className={cn(
+            "flex w-full flex-1 flex-col items-center lg:mx-auto",
+            AUTH_CARD,
+          )}
+          noValidate
+          onSubmit={submit}
+        >
+          {/* The desktop nav already carries the lockup. */}
+          <BrandLockup className="lg:hidden" />
           {/* Figma "Heading": 24px top / 8px bottom padding and a 6px gap. */}
           <ScreenHeading
             className="gap-1.5 pt-6"
@@ -164,7 +178,9 @@ export function LoginScreen({
             </div>
           </div>
 
-          <ScreenSpacer />
+          {/* The phone frame pins its actions to the bottom edge; the card is
+              only as tall as its content, so the spacer goes with the frame. */}
+          <ScreenSpacer className="lg:hidden" />
           {/* Figma "Actions": 24px top / 32px bottom padding, 12px gap. */}
           <ScreenActions className="pt-6 pb-8">
             <PrimaryButton className="disabled:opacity-40" disabled={locked} type="submit">
@@ -181,6 +197,7 @@ export function LoginScreen({
             />
           </ScreenActions>
         </form>
+        <AuthFooter className="lg:mt-auto" />
       </ScreenBody>
     </MobileScreen>
   );
