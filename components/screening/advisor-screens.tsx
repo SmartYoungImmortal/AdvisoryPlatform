@@ -30,9 +30,12 @@ export function ScreeningSetupScreen() {
   const c = useTranslations("common");
 
   return (
-    <MobileScreen>
+    // No desktop frame was drawn for this flow, so it follows the rule the
+    // drawn ones set: the canvas opens up and the blocks hold a readable
+    // column rather than a 448px strip stranded on a 1440 page.
+    <MobileScreen wide>
       <ScreenTopBar href="/profile" label={c("back")} />
-      <ScreenBody>
+      <ScreenBody className="lg:[&>*]:mx-auto lg:[&>*]:w-full lg:[&>*]:max-w-[720px]">
         <ScreenHeading
           className="gap-2 pt-4"
           subtitle={t("setupSubtitle")}
@@ -86,9 +89,12 @@ export function ScreeningRequestsScreen() {
   const c = useTranslations("common");
 
   return (
-    <MobileScreen>
+    // No desktop frame was drawn for this flow, so it follows the rule the
+    // drawn ones set: the canvas opens up and the blocks hold a readable
+    // column rather than a 448px strip stranded on a 1440 page.
+    <MobileScreen wide>
       <ScreenTopBar href="/profile" label={c("back")} />
-      <ScreenBody>
+      <ScreenBody className="lg:[&>*]:mx-auto lg:[&>*]:w-full lg:[&>*]:max-w-[720px]">
         <ScreenHeading className="pt-4" title={t("requestsTitle")} />
 
         <div className="flex w-full shrink-0 flex-col items-start gap-2 px-6 pt-5">
@@ -162,9 +168,12 @@ export function ReviewAnswersScreen() {
   const c = useTranslations("common");
 
   return (
-    <MobileScreen>
+    // No desktop frame was drawn for this flow, so it follows the rule the
+    // drawn ones set: the canvas opens up and the blocks hold a readable
+    // column rather than a 448px strip stranded on a 1440 page.
+    <MobileScreen wide>
       <ScreenTopBar href="/screening/requests" label={c("back")} />
-      <ScreenBody>
+      <ScreenBody className="lg:[&>*]:mx-auto lg:[&>*]:w-full lg:[&>*]:max-w-[720px]">
         <ScreenHeading
           className="gap-2 pt-4"
           subtitle={t("reviewSubtitle")}
