@@ -1,12 +1,13 @@
 import Image from "next/image";
 import Link from "next/link";
-import { ChevronDown, ChevronLeft, ChevronUp } from "lucide-react";
+import { ChevronDown, ChevronLeft, ChevronUp, Search } from "lucide-react";
 import { useTranslations } from "next-intl";
 import type { ReactNode } from "react";
 
 import {
   getAdvisor,
   getService,
+  services,
   type Service,
 } from "@/lib/catalogue/services";
 import { Button } from "@/components/ui/button";
@@ -21,7 +22,12 @@ import {
   ServiceProof,
   VerifiedTick,
 } from "@/components/home/parts";
-import { MobileScreen, ScreenBody } from "@/components/mobile/screen";
+import {
+  MobileScreen,
+  ScreenBody,
+  ScreenHeading,
+  ScreenTopBar,
+} from "@/components/mobile/screen";
 import { ThaiText } from "@/components/mobile/thai-text";
 import { BottomBar } from "@/components/bottombar";
 import { TopBar } from "@/components/topbar";
@@ -215,6 +221,126 @@ const RESULT_IDS = [
   "tax-personal",
 ];
 
+/** Figma "Suggestions / Terms" — the queries the no-results frame offers back. */
+const SUGGESTED_TERMS = [
+  "termTax",
+  "termTaxPlanning",
+  "termBusinessTax",
+  "termPersonalFinance",
+  "termAccounting",
+] as const;
+
+/**
+ * Figma "Results Meta" (phone) / "Results Head" (desktop) — what was found, and
+ * the sort control. One row for both screens: the phone states it in 14/20 muted
+ * beside a bare chevron, the desktop promotes it to the 24/34 page title and
+ * boxes the sort into a control.
+ */
+function ResultsHead({ label }: { readonly label: string }) {
+  const t = useTranslations("search");
+
+  return (
+    <div className="flex w-full shrink-0 items-center overflow-clip">
+      <p className="min-w-px flex-1 text-sm font-normal text-muted-foreground lg:text-2xl lg:font-semibold lg:text-foreground">
+        {label}
+      </p>
+      <div className="flex shrink-0 items-center gap-1 overflow-clip lg:h-9.5 lg:gap-2 lg:rounded-lg lg:border lg:border-border lg:bg-card lg:px-3.5">
+        <p className="text-sm font-medium whitespace-nowrap text-foreground lg:font-normal">
+          {t("sort")}
+        </p>
+        <ChevronUp className="size-3.5 shrink-0 text-foreground lg:hidden" />
+        <ChevronDown className="hidden size-3.5 shrink-0 text-muted-foreground lg:block" />
+      </div>
+    </div>
+  );
+}
+
+/**
+ * Figma "Empty State" (1615:34331 / 1615:34263) — the card that stands where the
+ * results list would be: a circled glyph, what was not found, what to do about
+ * it, and the way out.
+ *
+ * The phone frame offers one way out ("clear the filters") because the terms and
+ * categories under the card are the rest of the offer; the 1440 frame has no
+ * such block, so it puts "browse everything" beside the first button instead.
+ */
+function NoResults({ query }: { readonly query: string }) {
+  const t = useTranslations("search");
+
+  return (
+    <div className="flex w-full shrink-0 flex-col items-center justify-center gap-2 overflow-clip rounded-xl border border-border bg-card px-5 py-8 lg:gap-2.5 lg:px-8 lg:py-14">
+      <span className="flex size-14 shrink-0 items-center justify-center rounded-full bg-muted lg:size-18">
+        <Search className="size-6 text-muted-foreground lg:size-7.5" />
+      </span>
+      <p className="w-full text-center text-base font-medium text-foreground lg:text-2xl lg:font-semibold">
+        {t("emptyTitle", { query })}
+      </p>
+      <p className="w-full text-center text-xs font-normal text-muted-foreground lg:text-base">
+        {t("emptyBody")}
+      </p>
+      <div className="flex shrink-0 items-start justify-center gap-2.5 overflow-clip pt-1.5">
+        <Button className="h-10 rounded-lg px-4 shadow-none lg:h-10.5 lg:px-4.5">
+          {t("clearFilters")}
+        </Button>
+        <Button
+          className="hidden h-10.5 rounded-lg bg-card px-4.5 shadow-none lg:inline-flex"
+          nativeButton={false}
+          render={<Link href="/search/browse" />}
+          variant="outline"
+        >
+          {t("browseAll")}
+        </Button>
+      </div>
+    </div>
+  );
+}
+
+/**
+ * Figma "Suggestions" — the terms to try instead, and, on the phone frame only,
+ * the categories to fall back on.
+ *
+ * Figma stamps a count on each category chip (38, 42, 21 …). The catalogue holds
+ * no such tally, so the number is left off rather than invented — the same call
+ * the result card makes about the advisor level it cannot read.
+ */
+function Suggestions() {
+  const t = useTranslations("search");
+  const h = useTranslations("home");
+
+  return (
+    <div className="flex w-full shrink-0 flex-col items-start gap-2.5 overflow-clip lg:pt-2">
+      <p className="w-full text-sm font-medium text-foreground">{t("tryTerms")}</p>
+      <div className="flex w-full flex-wrap items-start gap-2">
+        {SUGGESTED_TERMS.map((key) => (
+          <Link
+            className="flex h-8.5 shrink-0 items-center justify-center rounded-full border border-border bg-card px-3.5 text-sm font-normal whitespace-nowrap text-primary lg:h-9"
+            href="/search"
+            key={key}
+          >
+            {t(key)}
+          </Link>
+        ))}
+      </div>
+      {/* The 1440 frame stops at the terms — its filter rail already carries the
+          categories, which on the phone have nowhere else to be. */}
+      <p className="w-full text-sm font-medium text-foreground lg:hidden">
+        {t("orPopularCategories")}
+      </p>
+      <div className="flex w-full flex-wrap items-start gap-2 lg:hidden">
+        {CATEGORY_KEYS.map((key) => (
+          <Link
+            className="flex h-9.5 shrink-0 items-center rounded-lg bg-muted px-3.5 text-sm font-normal whitespace-nowrap text-foreground"
+            href="/search"
+            key={key}
+          >
+            {h(key)}
+          </Link>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 /**
  * Figma "Search results (Light)" — 1155:17475.
  *
@@ -222,13 +348,27 @@ const RESULT_IDS = [
  * used here: there is no lockup and the leading glyph goes back to the home
  * screen. It stays above `ScreenBody` rather than inside it, so the query and
  * the filter affordance remain on screen while the results scroll.
+ *
+ * `no-results` (1615:34301 / 1615:34157) is the same screen with a query the
+ * catalogue cannot answer: every band above the list is untouched, the list is
+ * replaced by the empty-state card, and the suggestions follow it.
  */
-export function SearchResultsScreen() {
+export function SearchResultsScreen({
+  state = "default",
+}: {
+  readonly state?: "default" | "no-results";
+}) {
   const t = useTranslations("search");
   const c = useTranslations("common");
-  const results = RESULT_IDS.map(getService).filter(
-    (service): service is Service => Boolean(service),
-  );
+  const empty = state === "no-results";
+  // The no-results frame is asked a different question ("ภาษีคริปโต"), which is
+  // why it comes back with nothing; the query is echoed in four places.
+  const query = empty ? t("noResultsQuery") : t("query");
+  const results = empty
+    ? []
+    : RESULT_IDS.map(getService).filter(
+        (service): service is Service => Boolean(service),
+      );
 
   return (
     <MobileScreen className="pb-0" wide>
@@ -252,7 +392,7 @@ export function SearchResultsScreen() {
         </Button>
         <SearchField
           aria-label={c("search")}
-          defaultValue={t("query")}
+          defaultValue={query}
           iconClassName="size-4"
         />
         <FilterButton iconClassName="size-4" label={c("filters")} />
@@ -270,7 +410,7 @@ export function SearchResultsScreen() {
           <div className="mx-auto w-full max-w-[1440px] px-30 py-7">
             <SearchField
               aria-label={c("search")}
-              defaultValue={t("query")}
+              defaultValue={query}
               groupClassName="h-14 max-w-160 rounded-xl px-4"
               iconClassName="size-4.5"
               inputClassName="text-base"
@@ -281,7 +421,7 @@ export function SearchResultsScreen() {
               }
             />
             <p className="pt-3 text-sm font-normal text-muted-foreground">
-              {t("resultsFor", { query: t("query") })}
+              {t("resultsFor", { query })}
             </p>
           </div>
         </div>
@@ -293,36 +433,137 @@ export function SearchResultsScreen() {
           <FilterRail />
 
           <div className="flex w-full min-w-px flex-col items-center gap-4 lg:gap-6">
-            {/* Figma "Results Meta" / "Results Head" */}
-            <div className="flex w-full shrink-0 items-center overflow-clip">
-              <p className="min-w-px flex-1 text-sm font-normal text-muted-foreground lg:text-2xl lg:font-semibold lg:text-foreground">
-                {t("count", { count: results.length })}
-              </p>
-              <div className="flex shrink-0 items-center gap-1 overflow-clip lg:h-9.5 lg:gap-2 lg:rounded-lg lg:border lg:border-border lg:bg-card lg:px-3.5">
-                <p className="text-sm font-medium whitespace-nowrap text-foreground lg:font-normal">
-                  {t("sort")}
-                </p>
-                <ChevronUp className="size-3.5 shrink-0 text-foreground lg:hidden" />
-                <ChevronDown className="hidden size-3.5 shrink-0 text-muted-foreground lg:block" />
-              </div>
-            </div>
+            <ResultsHead
+              label={empty ? t("noResults") : t("count", { count: results.length })}
+            />
 
             {/* Figma "Active Filters" — the phone's stand-in for the rail. */}
             <div className="flex w-full shrink-0 items-start gap-2 overflow-x-auto lg:hidden">
-              <FilterChip active>{t("filterQuery")}</FilterChip>
+              <FilterChip active>{query}</FilterChip>
               <FilterChip>{t("filterToday")}</FilterChip>
               <FilterChip>{t("filterRating")}</FilterChip>
             </div>
 
-            {/* Figma "Results List" / "Grid" */}
+            {empty ? (
+              <>
+                <NoResults query={query} />
+                <Suggestions />
+              </>
+            ) : (
+              <>
+                {/* Figma "Results List" / "Grid" */}
+                <div className="flex w-full shrink-0 flex-col items-start gap-3 lg:grid lg:grid-cols-3 lg:gap-6">
+                  {results.map((service) => (
+                    <ResultCard key={service.id} service={service} />
+                  ))}
+                </div>
+
+                <p className="hidden w-full pt-4 text-center text-sm font-normal text-muted-foreground lg:block">
+                  {t("endOfResults", { count: results.length })}
+                </p>
+              </>
+            )}
+          </div>
+        </div>
+      </ScreenBody>
+      <BottomBar className="lg:hidden" role="user" selected="home" />
+    </MobileScreen>
+  );
+}
+
+/**
+ * Figma "Desktop / Browse all (Light)" — 1564:25666.
+ *
+ * The catalogue with no query in front of it: the search header states what the
+ * page is, a band of categories sits under it, and the same filter rail and
+ * result grid the search frame uses carry the whole catalogue.
+ *
+ * There is no phone frame for this one, so below `lg` it is assembled out of the
+ * app's own parts — the back chevron and 28/40 heading every detail screen opens
+ * on, the results head from `/search`, and the result card's phone form, which
+ * is the 88px-cover row the rails and the results list already use.
+ *
+ * The rows are the catalogue, not the frame's eighteen invented services, so the
+ * count is the real one and the frame's pager — drawn for 180 records over eight
+ * pages — has nothing to page through and is left off. The line under the grid
+ * still says how much of the catalogue is on screen.
+ */
+export function BrowseAllScreen() {
+  const t = useTranslations("search");
+  const c = useTranslations("common");
+  const h = useTranslations("home");
+
+  return (
+    <MobileScreen className="pb-0" wide>
+      <ScreenTopBar className="lg:hidden" href="/" label={c("back")} />
+      <ScreenBody className="pb-18 lg:items-stretch lg:pb-0">
+        <div className="hidden w-full lg:block">
+          <TopBar />
+        </div>
+
+        {/* Figma "Search Header" (1564:25689) — the title, the line under it and
+            a 640px field, on the card surface behind a hairline. The phone has
+            no frame of its own here, so it keeps the heading it would have. */}
+        <div className="w-full shrink-0 lg:border-b lg:border-border lg:bg-card">
+          <div className="w-full lg:mx-auto lg:max-w-[1440px] lg:px-10 lg:pt-8 lg:pb-6 xl:px-30">
+            <ScreenHeading
+              className="lg:px-0 lg:pt-0 lg:pb-0"
+              subtitle={t("browseSubtitle")}
+              title={c("findAdvisor")}
+            />
+            <div className="flex w-full items-start px-6 pt-4 lg:px-0">
+              <SearchField
+                aria-label={c("search")}
+                groupClassName="lg:h-14 lg:max-w-160 lg:rounded-xl lg:px-4"
+                iconClassName="size-4.5"
+                inputClassName="lg:text-base"
+                placeholder={t("browsePlaceholder")}
+                trailing={
+                  <span className="hidden h-8 shrink-0 items-center rounded-lg bg-primary px-3.5 text-sm font-medium text-primary-foreground lg:flex">
+                    {c("search")}
+                  </span>
+                }
+              />
+            </div>
+          </div>
+        </div>
+
+        {/* Figma "Categories" (1564:25696) — a band of the six the rail filters
+            by, on the page ground. Figma tallies each one; the catalogue has no
+            such count, so the chip is the label alone. */}
+        <div className="flex w-full shrink-0 flex-col items-start gap-2.5 px-6 pt-5 lg:mx-auto lg:max-w-[1440px] lg:px-10 xl:px-30">
+          <p className="w-full text-sm font-medium text-foreground">
+            {t("popularCategories")}
+          </p>
+          <div className="flex w-full items-start gap-2.5 overflow-x-auto">
+            {CATEGORY_KEYS.map((key) => (
+              <Link
+                className="flex h-9.5 shrink-0 items-center rounded-lg bg-muted px-3.5 text-sm font-normal whitespace-nowrap text-foreground lg:h-11 lg:px-4.5"
+                href="/search"
+                key={key}
+              >
+                {h(key)}
+              </Link>
+            ))}
+          </div>
+        </div>
+
+        {/* Figma "Body" — the same 280px rail and 896px column as the search
+            frame, on the same page inset. */}
+        <div className="flex w-full shrink-0 flex-col items-center gap-4 px-6 pt-4 pb-6 lg:mx-auto lg:max-w-[1440px] lg:flex-row lg:items-start lg:gap-6 lg:px-10 lg:pt-6 lg:pb-12 xl:px-30">
+          <FilterRail />
+
+          <div className="flex w-full min-w-px flex-col items-center gap-4 lg:gap-6">
+            <ResultsHead label={t("browseCount", { count: services.length })} />
+
             <div className="flex w-full shrink-0 flex-col items-start gap-3 lg:grid lg:grid-cols-3 lg:gap-6">
-              {results.map((service) => (
+              {services.map((service) => (
                 <ResultCard key={service.id} service={service} />
               ))}
             </div>
 
-            <p className="hidden w-full pt-4 text-center text-sm font-normal text-muted-foreground lg:block">
-              {t("endOfResults", { count: results.length })}
+            <p className="w-full pt-2 text-center text-xs font-normal text-muted-foreground lg:pt-4">
+              {t("browseShowing", { count: services.length })}
             </p>
           </div>
         </div>
