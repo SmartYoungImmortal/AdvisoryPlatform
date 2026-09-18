@@ -27,6 +27,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { ChatAvatar } from "@/components/chat/chat-avatar";
 import { FaqSection } from "@/components/marketing/faq-section";
+import { SiteFooter } from "@/components/marketing/site-footer";
 import { SectionHead } from "@/components/home/parts";
 import { NeutralButton, PrimaryButton } from "@/components/mobile/buttons";
 import {
@@ -314,7 +315,7 @@ export function ServiceDetailScreen({ serviceId }: { readonly serviceId: string 
   );
 
   return (
-    <MobileScreen className="pb-0">
+    <MobileScreen className="pb-0" wide>
       <ScreenBody>
         {/* The app's own nav bar, solid and above the gallery rather than floated
             over it: these covers are stock photography with no safe area, and a
@@ -324,7 +325,7 @@ export function ServiceDetailScreen({ serviceId }: { readonly serviceId: string 
 
         {/* Where the reader is. A search result drops them here with no idea
             which corner of the catalogue they landed in. */}
-        <div className="w-full shrink-0 px-6 py-3">
+        <div className="w-full shrink-0 px-6 py-3 lg:mx-auto lg:max-w-[1440px] lg:px-30 lg:pt-6">
           <Breadcrumb aria-label={t("breadcrumbLabel")}>
             <BreadcrumbList className="gap-1 text-xs sm:gap-1">
               <BreadcrumbItem>
@@ -348,9 +349,16 @@ export function ServiceDetailScreen({ serviceId }: { readonly serviceId: string 
           </Breadcrumb>
         </div>
 
-        <ServiceGallery photos={service.gallery} />
+        {/* Figma's desktop frame runs the page as two columns: everything the
+            phone stacks stays in the left one, and the price — which the phone
+            pins to its bottom edge — becomes a card that rides along on the
+            right. The grid inset is 96 rather than the page's 120 because the
+            blocks inside carry the remaining 24 as their own padding. */}
+        <div className="w-full lg:mx-auto lg:grid lg:max-w-[1440px] lg:grid-cols-[minmax(0,1fr)_360px] lg:items-start lg:gap-6 lg:px-24 lg:pb-14">
+          <div className="flex w-full flex-col lg:px-6">
+            <ServiceGallery photos={service.gallery} />
 
-        <div className="flex w-full shrink-0 flex-col items-center gap-6 pb-6">
+            <div className="flex w-full shrink-0 flex-col items-center gap-6 pb-6 lg:px-0">
           {/* Figma "Service Header" */}
           <div className="flex w-full shrink-0 flex-col items-start gap-3 overflow-clip px-6 pt-4">
             <h1 className="w-full text-2xl font-semibold text-foreground">
@@ -574,19 +582,58 @@ export function ServiceDetailScreen({ serviceId }: { readonly serviceId: string 
                 href="/search"
                 title={t("relatedTitle")}
               />
-              <div className="flex w-full shrink-0 items-stretch gap-3 overflow-x-auto px-6">
+              <div className="flex w-full shrink-0 items-stretch gap-3 overflow-x-auto px-6 lg:grid lg:grid-cols-3 lg:gap-4 lg:overflow-visible lg:px-0">
                 {related.map((s) => (
                   <RelatedCard key={s.id} service={s} />
                 ))}
               </div>
             </div>
           ) : null}
+            </div>
+          </div>
+
+          {/* Figma "Booking Card" — the price, the two ways to start, and what
+              is promised around them, held beside the page instead of under it.
+              The phone answers the same need with the bar pinned to its bottom
+              edge, which is why this is `lg`-only and that bar stops there. */}
+          <aside className="hidden lg:sticky lg:top-24 lg:me-6 lg:block lg:rounded-2xl lg:border lg:border-border lg:bg-card lg:p-5">
+            <p className="flex items-baseline gap-2">
+              <span className="text-2xl font-semibold text-foreground">{price}</span>
+              <span className="text-sm font-normal text-muted-foreground">
+                {t("perSession", { duration })}
+              </span>
+            </p>
+            <p className="pt-2 text-xs font-normal text-muted-foreground">
+              <ThaiText>{t("packagesNote")}</ThaiText>
+            </p>
+
+            <ul className="flex flex-col gap-2 pt-4">
+              {service.includes.map((line) => (
+                <li className="flex items-start gap-2" key={line}>
+                  <BadgeCheck aria-hidden className="mt-0.5 size-4 shrink-0 text-primary" />
+                  <span className="min-w-px flex-1 text-sm font-normal text-foreground">
+                    <ThaiText>{line}</ThaiText>
+                  </span>
+                </li>
+              ))}
+            </ul>
+
+            <div className="flex flex-col gap-2.5 pt-5">
+              <PrimaryButton href="/checkout/card">{t("book")}</PrimaryButton>
+              <NeutralButton href={`/chat/${advisor.id}`}>{t("message")}</NeutralButton>
+            </div>
+          </aside>
         </div>
+
+        {/* The desktop frame closes on the site footer; the phone frame ends on
+            its own action bar and never had one. */}
+        <SiteFooter className="hidden lg:flex" />
       </ScreenBody>
 
       {/* The price stays on screen with the action: on a page this long the
-          reader otherwise has to scroll back up to remember what it costs. */}
-      <div className="flex w-full shrink-0 items-center gap-3 overflow-clip border-t bg-card px-6 py-3">
+          reader otherwise has to scroll back up to remember what it costs. The
+          desktop frame keeps it in the booking card instead. */}
+      <div className="flex w-full shrink-0 items-center gap-3 overflow-clip border-t bg-card px-6 py-3 lg:hidden">
         <div className="flex shrink-0 flex-col items-start gap-0.5 overflow-clip">
           <p className="text-base font-semibold whitespace-nowrap text-foreground">
             {price}
