@@ -238,6 +238,11 @@ export function PaymentProcessingScreen() {
             <p className="mt-16 w-full text-center text-2xl font-semibold text-foreground lg:mt-5">
               {t("processingTitle")}
             </p>
+            {/* The desktop frame (1952:34413) says out loud what the spinner
+                only implies: what is being confirmed, and not to leave. */}
+            <p className="hidden w-full max-w-90 pt-2 text-center text-sm font-normal text-muted-foreground lg:block">
+              {t("processingBody")}
+            </p>
           </div>
           <div className="w-full flex-1 lg:hidden" />
           <div className="flex w-full shrink-0 flex-col items-center px-6 pb-2 lg:pt-7 lg:pb-0">

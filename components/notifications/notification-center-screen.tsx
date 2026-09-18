@@ -3,6 +3,7 @@ import { Bell, CalendarDays, CreditCard, MessageSquare } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { useTranslations } from "next-intl";
 
+import { Button } from "@/components/ui/button";
 import { SiteFooter } from "@/components/marketing/site-footer";
 import {
   MobileScreen,
@@ -117,10 +118,17 @@ export function NotificationCenterScreen({
         {/* Figma "Head Band" — the title sits on the card surface rather than
             the page, so the band is full-bleed and only its content is capped. */}
         <div className="w-full shrink-0 lg:border-b lg:border-border lg:bg-card">
-          <ScreenHeading
-            className={`pt-4 lg:pt-5 lg:pb-9 ${FEED_COLUMN}`}
-            title={t("title")}
-          />
+          <div className={`relative ${FEED_COLUMN}`}>
+            <ScreenHeading className="pt-4 lg:pt-5 lg:pb-9" title={t("title")} />
+            {/* Figma's desktop head band carries this beside the title; the
+                phone frame has no room for it. */}
+            <Button
+              className="absolute end-0 bottom-9 hidden h-auto p-0 text-sm font-medium text-primary hover:bg-transparent lg:block"
+              variant="ghost"
+            >
+              {t("markAllRead")}
+            </Button>
+          </div>
         </div>
 
         {state === "empty" ? (

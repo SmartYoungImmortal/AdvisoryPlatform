@@ -1087,7 +1087,8 @@
     "primerLater": "ไว้ทีหลัง",
     "sessionBannerTitle": "เซสชันเริ่มใน 5 นาที",
     "sessionBannerBody": "นัดกับ Sarah Jenskins · 14:00 น.",
-    "sessionBannerAction": "เข้าร่วม"
+    "sessionBannerAction": "เข้าร่วม",
+    "markAllRead": "ทำเครื่องหมายว่าอ่านแล้วทั้งหมด"
   },
   "reviews": {
     "title": "รีวิวของฉัน",
@@ -1353,7 +1354,8 @@
     "portfolioFee": "฿30",
     "portfolioTotal": "฿630",
     "downloadReceipt": "ดาวน์โหลดใบเสร็จ",
-    "payAgain": "ลองชำระอีกครั้ง"
+    "payAgain": "ลองชำระอีกครั้ง",
+    "processingBody": "กำลังยืนยัน ฿1,260 กับธนาคาร อย่าปิดหน้านี้หรือกดย้อนกลับ"
   },
   "advisorOnboarding": {
     "introTitle": "สมัครเป็นที่ปรึกษา",
