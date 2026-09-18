@@ -494,10 +494,13 @@ export function SessionDetailScreen() {
   const d = SESSION_DETAIL;
 
   return (
-    <MobileScreen className="pb-0">
+    // Figma "Desktop / Session detail - advisor" (1998:29715) reads the same
+    // blocks on a column rather than a phone frame; the back chevron stays,
+    // because the workspace nav has nowhere else to put it.
+    <MobileScreen className="pb-0" wide>
       <ScreenTopBar href="/work" label={c("back")} />
 
-      <ScreenBody className="gap-4 pb-6">
+      <ScreenBody className="gap-4 pb-6 lg:pb-14 lg:[&>*]:mx-auto lg:[&>*]:w-full lg:[&>*]:max-w-[880px]">
         <h1 className="w-full shrink-0 px-6 text-2xl font-semibold text-foreground">
           {t("sessionTitle")}
         </h1>
