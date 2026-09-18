@@ -1,16 +1,20 @@
 "use client";
 
 import { useRouter } from "next/navigation";
+import { Check, FileText, X } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { useMemo } from "react";
 
-import { CmsBadge } from "@/components/cms/badge";
-import { useAccountLookup } from "@/components/cms/hooks";
+import { CmsPerson } from "@/components/cms/avatar";
+import { CmsButton } from "@/components/cms/button";
+import { useCmsFeedback } from "@/components/cms/feedback";
+import { useAccountLookup, useActorId } from "@/components/cms/hooks";
 import { CmsPage } from "@/components/cms/layout";
 import { CmsQueryTabs, useQueryTab } from "@/components/cms/query-tabs";
 import { CmsStatus, useStatusOptions } from "@/components/cms/status";
 import { CmsFilterMenu, CmsTable, type CmsColumn } from "@/components/cms/table";
 import { useCmsList } from "@/components/cms/use-cms-list";
+import { decideSkillProofs } from "@/lib/mock-db/actions";
 import { formatDateTime, timeValue } from "@/lib/mock-db/format";
 import { useDatabase } from "@/lib/mock-db/store";
 import type { IdentityRequest, SkillProof } from "@/lib/mock-db/types";
@@ -31,32 +35,31 @@ function queueOrder<T extends { readonly status: string }>(
 
 /**
  * The verification desk: identity requests (who may become an advisor, and at
- * what level) and skill proofs (documents backing a listed skill). Each row
- * opens its own page, where the decision is made.
+ * what level) and skill proofs (documents backing a listed skill).
  */
 export function VerificationScreen() {
   const t = useTranslations("cms.verification");
   const requests = useDatabase((db) => db.identityRequests);
   const proofs = useDatabase((db) => db.skillProofs);
-  const waiting =
-    requests.filter((r) => r.status === "submitted").length +
-    proofs.filter((p) => p.status === "pending").length;
 
   const tabs = [
-    { value: "identity" as const, label: t("tab.identity") },
-    { value: "skills" as const, label: t("tab.skills") },
+    {
+      value: "identity" as const,
+      label: t("tab.identity"),
+      count: requests.filter((r) => r.status === "submitted").length,
+      alert: true,
+    },
+    {
+      value: "skills" as const,
+      label: t("tab.skills"),
+      count: proofs.filter((p) => p.status === "pending").length,
+      alert: true,
+    },
   ];
   const kind = useQueryTab<Kind>(tabs);
 
   return (
-    <CmsPage
-      badge={
-        <CmsBadge className="font-latin" variant="subtle">
-          {t("waitingBadge", { count: waiting })}
-        </CmsBadge>
-      }
-      title={t("title")}
-    >
+    <CmsPage title={t("title")}>
       <CmsQueryTabs items={tabs} />
       {kind === "identity" ? <IdentityTable requests={requests} /> : <ProofTable proofs={proofs} />}
     </CmsPage>
@@ -82,10 +85,18 @@ function IdentityTable({ requests }: { readonly requests: readonly IdentityReque
       id: "applicant",
       header: t("col.applicant"),
       sortable: true,
-      render: (r) => person(r.accountId)?.name ?? r.fullName,
+      render: (r) => <CmsPerson account={person(r.accountId)} detail={r.fullName} />,
     },
-    { id: "credential", header: t("col.credential"), render: (r) => r.credential },
-    { id: "field", header: t("col.field"), render: (r) => r.field },
+    {
+      id: "credential",
+      header: t("col.credential"),
+      render: (r) => (
+        <span className="flex flex-col">
+          <span className="text-highlighted">{r.credential}</span>
+          <span className="text-xs">{r.field}</span>
+        </span>
+      ),
+    },
     {
       id: "submittedAt",
       header: t("col.submittedAt"),
@@ -105,7 +116,6 @@ function IdentityTable({ requests }: { readonly requests: readonly IdentityReque
       columns={columns}
       filters={
         <CmsFilterMenu
-          className="w-36"
           label={t("allStatuses")}
           onChange={(values) => list.setFilter("status", values)}
           options={statusOptions}
@@ -122,8 +132,9 @@ function IdentityTable({ requests }: { readonly requests: readonly IdentityReque
 
 function ProofTable({ proofs }: { readonly proofs: readonly SkillProof[] }) {
   const t = useTranslations("cms.verification");
-  const router = useRouter();
+  const actorId = useActorId();
   const person = useAccountLookup();
+  const { confirm, prompt, toast } = useCmsFeedback();
   const statusOptions = useStatusOptions("proof");
   const rows = useMemo(() => queueOrder(proofs, "pending", (p) => p.submittedAt), [proofs]);
 
@@ -134,14 +145,51 @@ function ProofTable({ proofs }: { readonly proofs: readonly SkillProof[] }) {
     filters: [{ key: "status", test: (p, values) => values.includes(p.status) }],
   });
 
+  async function approve(ids: readonly string[]) {
+    const ok = await confirm({
+      type: "success",
+      title: t("approveProofTitle", { count: ids.length }),
+      confirmLabel: t("approve"),
+    });
+    if (!ok) return;
+    decideSkillProofs(ids, "approved", null, actorId);
+    list.clearSelection();
+    toast({ title: t("approvedProof", { count: ids.length }) });
+  }
+
+  async function reject(ids: readonly string[]) {
+    const note = await prompt({
+      type: "danger",
+      title: t("rejectProofTitle", { count: ids.length }),
+      inputLabel: t("reason"),
+      placeholder: t("rejectPlaceholder"),
+      confirmLabel: t("reject"),
+    });
+    if (note === null) return;
+    decideSkillProofs(ids, "rejected", note, actorId);
+    list.clearSelection();
+    toast({ color: "warning", title: t("rejectedProof", { count: ids.length }) });
+  }
+
   const columns: ReadonlyArray<CmsColumn<SkillProof>> = [
-    { id: "skill", header: t("col.skill"), sortable: true, render: (p) => p.skill },
-    { id: "advisor", header: t("col.advisor"), render: (p) => person(p.accountId)?.name ?? "—" },
     {
-      id: "document",
-      header: t("col.document"),
-      className: "font-latin",
-      render: (p) => <span className="block max-w-56 truncate">{p.documentName}</span>,
+      id: "advisor",
+      header: t("col.advisor"),
+      render: (p) => <CmsPerson account={person(p.accountId)} detail={person(p.accountId)?.email} />,
+    },
+    {
+      id: "skill",
+      header: t("col.skill"),
+      sortable: true,
+      render: (p) => (
+        <span className="flex flex-col gap-0.5">
+          <span className="text-highlighted">{p.skill}</span>
+          <span className="flex items-center gap-1 font-latin text-xs">
+            <FileText aria-hidden className="size-3.5" />
+            {p.documentName}
+          </span>
+        </span>
+      ),
     },
     {
       id: "submittedAt",
@@ -155,14 +203,50 @@ function ProofTable({ proofs }: { readonly proofs: readonly SkillProof[] }) {
       align: "center",
       render: (p) => <CmsStatus group="proof" value={p.status} />,
     },
+    {
+      id: "actions",
+      header: "",
+      align: "end",
+      interactive: true,
+      render: (p) =>
+        p.status === "pending" ? (
+          <span className="inline-flex gap-1">
+            <CmsButton
+              aria-label={t("approve")}
+              color="success"
+              icon={Check}
+              onClick={() => approve([p.id])}
+              variant="soft"
+            />
+            <CmsButton
+              aria-label={t("reject")}
+              color="error"
+              icon={X}
+              onClick={() => reject([p.id])}
+              variant="soft"
+            />
+          </span>
+        ) : (
+          <span className="text-xs">{p.decision?.note ?? ""}</span>
+        ),
+    },
   ];
 
   return (
     <CmsTable
+      bulkActions={(ids) => (
+        <>
+          <CmsButton color="success" icon={Check} onClick={() => approve(ids)}>
+            {t("approveSelected", { count: ids.length })}
+          </CmsButton>
+          <CmsButton color="error" icon={X} onClick={() => reject(ids)}>
+            {t("rejectSelected", { count: ids.length })}
+          </CmsButton>
+        </>
+      )}
       columns={columns}
       filters={
         <CmsFilterMenu
-          className="w-36"
           label={t("allStatuses")}
           onChange={(values) => list.setFilter("status", values)}
           options={statusOptions}
@@ -170,9 +254,7 @@ function ProofTable({ proofs }: { readonly proofs: readonly SkillProof[] }) {
         />
       }
       list={list}
-      onRowClick={(p) => router.push(`/admin/verification/proof?id=${p.id}`)}
       searchPlaceholder={t("searchProof")}
-      selectable={false}
     />
   );
 }

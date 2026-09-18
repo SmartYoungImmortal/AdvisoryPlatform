@@ -14,6 +14,8 @@ import {
   type LucideIcon,
 } from "lucide-react";
 
+import type { Database } from "@/lib/mock-db/types";
+
 /**
  * The console's sidebar, in Nexus's shape: top-level links and collapsible groups
  * whose children carry the highlight bar. Labels resolve through `cms.nav.*`.
@@ -41,6 +43,8 @@ export type CmsNavItem = {
   readonly icon: LucideIcon;
   readonly href?: string;
   readonly children?: ReadonlyArray<CmsNavItem>;
+  /** How many items wait on this desk — the badge beside the label. */
+  readonly pending?: (db: Database) => number;
 };
 
 export const cmsNav: ReadonlyArray<CmsNavItem> = [
@@ -50,7 +54,14 @@ export const cmsNav: ReadonlyArray<CmsNavItem> = [
     icon: Users,
     children: [
       { key: "users", href: "/admin/users", icon: Search },
-      { key: "verification", href: "/admin/verification", icon: ShieldCheck },
+      {
+        key: "verification",
+        href: "/admin/verification",
+        icon: ShieldCheck,
+        pending: (db) =>
+          db.identityRequests.filter((r) => r.status === "submitted").length +
+          db.skillProofs.filter((p) => p.status === "pending").length,
+      },
     ],
   },
   {
@@ -59,16 +70,36 @@ export const cmsNav: ReadonlyArray<CmsNavItem> = [
     children: [
       { key: "services", href: "/admin/services", icon: Store },
       { key: "catalog", href: "/admin/manage", icon: Tags },
-      { key: "refunds", href: "/admin/refunds", icon: Receipt },
-      { key: "reports", href: "/admin/reports", icon: Flag },
-      { key: "offPlatform", href: "/admin/off-platform", icon: Radar },
+      {
+        key: "refunds",
+        href: "/admin/refunds",
+        icon: Receipt,
+        pending: (db) => db.refunds.filter((r) => r.status === "pending").length,
+      },
+      {
+        key: "reports",
+        href: "/admin/reports",
+        icon: Flag,
+        pending: (db) => db.reports.filter((r) => r.status === "open").length,
+      },
+      {
+        key: "offPlatform",
+        href: "/admin/off-platform",
+        icon: Radar,
+        pending: (db) => db.offPlatformFlags.filter((f) => f.status === "open").length,
+      },
     ],
   },
   {
     key: "finance",
     icon: Settings2,
     children: [
-      { key: "payouts", href: "/admin/payouts", icon: Banknote },
+      {
+        key: "payouts",
+        href: "/admin/payouts",
+        icon: Banknote,
+        pending: (db) => db.payouts.filter((p) => p.status !== "paid").length,
+      },
       { key: "transactions", href: "/admin/transactions", icon: ArrowLeftRight },
     ],
   },
