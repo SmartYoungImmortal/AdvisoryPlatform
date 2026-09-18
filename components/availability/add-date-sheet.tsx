@@ -35,14 +35,17 @@ export function AddDateSheet() {
     <>
       {/* The scrim only covers what the sheet does not, so the list above stays legible. */}
       <div aria-hidden className="absolute inset-0 z-10 bg-scrim/40" />
+      {/* Figma's desktop frame (1994:29892) draws the same content as a 420px
+          modal centred in the page rather than a sheet on the bottom edge — a
+          sheet is a thumb affordance and there is no thumb at 1440. */}
       <div
         aria-label={t("addSheet.title")}
-        className="absolute inset-x-0 bottom-0 z-20 flex flex-col gap-4 rounded-t-2xl bg-card px-6 pt-3 pb-5"
+        className="absolute inset-x-0 bottom-0 z-20 flex flex-col gap-4 rounded-t-2xl bg-card px-6 pt-3 pb-5 lg:inset-0 lg:m-auto lg:h-fit lg:w-[420px] lg:rounded-2xl lg:border lg:border-border lg:p-6 lg:shadow-lg"
         role="dialog"
       >
         <div
           aria-hidden
-          className="mx-auto h-1 w-10 shrink-0 rounded-full bg-border"
+          className="mx-auto h-1 w-10 shrink-0 rounded-full bg-border lg:hidden"
         />
 
         <div className="flex w-full shrink-0 flex-col items-start gap-1.5">
