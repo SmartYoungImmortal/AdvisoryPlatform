@@ -134,6 +134,9 @@ export function WorkTodayScreen() {
       subtitle={t("todaySubtitle", { date: today, count: TODAY_SESSIONS.length })}
       tab="today"
     >
+      {/* Figma's desktop dashboard stands the pending desk beside today's
+          sessions rather than under them; the phone stacks the two. */}
+      <div className="contents lg:grid lg:w-full lg:grid-cols-[minmax(0,1fr)_320px] lg:items-start lg:gap-6">
       <section className="flex w-full shrink-0 flex-col items-start gap-2.5 overflow-clip px-6 pt-2 pb-1">
         <WorkSectionHead
           title={t("todaySessions")}
@@ -214,6 +217,7 @@ export function WorkTodayScreen() {
           })}
         </RowCard>
       </section>
+      </div>
     </WorkHub>
   );
 }
