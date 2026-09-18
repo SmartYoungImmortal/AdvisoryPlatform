@@ -2095,6 +2095,7 @@
     "reviewCount": "{count} รีวิว",
     "seeAllReviews": "ดูรีวิวทั้งหมด ({count})",
     "chat": "แชทกับที่ปรึกษา",
-    "chooseService": "เลือกบริการเพื่อจอง"
+    "chooseService": "เลือกบริการเพื่อจอง",
+    "pickServiceTitle": "เลือกบริการที่ต้องการปรึกษา"
   }
 }
