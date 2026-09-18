@@ -289,7 +289,7 @@ export function SearchResultsScreen() {
         {/* Figma "Page Content" — 24px side padding, 16px between blocks. The
             desktop frame splits the same content into a 280px filter rail and
             an 896px results column. */}
-        <div className="flex w-full shrink-0 flex-col items-center gap-4 px-6 pt-2 pb-6 lg:mx-auto lg:max-w-[1440px] lg:flex-row lg:items-start lg:gap-6 lg:px-30 lg:pt-6 lg:pb-14">
+        <div className="flex w-full shrink-0 flex-col items-center gap-4 px-6 pt-2 pb-6 lg:mx-auto lg:max-w-[1440px] lg:flex-row lg:items-start lg:gap-6 lg:px-10 xl:px-30 lg:pt-6 lg:pb-14">
           <FilterRail />
 
           <div className="flex w-full min-w-px flex-col items-center gap-4 lg:gap-6">

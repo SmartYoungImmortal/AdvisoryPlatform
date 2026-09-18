@@ -329,7 +329,7 @@ export function TopBar({
               the 120px page inset, the links follow it, and the actions hold the
               right edge — so the row becomes logo, nav, actions inside a 1440
               container. */}
-          <div className="flex w-full items-center justify-between lg:mx-auto lg:max-w-[1440px] lg:justify-start lg:px-30">
+          <div className="flex w-full items-center justify-between lg:mx-auto lg:max-w-[1440px] lg:justify-start lg:px-10 xl:px-30">
             <div
               className={cn(
                 "flex flex-1 items-center justify-start",

@@ -30,7 +30,7 @@ export function HowToUse() {
     // Figma "How it works" (1564:25001) runs the steps as a row of cards across
     // the 1200 column with a 24/34 head. Same four steps, same cards — the rail
     // just stops being a rail once there is room to lay them side by side.
-    <div className="flex w-full shrink-0 flex-col items-start gap-3 lg:mx-auto lg:max-w-[1440px] lg:gap-6 lg:px-30">
+    <div className="flex w-full shrink-0 flex-col items-start gap-3 lg:mx-auto lg:max-w-[1440px] lg:gap-6 lg:px-10 xl:px-30">
       <p className="w-full px-6 text-base font-semibold text-foreground lg:px-0 lg:text-2xl">
         {t("stepsTitle")}
       </p>

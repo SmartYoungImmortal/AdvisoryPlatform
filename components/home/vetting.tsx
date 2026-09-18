@@ -27,7 +27,7 @@ export function VettingSection() {
   return (
     // One card of three rows on the phone; three cards across the desktop
     // column, on the same 1200 grid every other band there uses.
-    <div className="flex w-full shrink-0 flex-col items-start gap-3 px-6 lg:mx-auto lg:max-w-[1440px] lg:gap-6 lg:px-30">
+    <div className="flex w-full shrink-0 flex-col items-start gap-3 px-6 lg:mx-auto lg:max-w-[1440px] lg:gap-6 lg:px-10 xl:px-30">
       <p className="w-full text-base font-semibold text-foreground lg:text-2xl">
         {t("vettingTitle")}
       </p>

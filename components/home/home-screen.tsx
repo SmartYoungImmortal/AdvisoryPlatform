@@ -54,7 +54,7 @@ import { cn } from "@/lib/utils";
  * content, which is why the padding is only added from the breakpoint up.
  */
 const SECTION =
-  "flex w-full shrink-0 flex-col items-start lg:mx-auto lg:max-w-[1440px] lg:px-30";
+  "flex w-full shrink-0 flex-col items-start lg:mx-auto lg:max-w-[1440px] lg:px-10 xl:px-30";
 
 /**
  * The six the catalogue is filed under. One list, drawn twice: as the phone's

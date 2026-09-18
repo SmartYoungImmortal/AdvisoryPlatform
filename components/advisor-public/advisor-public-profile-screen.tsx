@@ -51,7 +51,7 @@ function Header({ profile }: { readonly profile: PublicProfile }) {
     // Figma's desktop header (1564:26852) lays the same parts on one row: the
     // portrait, then the name and credential beside it, with the three counts
     // holding the right edge and no card around them.
-    <div className="flex w-full shrink-0 flex-col items-center gap-3 overflow-clip px-6 lg:mx-auto lg:max-w-[1440px] lg:flex-row lg:items-center lg:gap-5 lg:border-b lg:border-border lg:px-30 lg:py-6">
+    <div className="flex w-full shrink-0 flex-col items-center gap-3 overflow-clip px-6 lg:mx-auto lg:max-w-[1440px] lg:flex-row lg:items-center lg:gap-5 lg:border-b lg:border-border lg:px-10 xl:px-30 lg:py-6">
       <ChatAvatar crop={advisor.crop} size={80} src={advisor.avatar} />
       {/* `contents` keeps the phone's stack exactly as it was; from `lg` these
           three become the middle column of the row. */}
@@ -472,7 +472,7 @@ export function AdvisorPublicProfileScreen({
           label={profile.advisor.name}
         />
 
-        <div className="w-full lg:mx-auto lg:grid lg:max-w-[1440px] lg:grid-cols-[minmax(0,1fr)_360px] lg:items-start lg:gap-6 lg:px-24 lg:pt-6 lg:pb-14">
+        <div className="w-full lg:mx-auto lg:grid lg:max-w-[1440px] lg:grid-cols-[minmax(0,1fr)_360px] lg:items-start lg:gap-6 lg:px-4 xl:px-24 lg:pt-6 lg:pb-14">
           {/* Each tab keeps its route on the phone and simply stacks here. */}
           <div className="flex w-full flex-col gap-6 lg:px-6">
             <div className={cn("w-full", tab !== "services" && "hidden lg:block")}>

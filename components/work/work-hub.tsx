@@ -57,7 +57,7 @@ export function WorkHub({
     <MobileScreen className="pb-0" wide>
       <ScreenBody className="gap-1.5 pb-19.5 lg:gap-0 lg:pb-0">
         <TopBar unreadNotifications />
-        <div className="contents lg:mx-auto lg:flex lg:w-full lg:max-w-[1440px] lg:flex-col lg:gap-2 lg:px-24 lg:pt-4 lg:pb-14">
+        <div className="contents lg:mx-auto lg:flex lg:w-full lg:max-w-[1440px] lg:flex-col lg:gap-2 lg:px-4 xl:px-24 lg:pt-4 lg:pb-14">
           <ScreenHeading className="gap-1" subtitle={subtitle} title={t("title")} />
           <WorkTabs current={tab} />
           {children}

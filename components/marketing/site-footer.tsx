@@ -164,7 +164,7 @@ export function SiteFooter({ className }: { readonly className?: string }) {
     <footer
       className={cn(
         "relative isolate flex w-full shrink-0 flex-col items-center gap-9 bg-footer-surface px-4 pt-12 pb-[29px]",
-        "lg:gap-0 lg:border-t lg:border-border lg:bg-card lg:px-30 lg:pt-12 lg:pb-8",
+        "lg:gap-0 lg:border-t lg:border-border lg:bg-card lg:px-10 xl:px-30 lg:pt-12 lg:pb-8",
         className,
       )}
     >

@@ -27,7 +27,7 @@ export function AuthTopNav({ className }: { readonly className?: string }) {
   return (
     <div
       className={cn(
-        "hidden w-full shrink-0 border-b border-border bg-card shadow-xs lg:flex lg:h-21 lg:items-center lg:px-30",
+        "hidden w-full shrink-0 border-b border-border bg-card shadow-xs lg:flex lg:h-21 lg:items-center lg:px-10 xl:px-30",
         className,
       )}
     >

@@ -325,7 +325,7 @@ export function ServiceDetailScreen({ serviceId }: { readonly serviceId: string 
 
         {/* Where the reader is. A search result drops them here with no idea
             which corner of the catalogue they landed in. */}
-        <div className="w-full shrink-0 px-6 py-3 lg:mx-auto lg:max-w-[1440px] lg:px-30 lg:pt-6">
+        <div className="w-full shrink-0 px-6 py-3 lg:mx-auto lg:max-w-[1440px] lg:px-10 xl:px-30 lg:pt-6">
           <Breadcrumb aria-label={t("breadcrumbLabel")}>
             <BreadcrumbList className="gap-1 text-xs sm:gap-1">
               <BreadcrumbItem>
@@ -354,7 +354,7 @@ export function ServiceDetailScreen({ serviceId }: { readonly serviceId: string 
             pins to its bottom edge — becomes a card that rides along on the
             right. The grid inset is 96 rather than the page's 120 because the
             blocks inside carry the remaining 24 as their own padding. */}
-        <div className="w-full lg:mx-auto lg:grid lg:max-w-[1440px] lg:grid-cols-[minmax(0,1fr)_360px] lg:items-start lg:gap-6 lg:px-24 lg:pb-14">
+        <div className="w-full lg:mx-auto lg:grid lg:max-w-[1440px] lg:grid-cols-[minmax(0,1fr)_360px] lg:items-start lg:gap-6 lg:px-4 xl:px-24 lg:pb-14">
           <div className="flex w-full flex-col lg:px-6">
             <ServiceGallery photos={service.gallery} />
 
