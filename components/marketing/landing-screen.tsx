@@ -21,20 +21,19 @@ import { TopBar } from "@/components/topbar";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 
-/** Figma section header — the primary eyebrow above the 28/40 title. */
-function SectionHeader({
-  eyebrow,
-  title,
-}: {
-  readonly eyebrow: string;
-  readonly title: string;
-}) {
-  return (
-    <>
-      <p className="w-full text-sm font-semibold text-primary">{eyebrow}</p>
-      <h2 className="w-full text-heading font-semibold text-foreground">{title}</h2>
-    </>
-  );
+/**
+ * The 28/40 band title.
+ *
+ * Figma draws a blue eyebrow above each one, and all five of them restated the
+ * headline directly underneath: "เกี่ยวกับเรา" over "Advisory Platform คืออะไร",
+ * "วิธีใช้งาน" over "เริ่มปรึกษาใน 4 ขั้นตอน", "ช่วยเหลือ" over "คำถามที่พบบ่อย".
+ * Five sections out of six opening the same way is the rhythm that makes a page
+ * read as a template, and none of the five carried information its own title did
+ * not already have, so the label is dropped and the title carries the band. The
+ * keys stay in `th.json`; nothing renders them.
+ */
+function SectionHeader({ title }: { readonly title: string }) {
+  return <h2 className="w-full text-heading font-semibold text-foreground">{title}</h2>;
 }
 
 /** Figma "Step" — numbered badge beside a title/body pair, on a bordered card. */
@@ -116,15 +115,20 @@ export function LandingScreen() {
 
           {/* Figma "Hero Copy" */}
           <div className="relative flex w-full shrink-0 flex-col items-start gap-3 overflow-clip px-6 lg:mx-auto lg:max-w-[1440px] lg:px-10 xl:px-30 lg:[&>*]:max-w-[640px]">
-            <p className="w-full text-sm font-semibold text-on-media/75">
-              {t("heroEyebrow")}
-            </p>
+            {/* The frame's eyebrow read "แพลตฟอร์มปรึกษาผู้เชี่ยวชาญ" directly above a
+                headline beginning "ปรึกษาผู้เชี่ยวชาญตัวจริง" — the same four words,
+                twice, 8px apart. The headline is the positioning statement, so it
+                stands alone and the hero is down to the three things a hero is for:
+                the claim, the qualifier, the way in. */}
             <h1 className="w-full text-heading-lg font-semibold text-on-media">
               {t("heroTitleLine1")}
               <br />
               {t("heroTitleLine2")}
             </h1>
-            <p className="w-full text-base font-normal text-on-media/82">
+            {/* Full strength, not 82%. The scrim is a flat 58% over a clip whose
+                frames are not known at build time, and dimmed white on an unknown
+                ground is where the contrast floor stops being provable. */}
+            <p className="w-full text-base font-normal text-on-media">
               <ThaiText>{t("heroBody")}</ThaiText>
             </p>
             {/* `nativeButton={false}` because the CTA renders an anchor — without it
@@ -137,7 +141,7 @@ export function LandingScreen() {
 
         {/* Figma "About" (1091:16068) */}
         <section id="about" className="flex w-full shrink-0 flex-col items-start gap-4 overflow-clip px-6 pt-12 pb-2 lg:mx-auto lg:max-w-[1440px] lg:px-10 xl:px-30 lg:pt-20 lg:pb-6 lg:[&>p]:max-w-[820px]">
-          <SectionHeader eyebrow={t("aboutEyebrow")} title={t("aboutTitle")} />
+          <SectionHeader title={t("aboutTitle")} />
           {/* No ThaiText here: the closing run is wider than the 354px column, and
               a non-wrapping run that cannot fit overflows instead of breaking. */}
           <p className="w-full text-base font-normal text-muted-foreground">
@@ -169,7 +173,7 @@ export function LandingScreen() {
 
         {/* Figma "How it works" (1092:16067) */}
         <section id="how-it-works" className="flex w-full shrink-0 flex-col items-start gap-4 overflow-clip px-6 pt-12 pb-2 lg:mx-auto lg:max-w-[1440px] lg:px-10 xl:px-30 lg:pt-20 lg:pb-6">
-          <SectionHeader eyebrow={t("stepsEyebrow")} title={t("stepsTitle")} />
+          <SectionHeader title={t("stepsTitle")} />
           <div className="flex w-full shrink-0 flex-col items-start gap-3 overflow-clip lg:grid lg:grid-cols-4 lg:gap-4">
             <Step index="1" title={t("step1Title")}>
               <ThaiText>{t("step1Body")}</ThaiText>
@@ -189,7 +193,7 @@ export function LandingScreen() {
         {/* Figma "Good to know" (1093:16067) — the one muted-surface band. */}
         <section id="good-to-know" className="flex w-full shrink-0 flex-col items-start gap-4 overflow-clip bg-muted px-6 py-12 lg:grid lg:grid-cols-2 lg:gap-6 lg:px-10 xl:px-30 lg:py-20">
           <div className="w-full lg:col-span-2 lg:mx-auto lg:max-w-[1200px]">
-            <SectionHeader eyebrow={t("knowEyebrow")} title={t("knowTitle")} />
+            <SectionHeader title={t("knowTitle")} />
           </div>
           {/* Same overflow caveat as About: this run does not fit the column. */}
           <KnowPoint icon={ShieldCheck} title={t("know1Title")}>
@@ -211,7 +215,7 @@ export function LandingScreen() {
           className="flex w-full shrink-0 flex-col items-start gap-4 overflow-clip px-6 pt-12 pb-2 lg:mx-auto lg:max-w-[1440px] lg:px-10 xl:px-30 lg:pt-20 lg:pb-10"
           id="faq"
         >
-          <SectionHeader eyebrow={t("faqEyebrow")} title={t("faqTitle")} />
+          <SectionHeader title={t("faqTitle")} />
           <p className="w-full text-sm font-normal text-muted-foreground">
             {t("faqSubtitle")}
           </p>
