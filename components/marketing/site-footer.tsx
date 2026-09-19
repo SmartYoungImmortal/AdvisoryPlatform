@@ -175,13 +175,36 @@ export function SiteFooter({ className }: { readonly className?: string }) {
         className,
       )}
     >
-      {/* No glow layer. It was never in the design: Figma's footer frame
-          (225:10503) is `rgba(212,194,255,0)` — a fully transparent ground with
-          white ink on it — and `--footer-glow`'s own comment in globals.css says
-          outright that its "palette and geometry are the author's, tuned by eye
-          on the running page". A five-stop radial gradient behind a legal footer
-          was the loudest thing on the page and none of it was asked for. The flat
-          ground stays, because white ink needs one. */}
+      {/* The glow, as Figma actually draws it.
+
+          Node 1213:16952 is a 3003 x 10664 SVG of seventeen gaussian-blurred
+          ellipses, and the footer shows its bottom slice. It was previously
+          reimplemented as five CSS radial-gradients whose own comment said the
+          "palette and geometry are the author's" — and comparing the two, the
+          reimplementation took four of the asset's eight colours and dropped every
+          vivid one: `#00E599` and `#2EE897` green, `#1200FF` blue, `#E000A1`
+          magenta all went, leaving only `#278C9D`, `#3229A8`, `#770056` and
+          `#103A48`. That is why it read as muddy.
+
+          The asset is used rather than approximated again. The old objection was
+          not shipping something 10,656px tall, but it is a 9 KB SVG, not a raster.
+          Anchored to the bottom at full width, with the wrapper clipping the rest,
+          so what shows is the part the frame shows. `-z-10` under an `isolate`
+          parent keeps it off the text. */}
+      <div
+        aria-hidden
+        className="pointer-events-none absolute inset-0 -z-10 overflow-clip"
+      >
+        {/* Not `next/image`: this is a decorative vector with no intrinsic layout
+            to reserve and no optimisation to do — `images.unoptimized` is on and
+            the export emits it untouched either way. */}
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          alt=""
+          className="absolute bottom-0 left-0 w-full max-w-none"
+          src="/footer-glow.svg"
+        />
+      </div>
 
       {/* The desktop footer.
 
