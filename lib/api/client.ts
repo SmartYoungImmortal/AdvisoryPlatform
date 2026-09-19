@@ -99,14 +99,25 @@ function buildUrl(path: string, query?: Query, unprefixed = false): string {
 }
 
 /**
- * The envelope, or a typed error.
+ * The body, unwrapped if it is enveloped, or a typed error.
  *
- * A failure is read from the body when the body is the API's own JSON, and falls
- * back to the status text when it is not — a 502 from something in front of the
- * API returns HTML, and `response.json()` would throw over the top of the real
- * problem.
+ * **Only `/api/v1` responses carry the envelope.** better-auth is mounted as
+ * Express middleware, so its `/api/auth/*` replies never reach the API's
+ * `TransformInterceptor` — they are the raw better-auth body. Unwrapping those
+ * returned `undefined` for every successful sign-in, and `get-session` signed out
+ * answers a literal `null` body, where reading `.data` throws a TypeError. So
+ * `enveloped` follows the prefix: a call made with `unprefixed: true` gets its
+ * body back as it stands.
+ *
+ * The error path is shared, and correctly so: the API's filter emits
+ * `{statusCode, message}` and better-auth emits `{message, code}`, so `message`
+ * is where the sentence is either way.
+ *
+ * A failure is read from the body when the body is JSON, and falls back to the
+ * status text when it is not — a 502 from something in front of the API returns
+ * HTML, and `response.json()` would throw over the top of the real problem.
  */
-async function unwrap<T>(response: Response): Promise<T> {
+async function unwrap<T>(response: Response, enveloped: boolean): Promise<T> {
   // 204 carries no body. `response.json()` on an empty body throws, and a void
   // DELETE is a perfectly ordinary success.
   if (response.status === 204) return null as T;
@@ -119,19 +130,23 @@ async function unwrap<T>(response: Response): Promise<T> {
     throw new ApiError(response.status, response.statusText || "Request failed");
   }
 
-  const envelope = payload as { message?: unknown; data?: unknown };
-
   if (!response.ok) {
+    // `payload` may be `null` here, so the read is guarded rather than cast.
     const message =
-      typeof envelope.message === "string"
-        ? envelope.message
+      typeof payload === "object" &&
+      payload !== null &&
+      "message" in payload &&
+      typeof (payload as { message: unknown }).message === "string"
+        ? (payload as { message: string }).message
         : response.statusText || "Request failed";
     throw new ApiError(response.status, message);
   }
 
-  // `data` is always present on a success, and is `null` rather than absent for a
-  // void handler, which the interceptor guarantees on purpose.
-  return envelope.data as T;
+  if (!enveloped) return payload as T;
+
+  // `data` is always present on an enveloped success, and is `null` rather than
+  // absent for a void handler, which the interceptor guarantees on purpose.
+  return (payload as { data: unknown }).data as T;
 }
 
 async function request<T>(
@@ -177,7 +192,8 @@ async function request<T>(
     throw new ApiUnreachableError(cause);
   }
 
-  return unwrap<T>(response);
+  // Enveloped exactly when the call went through `/api/v1`; see `unwrap`.
+  return unwrap<T>(response, options.unprefixed !== true);
 }
 
 export const api = {
