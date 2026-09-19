@@ -114,7 +114,7 @@ export function LandingScreen() {
           <div className="absolute inset-0 bg-scrim/58" />
 
           {/* Figma "Hero Copy" */}
-          <div className="relative flex w-full shrink-0 flex-col items-start gap-3 overflow-clip px-6 lg:mx-auto lg:max-w-[1440px] lg:px-10 xl:px-30 lg:[&>*]:max-w-[640px]">
+          <div className="relative flex w-full shrink-0 flex-col items-start gap-3 overflow-clip px-6 lg:mx-auto lg:max-w-[1440px] lg:px-8 xl:px-12 lg:[&>*]:max-w-[640px]">
             {/* The frame's eyebrow read "แพลตฟอร์มปรึกษาผู้เชี่ยวชาญ" directly above a
                 headline beginning "ปรึกษาผู้เชี่ยวชาญตัวจริง" — the same four words,
                 twice, 8px apart. The headline is the positioning statement, so it
@@ -140,7 +140,7 @@ export function LandingScreen() {
         </section>
 
         {/* Figma "About" (1091:16068) */}
-        <section id="about" className="flex w-full shrink-0 flex-col items-start gap-4 overflow-clip px-6 pt-12 pb-2 lg:mx-auto lg:max-w-[1440px] lg:px-10 xl:px-30 lg:pt-20 lg:pb-6 lg:[&>p]:max-w-[820px]">
+        <section id="about" className="flex w-full shrink-0 flex-col items-start gap-4 overflow-clip px-6 pt-12 pb-2 lg:mx-auto lg:max-w-[1440px] lg:px-8 xl:px-12 lg:pt-20 lg:pb-6 lg:[&>p]:max-w-[820px]">
           <SectionHeader title={t("aboutTitle")} />
           {/* No ThaiText here: the closing run is wider than the 354px column, and
               a non-wrapping run that cannot fit overflows instead of breaking. */}
@@ -172,7 +172,7 @@ export function LandingScreen() {
         </section>
 
         {/* Figma "How it works" (1092:16067) */}
-        <section id="how-it-works" className="flex w-full shrink-0 flex-col items-start gap-4 overflow-clip px-6 pt-12 pb-2 lg:mx-auto lg:max-w-[1440px] lg:px-10 xl:px-30 lg:pt-20 lg:pb-6">
+        <section id="how-it-works" className="flex w-full shrink-0 flex-col items-start gap-4 overflow-clip px-6 pt-12 pb-2 lg:mx-auto lg:max-w-[1440px] lg:px-8 xl:px-12 lg:pt-20 lg:pb-6">
           <SectionHeader title={t("stepsTitle")} />
           <div className="flex w-full shrink-0 flex-col items-start gap-3 overflow-clip lg:grid lg:grid-cols-4 lg:gap-4">
             <Step index="1" title={t("step1Title")}>
@@ -191,7 +191,7 @@ export function LandingScreen() {
         </section>
 
         {/* Figma "Good to know" (1093:16067) — the one muted-surface band. */}
-        <section id="good-to-know" className="flex w-full shrink-0 flex-col items-start gap-4 overflow-clip bg-muted px-6 py-12 lg:grid lg:grid-cols-2 lg:gap-6 lg:px-10 xl:px-30 lg:py-20">
+        <section id="good-to-know" className="flex w-full shrink-0 flex-col items-start gap-4 overflow-clip bg-muted px-6 py-12 lg:grid lg:grid-cols-2 lg:gap-6 lg:px-8 xl:px-12 lg:py-20">
           <div className="w-full lg:col-span-2 lg:mx-auto lg:max-w-[1200px]">
             <SectionHeader title={t("knowTitle")} />
           </div>
@@ -212,7 +212,7 @@ export function LandingScreen() {
 
         {/* Figma "FAQ" (1094:16119) — see `FaqSection`; the rows really open now. */}
         <section
-          className="flex w-full shrink-0 flex-col items-start gap-4 overflow-clip px-6 pt-12 pb-2 lg:mx-auto lg:max-w-[1440px] lg:px-10 xl:px-30 lg:pt-20 lg:pb-10"
+          className="flex w-full shrink-0 flex-col items-start gap-4 overflow-clip px-6 pt-12 pb-2 lg:mx-auto lg:max-w-[1440px] lg:px-8 xl:px-12 lg:pt-20 lg:pb-10"
           id="faq"
         >
           <SectionHeader title={t("faqTitle")} />
@@ -230,7 +230,7 @@ export function LandingScreen() {
             src={landingCtaBand}
           />
           <div className="absolute inset-0 bg-scrim/66" />
-          <div className="relative flex w-full shrink-0 flex-col items-start gap-3 overflow-clip px-6 pt-14 lg:mx-auto lg:max-w-[1440px] lg:px-10 xl:px-30 lg:pt-0 lg:[&>*]:max-w-[640px]">
+          <div className="relative flex w-full shrink-0 flex-col items-start gap-3 overflow-clip px-6 pt-14 lg:mx-auto lg:max-w-[1440px] lg:px-8 xl:px-12 lg:pt-0 lg:[&>*]:max-w-[640px]">
             <h2 className="w-full text-heading font-semibold text-on-media">
               {t("ctaTitle")}
             </h2>

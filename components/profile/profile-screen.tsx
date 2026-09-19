@@ -61,7 +61,7 @@ export function ProfileScreen({
         {/* Figma "Body" (1787:25213) — the phone's single column becomes two:
             everything that identifies the reader on the left, everything they
             can go and do on the right. */}
-        <div className="flex w-full shrink-0 flex-col items-start lg:mx-auto lg:grid lg:max-w-[1440px] lg:grid-cols-[384px_minmax(0,1fr)] lg:items-start lg:gap-8 lg:px-10 xl:px-30 lg:pt-11 lg:pb-24">
+        <div className="flex w-full shrink-0 flex-col items-start lg:mx-auto lg:grid lg:max-w-[1440px] lg:grid-cols-[384px_minmax(0,1fr)] lg:items-start lg:gap-8 lg:px-8 xl:px-12 lg:pt-11 lg:pb-24">
           {/* The aside: who the reader is, and the three places they go most. */}
           <div className="flex w-full shrink-0 flex-col items-start">
             <div className="flex w-full shrink-0 flex-col items-start overflow-clip px-6 pt-4 lg:px-0 lg:pt-0">

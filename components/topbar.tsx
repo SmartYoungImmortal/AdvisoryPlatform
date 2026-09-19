@@ -278,6 +278,9 @@ export function TopBar({
 }) {
   const t = useTranslations("common");
   const nav = useTranslations("navigation");
+  // The site-wide link labels live in `landing`, beside the footer that also uses
+  // them — the two should never disagree about what a destination is called.
+  const l = useTranslations("landing");
   const pathname = usePathname();
   const [frosted, setFrosted] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
@@ -288,11 +291,30 @@ export function TopBar({
   const signedIn = useSession().status === "authenticated";
 
   // Figma's desktop nav carries four: find an advisor, bookings, chat, about.
+  /**
+   * The bar carried four. The footer carries eleven, so the nav was the narrowest
+   * view of the site anywhere in it — and two of its four were `bookings` and
+   * `chat`, which are signed-in destinations sitting in a bar a guest also sees.
+   *
+   * Seven now, in the order a reader meets them: find, browse, how it works, then
+   * their own two, then the two the site wants to sell. Every label is a key that
+   * already existed; nothing here is new copy.
+   *
+   * The last two are `xl`-only. At 1024 seven Thai labels at 18px plus the lockup
+   * and the actions do not leave a single line, and a nav that wraps is broken —
+   * so the tablet keeps five and the desktop takes all seven.
+   */
   const links = [
     { label: t("findAdvisor"), href: "/search" },
+    // The Thai `footerLink*` set, not the English uppercase `footer*` set — the
+    // latter is the phone footer's English link list and would drop ENGLISH CAPS
+    // into a Thai nav.
+    { label: l("footerLinkCategories"), href: "/search/browse" },
+    { label: l("footerLinkHowItWorks"), href: "/landing#how-it-works" },
     { label: nav("bookings"), href: "/bookings" },
     { label: nav("chat"), href: "/chat" },
-    { label: t("about"), href: "/landing#about" },
+    { label: l("footerLinkAbout"), href: "/landing#about", wide: true },
+    { label: l("footerLinkBecomeAdvisor"), href: "/advisor/apply", wide: true },
   ];
 
   useEffect(() => {
@@ -371,7 +393,16 @@ export function TopBar({
               the 120px page inset, the links follow it, and the actions hold the
               right edge — so the row becomes logo, nav, actions inside a 1440
               container. */}
-          <div className="flex w-full items-center justify-between lg:mx-auto lg:max-w-[1440px] lg:justify-start lg:px-10 xl:px-30">
+          {/* From `xl` the links sit in the true centre of the bar, with the
+              lockup hard left and the actions hard right — the shape
+              mochiice-fe's header uses (`absolute left-1/2 -translate-x-1/2` on
+              the nav, `flex-1` groups either side). Two equal flex-1 groups are
+              what make the centre optical rather than "after the logo".
+
+              Gated at `xl`, not `lg`: mochiice gates its own at 1512 for the same
+              reason — at 1024 four links plus a lockup plus the actions have no
+              room to leave a centre, so there the nav stays inline. */}
+          <div className="relative flex w-full items-center justify-between lg:mx-auto lg:max-w-[1440px] lg:justify-start lg:px-8 xl:justify-between xl:px-12">
             <div
               className={cn(
                 "flex flex-1 items-center justify-start",
@@ -499,8 +530,8 @@ export function TopBar({
             {/* Figma "Links" (1564:24858) — 48px after the lockup, 28px apart,
                 14/20 medium, the current section in full ink. No phone frame
                 draws them, so they start at `lg`. */}
-            <nav className="hidden lg:flex lg:min-w-px lg:flex-1 lg:items-center lg:gap-10 lg:pl-12">
-              {links.map(({ label, href }) => {
+            <nav className="hidden lg:flex lg:min-w-px lg:flex-1 lg:items-center lg:gap-10 lg:pl-12 xl:absolute xl:left-1/2 xl:flex-none xl:-translate-x-1/2 xl:pl-0">
+              {links.map(({ label, href, wide }) => {
                 const path = href.split("#")[0];
                 const current =
                   path === "/"
@@ -510,6 +541,11 @@ export function TopBar({
                   <Link
                     aria-current={current ? "page" : undefined}
                     className={cn(
+                      // The last two appear only from `xl`: seven Thai labels at
+                      // 18px plus the lockup and the actions do not leave one line
+                      // at 1024, and a nav that wraps is broken. The tablet keeps
+                      // five.
+                      wide && "hidden xl:flex",
                       // 18/28 and 40px apart, which is what the reference header
                       // sets its nav at. This nav only exists from `lg` and was
                       // at 14px, 28 apart — the phone's smallest body size, on
@@ -533,7 +569,10 @@ export function TopBar({
               })}
             </nav>
 
-            <div className="flex flex-1 items-center justify-end lg:flex-none lg:gap-4">
+            {/* `xl:flex-1` again, to balance the lockup's side: two equal groups
+                are what let the absolutely-centred nav land on the bar's centre
+                rather than the centre of what is left over. */}
+            <div className="flex flex-1 items-center justify-end lg:flex-none lg:gap-4 xl:flex-1">
               {login && !signedIn ? (
                 <Link
                   className={cn(

@@ -171,7 +171,7 @@ export function SiteFooter({ className }: { readonly className?: string }) {
         // footer does exactly this — `bg-[#5E2B66] text-white` on the element
         // itself, then `text-center md:text-left` and a grid for the layout.
         "relative isolate flex w-full shrink-0 flex-col items-center gap-9 bg-footer-surface px-4 pt-12 pb-[29px]",
-        "lg:gap-0 lg:px-10 xl:px-30 lg:pt-14 lg:pb-8",
+        "lg:gap-0 lg:px-8 xl:px-12 lg:pt-14 lg:pb-8",
         className,
       )}
     >

@@ -48,7 +48,7 @@ import { surfaceClass } from "@/components/mobile/surface";
 import { ThaiText } from "@/components/mobile/thai-text";
 import { BottomBar } from "@/components/bottombar";
 import { TopBar } from "@/components/topbar";
-import { PAGE } from "@/lib/layout";
+import { FOOTER_ABOVE_TAB_BAR, PAGE } from "@/lib/layout";
 import { cn } from "@/lib/utils";
 
 /**
@@ -584,7 +584,7 @@ export function HomeScreen() {
 
         {/* Runs under the tab bar, which is what the bar frosts against. The
             desktop frame has no tab bar to clear, so the inset goes with it. */}
-        <SiteFooter className="pb-[101px] lg:pb-0" />
+        <SiteFooter className={FOOTER_ABOVE_TAB_BAR} />
       </ScreenBody>
       {/* Figma's desktop nav carries these destinations itself — see `TopBar`. */}
       <BottomBar className="lg:hidden" role="user" selected="home" />

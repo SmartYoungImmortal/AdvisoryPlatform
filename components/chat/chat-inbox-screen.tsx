@@ -178,7 +178,7 @@ export function ChatInboxScreen({
   return (
     <MobileScreen className="pb-0" wide>
       {/* Figma "Container": 2px side padding, 16px top padding, 16px between blocks. */}
-      <ScreenBody className="items-start gap-4 px-0.5 pb-[144px] lg:gap-0 lg:px-10 xl:px-30 lg:pb-6">
+      <ScreenBody className="items-start gap-4 px-0.5 pb-[144px] lg:gap-0 lg:px-8 xl:px-12 lg:pb-6">
         <TopBar unreadNotifications />
         {hasBanner ? (
           /* Figma "In-app banner" (995:11104) — a 64px accent-tinted strip above
