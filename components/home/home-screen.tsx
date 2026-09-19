@@ -24,7 +24,6 @@ import {
   type Service,
   type Slot,
 } from "@/lib/catalogue/services";
-import { Badge } from "@/components/ui/badge";
 import { ChatAvatar } from "@/components/chat/chat-avatar";
 import { AutoScrollRail } from "@/components/home/auto-scroll-rail";
 import { HomeIntro } from "@/components/home/intro";
@@ -34,6 +33,7 @@ import { VettingSection } from "@/components/home/vetting";
 import { FaqSection } from "@/components/marketing/faq-section";
 import { SiteFooter } from "@/components/marketing/site-footer";
 import {
+  AvailabilityPill,
   FilterButton,
   IconBadge,
   SearchField,
@@ -43,9 +43,12 @@ import {
   VerifiedTick,
 } from "@/components/home/parts";
 import { MobileScreen, ScreenBody } from "@/components/mobile/screen";
+import { StatusPill } from "@/components/mobile/status-pill";
+import { surfaceClass } from "@/components/mobile/surface";
 import { ThaiText } from "@/components/mobile/thai-text";
 import { BottomBar } from "@/components/bottombar";
 import { TopBar } from "@/components/topbar";
+import { PAGE } from "@/lib/layout";
 import { cn } from "@/lib/utils";
 
 /**
@@ -53,8 +56,7 @@ import { cn } from "@/lib/utils";
  * Below `lg` it is the phone's full-bleed block and the inset lives on the
  * content, which is why the padding is only added from the breakpoint up.
  */
-const SECTION =
-  "flex w-full shrink-0 flex-col items-start lg:mx-auto lg:max-w-[1440px] lg:px-10 xl:px-30";
+const SECTION = cn("flex w-full shrink-0 flex-col items-start", PAGE);
 
 /**
  * The six the catalogue is filed under. One list, drawn twice: as the phone's
@@ -111,7 +113,7 @@ function CategoryCard({
 function CategoryChip({ label }: { readonly label: string }) {
   return (
     <Link
-      className="flex h-9.5 shrink-0 items-center rounded-full border border-border bg-card px-4 text-sm leading-5 font-normal whitespace-nowrap text-foreground transition-colors hover:border-primary/40 hover:text-primary"
+      className="flex h-9.5 shrink-0 items-center rounded-full border border-border bg-card px-4 text-sm leading-5 font-normal whitespace-nowrap text-foreground shadow-card transition-[box-shadow,border-color,color] hover:border-primary/40 hover:text-primary hover:shadow-card-hover"
       href="/search"
     >
       {label}
@@ -128,6 +130,11 @@ function CategoryChip({ label }: { readonly label: string }) {
  * duration and price below. The duration is the part that had been missing
  * everywhere but the search results — an hour of someone's time priced at
  * ฿1,200 reads very differently from an unlabelled ฿1,200.
+ *
+ * It is a card you can pick up now: the hairline it drew on a near-white page
+ * became the raised surface with its hover lift, the title took the step above
+ * its own meta, and the one fact a marketplace card is really asked for — can I
+ * have this today — rides on the cover where the eye lands first.
  */
 function ServiceCard({ service }: { readonly service: Service }) {
   const advisor = getAdvisor(service.advisorId);
@@ -137,16 +144,27 @@ function ServiceCard({ service }: { readonly service: Service }) {
     // Figma "Grid" (1564:24893) lays the same card out four across a 1200
     // column: 282 wide on a 160px cover, against the 240/120 the rail uses.
     <Link
-      className="flex w-60 shrink-0 flex-col items-start gap-2 overflow-clip rounded-xl border bg-card lg:w-full"
+      className={cn(
+        surfaceClass({ interactive: true }),
+        "flex w-60 shrink-0 flex-col items-start gap-2 overflow-clip lg:w-full",
+      )}
       href={`/service/${service.id}`}
     >
-      <Image
-        alt=""
-        className="h-30 w-full shrink-0 object-cover lg:h-40"
-        src={service.cover}
-      />
+      {/* The pill takes the card's own surface rather than its tone's tint: a
+          12%-green wash over stock photography is not a legible ground. */}
+      <span className="relative w-full shrink-0">
+        <Image
+          alt=""
+          className="h-30 w-full object-cover lg:h-40"
+          src={service.cover}
+        />
+        <AvailabilityPill
+          className="absolute bottom-2 left-2 bg-card/95 shadow-card"
+          slots={service.slots}
+        />
+      </span>
       <div className="flex w-full shrink-0 flex-col items-start gap-2 overflow-clip px-3 pb-3">
-        <span className="line-clamp-2 w-full text-sm font-semibold text-foreground">
+        <span className="line-clamp-2 w-full text-base font-semibold text-foreground">
           <ThaiText>{service.title}</ThaiText>
         </span>
         {/* The tick rides with the name rather than at the far edge of the row,
@@ -190,7 +208,10 @@ function AdvisorCard({ advisor }: { readonly advisor: Advisor }) {
     // Figma "Advisors" (1564:24946): six across the 1200 column, 183 wide with
     // a 64px portrait, where the rail card is 144 on a 56.
     <Link
-      className="flex w-36 shrink-0 flex-col items-center gap-2 overflow-clip rounded-xl border bg-card p-3 lg:w-full lg:py-5"
+      className={cn(
+        surfaceClass({ interactive: true }),
+        "flex w-36 shrink-0 flex-col items-center gap-2 overflow-clip p-3 lg:w-full lg:py-5",
+      )}
       href={`/service/${lead.id}`}
     >
       <ChatAvatar
@@ -199,8 +220,11 @@ function AdvisorCard({ advisor }: { readonly advisor: Advisor }) {
         size={56}
         src={advisor.avatar}
       />
+      {/* 14px on the phone: the rail card is 144 wide and "Sarah Jenskins" at
+          16px truncates inside it. It takes the card-title step once the desktop
+          grid gives it 183. */}
       <span className="flex w-full shrink-0 items-center justify-center gap-1 overflow-clip">
-        <span className="truncate text-sm font-semibold text-foreground">
+        <span className="truncate text-sm font-semibold text-foreground lg:text-base">
           {advisor.name}
         </span>
         {advisor.verified ? <VerifiedTick /> : null}
@@ -242,13 +266,20 @@ function SessionRow({
     // On the phone these are rows inside one card; Figma's desktop "Row"
     // (1564:25024) splits them into three cards across the column, so each row
     // takes its own border and surface from `lg`.
+    //
+    // `seatsLeft` was the one urgent fact on the page and it was printed in the
+    // same grey as the advisor's name. It is a warning pill now, so "เหลือ 1 ที่"
+    // is read before the row is.
+    // The card only exists from `lg`, which `Surface` cannot express — so the
+    // tokens are spelled out here rather than fought with overrides. Below the
+    // breakpoint it is a row in a list and its hover is the row tint.
     <Link
-      className="flex w-full shrink-0 items-center gap-3 overflow-clip p-3 lg:rounded-xl lg:border lg:bg-card lg:p-4"
+      className="flex w-full shrink-0 items-center gap-3 overflow-clip p-3 transition-[background-color,box-shadow,border-color] duration-150 hover:bg-muted/50 lg:rounded-card lg:border lg:border-border lg:bg-card lg:p-4 lg:shadow-card lg:hover:border-accented lg:hover:bg-card lg:hover:shadow-card-hover"
       href={`/service/${service.id}`}
     >
       <ChatAvatar crop={advisor.crop} size={44} src={advisor.avatar} />
       <span className="flex min-w-px flex-1 flex-col items-start gap-1 overflow-clip">
-        <span className="w-full truncate text-sm font-semibold text-foreground">
+        <span className="w-full truncate text-base font-semibold text-foreground">
           {service.title}
         </span>
         <span className="w-full truncate text-xs font-normal text-muted-foreground">
@@ -256,13 +287,14 @@ function SessionRow({
         </span>
       </span>
       <span className="flex shrink-0 flex-col items-end gap-1 overflow-clip">
-        <Badge className="h-auto rounded-full bg-primary/10 px-2 py-1 font-normal text-primary">
-          {slot.day === "today" ? t("today") : t("tomorrow")} {slot.time}
-        </Badge>
+        <StatusPill tone="accent">
+          {slot.day === "today" ? t("today") : t("tomorrow")}{" "}
+          <span className="font-latin tabular-nums">{slot.time}</span>
+        </StatusPill>
         {slot.seatsLeft !== undefined ? (
-          <span className="text-xs font-normal whitespace-nowrap text-muted-foreground">
+          <StatusPill tone="warning">
             {t("seatsLeft", { count: slot.seatsLeft })}
-          </span>
+          </StatusPill>
         ) : null}
       </span>
     </Link>
@@ -293,15 +325,17 @@ function Promo({
 }) {
   const accent = tone === "primary";
   return (
+    // `leading-7` used to be pinned on the title because `text-xl` was 20/28;
+    // the step carries Thai's 20/32 now, so the override is gone.
     <div
       className={cn(
-        "flex flex-col items-start gap-2.5 rounded-xl p-7",
-        accent ? "bg-primary" : "bg-primary/10",
+        "flex flex-col items-start gap-2.5 rounded-card p-7 shadow-card",
+        accent ? "bg-primary" : "bg-accent-surface",
       )}
     >
       <p
         className={cn(
-          "text-xl leading-7 font-semibold",
+          "text-xl font-semibold",
           accent ? "text-primary-foreground" : "text-foreground",
         )}
       >
@@ -309,7 +343,7 @@ function Promo({
       </p>
       <p
         className={cn(
-          "text-sm leading-5 font-normal",
+          "text-sm font-normal",
           accent ? "text-primary-foreground/85" : "text-muted-foreground",
         )}
       >
@@ -317,10 +351,10 @@ function Promo({
       </p>
       <Link
         className={cn(
-          "mt-1.5 flex h-11.5 items-center rounded-lg px-5.5 text-base font-medium transition-opacity hover:opacity-90",
+          "mt-1.5 flex h-11.5 items-center rounded-lg px-5.5 text-base font-medium transition-shadow hover:shadow-card-hover",
           accent
-            ? "bg-card text-primary"
-            : "bg-primary text-primary-foreground",
+            ? "bg-card text-primary shadow-card"
+            : "bg-primary text-primary-foreground shadow-card",
         )}
         href={href}
       >
@@ -333,7 +367,13 @@ function Promo({
 /** The card that holds the "Available Soon" sessions — see `SessionRow`. */
 function SessionList({ children }: { readonly children: ReactNode }) {
   return (
-    <div className="flex w-full shrink-0 flex-col items-stretch divide-y overflow-clip rounded-xl border bg-card lg:grid lg:grid-cols-3 lg:gap-6 lg:divide-y-0 lg:overflow-visible lg:rounded-none lg:border-0 lg:bg-transparent">
+    <div
+      className={cn(
+        surfaceClass(),
+        "flex w-full shrink-0 flex-col items-stretch divide-y divide-border overflow-clip",
+        "lg:grid lg:grid-cols-3 lg:gap-6 lg:divide-y-0 lg:overflow-visible lg:rounded-none lg:border-0 lg:bg-transparent lg:shadow-none",
+      )}
+    >
       {children}
     </div>
   );
@@ -406,13 +446,13 @@ export function HomeScreen() {
               <span className="lg:hidden">{t("searchTitle")}</span>
               <span className="hidden lg:inline">{t("heroTitle")}</span>
             </h1>
-            <p className="hidden w-full text-center text-lg leading-7 font-normal text-muted-foreground lg:block">
+            <p className="hidden w-full text-center text-lg font-normal text-muted-foreground lg:block">
               {t("heroSubtitle")}
             </p>
             <div className="flex w-full shrink-0 items-start gap-2">
               <SearchField
                 aria-label={t("searchPlaceholder")}
-                groupClassName="lg:h-16 lg:rounded-xl lg:px-5"
+                groupClassName="shadow-card lg:h-16 lg:rounded-xl lg:px-5 lg:shadow-panel"
                 href="/search"
                 inputClassName="lg:text-base"
                 linkLabel={c("search")}

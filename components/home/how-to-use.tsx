@@ -1,7 +1,10 @@
 import { CalendarCheck, Search, Star, Video } from "lucide-react";
 import { useTranslations } from "next-intl";
 
+import { surfaceClass } from "@/components/mobile/surface";
 import { ThaiText } from "@/components/mobile/thai-text";
+import { PAGE } from "@/lib/layout";
+import { cn } from "@/lib/utils";
 
 /**
  * The four steps of a consultation, taught rather than listed.
@@ -30,7 +33,7 @@ export function HowToUse() {
     // Figma "How it works" (1564:25001) runs the steps as a row of cards across
     // the 1200 column with a 24/34 head. Same four steps, same cards — the rail
     // just stops being a rail once there is room to lay them side by side.
-    <div className="flex w-full shrink-0 flex-col items-start gap-3 lg:mx-auto lg:max-w-[1440px] lg:gap-6 lg:px-10 xl:px-30">
+    <div className={cn("flex w-full shrink-0 flex-col items-start gap-3 lg:gap-6", PAGE)}>
       <p className="w-full px-6 text-base font-semibold text-foreground lg:px-0 lg:text-2xl">
         {t("stepsTitle")}
       </p>
@@ -51,8 +54,18 @@ export function HowToUse() {
             className="min-w-0 shrink-0 basis-[90%] snap-center py-6 pl-4 first:pl-6 last:pr-6 lg:basis-auto lg:p-0 lg:first:pl-0 lg:last:pr-0"
             key={title}
           >
-            <div className="flex h-full flex-col items-center justify-center gap-4 rounded-[12px] bg-card p-8 text-center shadow-lift">
-              <Icon aria-hidden className="size-12 shrink-0 text-primary" />
+            {/* `shadow-lift` stays — a card that scrolls sideways wants the wide
+                soft shadow. The hairline is what it was missing, so it takes the
+                flat tier under it rather than the raised one's own shadow. */}
+            <div
+              className={cn(
+                surfaceClass({ tier: "flat" }),
+                "flex h-full flex-col items-center justify-center gap-4 p-8 text-center shadow-lift",
+              )}
+            >
+              <span className="flex size-16 shrink-0 items-center justify-center rounded-full bg-primary/10">
+                <Icon aria-hidden className="size-8 text-primary" />
+              </span>
               <div className="w-full">
                 <p className="mb-2 w-full text-xl font-bold text-foreground">
                   {t(title)}

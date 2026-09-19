@@ -32,7 +32,7 @@ export function ServiceGallery({
           stacked beside it. Same photos, same order — at 1440 there is room to
           show three at once, so the track stops being a track. */}
       <div
-        className="flex w-full snap-x snap-mandatory overflow-x-auto lg:grid lg:h-95 lg:grid-cols-[2fr_1fr] lg:grid-rows-2 lg:gap-2 lg:overflow-hidden lg:rounded-xl lg:[&>img]:aspect-auto lg:[&>img]:h-full lg:[&>img:first-child]:row-span-2 lg:[&>img:nth-child(n+4)]:hidden"
+        className="flex w-full snap-x snap-mandatory overflow-x-auto lg:grid lg:h-95 lg:grid-cols-[2fr_1fr] lg:grid-rows-2 lg:gap-2 lg:overflow-hidden lg:rounded-card lg:[&>img]:aspect-auto lg:[&>img]:h-full lg:[&>img:first-child]:row-span-2 lg:[&>img:nth-child(n+4)]:hidden"
         onScroll={() => {
           const track = trackRef.current;
           if (!track) return;
@@ -43,7 +43,9 @@ export function ServiceGallery({
         {photos.map((photo, i) => (
           <Image
             alt=""
-            className="aspect-video w-full shrink-0 snap-center object-cover"
+            // The muted ground under the crop, so a cover that has not arrived
+            // yet is a placeholder rather than a hole in the page.
+            className="aspect-video w-full shrink-0 snap-center bg-muted object-cover"
             key={photo.src}
             priority={i === 0}
             src={photo}

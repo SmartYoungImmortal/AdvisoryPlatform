@@ -13,16 +13,20 @@ import { Fragment, type ReactNode } from "react";
 import { LevelBadge } from "@/components/advisor-public/level-badge";
 import { ChatAvatar } from "@/components/chat/chat-avatar";
 import { NeutralButton, PrimaryButton } from "@/components/mobile/buttons";
+import { EmptyState } from "@/components/mobile/empty-state";
 import {
   MobileScreen,
   ScreenBody,
   ScreenTopBar,
 } from "@/components/mobile/screen";
 import { SegmentedTabs } from "@/components/mobile/segmented-tabs";
+import { StatusPill } from "@/components/mobile/status-pill";
+import { Surface, surfaceClass } from "@/components/mobile/surface";
 import { SiteFooter } from "@/components/marketing/site-footer";
 import { TopBar } from "@/components/topbar";
 import { ThaiText } from "@/components/mobile/thai-text";
 import { Button } from "@/components/ui/button";
+import { PAGE, PAGE_INSET_BLOCKS, SPLIT_WITH_ASIDE } from "@/lib/layout";
 import { cn } from "@/lib/utils";
 import {
   LISTING_PREVIEW,
@@ -51,24 +55,30 @@ function Header({ profile }: { readonly profile: PublicProfile }) {
     // Figma's desktop header (1564:26852) lays the same parts on one row: the
     // portrait, then the name and credential beside it, with the three counts
     // holding the right edge and no card around them.
-    <div className="flex w-full shrink-0 flex-col items-center gap-3 overflow-clip px-6 lg:mx-auto lg:max-w-[1440px] lg:flex-row lg:items-center lg:gap-5 lg:border-b lg:border-border lg:px-10 xl:px-30 lg:py-6">
+    <div
+      className={cn(
+        "flex w-full shrink-0 flex-col items-center gap-3 overflow-clip px-6 lg:flex-row lg:items-center lg:gap-5 lg:border-b lg:border-border lg:py-6",
+        PAGE,
+      )}
+    >
       <ChatAvatar crop={advisor.crop} size={80} src={advisor.avatar} />
       {/* `contents` keeps the phone's stack exactly as it was; from `lg` these
           three become the middle column of the row. */}
-      <div className="contents lg:flex lg:min-w-px lg:flex-1 lg:flex-col lg:items-start lg:gap-1">
-        <div className="flex shrink-0 items-center gap-1">
-          <h1 className="font-latin text-2xl font-semibold text-foreground">
-            {advisor.name}
-          </h1>
+      <div className="contents lg:flex lg:min-w-px lg:flex-1 lg:flex-col lg:items-start lg:gap-1.5">
+        <h1 className="font-latin text-2xl font-semibold text-foreground lg:text-heading">
+          {advisor.name}
+        </h1>
+        {/* The 18px shield floating beside the name said "verified" only to a
+            reader who already knew what it meant. Word and colour together now,
+            beside the level it belongs with. */}
+        <div className="flex shrink-0 flex-wrap items-center justify-center gap-1.5 lg:justify-start">
+          {profile.level ? <LevelBadge level={profile.level} /> : null}
           {advisor.verified ? (
-            <ShieldCheck
-              aria-label={s("verified")}
-              className="size-4.5 shrink-0 text-primary"
-              role="img"
-            />
+            <StatusPill icon={ShieldCheck} tone="success">
+              {s("verified")}
+            </StatusPill>
           ) : null}
         </div>
-        {profile.level ? <LevelBadge level={profile.level} /> : null}
         <p className="text-center text-sm font-normal text-muted-foreground lg:text-start">
           {t("credentialField", {
             credential: advisor.credential,
@@ -77,9 +87,14 @@ function Header({ profile }: { readonly profile: PublicProfile }) {
         </p>
       </div>
 
-      {/* Figma "Stats" — three counts on a bordered card, split by hairlines. The
-          frame's 12/16px padding sits inside its stroke, hence one pixel less here. */}
-      <div className="flex w-full shrink-0 items-start gap-2 overflow-clip rounded-xl border border-border bg-card px-[15px] py-[11px] lg:w-auto lg:gap-8 lg:border-0 lg:bg-transparent lg:p-0">
+      {/* Figma "Stats" — three counts on a bordered card, split by hairlines. */}
+      <div
+        className={cn(
+          surfaceClass(),
+          "flex w-full shrink-0 items-start gap-2 overflow-clip px-4 py-3",
+          "lg:w-auto lg:gap-8 lg:rounded-none lg:border-0 lg:bg-transparent lg:p-0 lg:shadow-none",
+        )}
+      >
         {[
           { value: advisor.rating, label: t("statRating") },
           { value: String(advisor.consultations), label: t("statConsultations") },
@@ -89,8 +104,8 @@ function Header({ profile }: { readonly profile: PublicProfile }) {
             {index > 0 ? (
               <div className="w-px shrink-0 self-stretch bg-border lg:hidden" />
             ) : null}
-            <div className="flex min-w-px flex-1 flex-col items-center gap-1 text-center">
-              <p className="w-full font-latin text-base font-semibold text-foreground">
+            <div className="flex min-w-px flex-1 flex-col items-center gap-0.5 text-center">
+              <p className="w-full font-latin text-lg font-semibold tabular-nums text-foreground lg:text-xl">
                 {stat.value}
               </p>
               <p className="w-full text-xs font-normal text-muted-foreground">
@@ -113,7 +128,7 @@ function SectionHead({
 }) {
   return (
     <div className="flex w-full shrink-0 items-center gap-2 overflow-clip">
-      <h2 className="min-w-px flex-1 text-base font-semibold text-foreground">
+      <h2 className="min-w-px flex-1 text-base font-semibold text-foreground lg:text-lg">
         {title}
       </h2>
       <p className="shrink-0 text-sm font-normal whitespace-nowrap text-muted-foreground">
@@ -130,32 +145,35 @@ function SectionHead({
  */
 function ListingCard({ entry }: { readonly entry: ListingEntry }) {
   const t = useTranslations("advisorProfile");
-  // The frame's 8px padding sits inside its stroke, hence 7px here.
-  const className =
-    "flex w-full shrink-0 items-start gap-3 overflow-clip rounded-xl border border-border bg-card p-[7px]";
+  // Only the rows that actually open somewhere get the lift — a static card that
+  // rises under the pointer is a lie about what a click will do.
+  const className = cn(
+    surfaceClass({ interactive: Boolean(entry.serviceId) }),
+    "flex w-full shrink-0 items-start gap-3 overflow-clip p-2",
+  );
   const body = (
     <>
       <Image
         alt=""
-        className="size-22 shrink-0 rounded-xl object-cover"
+        className="size-22 shrink-0 rounded-card bg-muted object-cover"
         src={entry.cover}
       />
       <div className="flex min-w-px flex-1 flex-col items-start gap-1 overflow-clip">
-        <p className="w-full text-sm font-semibold text-foreground">
+        <p className="w-full text-base font-semibold text-foreground">
           {entry.title}
         </p>
         <p className="w-full text-xs font-normal text-muted-foreground">
           {t("slotLength")}
         </p>
         <div className="flex w-full shrink-0 items-center gap-1 overflow-clip">
-          <Star className="size-3 shrink-0 text-primary" />
-          <p className="shrink-0 font-latin text-xs font-normal text-foreground">
+          <Star className="size-3 shrink-0 fill-primary text-primary" />
+          <p className="shrink-0 font-latin text-sm font-semibold tabular-nums text-foreground">
             {entry.rating}
           </p>
-          <p className="min-w-px flex-1 font-latin text-xs font-normal text-muted-foreground">
+          <p className="min-w-px flex-1 font-latin text-xs font-normal tabular-nums text-muted-foreground">
             ({entry.ratingCount})
           </p>
-          <p className="shrink-0 font-latin text-sm font-semibold text-foreground">
+          <p className="shrink-0 font-latin text-base font-semibold tabular-nums text-foreground">
             {t("price", { price: entry.price })}
           </p>
         </div>
@@ -179,7 +197,7 @@ function ServicesTab({ profile }: { readonly profile: PublicProfile }) {
   return (
     // Figma's desktop frame lays the listings two across inside a card of
     // their own; the phone stacks them full width.
-    <section className="flex w-full shrink-0 flex-col items-start gap-3 overflow-clip px-6 lg:grid lg:grid-cols-2 lg:gap-4 lg:rounded-xl lg:border lg:border-border lg:bg-card lg:p-5">
+    <section className="flex w-full shrink-0 flex-col items-start gap-3 overflow-clip px-6 lg:grid lg:grid-cols-2 lg:gap-4 lg:rounded-card lg:border lg:border-border lg:bg-card lg:p-5 lg:shadow-card">
       <div className="w-full lg:col-span-2">
         <SectionHead
           title={t("servicesTitle")}
@@ -191,6 +209,7 @@ function ServicesTab({ profile }: { readonly profile: PublicProfile }) {
       ))}
       {total > LISTING_PREVIEW ? (
         <NeutralButton
+          block
           className="h-11.5 text-primary lg:col-span-2"
           href={profileHref(profile.advisor.id, "sheet")}
         >
@@ -205,11 +224,12 @@ function AboutTab({ profile }: { readonly profile: PublicProfile }) {
   const t = useTranslations("advisorProfile");
 
   return (
-    <section className="flex w-full shrink-0 flex-col items-start gap-6 overflow-clip px-6 lg:gap-3 lg:rounded-xl lg:border lg:border-border lg:bg-card lg:p-5">
-      <h2 className="hidden w-full text-base font-semibold text-foreground lg:block">
+    <section className="flex w-full shrink-0 flex-col items-start gap-6 overflow-clip px-6 lg:gap-3 lg:rounded-card lg:border lg:border-border lg:bg-card lg:p-5 lg:shadow-card">
+      <h2 className="hidden w-full text-base font-semibold text-foreground lg:block lg:text-lg">
         {t("tab.about")}
       </h2>
-      <p className="w-full text-sm font-normal text-muted-foreground">
+      {/* The bio is the whole point of this tab, not a caption on it. */}
+      <p className="w-full text-sm font-normal text-foreground lg:text-base">
         <ThaiText>{profile.about}</ThaiText>
       </p>
       {/* Figma's desktop frame (1564:26852) moves the skills into the column
@@ -219,16 +239,16 @@ function AboutTab({ profile }: { readonly profile: PublicProfile }) {
           <h2 className="w-full text-base font-semibold text-foreground">
             {t("verifiedSkills")}
           </h2>
-          {/* The frame's 12px padding sits inside its stroke, hence 11px here. */}
           {profile.skills.map((skill) => (
-            <div
-              className="flex w-full shrink-0 items-center gap-3 overflow-clip rounded-[12px] border border-border bg-card p-[11px]"
+            <Surface
+              className="flex w-full shrink-0 items-center gap-3 overflow-clip p-3"
               key={skill}
+              tier="flat"
             >
-              <span className="flex size-9 shrink-0 items-center justify-center rounded-full bg-muted">
-                <ShieldCheck className="size-4.5 text-primary" />
+              <span className="flex size-9 shrink-0 items-center justify-center rounded-full bg-success/10">
+                <ShieldCheck className="size-4.5 text-success" />
               </span>
-              <div className="flex min-w-px flex-1 flex-col items-start gap-1">
+              <div className="flex min-w-px flex-1 flex-col items-start gap-0.5">
                 <p className="w-full text-sm font-semibold text-foreground">
                   {skill}
                 </p>
@@ -236,12 +256,8 @@ function AboutTab({ profile }: { readonly profile: PublicProfile }) {
                   {t("verifiedByTeam")}
                 </p>
               </div>
-              <ShieldCheck
-                aria-label={t("verified")}
-                className="size-4 shrink-0 text-success"
-                role="img"
-              />
-            </div>
+              <StatusPill tone="success">{t("verified")}</StatusPill>
+            </Surface>
           ))}
         </div>
       ) : null}
@@ -251,12 +267,16 @@ function AboutTab({ profile }: { readonly profile: PublicProfile }) {
 
 function ReviewCard({ review }: { readonly review: ProfileReview }) {
   return (
-    // The frame's 12px padding sits inside its stroke, hence 11px here.
-    <article className="flex w-full shrink-0 flex-col items-start gap-2 overflow-clip rounded-xl border border-border bg-card p-[11px]">
+    <article
+      className={cn(
+        surfaceClass(),
+        "flex w-full shrink-0 flex-col items-start gap-2 overflow-clip p-3",
+      )}
+    >
       <div className="flex w-full shrink-0 items-center gap-2 overflow-clip">
         <Image
           alt=""
-          className="size-9 shrink-0 rounded-full object-cover"
+          className="size-9 shrink-0 rounded-full bg-muted object-cover"
           src={review.avatar}
         />
         <div className="flex min-w-px flex-1 flex-col items-start gap-0.5">
@@ -267,16 +287,14 @@ function ReviewCard({ review }: { readonly review: ProfileReview }) {
             {review.date}
           </p>
         </div>
-        <span className="flex shrink-0 items-center gap-1 font-latin text-sm font-semibold text-foreground">
-          <Star className="size-3 text-primary" />
+        <span className="flex shrink-0 items-center gap-1 font-latin text-sm font-semibold tabular-nums text-foreground">
+          <Star className="size-3 fill-primary text-primary" />
           {review.stars}
         </span>
       </div>
-      <span className="flex shrink-0 items-center gap-1 rounded-full bg-muted px-2 py-0.5 text-xs font-normal whitespace-nowrap text-muted-foreground">
-        <FileText className="size-3 shrink-0" />
-        {review.service}
-      </span>
-      <p className="w-full text-sm font-normal text-muted-foreground">
+      <StatusPill icon={FileText}>{review.service}</StatusPill>
+      {/* The quote is the review. It is not a caption under the name. */}
+      <p className="w-full text-sm font-normal text-foreground">
         <ThaiText>{review.body}</ThaiText>
       </p>
     </article>
@@ -285,6 +303,7 @@ function ReviewCard({ review }: { readonly review: ProfileReview }) {
 
 function ReviewsTab({ profile }: { readonly profile: PublicProfile }) {
   const t = useTranslations("advisorProfile");
+  const r = useTranslations("reviews");
   const { advisor } = profile;
 
   return (
@@ -295,21 +314,21 @@ function ReviewsTab({ profile }: { readonly profile: PublicProfile }) {
       />
 
       {/* Figma "Summary" — the score beside the shape of the score. */}
-      <div className="flex w-full shrink-0 items-center gap-4 overflow-clip rounded-xl border border-border bg-card p-[15px]">
+      <Surface className="flex w-full shrink-0 items-center gap-4 overflow-clip p-4">
         <div className="flex shrink-0 flex-col items-center gap-1">
-          <p className="font-latin text-heading font-semibold text-foreground">
+          <p className="font-latin text-heading font-semibold tabular-nums text-foreground">
             {advisor.rating}
           </p>
           <div className="flex items-start gap-0.5">
             {STAR_VALUES.map((value) => (
-              <Star className="size-2.75 text-primary" key={value} />
+              <Star className="size-2.75 fill-primary text-primary" key={value} />
             ))}
           </div>
         </div>
         <div className="flex min-w-px flex-1 flex-col gap-1">
           {STAR_VALUES.map((value, index) => (
             <div className="flex w-full items-center gap-2" key={value}>
-              <span className="w-[7px] shrink-0 font-latin text-xs font-normal text-muted-foreground">
+              <span className="w-[7px] shrink-0 font-latin text-xs font-normal tabular-nums text-muted-foreground">
                 {value}
               </span>
               <span className="h-1.5 min-w-px flex-1 overflow-clip rounded-full bg-muted">
@@ -321,16 +340,34 @@ function ReviewsTab({ profile }: { readonly profile: PublicProfile }) {
             </div>
           ))}
         </div>
-      </div>
+      </Surface>
 
-      {profile.reviews.map((review) => (
-        <ReviewCard key={review.id} review={review} />
-      ))}
+      {/* Two of the three advisors have no `EXTENSIONS` entry, so this tab really
+          does render empty on `/advisors/thanakrit-w/reviews` and
+          `/advisors/weerapat-k/reviews` — where it used to end on a score
+          summary, a dead button and nothing between them. */}
+      {profile.reviews.length > 0 ? (
+        <>
+          <div className="flex w-full flex-col gap-3 lg:grid lg:grid-cols-2 lg:gap-4">
+            {profile.reviews.map((review) => (
+              <ReviewCard key={review.id} review={review} />
+            ))}
+          </div>
 
-      {/* No "all reviews" frame exists yet, so this is a label, not a dead link. */}
-      <NeutralButton className="h-11">
-        {t("seeAllReviews", { count: advisor.writtenReviews })}
-      </NeutralButton>
+          {/* No "all reviews" frame exists yet, so this is a label, not a dead link. */}
+          <NeutralButton block className="h-11">
+            {t("seeAllReviews", { count: advisor.writtenReviews })}
+          </NeutralButton>
+        </>
+      ) : (
+        <Surface className="w-full" tier="well">
+          <EmptyState
+            body={r("emptyBody")}
+            icon={MessageSquare}
+            title={r("emptyTitle")}
+          />
+        </Surface>
+      )}
     </section>
   );
 }
@@ -351,7 +388,7 @@ function AllServicesSheet({ profile }: { readonly profile: PublicProfile }) {
           bar the app does not draw — hence 98px here. */}
       <div
         aria-label={t("servicesTitle")}
-        className="absolute inset-x-0 top-24.5 bottom-0 z-20 flex flex-col overflow-y-auto rounded-t-[20px] bg-card px-6 pt-2 pb-5"
+        className="absolute inset-x-0 top-24.5 bottom-0 z-20 flex flex-col overflow-y-auto rounded-t-[20px] bg-card px-6 pt-2 pb-5 shadow-panel"
         role="dialog"
       >
         <div
@@ -387,27 +424,29 @@ function AllServicesSheet({ profile }: { readonly profile: PublicProfile }) {
  */
 function SheetListing({ entry }: { readonly entry: ListingEntry }) {
   const t = useTranslations("advisorProfile");
-  const className =
-    "flex w-full shrink-0 items-center gap-3 overflow-clip rounded-[12px] border border-border bg-card py-[9px] pr-[11px] pl-[9px]";
+  const className = cn(
+    surfaceClass({ tier: "flat", interactive: Boolean(entry.serviceId) }),
+    "flex w-full shrink-0 items-center gap-3 overflow-clip p-2.5",
+  );
   const body = (
     <>
       <Image
         alt=""
-        className="size-14 shrink-0 rounded-lg object-cover"
+        className="size-14 shrink-0 rounded-lg bg-muted object-cover"
         src={entry.cover}
       />
-      <div className="flex min-w-px flex-1 flex-col items-start gap-[3px] overflow-clip">
-        <p className="w-full truncate text-base font-medium text-foreground">
+      <div className="flex min-w-px flex-1 flex-col items-start gap-0.5 overflow-clip">
+        <p className="w-full truncate text-base font-semibold text-foreground">
           {entry.title}
         </p>
         <p className="w-full text-xs font-normal text-muted-foreground">
           {t("slotLength")}
         </p>
         <div className="flex w-full items-center gap-2">
-          <p className="min-w-px flex-1 font-latin text-xs font-normal text-muted-foreground">
+          <p className="min-w-px flex-1 font-latin text-xs font-normal tabular-nums text-muted-foreground">
             ★ {entry.rating} ({entry.ratingCount})
           </p>
-          <p className="shrink-0 font-latin text-sm font-medium text-foreground">
+          <p className="shrink-0 font-latin text-base font-semibold tabular-nums text-foreground">
             {t("pricePerSlot", { price: entry.price })}
           </p>
         </div>
@@ -472,7 +511,13 @@ export function AdvisorPublicProfileScreen({
           label={profile.advisor.name}
         />
 
-        <div className="w-full lg:mx-auto lg:grid lg:max-w-[1440px] lg:grid-cols-[minmax(0,1fr)_360px] lg:items-start lg:gap-6 lg:px-4 xl:px-24 lg:pt-6 lg:pb-14">
+        <div
+          className={cn(
+            "w-full lg:pt-6 lg:pb-14",
+            PAGE_INSET_BLOCKS,
+            SPLIT_WITH_ASIDE,
+          )}
+        >
           {/* Each tab keeps its route on the phone and simply stacks here. */}
           <div className="flex w-full flex-col gap-6 lg:px-6">
             <div className={cn("w-full", tab !== "services" && "hidden lg:block")}>
@@ -487,9 +532,11 @@ export function AdvisorPublicProfileScreen({
           </div>
 
           <aside className="hidden lg:sticky lg:top-24 lg:me-6 lg:flex lg:flex-col lg:gap-4">
-            <div className="flex flex-col gap-3 rounded-xl border border-border bg-card p-4">
+            {/* The panel that rides beside the page sits a tier above the cards
+                in the column, so it takes the panel shadow. */}
+            <Surface className="flex flex-col gap-3 p-4 shadow-panel">
               <div className="flex flex-col gap-0.5">
-                <p className="text-sm font-semibold text-foreground">
+                <p className="text-base font-semibold text-foreground">
                   {t("pickServiceTitle")}
                 </p>
                 <p className="text-xs font-normal text-muted-foreground">
@@ -497,26 +544,39 @@ export function AdvisorPublicProfileScreen({
                   {t("slotLength")}
                 </p>
               </div>
-              <PrimaryButton href={profileHref(advisorId, "sheet")}>
+              <PrimaryButton block href={profileHref(advisorId, "sheet")} size="lg">
                 {t("chooseService")}
               </PrimaryButton>
-              <NeutralButton href={`/chat/${advisorId}`}>{t("chat")}</NeutralButton>
-            </div>
+              <NeutralButton block href={`/chat/${advisorId}`}>
+                {t("chat")}
+              </NeutralButton>
+            </Surface>
 
             {profile.skills.length > 0 ? (
-              <div className="flex flex-col gap-3 rounded-xl border border-border bg-card p-4">
-                <p className="text-sm font-semibold text-foreground">
+              <Surface className="flex flex-col gap-3 p-4">
+                <p className="text-base font-semibold text-foreground">
                   {t("verifiedSkills")}
                 </p>
                 {profile.skills.map((skill) => (
-                  <div className="flex flex-col gap-0.5 rounded-lg bg-muted/60 p-3" key={skill}>
-                    <p className="text-sm font-medium text-foreground">{skill}</p>
-                    <p className="text-xs font-normal text-muted-foreground">
-                      {t("verifiedByTeam")}
-                    </p>
-                  </div>
+                  <Surface
+                    className="flex items-center gap-2.5 p-3"
+                    key={skill}
+                    tier="well"
+                  >
+                    <span className="flex size-8 shrink-0 items-center justify-center rounded-full bg-success/10">
+                      <ShieldCheck aria-hidden className="size-4 text-success" />
+                    </span>
+                    <span className="flex min-w-px flex-1 flex-col gap-0.5">
+                      <span className="text-sm font-semibold text-foreground">
+                        {skill}
+                      </span>
+                      <span className="text-xs font-normal text-muted-foreground">
+                        {t("verifiedByTeam")}
+                      </span>
+                    </span>
+                  </Surface>
                 ))}
-              </div>
+              </Surface>
             ) : null}
           </aside>
         </div>
@@ -524,7 +584,7 @@ export function AdvisorPublicProfileScreen({
         <SiteFooter className="hidden lg:flex" />
       </ScreenBody>
 
-      <div className="flex w-full shrink-0 items-center gap-3 overflow-clip border-t border-border bg-card px-6 py-3 lg:hidden">
+      <div className="flex w-full shrink-0 items-center gap-3 overflow-clip border-t border-border bg-card px-6 py-3 shadow-panel lg:hidden">
         <Button
           aria-label={t("chat")}
           className="size-9 shrink-0"
@@ -536,6 +596,7 @@ export function AdvisorPublicProfileScreen({
           <MessageSquare className="size-4" />
         </Button>
         <PrimaryButton
+          block
           className="min-w-px flex-1"
           href={profileHref(advisorId, "sheet")}
         >

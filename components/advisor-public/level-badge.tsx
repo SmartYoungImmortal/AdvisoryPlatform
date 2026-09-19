@@ -1,9 +1,16 @@
 import { BadgeCheck } from "lucide-react";
 import { useTranslations } from "next-intl";
 
+import { StatusPill } from "@/components/mobile/status-pill";
+
 /**
  * Figma "Level" — the accent-tinted badge under an advisor's name, on both the
  * public profile and the advisor's own profile.
+ *
+ * It was hand-rolled: an accent-surface pill with its own padding, glyph size and
+ * weight, which is exactly what `StatusPill` is. Same ground, same ink, one
+ * object — so the level badge and every other status in the app agree on their
+ * metrics instead of being a pixel apart.
  */
 export function LevelBadge({
   level,
@@ -13,9 +20,8 @@ export function LevelBadge({
   const t = useTranslations("advisorProfile");
 
   return (
-    <span className="flex w-fit shrink-0 items-center gap-1.5 rounded-full bg-accent-surface py-1.25 pr-3 pl-2.5 text-xs font-normal whitespace-nowrap text-primary">
-      <BadgeCheck className="size-3.5 shrink-0" />
+    <StatusPill icon={BadgeCheck} tone="accent">
       {t("level", { number: level.number, title: level.title })}
-    </span>
+    </StatusPill>
   );
 }
