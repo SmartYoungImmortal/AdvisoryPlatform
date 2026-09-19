@@ -185,29 +185,48 @@ export function SiteFooter({ className }: { readonly className?: string }) {
         className="pointer-events-none absolute inset-0 -z-10 bg-footer-glow"
       />
 
-      {/* The desktop footer: brand, three link columns, rule, copyright. */}
+      {/* The desktop footer.
+
+          It used to be a 32px logo, a tagline and three columns of 14px links —
+          about a quarter of what the phone footer carries. The phone has the full
+          `Wordmark` lockup, a Contact block with the address, email and phone at
+          16px, and the social marks; none of that reached the desktop, which is
+          most of why the two ends of the same page did not look like the same
+          product. Everything is here now, arranged as a brand column against the
+          links rather than stacked. */}
       <div className="hidden w-full lg:mx-auto lg:block lg:max-w-[1200px]">
-        <div className="grid grid-cols-4 gap-6">
-          <div className="flex flex-col items-start gap-3">
-            {/* Reversed out of the dark ground, the same way the phone wordmark
-                is — the logo is dark ink and would disappear otherwise. */}
-            <Image
-              alt="Advisory Platform"
-              className="h-8 w-auto brightness-0 invert"
-              src={logo}
-            />
-            <p className="max-w-64 text-sm leading-6 font-normal text-on-media/80">
+        <div className="grid grid-cols-[minmax(0,1.4fr)_repeat(3,minmax(0,1fr))] gap-10">
+          <div className="flex flex-col items-start gap-6">
+            {/* The same lockup the phone opens with, left-aligned instead of
+                centred. It reverses itself — see `Wordmark`. */}
+            <Wordmark />
+            <p className="max-w-72 text-base leading-7 font-normal text-on-media/80">
               {t("footerTagline")}
             </p>
+            <div className="flex shrink-0 items-center gap-4">
+              <SocialMark
+                height={18.0775}
+                label={t("footerX")}
+                src="/icons/x.svg"
+                width={20}
+              />
+              <SocialMark
+                height={22.2222}
+                label={t("footerFacebook")}
+                src="/icons/facebook.svg"
+                width={12.2222}
+              />
+            </div>
           </div>
+
           {columns.map(({ heading, links: items }) => (
-            <nav className="flex flex-col items-start gap-3" key={heading}>
-              <p className="text-sm leading-5 font-semibold text-on-media">
+            <nav className="flex flex-col items-start gap-3.5" key={heading}>
+              <p className="text-base leading-6 font-semibold text-on-media">
                 {heading}
               </p>
               {items.map(({ label, href }) => (
                 <Link
-                  className="text-sm leading-6 font-normal text-on-media/75 transition-colors duration-150 hover:text-on-media motion-reduce:transition-none"
+                  className="text-base leading-6 font-normal text-on-media/75 transition-colors duration-150 hover:text-on-media motion-reduce:transition-none"
                   href={href}
                   key={label}
                 >
@@ -217,8 +236,33 @@ export function SiteFooter({ className }: { readonly className?: string }) {
             </nav>
           ))}
         </div>
-        <div className="mt-10 border-t border-on-media/20 pt-6">
-          <p className="font-latin text-sm font-normal text-on-media/70">
+
+        {/* The contact block the phone footer closes on, as a row above the
+            copyright rather than a fifth column — an address wants a wider
+            measure than a link list. */}
+        <div className="mt-14 flex items-end justify-between gap-10 border-t border-on-media/20 pt-8">
+          <div className="flex flex-col items-start gap-2 font-latin text-base leading-6 font-medium text-on-media/85">
+            <p>
+              {t("footerAddress1")}
+              <br />
+              {t("footerAddress2")}
+            </p>
+            <div className="flex items-center gap-6">
+              <a
+                className="whitespace-nowrap transition-colors duration-150 hover:text-on-media motion-reduce:transition-none"
+                href={`mailto:${t("footerEmailAddress")}`}
+              >
+                {t("footerEmail")}
+              </a>
+              <a
+                className="whitespace-nowrap transition-colors duration-150 hover:text-on-media motion-reduce:transition-none"
+                href={`tel:${t("footerPhoneNumber")}`}
+              >
+                {t("footerPhone")}
+              </a>
+            </div>
+          </div>
+          <p className="shrink-0 font-latin text-sm font-normal text-on-media/70">
             {t("footerCopyright")}
           </p>
         </div>

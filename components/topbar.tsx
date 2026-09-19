@@ -12,11 +12,11 @@ import { Bell, ChevronLeft, LogIn } from "lucide-react";
 import { logo } from "@/lib/assets/r2";
 import { avatarImage, initials } from "@/lib/mock-db/avatars";
 import { useSession } from "@/lib/session";
+import { NeutralButton, PrimaryButton } from "@/components/mobile/buttons";
 import { Button } from "@/components/ui/button";
 import {
   Sheet,
   SheetContent,
-  SheetHeader,
   SheetTitle,
   SheetTrigger,
 } from "@/components/ui/sheet";
@@ -346,7 +346,12 @@ export function TopBar({
             // gradient, which a class cannot outrank, hence the `!` pair.
             // A hairline alone left the bar floating on a ground that is now a
             // real step darker; the resting elevation is what seats it.
-            "lg:h-17 lg:border-border lg:bg-card! lg:bg-none! lg:px-0 lg:py-4 lg:shadow-card lg:backdrop-blur-none",
+            // 72px, not 68. The desktop bar was *shorter* than the phone's 80,
+            // which is backwards: the wider viewport is where a bar has room to
+            // be a band rather than a strip. everyday-cat-clinic-v2's header goes
+            // `h-14` on the phone and `lg:h-[72px]` on the desktop for the same
+            // reason.
+            "lg:h-18 lg:border-border lg:bg-card! lg:bg-none! lg:px-0 lg:py-4 lg:shadow-card lg:backdrop-blur-none",
             className,
           )}
           style={frosted ? { background: FROSTED } : undefined}
@@ -390,14 +395,32 @@ export function TopBar({
                   >
                     <MenuGlyph className="size-7" />
                   </SheetTrigger>
+                  {/* A full-screen panel, not a narrow side drawer. On a 402px
+                      frame a 4/5-width sheet leaves a useless 80px sliver of the
+                      page behind it and forces the links into a column narrower
+                      than the screen; the reference header opens
+                      `inset-x-0 bottom-0 top-14` and sets its links large and
+                      centred, which is what a phone menu should be. The `!`s
+                      outrank `sheet`'s own `w-3/4` / `sm:max-w-sm` / `h-auto`
+                      side variants. */}
                   <SheetContent
-                    className="w-4/5 gap-0 sm:max-w-sm"
-                    side="left"
+                    className="h-dvh! w-full! max-w-none! gap-0 border-0 bg-background p-0"
+                    side="top"
                   >
-                    <SheetHeader className="border-b border-border">
-                      <SheetTitle className="text-left">{t("menu")}</SheetTitle>
-                    </SheetHeader>
-                    <nav className="flex w-full flex-col items-stretch p-2">
+                    <SheetTitle className="sr-only">{t("menu")}</SheetTitle>
+                    {/* A band the height of the bar it opened from, so the
+                        lockup does not jump when the panel appears. */}
+                    <div className="flex h-20 w-full shrink-0 items-center px-4">
+                      <Link
+                        className="shrink-0"
+                        href="/"
+                        onClick={() => setMenuOpen(false)}
+                      >
+                        <Lockup reversed={false} />
+                      </Link>
+                    </div>
+
+                    <nav className="flex min-h-0 w-full flex-1 flex-col items-stretch gap-1 overflow-y-auto px-4 pt-6">
                       {links.map(({ label, href }) => {
                         const path = href.split("#")[0];
                         const current =
@@ -408,10 +431,13 @@ export function TopBar({
                           <Link
                             aria-current={current ? "page" : undefined}
                             className={cn(
-                              "flex min-h-12 items-center rounded-lg px-3 text-base font-medium transition-colors duration-150 motion-reduce:transition-none",
+                              // 56px rows and 20px type: a phone menu is the one
+                              // place with room to be read at arm's length, and
+                              // it was set at body size in a 48px row.
+                              "flex min-h-14 items-center rounded-card px-4 text-xl font-medium transition-colors duration-150 motion-reduce:transition-none",
                               current
                                 ? "bg-accent-surface font-semibold text-primary"
-                                : "text-foreground hover:bg-accent",
+                                : "text-foreground active:bg-accent",
                             )}
                             href={href}
                             key={href}
@@ -422,6 +448,29 @@ export function TopBar({
                         );
                       })}
                     </nav>
+
+                    {/* The way in or the way to your own account, at the thumb
+                        end of the panel. Without it the menu listed four
+                        marketing pages and nothing about the reader. */}
+                    <div className="flex w-full shrink-0 flex-col items-stretch gap-3 border-t border-border p-4">
+                      {signedIn ? (
+                        <NeutralButton
+                          block
+                          href="/profile"
+                          onClick={() => setMenuOpen(false)}
+                        >
+                          {t("profile")}
+                        </NeutralButton>
+                      ) : (
+                        <PrimaryButton
+                          block
+                          href="/login"
+                          onClick={() => setMenuOpen(false)}
+                        >
+                          {t("login")}
+                        </PrimaryButton>
+                      )}
+                    </div>
                   </SheetContent>
                 </Sheet>
               )}
@@ -437,7 +486,7 @@ export function TopBar({
             {/* Figma "Links" (1564:24858) — 48px after the lockup, 28px apart,
                 14/20 medium, the current section in full ink. No phone frame
                 draws them, so they start at `lg`. */}
-            <nav className="hidden lg:flex lg:min-w-px lg:flex-1 lg:items-center lg:gap-7 lg:pl-12">
+            <nav className="hidden lg:flex lg:min-w-px lg:flex-1 lg:items-center lg:gap-10 lg:pl-12">
               {links.map(({ label, href }) => {
                 const path = href.split("#")[0];
                 const current =
@@ -448,10 +497,11 @@ export function TopBar({
                   <Link
                     aria-current={current ? "page" : undefined}
                     className={cn(
-                      // 16 rather than 14. This nav only exists from `lg`, and it
-                      // was set at the phone's smallest body size — the only text
-                      // on a 68px bar, reading like a footnote.
-                      "relative text-base leading-5 font-medium whitespace-nowrap transition-colors duration-150 motion-reduce:transition-none",
+                      // 18/28 and 40px apart, which is what the reference header
+                      // sets its nav at. This nav only exists from `lg` and was
+                      // at 14px, 28 apart — the phone's smallest body size, on
+                      // the widest viewport, reading like a footnote.
+                      "relative text-lg leading-7 font-medium whitespace-nowrap transition-colors duration-150 motion-reduce:transition-none",
                       // The section the reader is in was stated by ink alone, at
                       // 14px, against a colour one step away. It now carries
                       // weight and a 2px rule under it, so the bar says where you
