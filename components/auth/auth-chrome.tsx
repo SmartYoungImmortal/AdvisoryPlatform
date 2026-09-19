@@ -27,7 +27,7 @@ export function AuthTopNav({ className }: { readonly className?: string }) {
   return (
     <div
       className={cn(
-        "hidden w-full shrink-0 border-b border-border bg-card shadow-xs lg:flex lg:h-21 lg:items-center lg:px-10 xl:px-30",
+        "hidden w-full shrink-0 border-b border-border bg-card shadow-card lg:flex lg:h-21 lg:items-center lg:px-10 xl:px-30",
         className,
       )}
     >
@@ -96,6 +96,16 @@ export function AuthFooter({ className }: { readonly className?: string }) {
  * On the phone the same form is the screen itself, edge to edge, so this is a
  * set of `lg:` classes to spread onto that form rather than a wrapper of its
  * own — the form stays one element at both sizes.
+ *
+ * Two things changed with the elevation pass. The lift was a pasted
+ * `shadow-[0_8px_24px_-4px…]`, which is `--shadow-panel` written out by hand in
+ * a literal that cannot follow the theme; it is the token now.
+ *
+ * And `bg-card` stopped waiting for `lg`. The page ground is a real step below
+ * the card surface since the ground moved to #f3f5f8, so the phone frame — the
+ * same form, edge to edge — was a grey sheet carrying grey fields, while the
+ * desktop frame of the very same screen was a white panel. The surface is the
+ * form's, at both sizes; only the 448 box, the radius and the lift are `lg:`.
  */
 export const AUTH_CARD =
-  "lg:my-12 lg:w-[448px] lg:flex-none lg:rounded-2xl lg:border lg:border-border lg:bg-card lg:px-2 lg:py-2 lg:shadow-[0_8px_24px_-4px_rgb(0_0_0/0.1),0_1px_2px_0_rgb(0_0_0/0.04)]";
+  "bg-card lg:my-12 lg:w-[448px] lg:flex-none lg:rounded-2xl lg:border lg:border-border lg:px-2 lg:py-2 lg:shadow-panel";

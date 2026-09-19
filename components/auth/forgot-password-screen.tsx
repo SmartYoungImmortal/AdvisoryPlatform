@@ -12,6 +12,7 @@ import {
   ScreenSpacer,
   ScreenTopBar,
 } from "@/components/mobile/screen";
+import { Surface } from "@/components/mobile/surface";
 import { cn } from "@/lib/utils";
 
 /** Figma "Forgot password (Light)" — 995:4148. */
@@ -44,10 +45,16 @@ export function ForgotPasswordScreen() {
             />
           </div>
           <ScreenSpacer className="lg:hidden" />
-          {/* Figma "Actions": 8px padding, 12px gap; the primary CTA starts disabled. */}
-          <ScreenActions>
-            <PrimaryButton href="/reset-sent">{t("submit")}</PrimaryButton>
-            <NeutralButton href="/login">{t("backToSignIn")}</NeutralButton>
+          {/* Figma "Actions": 8px padding, 12px gap; the primary CTA starts
+              disabled. `stacked` + `block` keeps the frame's column inside the
+              448 card — see `LoginScreen`. */}
+          <ScreenActions stacked>
+            <PrimaryButton block href="/reset-sent">
+              {t("submit")}
+            </PrimaryButton>
+            <NeutralButton block href="/login">
+              {t("backToSignIn")}
+            </NeutralButton>
           </ScreenActions>
         </div>
         <AuthFooter className="lg:mt-auto" />
@@ -68,9 +75,12 @@ export function ResetLinkSentScreen() {
       <ScreenBody className="lg:items-stretch lg:justify-center">
         <AuthTopNav />
         <div className={cn("flex w-full flex-1 flex-col items-center lg:mx-auto", AUTH_CARD)}>
-        {/* Figma "Hero": 96px badge inset 56px from the top, then the 30/40 text block. */}
+        {/* Figma "Hero": 96px badge inset 56px from the top, then the 30/40 text
+            block. The badge takes the accent ground rather than the grey one: a
+            blue glyph in a grey circle was the only thing on the screen with a
+            colour, and it read as a disabled state. */}
         <div className="flex w-full shrink-0 flex-col items-center pt-14">
-          <span className="flex size-24 shrink-0 items-center justify-center rounded-full bg-muted">
+          <span className="flex size-24 shrink-0 items-center justify-center rounded-full bg-accent-surface">
             <MailCheck className="size-10 text-primary" />
           </span>
           <div className="flex w-full shrink-0 flex-col items-center gap-2.5 overflow-clip px-6 pt-4.5 text-center">
@@ -83,25 +93,31 @@ export function ResetLinkSentScreen() {
           </div>
         </div>
 
-        {/* Figma "Sent To": card with a 16px mail glyph and a label/value stack. */}
+        {/* Figma "Sent To": card with a 16px mail glyph and a label/value stack.
+            It was `bg-card` on the card surface, i.e. invisible; as the one fact
+            the screen states it belongs in a well under the copy above it. */}
         <div className="flex w-full shrink-0 flex-col items-start px-6 pt-6">
-          <div className="flex w-full shrink-0 items-center gap-2.5 overflow-clip rounded-xl bg-card p-3.5">
+          <Surface className="flex w-full items-center gap-2.5 p-3.5" tier="well">
             <Mail className="size-4 shrink-0 text-muted-foreground" />
             <div className="flex min-w-px flex-1 flex-col items-start gap-0.5 overflow-clip">
               <p className="w-full text-xs font-normal text-muted-foreground">
                 {t("sentToLabel")}
               </p>
-              <p className="font-latin w-full text-sm font-medium text-foreground">
+              <p className="font-latin w-full truncate text-sm font-medium text-foreground">
                 {t("sentToValue")}
               </p>
             </div>
-          </div>
+          </Surface>
         </div>
 
         <ScreenSpacer className="lg:hidden" />
-        <ScreenActions>
-          <PrimaryButton href="/login">{t("backToSignIn")}</PrimaryButton>
-          <NeutralButton href="/reset-sent">{t("resend")}</NeutralButton>
+        <ScreenActions stacked>
+          <PrimaryButton block href="/login">
+            {t("backToSignIn")}
+          </PrimaryButton>
+          <NeutralButton block href="/reset-sent">
+            {t("resend")}
+          </NeutralButton>
         </ScreenActions>
         </div>
         <AuthFooter className="lg:mt-auto" />

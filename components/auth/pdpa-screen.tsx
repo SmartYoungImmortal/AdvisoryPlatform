@@ -12,6 +12,7 @@ import {
   ScreenSpacer,
   ScreenTopBar,
 } from "@/components/mobile/screen";
+import { SurfaceList } from "@/components/mobile/surface";
 import { cn } from "@/lib/utils";
 
 /** Figma "Info Card" row — 64px tall: 16px glyph inset 14px, then a title/body stack. */
@@ -53,26 +54,32 @@ export function PdpaScreen() {
         <div className={cn("flex w-full flex-1 flex-col items-center lg:mx-auto", AUTH_CARD)}>
           <ScreenHeading className="gap-2 pt-4" subtitle={t("subtitle")} title={t("title")} />
 
-          {/* Figma "What We Use": card of three 64px rows split by hairlines. */}
+          {/* Figma "What We Use": card of three 64px rows split by hairlines.
+              It was `bg-card` on the card surface with hand-drawn dividers — a
+              white block on white, which is why the desktop frame had already
+              reached for `bg-muted/50`. One well, hairlines from `SurfaceList`,
+              at both sizes. */}
           <div className="flex w-full shrink-0 flex-col items-start px-6 pt-3">
-            <div className="flex w-full shrink-0 flex-col items-start overflow-clip rounded-xl bg-card lg:bg-muted/50">
+            <SurfaceList tier="well">
               <UseRow body={t("profileBody")} icon={UserRound} title={t("profileTitle")} />
-              <div className="h-px w-full shrink-0 bg-muted" />
               <UseRow
                 body={t("sessionsBody")}
                 icon={MessageSquare}
                 title={t("sessionsTitle")}
               />
-              <div className="h-px w-full shrink-0 bg-muted" />
               <UseRow body={t("paymentsBody")} icon={CreditCard} title={t("paymentsTitle")} />
-            </div>
+            </SurfaceList>
           </div>
 
           <ScreenSpacer className="lg:hidden" />
-          <ScreenActions>
+          <ScreenActions stacked>
             {/* Consent is the last step of sign-up, so accepting lands on home. */}
-            <PrimaryButton href="/">{t("accept")}</PrimaryButton>
-            <NeutralButton href="/terms">{t("readFull")}</NeutralButton>
+            <PrimaryButton block href="/">
+              {t("accept")}
+            </PrimaryButton>
+            <NeutralButton block href="/terms">
+              {t("readFull")}
+            </NeutralButton>
           </ScreenActions>
         </div>
         <AuthFooter className="lg:mt-auto" />
@@ -97,14 +104,17 @@ export function TermsScreen() {
         <AuthTopNav />
         <div className={cn("flex w-full flex-1 flex-col items-center lg:mx-auto", AUTH_CARD)}>
           <ScreenHeading className="pt-4" title={t("title")} />
-          {/* Figma "Document": 8px top padding, 18px between sections, 6px title→body. */}
-          <div className="flex w-full shrink-0 flex-col items-start gap-4.5 px-6 pt-2 lg:pb-8">
+          {/* Figma "Document": 8px top padding, 18px between sections, 6px title→body.
+              Section heads step to 16px semibold: at 14px medium they were the
+              same size as the paragraph under them, so five sections read as one
+              undifferentiated wall. */}
+          <div className="flex w-full shrink-0 flex-col items-start gap-4.5 px-6 pt-2 lg:gap-6 lg:pb-8">
             {sections.map((n) => (
               <div
                 className="flex w-full shrink-0 flex-col items-start gap-1.5"
                 key={n}
               >
-                <p className="w-full text-sm font-medium text-foreground">
+                <p className="w-full text-base font-semibold text-foreground lg:text-lg">
                   {t(`s${n}Title`)}
                 </p>
                 <p className="w-full text-sm font-normal text-muted-foreground">

@@ -181,12 +181,17 @@ export function LoginScreen({
           {/* The phone frame pins its actions to the bottom edge; the card is
               only as tall as its content, so the spacer goes with the frame. */}
           <ScreenSpacer className="lg:hidden" />
-          {/* Figma "Actions": 24px top / 32px bottom padding, 12px gap. */}
-          <ScreenActions className="pt-6 pb-8">
-            <PrimaryButton className="disabled:opacity-40" disabled={locked} type="submit">
+          {/* Figma "Actions": 24px top / 32px bottom padding, 12px gap.
+              `stacked` + `block`: inside a 448 card the two actions stay the
+              column the frame draws, rather than becoming the right-aligned row
+              `ScreenActions` gives a full-width page. */}
+          <ScreenActions className="pt-6 pb-8" stacked>
+            <PrimaryButton block className="disabled:opacity-40" disabled={locked} type="submit">
               {t("signIn")}
             </PrimaryButton>
-            <NeutralButton href="/register">{t("signUp")}</NeutralButton>
+            <NeutralButton block href="/register">
+              {t("signUp")}
+            </NeutralButton>
             <DemoAccounts
               className="mt-3"
               onPick={(account) => {

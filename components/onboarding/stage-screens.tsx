@@ -17,7 +17,7 @@ import {
   Wallet,
 } from "lucide-react";
 import { useTranslations } from "next-intl";
-import { Fragment, useId, useState } from "react";
+import { useId, useState } from "react";
 
 import { thaiNationalId as idCard } from "@/lib/assets/r2";
 import { Button } from "@/components/ui/button";
@@ -36,8 +36,10 @@ import {
 import { SiteFooter } from "@/components/marketing/site-footer";
 import { FilePickButton } from "@/components/onboarding/file-pick";
 import { BulletLine, CheckLine, DropZone, StageHeader } from "@/components/onboarding/parts";
-import { Card, CardDivider, StackRow } from "@/components/screening/parts";
+import { Surface, SurfaceList } from "@/components/mobile/surface";
+import { StackRow } from "@/components/screening/parts";
 import { TopBar } from "@/components/topbar";
+import { PAGE, READING_COLUMN } from "@/lib/layout";
 import { submitAdvisorApplication } from "@/lib/mock-db/actions";
 import { useDatabase } from "@/lib/mock-db/store";
 import { useSession } from "@/lib/session";
@@ -64,8 +66,11 @@ const BACK_BAR = "lg:h-13 lg:bg-card lg:pt-0 lg:pb-0 lg:pl-10 xl:pl-30";
  */
 const HEAD_BAND = "w-full shrink-0 lg:border-b lg:border-border lg:bg-card lg:pb-8";
 
-/** The 800px column the band's heading and the card below it both sit in. */
-const COLUMN = "lg:mx-auto lg:w-[800px] lg:px-0";
+/**
+ * The 800px column the band's heading and the card below it both sit in — the
+ * reading measure from `lib/layout`, which is where 800 is decided.
+ */
+const COLUMN = cn(READING_COLUMN, "lg:px-0");
 
 /**
  * Figma "Card" (1787:24374) — the 800px panel every stage's form becomes at 1440:
@@ -73,9 +78,15 @@ const COLUMN = "lg:mx-auto lg:w-[800px] lg:px-0";
  *
  * On the phone the form is the screen itself, so this is a set of `lg:` classes
  * spread onto the block that already holds it rather than a wrapper of its own.
+ *
+ * `--shadow-panel` because that is what it is: a sheet floating on the grey band
+ * under the white step band. With a hairline alone the two bands read as one
+ * surface with a line drawn across it.
  */
-const FORM_CARD =
-  "flex w-full flex-1 flex-col lg:my-12 lg:w-[800px] lg:flex-none lg:gap-6 lg:rounded-2xl lg:border lg:border-border lg:bg-card lg:p-10";
+const FORM_CARD = cn(
+  "flex w-full flex-1 flex-col lg:my-12 lg:flex-none lg:gap-6 lg:rounded-2xl lg:border lg:border-border lg:bg-card lg:p-10 lg:shadow-panel",
+  READING_COLUMN,
+);
 
 /** Figma "Actions" — the stage button stops filling the width and holds the end. */
 const CARD_ACTIONS = "lg:items-end lg:px-0 lg:pt-2 lg:pb-0";
@@ -126,7 +137,9 @@ export function BecomeAdvisorScreen() {
           {application ? t("seeStatus") : t("start")}
         </PrimaryButton>
       )}
-      <NeutralButton className="lg:h-9 lg:w-50" href="/profile">
+      {/* Both actions take the same 44px height at `lg`: the secondary was left
+          at 36 and the pair sat on one line at two different heights. */}
+      <NeutralButton className={CARD_ACTION_BUTTON} href="/profile">
         {t("later")}
       </NeutralButton>
     </>
@@ -157,31 +170,31 @@ export function BecomeAdvisorScreen() {
 
         {/* Figma "What We Use" (1787:24291) — the same three promises on the
             grey band, one 384px panel each. */}
-        <div className="flex w-full shrink-0 flex-col items-start px-6 pt-3 lg:mx-auto lg:max-w-[1440px] lg:px-10 xl:px-30 lg:pt-18 lg:pb-22">
-          <Card className="lg:hidden">
-            {promises.map(({ icon, title, body }, index) => (
-              <Fragment key={title}>
-                {index === 0 ? null : <CardDivider />}
-                <StackRow body={body} icon={icon} title={title} />
-              </Fragment>
+        <div className={cn("flex w-full shrink-0 flex-col items-start px-6 pt-3 lg:pt-18 lg:pb-22", PAGE)}>
+          {/* One card with hairlines between its rows, which is what the
+              `Card` + `CardDivider` + `Fragment` stack was drawing by hand. */}
+          <SurfaceList className="lg:hidden">
+            {promises.map(({ icon, title, body }) => (
+              <StackRow body={body} icon={icon} key={title} title={title} />
             ))}
-          </Card>
+          </SurfaceList>
           <div className="hidden w-full lg:grid lg:grid-cols-3 lg:gap-6">
             {promises.map(({ icon: Icon, title, body }) => (
-              <div
-                className="flex flex-col items-start rounded-xl border border-border bg-card p-7"
-                key={title}
-              >
-                <span className="flex size-12 shrink-0 items-center justify-center rounded-xl bg-muted">
-                  <Icon className="size-5.5 text-muted-foreground" />
+              <Surface className="flex flex-col items-start p-7" key={title}>
+                {/* The chip takes the accent as a *status* ground: three grey
+                    squares on a grey band was the flattest block on the page,
+                    and these three panels are the pitch. */}
+                <span className="flex size-12 shrink-0 items-center justify-center rounded-xl bg-accent-surface">
+                  <Icon className="size-5.5 text-primary" />
                 </span>
-                <p className="w-full pt-3.5 text-lg leading-7 font-semibold text-foreground">
+                {/* `leading-7` is what `text-lg` now resolves to. */}
+                <p className="w-full pt-3.5 text-lg font-semibold text-foreground">
                   {title}
                 </p>
                 <p className="w-full pt-3.5 text-sm font-normal text-muted-foreground">
                   {body}
                 </p>
-              </div>
+              </Surface>
             ))}
           </div>
         </div>
@@ -417,20 +430,24 @@ export function OnboardingStage2Screen({
             <>
               <Image
                 alt={fileName}
-                className="h-[208px] w-full shrink-0 rounded-xl object-cover"
+                className="h-[208px] w-full shrink-0 rounded-xl border border-border object-cover"
                 src={idCard}
               />
-              <div className="mt-2.5 flex h-9 w-full shrink-0 items-start gap-2.5">
+              {/* The file's name, size and accepted-ness, as one chip in a well
+                  rather than three loose elements under the preview. The check
+                  goes green: it is a status, and it was the accent blue — the
+                  same colour as the page's actions. */}
+              <Surface className="mt-2.5 flex w-full items-center gap-2.5 p-3" tier="well">
                 <div className="flex min-w-px flex-1 flex-col items-start gap-0.5">
                   <p className="font-latin w-full truncate text-sm font-medium text-foreground">
                     {fileName}
                   </p>
-                  <p className="font-latin w-full text-xs leading-3.5 font-normal text-muted-foreground">
+                  <p className="font-latin w-full text-xs font-normal tabular-nums text-muted-foreground">
                     {t("fileMeta")}
                   </p>
                 </div>
-                <CircleCheck className="mt-2 size-5 shrink-0 text-primary" />
-              </div>
+                <CircleCheck className="size-5 shrink-0 text-success" />
+              </Surface>
               <div className="mt-3 flex w-full shrink-0 items-center gap-3">
                 <FilePickButton accept={IMAGE_TYPES} className="min-w-px flex-1" onPick={pick}>
                   <ImageUp className="size-4" />
@@ -456,23 +473,28 @@ export function OnboardingStage2Screen({
           )}
         </div>
 
-        {/* Figma guidance / next-steps list. */}
-        <div className={cn("flex w-full shrink-0 flex-col items-start gap-1.5 px-6 lg:px-0 lg:pt-0", uploaded ? "pt-6" : "pt-5")}>
-          <p className="mb-0.5 w-full text-sm font-medium text-foreground">
-            {uploaded ? t("nextHeading") : t("guidance")}
-          </p>
-          {uploaded ? (
-            <>
-              <BulletLine>{t("next1")}</BulletLine>
-              <BulletLine>{t("next2")}</BulletLine>
-            </>
-          ) : (
-            <>
-              <CheckLine>{t("check1")}</CheckLine>
-              <CheckLine>{t("check2")}</CheckLine>
-              <CheckLine>{t("check3")}</CheckLine>
-            </>
-          )}
+        {/* Figma guidance / next-steps list. It is the right half of the desktop
+            split and a loose block under the dropzone on the phone, so it takes a
+            surface of its own: raised against the page ground, hairline-only
+            inside the form card at `lg`. */}
+        <div className={cn("flex w-full shrink-0 flex-col items-start px-6 lg:px-0 lg:pt-0", uploaded ? "pt-6" : "pt-5")}>
+          <Surface className="flex w-full flex-col items-start gap-1.5 p-3.5 lg:shadow-none">
+            <p className="mb-0.5 w-full text-base font-semibold text-foreground lg:text-lg">
+              {uploaded ? t("nextHeading") : t("guidance")}
+            </p>
+            {uploaded ? (
+              <>
+                <BulletLine>{t("next1")}</BulletLine>
+                <BulletLine>{t("next2")}</BulletLine>
+              </>
+            ) : (
+              <>
+                <CheckLine>{t("check1")}</CheckLine>
+                <CheckLine>{t("check2")}</CheckLine>
+                <CheckLine>{t("check3")}</CheckLine>
+              </>
+            )}
+          </Surface>
         </div>
         </div>
 
@@ -594,15 +616,20 @@ export function OnboardingStage3Screen({
           {draft.skills.map((entry, index) => {
             const invalid = missing && (!entry.proof || !entry.skill.trim());
             return (
-              <div
+              // It was a `border-transparent` card on the surface it sat on —
+              // that is, nothing at all, on the phone and inside the form card
+              // alike. It is a card: hairline and resting lift on the page
+              // ground, hairline only inside the 800 card, and the destructive
+              // edge when its proof is missing.
+              <Surface
                 className={cn(
-                  "flex w-full shrink-0 flex-col items-start gap-3 overflow-clip rounded-xl border bg-card p-3.5",
-                  invalid ? "border-destructive" : "border-transparent",
+                  "flex w-full flex-col items-start gap-3 p-3.5 lg:shadow-none",
+                  invalid && "border-destructive",
                 )}
                 key={entry.id}
               >
                 <div className="flex w-full items-center justify-between gap-3">
-                  <p className="text-sm font-medium text-foreground">
+                  <p className="text-base font-semibold text-foreground">
                     {t("skillCardN", { n: index + 1 })}
                   </p>
                   <Button
@@ -632,8 +659,13 @@ export function OnboardingStage3Screen({
                     {t("proofLabel")}
                   </p>
                   {entry.proof ? (
-                    <div className="flex w-full items-center gap-2.5 rounded-xl border border-border bg-card p-3">
-                      <FileCheck className="size-5 shrink-0 text-primary" />
+                    /* A file inside the skill card belongs under its surface, not
+                       level with it — and the check is a status, so it is green. */
+                    <Surface
+                      className="flex w-full items-center gap-2.5 p-3"
+                      tier="well"
+                    >
+                      <FileCheck className="size-5 shrink-0 text-success" />
                       <p className="min-w-px flex-1 truncate font-latin text-sm text-foreground">
                         {entry.proof}
                       </p>
@@ -646,7 +678,7 @@ export function OnboardingStage3Screen({
                       >
                         <Trash2 className="size-4" />
                       </Button>
-                    </div>
+                    </Surface>
                   ) : (
                     <DropZone
                       action={
@@ -667,7 +699,7 @@ export function OnboardingStage3Screen({
                     />
                   )}
                 </div>
-              </div>
+              </Surface>
             );
           })}
           <NeutralButton

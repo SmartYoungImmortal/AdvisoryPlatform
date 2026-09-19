@@ -2,7 +2,11 @@ import { CircleCheck } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import type { ReactNode } from "react";
 
+import { StatusPill, type StatusTone } from "@/components/mobile/status-pill";
 import { cn } from "@/lib/utils";
+
+/** The three stages, so the track can be drawn as steps rather than a ratio. */
+const STAGES = [1, 2, 3] as const;
 
 /**
  * Figma "Stage Header" — a 354x8 progress track with a proportional fill, the
@@ -12,6 +16,17 @@ import { cn } from "@/lib/utils";
  * title's step: Figma "Step Band" (1787:24450) is the same track over the same
  * caption in an 800px column, with the title at 40/60. Callers pass those as
  * `lg:` classes rather than the band being a second component.
+ *
+ * The track is three segments, not one bar with a 33%/67%/100% fill. A
+ * continuous fill says "two thirds of something"; the caption underneath says
+ * "ขั้นตอนที่ 2 จาก 3", and the eye should be able to read that count off the
+ * track without the caption. The unfilled segments also carry a hairline — on
+ * the phone they sit on the page ground, where `bg-muted` alone was a per-cent
+ * away from invisible.
+ *
+ * The segments are decorative: the caption is the accessible statement of where
+ * the applicant is, which is why the track is `aria-hidden` rather than a second
+ * voice saying the same thing.
  */
 export function StageHeader({
   step,
@@ -35,11 +50,16 @@ export function StageHeader({
         className,
       )}
     >
-      <div className="h-2 w-full shrink-0 overflow-clip rounded-full bg-muted">
-        <div
-          className="h-full rounded-full bg-primary"
-          style={{ width: `${(step / 3) * 100}%` }}
-        />
+      <div aria-hidden className="flex w-full shrink-0 items-center gap-1.5">
+        {STAGES.map((stage) => (
+          <span
+            className={cn(
+              "h-2 min-w-px flex-1 rounded-full transition-colors duration-200 motion-reduce:transition-none",
+              stage <= step ? "bg-primary" : "border border-border bg-muted",
+            )}
+            key={stage}
+          />
+        ))}
       </div>
       <p className="mt-2.5 w-full text-xs font-normal text-muted-foreground">
         {label}
@@ -82,9 +102,18 @@ export function DropZone({
         invalid ? "border-destructive" : "border-input",
       )}
     >
-      <Icon
-        className={cn("shrink-0 text-muted-foreground", compact ? "size-5" : "size-14")}
-      />
+      {/* The frame draws a bare 56px glyph, which at that size reads as clip-art
+          dropped on an empty box. It goes in a bead instead — the same shape the
+          empty states and the stat tiles use for a mark — so the zone has one
+          object at its centre rather than a large grey outline. The compact form
+          keeps the inline glyph: it sits in a 3-line box with no room for one. */}
+      {compact ? (
+        <Icon className="size-5 shrink-0 text-muted-foreground" />
+      ) : (
+        <span className="flex size-14 shrink-0 items-center justify-center rounded-full bg-muted">
+          <Icon className="size-7 text-muted-foreground" />
+        </span>
+      )}
       <p
         className={cn(
           "w-full text-center font-medium text-foreground",
@@ -130,7 +159,26 @@ export function BulletLine({ children }: { readonly children: ReactNode }) {
   );
 }
 
-/** Figma verification step — glyph, label, right-aligned status. */
+/** The step's own ink, and the pill its status is said in. */
+const STEP_TONES = {
+  muted: { ink: "text-muted-foreground", pill: "neutral" },
+  primary: { ink: "text-primary", pill: "info" },
+  destructive: { ink: "text-destructive", pill: "danger" },
+  success: { ink: "text-success", pill: "success" },
+} as const satisfies Record<string, { ink: string; pill: StatusTone }>;
+
+/**
+ * Figma verification step — glyph, label, right-aligned status.
+ *
+ * The status was 12px text tinted with the same class as the glyph, which meant
+ * "อนุมัติแล้ว" and "ต้องแก้ไข" were told apart by a hue of grey-versus-red at the
+ * smallest size on the screen. It is a `StatusPill` now: the outcome of each
+ * step is the one thing an applicant is on this screen to read.
+ *
+ * The row also stops being 20px tall. It was a bare line in a `gap-3` stack, so
+ * the list had no rows to speak of; it carries its own 14/12 inset and the list
+ * around it draws the hairlines.
+ */
 export function StepRow({
   icon: Icon,
   label,
@@ -140,29 +188,17 @@ export function StepRow({
   readonly icon: LucideIcon;
   readonly label: string;
   readonly status: string;
-  readonly tone?: "muted" | "primary" | "destructive" | "success";
+  readonly tone?: keyof typeof STEP_TONES;
 }) {
-  const toneClass = {
-    muted: "text-muted-foreground",
-    primary: "text-primary",
-    destructive: "text-destructive",
-    success: "text-foreground",
-  }[tone];
+  const { ink, pill } = STEP_TONES[tone];
 
   return (
-    <div className="flex h-5 w-full shrink-0 items-center gap-2.5">
-      <Icon className={cn("size-4.5 shrink-0", toneClass)} />
-      <span className="min-w-px flex-1 text-sm font-normal text-foreground">
+    <div className="flex w-full shrink-0 items-center gap-2.5 px-3.5 py-3">
+      <Icon className={cn("size-4.5 shrink-0", ink)} />
+      <span className="min-w-px flex-1 text-sm font-medium text-foreground">
         {label}
       </span>
-      <span
-        className={cn(
-          "shrink-0 text-xs font-medium whitespace-nowrap",
-          toneClass,
-        )}
-      >
-        {status}
-      </span>
+      <StatusPill tone={pill}>{status}</StatusPill>
     </div>
   );
 }

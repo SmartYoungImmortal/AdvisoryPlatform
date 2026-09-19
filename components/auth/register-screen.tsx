@@ -18,6 +18,7 @@ import {
   ScreenSpacer,
   ScreenTopBar,
 } from "@/components/mobile/screen";
+import { Surface } from "@/components/mobile/surface";
 import { isEmail, passwordProblems, register } from "@/lib/session";
 import { cn } from "@/lib/utils";
 
@@ -191,7 +192,7 @@ export function RegisterScreen({
                 </p>
               ) : null}
               {inUse ? (
-                <p className="w-full text-sm font-normal text-muted-foreground">
+                <p className="w-full text-xs font-normal text-muted-foreground">
                   {t("hintCompact")}
                 </p>
               ) : (
@@ -216,46 +217,64 @@ export function RegisterScreen({
           </div>
 
           {/* Figma "PDPA Consent": 20px top padding, 10px gap, 12/18 copy. The copy
-              is a <label>, so tapping the sentence toggles the box. */}
-          <div className="flex w-full shrink-0 items-start gap-2.5 px-6 pt-5">
-            <Checkbox
-              aria-invalid={Boolean(errors.consent) || undefined}
-              checked={consent}
-              className="mt-px size-3.5 bg-card"
-              id="register-consent"
-              onCheckedChange={(checked) => {
-                setConsent(checked);
-                clear("consent");
-              }}
-            />
-            <label
-              className="min-w-px flex-1 text-xs font-normal text-muted-foreground"
-              htmlFor="register-consent"
+              is a <label>, so tapping the sentence toggles the box.
+
+              The consent is the one gate between a filled form and an account,
+              and as a bare line of 12px grey under five fields it read as a
+              footnote. It sits in a well: the group is one object, the white
+              checkbox has a ground to sit on, and the error state rings it. */}
+          <div className="flex w-full shrink-0 flex-col items-start px-6 pt-5">
+            <Surface
+              className={cn(
+                "flex w-full items-start gap-2.5 p-3",
+                errors.consent && "ring-1 ring-destructive ring-inset",
+              )}
+              tier="well"
             >
-              {t("consentPrefix")}
-              <Link className="text-brand-image" href="/terms">
-                {t("consentTerms")}
-              </Link>
-              {t("consentAnd")}
-              <Link className="text-brand-image" href="/terms">
-                {t("consentPrivacy")}
-              </Link>
-              {t("consentSuffix")}
-            </label>
-          </div>
-          {errors.consent ? (
-            <div className="flex w-full shrink-0 items-start px-6 pt-1">
-              <p className="w-full text-xs font-normal text-destructive" role="alert">
+              <Checkbox
+                aria-invalid={Boolean(errors.consent) || undefined}
+                checked={consent}
+                className="mt-px size-3.5 bg-card"
+                id="register-consent"
+                onCheckedChange={(checked) => {
+                  setConsent(checked);
+                  clear("consent");
+                }}
+              />
+              <label
+                className="min-w-px flex-1 text-xs font-normal text-muted-foreground"
+                htmlFor="register-consent"
+              >
+                {t("consentPrefix")}
+                <Link className="text-brand-image" href="/terms">
+                  {t("consentTerms")}
+                </Link>
+                {t("consentAnd")}
+                <Link className="text-brand-image" href="/terms">
+                  {t("consentPrivacy")}
+                </Link>
+                {t("consentSuffix")}
+              </label>
+            </Surface>
+            {errors.consent ? (
+              <p className="w-full pt-1 text-xs font-normal text-destructive" role="alert">
                 {errors.consent}
               </p>
-            </div>
-          ) : null}
+            ) : null}
+          </div>
 
           <ScreenSpacer className="lg:hidden" />
-          {/* Figma "Actions": 8px padding, 14px gap above the sign-in link. */}
-          <ScreenActions className="gap-3.5">
-            <PrimaryButton type="submit">{t("submit")}</PrimaryButton>
-            {inUse ? <NeutralButton href="/login">{t("signInWithEmail")}</NeutralButton> : null}
+          {/* Figma "Actions": 8px padding, 14px gap above the sign-in link. The
+              448 card keeps the column at every width — see `LoginScreen`. */}
+          <ScreenActions className="gap-3.5" stacked>
+            <PrimaryButton block type="submit">
+              {t("submit")}
+            </PrimaryButton>
+            {inUse ? (
+              <NeutralButton block href="/login">
+                {t("signInWithEmail")}
+              </NeutralButton>
+            ) : null}
             <p className="w-full text-center text-sm font-normal text-muted-foreground">
               {t("haveAccount")}
               <Link className="text-brand-image" href="/login">
@@ -270,7 +289,14 @@ export function RegisterScreen({
   );
 }
 
-/** The frame's three rule lines; each turns to success ink once it holds. */
+/**
+ * The frame's three rule lines; each turns to success ink once it holds.
+ *
+ * They are helper copy, so they sit at 12/18 rather than sharing the 14px of the
+ * field label above them — the rule list was competing with the label it
+ * qualified. The bullet is part of each string (" · อย่างน้อย 8 ตัวอักษร"),
+ * which is what `whitespace-pre-wrap` is preserving.
+ */
 function PasswordRules({
   password,
   ranged,
@@ -285,7 +311,7 @@ function PasswordRules({
     cn(started && !failing && "text-success");
 
   return (
-    <div className="w-full text-sm font-normal whitespace-pre-wrap text-muted-foreground">
+    <div className="w-full text-xs font-normal whitespace-pre-wrap text-muted-foreground">
       <p className={tone(problems.length)}>{ranged ? t("hintRange1") : t("hint1")}</p>
       <p className={tone(problems.symbol)}>{t("hint2")}</p>
       <p className={tone(problems.digit)}>{t("hint3")}</p>

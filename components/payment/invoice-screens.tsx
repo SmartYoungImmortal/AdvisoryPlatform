@@ -22,17 +22,12 @@ import {
   ScreenSpacer,
   ScreenTopBar,
 } from "@/components/mobile/screen";
+import { StatusPill, type StatusTone } from "@/components/mobile/status-pill";
+import { Surface, SurfaceList } from "@/components/mobile/surface";
 import { DetailRow } from "@/components/screening/parts";
 import { TopBar } from "@/components/topbar";
+import { PAGE } from "@/lib/layout";
 import { cn } from "@/lib/utils";
-
-/**
- * The 1200 content column every desktop payment frame lays out on: a 1440 page
- * inset 120 either side. Below `lg` the same block is the phone's full-bleed
- * band and the 24px gutter lives on the content, so this only starts at the
- * breakpoint.
- */
-export const PAGE_BAND = "lg:mx-auto lg:max-w-[1440px] lg:px-10 xl:px-30";
 
 /**
  * Figma "Back Bar" + "Head Band" / "Hero Band" — the desktop frames put the
@@ -42,41 +37,73 @@ export const PAGE_BAND = "lg:mx-auto lg:max-w-[1440px] lg:px-10 xl:px-30";
 export const PAGE_HEAD_BAND = "w-full shrink-0 lg:border-b lg:border-border lg:bg-card";
 
 /**
- * Figma "Body" — 788 + 32 + 380 on that 1200 column. The third row is the
- * flexible one, which is what lets the aside's two blocks sit tight together at
- * the top while the main column runs on past them.
+ * Figma "Body" — 788 + 32 + 380 on the 1200 column `PAGE` establishes. The third
+ * row is the flexible one, which is what lets the aside's two blocks sit tight
+ * together at the top while the main column runs on past them.
+ *
+ * Exported because the checkout screen lays out on the very same grid and was
+ * carrying a second, character-identical copy of this string.
  */
-const BODY_GRID =
-  "flex w-full flex-1 flex-col lg:mx-auto lg:grid lg:max-w-[1440px] lg:grid-cols-[minmax(0,1fr)_380px] lg:grid-rows-[auto_auto_minmax(0,1fr)] lg:gap-x-8 lg:px-10 xl:px-30 lg:pt-12 lg:pb-14";
+export const BODY_GRID = cn(
+  "flex w-full flex-1 flex-col lg:grid lg:grid-cols-[minmax(0,1fr)_380px] lg:grid-rows-[auto_auto_minmax(0,1fr)] lg:gap-x-8 lg:pt-12 lg:pb-14",
+  PAGE,
+);
 
 type Invoice = "paid" | "failed" | "refunded";
 
-/** Figma breakdown line — label left, amount right, total in semibold. */
+/**
+ * Figma breakdown line — label left, amount right.
+ *
+ * Every amount is `font-latin tabular-nums`: Geist for the numerals, and tabular
+ * so ฿800 / ฿40 / ฿840 line up down the column instead of wandering a pixel per
+ * digit. Rows are hairline-separated by the card around them, so the line itself
+ * only owns its own 14/10 inset.
+ */
 function Line({
   label,
   value,
-  strong = false,
   negative = false,
 }: {
   readonly label: string;
   readonly value: string;
-  readonly strong?: boolean;
   readonly negative?: boolean;
 }) {
   return (
-    <div className="flex w-full shrink-0 items-center justify-between gap-3">
-      <span
-        className={`min-w-px flex-1 text-sm ${
-          strong ? "font-medium text-foreground" : "font-normal text-muted-foreground"
-        }`}
-      >
+    <div className="flex w-full shrink-0 items-center justify-between gap-3 px-3.5 py-2.5">
+      <span className="min-w-px flex-1 text-sm font-normal text-muted-foreground">
         {label}
       </span>
       <span
-        className={`font-latin shrink-0 text-sm whitespace-nowrap ${
-          strong ? "font-semibold lg:text-base" : "font-normal"
-        } ${negative ? "text-destructive" : "text-foreground"}`}
+        className={cn(
+          "font-latin shrink-0 text-sm font-normal whitespace-nowrap tabular-nums",
+          negative ? "text-destructive" : "text-foreground",
+        )}
       >
+        {value}
+      </span>
+    </div>
+  );
+}
+
+/**
+ * The line a breakdown ends on. It used to be `Line strong` — 14px semibold
+ * against a 14px label, one hairline below the fees it sums. A total that is the
+ * same size as its parts is not a total, so it takes the well at the foot of the
+ * card and the figure steps up to 20px.
+ */
+function TotalLine({
+  label,
+  value,
+}: {
+  readonly label: string;
+  readonly value: string;
+}) {
+  return (
+    <div className="flex w-full shrink-0 items-center justify-between gap-3 bg-muted px-3.5 py-3">
+      <span className="min-w-px flex-1 text-sm font-medium text-foreground">
+        {label}
+      </span>
+      <span className="font-latin shrink-0 text-xl font-semibold whitespace-nowrap tabular-nums text-foreground">
         {value}
       </span>
     </div>
@@ -91,6 +118,9 @@ function Line({
 type InvoiceCopy = {
   readonly icon: LucideIcon;
   readonly tint: string;
+  /** The outcome, said in colour beside the amount rather than in the badge alone. */
+  readonly pillTone: StatusTone;
+  readonly pillLabel: string;
   readonly amount: string;
   readonly when: string;
   readonly who: string;
@@ -118,7 +148,9 @@ function useInvoiceCopy(state: Invoice): InvoiceCopy {
   const table: Record<Invoice, InvoiceCopy> = {
     paid: {
       icon: CircleCheckBig,
-      tint: "bg-success-surface text-foreground",
+      tint: "bg-success-surface text-success",
+      pillTone: "success",
+      pillLabel: t("filterPaid"),
       amount: t("totalValue"),
       when: t("invoicePaidTime"),
       who: t("advisor"),
@@ -141,6 +173,8 @@ function useInvoiceCopy(state: Invoice): InvoiceCopy {
     failed: {
       icon: TriangleAlert,
       tint: "bg-destructive/10 text-destructive",
+      pillTone: "danger",
+      pillLabel: t("filterFailed"),
       amount: t("thesisTotal"),
       when: t("invoiceFailedTime"),
       who: "กัญญา พรหมมา",
@@ -162,7 +196,9 @@ function useInvoiceCopy(state: Invoice): InvoiceCopy {
     },
     refunded: {
       icon: RotateCcw,
-      tint: "bg-primary/10 text-primary",
+      tint: "bg-accent-surface text-primary",
+      pillTone: "info",
+      pillLabel: t("filterRefunded"),
       amount: t("portfolioTotal"),
       when: t("invoiceRefundedTime"),
       who: "James Gunn",
@@ -212,18 +248,28 @@ export function InvoiceDetailScreen({ state }: { readonly state: Invoice }) {
         </div>
 
         {/* Figma "Hero": a 40px status badge, the amount, then the timestamp —
-            52px and the 32/44 step once it is a band of its own at 1440. */}
+            52px and the 32/44 step once it is a band of its own at 1440.
+
+            The outcome now says itself in words and colour between the two: the
+            badge's glyph was carrying it alone, and a receipt whose status can
+            only be inferred from a tick is a receipt you re-read. */}
         <div className={PAGE_HEAD_BAND}>
           <div className="flex w-full flex-col items-center px-6 pt-4 lg:pb-9">
             <span
-              className={`flex size-10 shrink-0 items-center justify-center rounded-full lg:size-13 ${copy.tint}`}
+              className={cn(
+                "flex size-10 shrink-0 items-center justify-center rounded-full lg:size-13",
+                copy.tint,
+              )}
             >
               <HeroIcon className="size-5 lg:size-6.5" />
             </span>
-            <p className="font-latin mt-3 w-full text-center text-heading font-semibold text-foreground lg:text-heading-lg">
+            <p className="font-latin mt-3 w-full text-center text-heading font-semibold tabular-nums text-foreground lg:text-heading-lg">
               {copy.amount}
             </p>
-            <p className="mt-1 w-full text-center text-xs font-normal text-muted-foreground">
+            <StatusPill className="mt-2" tone={copy.pillTone}>
+              {copy.pillLabel}
+            </StatusPill>
+            <p className="mt-2 w-full text-center text-xs font-normal text-muted-foreground">
               {copy.when}
             </p>
           </div>
@@ -233,31 +279,36 @@ export function InvoiceDetailScreen({ state }: { readonly state: Invoice }) {
           {/* The record column. `lg:*:px-0` drops the phone's 24px gutter off
               both cards — the grid already holds the 120px page inset. */}
           <div className="flex w-full flex-col lg:col-start-1 lg:row-span-3 lg:row-start-1 lg:*:px-0">
-            {/* Figma "Session": who and when the consultation is for. */}
+            {/* Figma "Session": who and when the consultation is for. The three
+                cards on this page were `bg-card` blocks with hand-drawn
+                `h-px bg-muted` rules inside them — invisible on the phone's page
+                ground and unlifted at 1440. One `Surface` each, hairlines from
+                `divide-y`, and no shadow inside the desktop columns. */}
             <div className="flex w-full shrink-0 flex-col items-start px-6 pt-5 lg:pt-0">
-              <div className="flex w-full shrink-0 flex-col items-start gap-3 overflow-clip rounded-xl bg-card p-3.5 lg:border lg:border-border">
-                <div className="flex w-full flex-col items-start gap-0.5">
-                  <p className="font-latin w-full text-sm font-medium text-foreground">
+              <Surface className="w-full divide-y divide-border overflow-hidden lg:shadow-none">
+                <div className="flex w-full flex-col items-start gap-0.5 p-3.5">
+                  <p className="font-latin w-full text-base font-semibold text-foreground lg:text-lg">
                     {copy.who}
                   </p>
                   <p className="w-full text-xs font-normal text-muted-foreground">
                     {copy.what}
                   </p>
                 </div>
-                <div className="h-px w-full shrink-0 bg-muted" />
-                <DetailRow icon={CalendarDays} label={copy.dateLabel} value={copy.dateValue} />
-                <DetailRow
-                  icon={Clock}
-                  label={copy.statusLabel}
-                  value={copy.statusValue}
-                  valueClassName={copy.statusTone}
-                />
-              </div>
+                <div className="flex w-full flex-col gap-3 p-3.5">
+                  <DetailRow icon={CalendarDays} label={copy.dateLabel} value={copy.dateValue} />
+                  <DetailRow
+                    icon={Clock}
+                    label={copy.statusLabel}
+                    value={copy.statusValue}
+                    valueClassName={cn("font-latin tabular-nums", copy.statusTone)}
+                  />
+                </div>
+              </Surface>
             </div>
 
             {/* Figma "Breakdown": line items and the resulting total. */}
             <div className="flex w-full shrink-0 flex-col items-start px-6 pt-5 lg:pt-6">
-              <div className="flex w-full shrink-0 flex-col items-start gap-2.5 overflow-clip rounded-xl bg-card p-3.5 lg:border lg:border-border">
+              <Surface className="w-full divide-y divide-border overflow-hidden lg:shadow-none">
                 {copy.lines.map((line) => (
                   <Line
                     key={line.label}
@@ -266,16 +317,22 @@ export function InvoiceDetailScreen({ state }: { readonly state: Invoice }) {
                     value={line.value}
                   />
                 ))}
-                <div className="h-px w-full shrink-0 bg-muted" />
-                <Line label={copy.totalLabel} strong value={copy.totalValue} />
-              </div>
+                <TotalLine label={copy.totalLabel} value={copy.totalValue} />
+              </Surface>
             </div>
           </div>
 
-          {/* Figma "Reference": payment method, invoice number and charge id. */}
+          {/* Figma "Reference": payment method, invoice number and charge id. All
+              three values are Latin runs — a card brand, an invoice number, a
+              charge id — so they take the Latin face and tabular figures. */}
           <div className="flex w-full shrink-0 flex-col items-start px-6 pt-5 lg:col-start-2 lg:row-start-1 lg:px-0 lg:pt-0">
-            <div className="flex w-full shrink-0 flex-col items-start gap-3 overflow-clip rounded-xl bg-card p-3.5 lg:border lg:border-border">
-              <DetailRow icon={CreditCard} label={copy.cardLabel} value={t("cardBrand")} />
+            <Surface className="flex w-full flex-col items-start gap-3 p-3.5 lg:shadow-none">
+              <DetailRow
+                icon={CreditCard}
+                label={copy.cardLabel}
+                value={t("cardBrand")}
+                valueClassName="font-latin tabular-nums"
+              />
               {state === "failed" ? (
                 <DetailRow
                   icon={TriangleAlert}
@@ -284,23 +341,37 @@ export function InvoiceDetailScreen({ state }: { readonly state: Invoice }) {
                   valueClassName="text-destructive"
                 />
               ) : null}
-              <DetailRow icon={Wallet} label={t("invoiceNoLabel")} value={copy.invoiceNo} />
-              <DetailRow icon={Wallet} label={t("chargeIdLabel")} value={copy.chargeId} />
-            </div>
+              <DetailRow
+                icon={Wallet}
+                label={t("invoiceNoLabel")}
+                value={copy.invoiceNo}
+                valueClassName="font-latin tabular-nums"
+              />
+              <DetailRow
+                icon={Wallet}
+                label={t("chargeIdLabel")}
+                value={copy.chargeId}
+                valueClassName="font-latin tabular-nums"
+              />
+            </Surface>
           </div>
 
           {/* The phone pins these to the bottom edge; the failed frame sets the
-              pair 20px under the reference card, which is where they all go. */}
+              pair 20px under the reference card, which is where they all go.
+              `stacked` + `block`: in a 380 aside the pair is a column that holds
+              the rail's width, not two buttons shrunk to their labels. */}
           <ScreenSpacer className="lg:hidden" />
-          <ScreenActions className="lg:col-start-2 lg:row-start-2 lg:px-0 lg:pt-5 lg:pb-0">
+          <ScreenActions className="lg:col-start-2 lg:row-start-2 lg:px-0 lg:pt-5 lg:pb-0" stacked>
             {state === "failed" ? (
-              <PrimaryButton className="lg:h-11" href="/checkout/card">
+              <PrimaryButton block className="lg:h-11" href="/checkout/card">
                 {t("payAgain")}
               </PrimaryButton>
             ) : (
               <>
-                <NeutralButton className="lg:h-11">{t("downloadReceipt")}</NeutralButton>
-                <NeutralButton className="lg:h-11" href="/profile">
+                <NeutralButton block className="lg:h-11">
+                  {t("downloadReceipt")}
+                </NeutralButton>
+                <NeutralButton block className="lg:h-11" href="/profile">
                   {t("viewBooking")}
                 </NeutralButton>
               </>
@@ -314,7 +385,22 @@ export function InvoiceDetailScreen({ state }: { readonly state: Invoice }) {
   );
 }
 
-/** Figma transaction row — title/subtitle stack with an amount and status. */
+/** Where each outcome leads, and the colour it is said in. */
+const TX_TONES = {
+  paid: { href: "/transactions/detail", pill: "success" },
+  failed: { href: "/transactions/detail/failed", pill: "danger" },
+  refunded: { href: "/transactions/detail/refunded", pill: "info" },
+} as const satisfies Record<string, { href: string; pill: StatusTone }>;
+
+/**
+ * Figma transaction row — title/subtitle stack with an amount and status.
+ *
+ * Three changes. The status is a pill, so "ชำระแล้ว" and "ไม่สำเร็จ" are told
+ * apart before they are read — "ชำระแล้ว" was grey, i.e. the paid rows, which are
+ * most of the list, said nothing. The amount takes tabular figures so the column
+ * of them lines up. And the row answers the pointer: it is the only link on the
+ * page and it looked exactly like the static rows on the invoice behind it.
+ */
 function TxRow({
   title,
   sub,
@@ -326,39 +412,28 @@ function TxRow({
   readonly sub: string;
   readonly amount: string;
   readonly status: string;
-  readonly tone: "paid" | "failed" | "refunded";
+  readonly tone: keyof typeof TX_TONES;
 }) {
-  const href = {
-    paid: "/transactions/detail",
-    failed: "/transactions/detail/failed",
-    refunded: "/transactions/detail/refunded",
-  }[tone];
-  const toneClass = {
-    paid: "text-muted-foreground",
-    failed: "text-destructive",
-    refunded: "text-primary",
-  }[tone];
+  const { href, pill } = TX_TONES[tone];
 
   return (
     <Link
-      className="flex h-16 w-full shrink-0 items-start gap-3 overflow-clip p-3.5"
+      className="flex w-full shrink-0 items-center gap-3 p-3.5 transition-colors hover:bg-muted/60 motion-reduce:transition-none"
       href={href}
     >
       <div className="flex min-w-px flex-1 flex-col items-start gap-0.5 overflow-clip">
-        <p className="w-full text-sm font-medium text-foreground">
+        <p className="w-full truncate text-sm font-medium text-foreground">
           {title}
         </p>
-        <p className="w-full text-xs font-normal text-muted-foreground">
+        <p className="w-full truncate text-xs font-normal text-muted-foreground">
           {sub}
         </p>
       </div>
-      <div className="flex shrink-0 flex-col items-end gap-0.5">
-        <p className="font-latin text-sm font-medium whitespace-nowrap text-foreground">
+      <div className="flex shrink-0 flex-col items-end gap-1">
+        <p className="font-latin text-sm font-semibold whitespace-nowrap tabular-nums text-foreground">
           {amount}
         </p>
-        <p className={`text-xs font-normal whitespace-nowrap ${toneClass}`}>
-          {status}
-        </p>
+        <StatusPill tone={pill}>{status}</StatusPill>
       </div>
     </Link>
   );
@@ -389,30 +464,39 @@ export function TransactionHistoryScreen() {
 
         <div className={PAGE_HEAD_BAND}>
           <ScreenHeading
-            className={`pt-4 ${PAGE_BAND} lg:pt-5 lg:pb-9`}
+            className={cn("pt-4 lg:pt-5 lg:pb-9", PAGE)}
             title={t("historyTitle")}
           />
         </div>
 
-        <div className="flex w-full flex-1 flex-col lg:mx-auto lg:grid lg:max-w-[1440px] lg:grid-cols-[380px_minmax(0,1fr)] lg:gap-x-8 lg:px-10 xl:px-30 lg:pt-12 lg:pb-14">
+        <div className={cn("flex w-full flex-1 flex-col lg:grid lg:grid-cols-[380px_minmax(0,1fr)] lg:gap-x-8 lg:pt-12 lg:pb-14", PAGE)}>
           {/* Figma "Summary": a single 44px wallet strip — the 52px card that
-              holds the left rail at 1440. */}
+              holds the left rail at 1440. It is the one standing fact about the
+              whole list, so it reads as a figure: a tinted chip for the glyph and
+              the total at 16px semibold, rather than a 14px line in a box that
+              was invisible on the phone. */}
           <div className="flex w-full shrink-0 flex-col items-start px-6 pt-2 lg:col-start-1 lg:row-start-1 lg:px-0 lg:pt-0">
-            <div className="flex h-11 w-full shrink-0 items-center gap-3 overflow-clip rounded-xl bg-card px-3.5 lg:h-13 lg:border lg:border-border">
-              <Wallet className="size-4 shrink-0 text-muted-foreground" />
-              <span className="font-latin text-sm font-medium text-foreground">
+            <Surface className="flex w-full items-center gap-3 p-3.5">
+              <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-accent-surface">
+                <Wallet className="size-4.5 text-primary" />
+              </span>
+              <span className="font-latin min-w-px flex-1 text-base font-semibold tabular-nums text-foreground">
                 {t("historySummary")}
               </span>
-            </div>
+            </Surface>
           </div>
 
-          {/* Figma "Filters": pill row, first pill selected. */}
+          {/* Figma "Filters": pill row, first pill selected. The unselected ones
+              gain the hairline and a hover: as borderless white on the page
+              ground they read as disabled labels rather than choices. */}
           <div className="flex w-full shrink-0 items-center gap-2 overflow-x-auto px-6 pt-3 lg:col-start-2 lg:row-start-1 lg:px-0 lg:pt-0">
             {filters.map((f, i) => (
               <Badge
                 className={cn(
                   "h-auto px-3 py-1.25",
-                  i === 0 ? "bg-foreground text-background" : "bg-card text-muted-foreground",
+                  i === 0
+                    ? "bg-foreground text-background"
+                    : "border-border bg-card text-muted-foreground transition-colors hover:text-foreground motion-reduce:transition-none",
                 )}
                 key={f}
               >
@@ -444,17 +528,17 @@ export function TransactionHistoryScreen() {
               className="flex w-full shrink-0 flex-col items-start gap-2 px-6 pt-5 lg:col-start-2 lg:px-0 lg:pt-4"
               key={group.month}
             >
-              <p className="w-full text-xs font-normal text-muted-foreground">
+              <p className="w-full text-sm font-medium text-muted-foreground">
                 {group.month}
               </p>
-              <div className="flex w-full shrink-0 flex-col items-start overflow-clip rounded-xl bg-card lg:border lg:border-border">
-                {group.rows.map((r, i) => (
-                  <div className="w-full" key={`${r.title}-${r.sub}`}>
-                    {i > 0 ? <div className="h-px w-full shrink-0 bg-muted" /> : null}
-                    <TxRow {...r} />
-                  </div>
+              {/* One card per month, hairlines between its rows — the manual
+                  `h-px bg-muted` spacer and the `i > 0` wrapper it needed are
+                  what `SurfaceList` is. */}
+              <SurfaceList>
+                {group.rows.map((r) => (
+                  <TxRow key={`${r.title}-${r.sub}`} {...r} />
                 ))}
-              </div>
+              </SurfaceList>
             </div>
           ))}
 
