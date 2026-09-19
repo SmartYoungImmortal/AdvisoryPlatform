@@ -136,7 +136,10 @@ export function ScreenHeading({
         className,
       )}
     >
-      <h1 className="w-full text-heading font-semibold text-foreground">
+      {/* 28/40 is a phone title against a 402px frame; on a 1200 column it is
+          the same size as a card heading two blocks down, which is why the
+          desktop pages read flat. It steps up once there is room. */}
+      <h1 className="w-full text-heading font-semibold text-foreground lg:text-heading-lg">
         {title}
       </h1>
       {subtitle ? (
@@ -148,18 +151,28 @@ export function ScreenHeading({
   );
 }
 
-/** Figma "Actions" — bottom button stack, 24px side padding and a 12px gap. */
+/**
+ * Figma "Actions" — bottom button stack, 24px side padding and a 12px gap.
+ *
+ * A stack is what a thumb wants. A pointer does not: at `lg` the same two
+ * buttons become a row that ends where the content ends, which is also what
+ * every desktop frame draws. `stacked` keeps the column for the screens whose
+ * actions really are a list of equal choices.
+ */
 export function ScreenActions({
   children,
+  stacked = false,
   className,
 }: {
   readonly children: ReactNode;
+  readonly stacked?: boolean;
   readonly className?: string;
 }) {
   return (
     <div
       className={cn(
         "flex w-full shrink-0 flex-col items-center gap-3 overflow-clip px-6 pt-2 pb-2",
+        !stacked && "lg:flex-row-reverse lg:justify-start lg:gap-3",
         className,
       )}
     >

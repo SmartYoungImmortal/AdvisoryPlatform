@@ -15,8 +15,10 @@ import { HlsVideo } from "@/components/mobile/hls-video";
 import { FaqSection } from "@/components/marketing/faq-section";
 import { SiteFooter } from "@/components/marketing/site-footer";
 import { MobileScreen, ScreenBody } from "@/components/mobile/screen";
+import { surfaceClass } from "@/components/mobile/surface";
 import { ThaiText } from "@/components/mobile/thai-text";
 import { TopBar } from "@/components/topbar";
+import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 
 /** Figma section header — the primary eyebrow above the 28/40 title. */
@@ -46,8 +48,8 @@ function Step({
   readonly children: ReactNode;
 }) {
   return (
-    <div className="flex w-full shrink-0 items-start gap-3 overflow-clip rounded-[16px] border bg-card p-4">
-      <span className="flex size-7 shrink-0 items-center justify-center overflow-clip rounded-full bg-primary/10 text-sm font-semibold text-primary">
+    <div className={cn(surfaceClass(), "flex w-full shrink-0 items-start gap-3 overflow-clip p-4")}>
+      <span className="flex size-7 shrink-0 items-center justify-center overflow-clip rounded-full bg-primary/10 font-latin text-sm font-semibold tabular-nums text-primary">
         {index}
       </span>
       <div className="flex min-w-px flex-1 flex-col items-start gap-0.5 overflow-clip">
@@ -146,7 +148,7 @@ export function LandingScreen() {
           </p>
 
           {/* Figma "Stats" — three equal columns on one bordered card. */}
-          <div className="flex w-full shrink-0 items-start gap-3 overflow-clip rounded-[16px] border bg-card p-4">
+          <div className={cn(surfaceClass(), "flex w-full shrink-0 items-start gap-3 overflow-clip p-4 lg:p-6")}>
             {[
               [t("statExpertsLabel"), t("statExpertsValue")],
               [t("statPaymentLabel"), t("statPaymentValue")],

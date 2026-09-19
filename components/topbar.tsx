@@ -315,7 +315,9 @@ export function TopBar({
             // Figma "Top Nav" (1564:24844): 68px on the card surface behind a
             // real border, not the phone bar's glass. The wash is an inline
             // gradient, which a class cannot outrank, hence the `!` pair.
-            "lg:h-17 lg:border-border lg:bg-card! lg:bg-none! lg:px-0 lg:py-4 lg:backdrop-blur-none",
+            // A hairline alone left the bar floating on a ground that is now a
+            // real step darker; the resting elevation is what seats it.
+            "lg:h-17 lg:border-border lg:bg-card! lg:bg-none! lg:px-0 lg:py-4 lg:shadow-card lg:backdrop-blur-none",
             className,
           )}
           style={frosted ? { background: FROSTED } : undefined}

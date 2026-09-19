@@ -24,6 +24,13 @@
      14/20, 16/24 and 20/28 already match the defaults exactly, so they need nothing. */
   --text-xs--line-height: 1.125rem; /* 18px — Tailwind default is 16px */
   --text-2xl--line-height: 2.125rem; /* 34px — Tailwind default is 32px */
+  /* The two steps the screens were missing. Everything between body copy and the
+     28px screen title was being set at 16, so a section head, a card title and a
+     paragraph all carried the same weight. 18/28 is the section head, 20/32 the
+     card or panel title; both take more leading than the Latin defaults because
+     Thai stacks marks above and below. */
+  --text-lg--line-height: 1.75rem; /* 18/28 — Tailwind default is 28px, restated */
+  --text-xl--line-height: 2rem; /* 20/32 — Tailwind default is 28px */
   /* Figma "Heading" — the 28/40 screen title. No default step lands on 28px
      (text-2xl is 24, text-3xl is 30), so it gets a named step of its own. */
   --text-heading: 1.75rem;
@@ -67,6 +74,18 @@
      a wide soft shadow is what says so. Tinted off `--scrim` rather than a
      literal black so it follows the theme. */
   --shadow-lift: 0 4px 30px color-mix(in srgb, var(--scrim) 12%, transparent);
+  /* The elevation the app never had. A card used to be a white box on a
+     near-white page — a 2% value step — so nothing read as an object you could
+     pick up. These are the three tiers everything now uses: `card` at rest,
+     `card-hover` under the pointer, `panel` for the desktop sheets that float
+     over the page ground (two files were carrying that one as a pasted
+     literal). All tinted off `--scrim`, so they follow the theme. */
+  --shadow-card: 0 1px 2px color-mix(in srgb, var(--scrim) 6%, transparent),
+    0 1px 3px color-mix(in srgb, var(--scrim) 4%, transparent);
+  --shadow-card-hover: 0 2px 4px color-mix(in srgb, var(--scrim) 6%, transparent),
+    0 8px 16px -4px color-mix(in srgb, var(--scrim) 10%, transparent);
+  --shadow-panel: 0 8px 24px -4px color-mix(in srgb, var(--scrim) 10%, transparent),
+    0 1px 2px color-mix(in srgb, var(--scrim) 4%, transparent);
   --color-footer-surface: var(--footer-surface);
   /* A `background-image`, like `--hero-wash`: it paints its own decorative
      layer over the footer's ground rather than replacing it. */
@@ -102,6 +121,10 @@
   --color-popover: var(--popover);
   --color-card-foreground: var(--card-foreground);
   --color-card: var(--card);
+  /* 12px sat off the scale and got written as `rounded-[12px]` in 28 places —
+     between `lg` (10) and `xl` (14), where the tab track, the step cards and the
+     popover all wanted to be. It is a step now, so it has a name. */
+  --radius-card: calc(var(--radius) * 1.2);
   --radius-sm: calc(var(--radius) * 0.6);
   --radius-md: calc(var(--radius) * 0.8);
   --radius-lg: var(--radius);
@@ -116,7 +139,11 @@
      background #fafafa, foreground #18181b, surface #ffffff, surface-muted #f4f4f5,
      border #e4e4e7, border-input #a1a1aa, accent #2563eb, destructive #dc2626,
      success #65a30d on success-surface #ecfccb. */
-  --background: #fafafa;
+  /* The page ground used to be #fafafa, two per cent off the white cards sitting
+     on it, so every card dissolved into the page and the whole product read as
+     one flat sheet. It steps down — and slightly cool, to sit under the blue
+     brand — so a white surface is an object again. */
+  --background: #f3f5f8;
   --foreground: #18181b;
   --card: #ffffff;
   --card-foreground: #18181b;
@@ -137,11 +164,14 @@
   --hero-wash:
     radial-gradient(ellipse 100% 35% at -5% 20%, color-mix(in oklab, var(--hero-warm) 38%, transparent), transparent 72%),
     radial-gradient(ellipse 100% 35% at 105% 35%, color-mix(in oklab, var(--brand-image) 38%, transparent), transparent 72%);
-  --secondary: #f4f4f5;
+  --secondary: #eef1f5;
   --secondary-foreground: #18181b;
-  --muted: #f4f4f5;
-  --muted-foreground: #71717a;
-  --accent: #f4f4f5;
+  /* The well inside a card, one step under the page rather than level with it —
+     `#f4f4f5` against the old ground was invisible, which is why insets, tab
+     tracks and disabled fields all read as nothing. */
+  --muted: #eef1f5;
+  --muted-foreground: #667085;
+  --accent: #eef1f5;
   --accent-foreground: #18181b;
   --destructive: #dc2626;
   /* shadcn's own `destructive` button variant is the tinted treatment, so it never
@@ -164,7 +194,8 @@
      it is a token of its own and not `primary/10`: that mix lands on #e9effd and
      the frame asks for #e0e8f8. */
   --accent-surface: #e0e8f8;
-  --border: #e4e4e7;
+  /* Cooled to match the ground it now draws on. */
+  --border: #e2e6ec;
   --input: #a1a1aa;
   --ring: #a1a1aa;
   /* The landing hero and CTA band lay copy over a photograph behind a black
@@ -292,6 +323,10 @@
   --accented: oklch(1 0 0 / 20%);
   --action: oklch(0.623 0.214 259.815);
   --action-foreground: oklch(0.985 0 0);
+  /* The status pills that ride on this were carrying the light `#e0e8f8`
+     against a dark card, which is unreadable. It pairs with `--primary` here
+     the way it does in the light theme, at the strength a dark ground takes. */
+  --accent-surface: oklch(0.35 0.09 262);
   --border: oklch(1 0 0 / 10%);
   --input: oklch(1 0 0 / 15%);
   --ring: oklch(0.552 0.016 285.938);

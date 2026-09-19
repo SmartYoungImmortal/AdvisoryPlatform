@@ -32,18 +32,22 @@ export function SegmentedTabs({
         className,
       )}
     >
+      {/* The track filled the frame because a phone frame is 402px wide. On a
+          1200 column that gave three short words four hundred pixels each, and
+          the control stopped reading as a control. It sizes to its labels once
+          there is room, and the segments stop stretching with it. */}
       <nav
         aria-label={label}
-        className="flex min-w-px flex-1 items-center rounded-[12px] bg-muted p-1"
+        className="flex min-w-px flex-1 items-center rounded-card bg-muted p-1 lg:w-auto lg:flex-none"
       >
         {items.map((item) => (
           <Link
             aria-current={item.key === current ? "page" : undefined}
             className={cn(
-              "flex min-h-8 min-w-px flex-1 items-center justify-center rounded-lg px-2.5 py-[5.5px] text-sm font-medium whitespace-nowrap",
+              "flex min-h-8 min-w-px flex-1 items-center justify-center rounded-lg px-2.5 py-[5.5px] text-sm font-medium whitespace-nowrap transition-colors duration-150 lg:flex-none lg:px-4",
               item.key === current
-                ? "bg-primary text-primary-foreground shadow-sm"
-                : "text-muted-foreground",
+                ? "bg-card text-foreground shadow-card"
+                : "text-muted-foreground hover:text-foreground",
             )}
             href={item.href}
             key={item.key}
