@@ -44,6 +44,28 @@ export interface ApiPublicServiceQuery {
   readonly maxPriceSatang?: number;
 }
 
+/** `PublicAdvisorResponseDto` — advisors/dtos/public-advisor-response.dto.ts */
+export interface ApiPublicAdvisor {
+  readonly id: string;
+  readonly displayName: string;
+  readonly headline: string;
+  readonly bio: string | null;
+  /** A storage key, not a URL — the avatar endpoint presigns it. */
+  readonly avatarKey: string | null;
+  readonly skills: readonly string[];
+  readonly publishedServiceCount: number;
+}
+
+/** `PublicAdvisorQueryDto` — the filters `GET /advisors` accepts. */
+export interface ApiPublicAdvisorQuery {
+  readonly page?: number;
+  /** 1 to 100; the API rejects more. */
+  readonly limit?: number;
+  /** Matched against the display name and the headline. */
+  readonly q?: string;
+  readonly skillId?: string;
+}
+
 /** `AvailabilitySlotResponseDto` — availability/dtos/availability.dto.ts:134 */
 export interface ApiSlot {
   readonly startTime: string;

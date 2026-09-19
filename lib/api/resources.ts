@@ -24,6 +24,8 @@ import type {
   ApiAvatarUrl,
   ApiNamedRecord,
   ApiOwnProfile,
+  ApiPublicAdvisor,
+  ApiPublicAdvisorQuery,
   ApiPublicService,
   ApiPublicServiceQuery,
   ApiRatingSummary,
@@ -74,6 +76,31 @@ export function listServiceCategories(
 /** `GET /skills` — public. */
 export function listSkills(signal?: AbortSignal): Promise<Paginated<ApiNamedRecord>> {
   return api.get("skills", { signal });
+}
+
+/* ----------------------------------------------------------------- advisors */
+
+/**
+ * `GET /advisors` — public, paginated.
+ *
+ * Discoverable means: has a profile, has an active unbanned account, and has at
+ * least one published service. An advisor missing any of those is absent from
+ * this list and 404s on the detail route, so a service whose advisor has been
+ * suspended will not find a name here — see `listServices`'s callers.
+ */
+export function listAdvisors(
+  query: ApiPublicAdvisorQuery = {},
+  signal?: AbortSignal,
+): Promise<Paginated<ApiPublicAdvisor>> {
+  return api.get("advisors", { query: { ...query }, signal });
+}
+
+/** `GET /advisors/:advisorId` — public. 404s for an advisor who is not listed. */
+export function getAdvisor(
+  advisorId: string,
+  signal?: AbortSignal,
+): Promise<ApiPublicAdvisor> {
+  return api.get(`advisors/${advisorId}`, { signal });
 }
 
 /* ------------------------------------------------------------------ reviews */

@@ -4,12 +4,14 @@ import { ChevronDown, ChevronLeft, ChevronUp } from "lucide-react";
 import { useTranslations } from "next-intl";
 import type { ReactNode } from "react";
 
+// `services` is gone from this file: the browse list reads the API now. The two
+// helpers stay because the search-results screen above still renders fixtures.
 import {
   getAdvisor,
   getService,
-  services,
   type Service,
 } from "@/lib/catalogue/services";
+import { BrowseList } from "@/components/home/browse-list";
 import { errorSearch } from "@/lib/assets/r2";
 import { Button } from "@/components/ui/button";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
@@ -598,18 +600,15 @@ export function BrowseAllScreen() {
         >
           <FilterRail />
 
+          {/* Read from the API, not from `lib/catalogue/services`. This is the
+              first screen in the app that talks to it, and `BrowseList` carries
+              its own loading, error and empty states because a client-side fetch
+              under a static export has all three. The count in the head comes off
+              the catalogue still: the API's `total` is inside the response, so a
+              heading above the list cannot know it until the list has answered. */}
           <div className="flex w-full min-w-px flex-col items-center gap-4 lg:gap-6">
-            <ResultsHead label={t("browseCount", { count: services.length })} />
-
-            <div className="flex w-full shrink-0 flex-col items-start gap-3 lg:grid lg:grid-cols-3 lg:gap-6">
-              {services.map((service) => (
-                <ResultCard key={service.id} service={service} />
-              ))}
-            </div>
-
-            <p className="w-full pt-2 text-center text-xs font-normal text-muted-foreground lg:pt-4">
-              {t("browseShowing", { count: services.length })}
-            </p>
+            <ResultsHead label={t("browseTitle")} />
+            <BrowseList />
           </div>
         </div>
       </ScreenBody>
