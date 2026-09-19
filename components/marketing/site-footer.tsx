@@ -175,15 +175,13 @@ export function SiteFooter({ className }: { readonly className?: string }) {
         className,
       )}
     >
-      {/* The glow the frame inherits from the page layer behind it. Its own
-          layer rather than a background on the footer, so the footer keeps a
-          flat ground underneath and the copy is never sitting on the gradient's
-          colour-mix. `-z-10` under an `isolate` parent keeps it off the text
-          without leaking behind the page. */}
-      <div
-        aria-hidden
-        className="pointer-events-none absolute inset-0 -z-10 bg-footer-glow"
-      />
+      {/* No glow layer. It was never in the design: Figma's footer frame
+          (225:10503) is `rgba(212,194,255,0)` — a fully transparent ground with
+          white ink on it — and `--footer-glow`'s own comment in globals.css says
+          outright that its "palette and geometry are the author's, tuned by eye
+          on the running page". A five-stop radial gradient behind a legal footer
+          was the loudest thing on the page and none of it was asked for. The flat
+          ground stays, because white ink needs one. */}
 
       {/* The desktop footer.
 

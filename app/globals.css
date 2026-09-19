@@ -87,9 +87,6 @@
   --shadow-panel: 0 8px 24px -4px color-mix(in srgb, var(--scrim) 10%, transparent),
     0 1px 2px color-mix(in srgb, var(--scrim) 4%, transparent);
   --color-footer-surface: var(--footer-surface);
-  /* A `background-image`, like `--hero-wash`: it paints its own decorative
-     layer over the footer's ground rather than replacing it. */
-  --background-image-footer-glow: var(--footer-glow);
   --color-scrim: var(--scrim);
   --color-sidebar-ring: var(--sidebar-ring);
   --color-sidebar-border: var(--sidebar-border);
@@ -215,25 +212,17 @@
     color-mix(in oklab, var(--primary) 34%, var(--card)) 100%
   );
 
-  /* Figma 225:10503 draws the footer over a page-wide glow layer (node
-     1213:16952) of gaussian-blurred ellipses. Blurred ellipses are
-     radial-gradients, so they are drawn the way `--hero-wash` draws its two
-     rather than shipping a 10,656px-tall asset to show its bottom 9%.
+  /* The footer's ground. Figma's own footer frame (225:10503) is
+     `rgba(212,194,255,0)` — transparent, carrying white ink — so the dark comes
+     from the page behind it, and this token is that page reduced to one flat
+     value. It is dark in both themes on purpose, like `--on-media` and
+     `--scrim`; flipping it in `.dark` would invert it.
 
-     Palette and geometry are the author's, tuned by eye on the running page.
-     Absent from `.dark` on purpose — like `--on-media` and `--scrim`, this
-     surface is already dark in both themes and flipping it would invert it. */
+     The five-stop radial glow that used to sit on top of this is gone. Its own
+     comment admitted its "palette and geometry are the author's, tuned by eye",
+     which is to say it was not in the design at all, and a five-colour gradient
+     behind a legal footer was the loudest thing on the page. */
   --footer-surface: #040413;
-  --footer-glow-blue: #278C9D;
-  --footer-glow-purple: #3229A8;
-  --footer-glow-red: #770056;
-  --footer-glow-cyan: #103A48;
-  --footer-glow:
-    radial-gradient(ellipse 84% 58% at 10% -4%, color-mix(in oklab, var(--footer-glow-blue) 35%, transparent), transparent 76%),
-    radial-gradient(ellipse 150% 150% at 120% -30%, color-mix(in oklab, var(--footer-glow-purple) 35%, transparent), transparent 76%),
-    radial-gradient(ellipse 150% 150% at 0% 150%, color-mix(in oklab, var(--footer-glow-red) 35%, transparent), transparent 76%),
-    radial-gradient(ellipse 150% 150% at 80% 120%, color-mix(in oklab, var(--footer-glow-cyan) 55%, transparent), transparent 76%),
-    radial-gradient(ellipse 86% 40% at 104% 35%, color-mix(in oklab, var(--footer-glow-red) 30%, transparent), transparent 76%);
   --chart-1: oklch(0.809 0.105 251.813);
   --chart-2: oklch(0.623 0.214 259.815);
   --chart-3: oklch(0.546 0.245 262.881);
