@@ -1,4 +1,6 @@
-import { CreditCard, Lock } from "lucide-react";
+'use client';
+
+import { CreditCard } from "lucide-react";
 import { useTranslations } from "next-intl";
 
 import {
@@ -9,7 +11,6 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { SiteFooter } from "@/components/marketing/site-footer";
-import { PrimaryButton } from "@/components/mobile/buttons";
 import { Field } from "@/components/mobile/field";
 import {
   MobileScreen,
@@ -20,8 +21,45 @@ import {
 } from "@/components/mobile/screen";
 import { PAGE_BAND, PAGE_HEAD_BAND } from "@/components/payment/invoice-screens";
 import { FootNote } from "@/components/screening/parts";
-import { SummaryLine } from "@/components/payment/summary-line";
-import { CardForm } from "@/components/payment/card-form";
+// import { SummaryLine } from "@/components/payment/summary-line";
+import { CardForm, formStates } from "@/components/payment/card-form";
+import { TopBar } from "@/components/topbar";
+import { useState } from "react";
+import { Button } from "@/components/ui/button";
+import z from "zod";
+
+
+/** Figma order-summary line — label left, amount right. */
+function SummaryLine({
+  label,
+  value,
+  strong = false,
+}: {
+  readonly label: string;
+  readonly value: string;
+  readonly strong?: boolean;
+}) {
+  return (
+    <div className="flex w-full shrink-0 items-center justify-between gap-3">
+      <span
+        className={`min-w-px flex-1 text-sm ${
+          strong ? "font-medium text-foreground" : "font-normal text-muted-foreground"
+        }`}
+      >
+        {label}
+      </span>
+      <span
+        className={`font-latin shrink-0 text-sm whitespace-nowrap ${
+          strong
+            ? "font-semibold text-foreground lg:text-base"
+            : "font-normal text-foreground"
+        }`}
+      >
+        {value}
+      </span>
+    </div>
+  );
+}
 
 /**
  * The card this reader has already paid with. There is no saved-card model yet —
@@ -89,9 +127,12 @@ export function CardDetailsScreen({
   readonly state?: "default" | "errors" | "saved";
 }) {
   const t = useTranslations("payment");
+  const tc = useTranslations("payment.methodForm.card");
   const c = useTranslations("common");
   const err = state === "errors";
   const saved = state === "saved";
+
+  const [formState, setFormState] = useState<z.infer<typeof formStates>>('canSubmit');
 
   return (
     <MobileScreen wide>
@@ -152,52 +193,7 @@ export function CardDetailsScreen({
               </>
             ) : (
               <>
-                {/* Figma "Form Fields": card number, an expiry/CVC row, then
-                    the name. The row is already two halves, which is what the
-                    frame's 388 + 12 + 388 comes to inside the 788 column. */}
-                <div className="flex w-full shrink-0 flex-col items-start gap-4 px-6 pt-4 lg:pt-0">
-                  <Field
-                    defaultValue={err ? t("cardNumberFilled") : undefined}
-                    error={err ? t("cardNumberError") : undefined}
-                    id="card-number"
-                    invalid={err}
-                    label={t("cardNumberLabel")}
-                    latin
-                    placeholder={t("cardNumberPlaceholder")}
-                  />
-                  <div className="flex w-full shrink-0 items-start gap-3">
-                    <div className="min-w-px flex-1">
-                      <Field
-                        defaultValue={err ? t("expiryFilled") : undefined}
-                        error={err ? t("expiryError") : undefined}
-                        id="card-expiry"
-                        invalid={err}
-                        label={t("expiryLabel")}
-                        latin
-                        placeholder={t("expiryPlaceholder")}
-                      />
-                    </div>
-                    <div className="min-w-px flex-1">
-                      <Field
-                        defaultValue={err ? t("cvcFilled") : undefined}
-                        error={err ? t("cvcError") : undefined}
-                        id="card-cvc"
-                        invalid={err}
-                        label={t("cvcLabel")}
-                        latin
-                        placeholder={t("cvcPlaceholder")}
-                      />
-                    </div>
-                  </div>
-                  <Field
-                    id="card-name"
-                    label={t("cardNameLabel")}
-                    latin
-                    placeholder={t("cardNamePlaceholder")}
-                  />
-                </div>
-
-                <FootNote icon={Lock}>{t("secureNote")}</FootNote>
+                <CardForm setFormState={setFormState} />
               </>
             )}
           </div>
@@ -210,19 +206,24 @@ export function CardDetailsScreen({
               so it stays disabled there rather than pretending to authorise. */}
           <ScreenSpacer className="lg:hidden" />
           <div className="flex w-full shrink-0 flex-col items-center px-6 pt-2 pb-2 lg:col-start-2 lg:row-start-2 lg:px-0 lg:pt-5 lg:pb-0">
-            {saved ? (
-              <PrimaryButton className="disabled:opacity-40 lg:h-11" disabled>
+            {/* {saved ? (
+              <SubmitButtonElement className="disabled:opacity-40 lg:h-11" disabled>
                 {t("pay")}
-              </PrimaryButton>
+              </SubmitButtonElement>
             ) : (
-              <PrimaryButton className="lg:h-11" href="/checkout/processing">
+              <SubmitButtonElement className="lg:h-11" href="/checkout/processing">
                 {t("pay")}
-              </PrimaryButton>
-            )}
+              </SubmitButtonElement>
+            )} */}
+            {
+              <Button type="submit" disabled={formState !== 'canSubmit'} className="w-full" form="card-form">
+                {formState === 'isSubmitting' ? tc("payButtonProcessing") : tc("payButtonReady")}
+              </Button>
+            }
           </div>
         </div>
 
-        <CardForm />
+        {/* <CardForm /> */}
 
         {/* <ScreenSpacer /> */}
         {/* <div className="flex w-full shrink-0 flex-col items-center px-6 pt-2 pb-2">

@@ -13,9 +13,11 @@ import {
 } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { useCreateCardToken } from "@/lib/payment";
-import { useForm } from "@tanstack/react-form-nextjs";
+import { useForm, useSelector } from "@tanstack/react-form-nextjs";
 import { Lock } from "lucide-react";
 import { useTranslations } from "next-intl";
+import { useEffect } from "react";
+import { FormState } from "react-hook-form";
 import z from "zod";
 
 export const formSchema = z.object({
@@ -30,6 +32,15 @@ export const formSchema = z.object({
     .nonoptional(),
   cardHolderName: z.string().nonempty().nonoptional(),
 });
+
+export const formDefaults = {
+  cardNumber: "4242 4242 4242 4242",
+  expiryDate: "12 / 34",
+  securityCode: "123",
+  cardHolderName: "pee pee",
+};
+
+export const formStates = z.enum(['canSubmit', 'isSubmitting']);
 
 export function formatCardNumber(value: string) {
   return value
@@ -53,7 +64,11 @@ export function formatExpiryDate(value: string) {
   }
 }
 
-export function CardForm() {
+type CardFormProps = {
+  setFormState: (state: z.infer<typeof formStates>) => void;
+};
+
+export function CardForm({ setFormState }: CardFormProps) {
   // const today = new Date();
   const { mutateAsync: createToken } = useCreateCardToken();
 
@@ -61,19 +76,14 @@ export function CardForm() {
   const tc = useTranslations("payment.methodForm.card");
 
   const form = useForm({
-    defaultValues: {
-      cardNumber: "4242 4242 4242 4242",
-      expiryDate: "12 / 34",
-      securityCode: "123",
-      cardHolderName: "pee pee",
-    },
+    defaultValues: formDefaults,
     validators: {
       onBlur: formSchema,
       onSubmit: formSchema,
     },
     onSubmit: async ({ value }) => {
       console.log(value);
-      const omiseCard = transformCardFormToOmiseDto(value)
+      const omiseCard = transformCardFormToOmiseDto(value);
       console.log(omiseCard);
       const res = await createToken(omiseCard, {
         onSuccess: (result) => {
@@ -86,14 +96,23 @@ export function CardForm() {
     },
   });
 
+  const isSubmitting = useSelector(form.store, (state) => state.isSubmitting);
+  const canSubmit = useSelector(form.store, (state) => state.canSubmit);
+
+  useEffect(() => {
+    if (isSubmitting) setFormState("isSubmitting");
+    else if (canSubmit) setFormState("canSubmit");
+  }, [canSubmit, isSubmitting, setFormState]);
+
   return (
     <div className="h-full w-full">
       <form
         className="flex w-full shrink-0 flex-col items-start gap-4 px-6 pt-4 h-full"
         onSubmit={(e) => {
           e.preventDefault();
-          form.handleSubmit()
+          form.handleSubmit();
         }}
+        id="card-form"
       >
         <FieldSet className="w-full">
           <FieldGroup>
@@ -221,7 +240,7 @@ export function CardForm() {
 
         <ScreenSpacer />
 
-        <form.Subscribe
+        {/* <form.Subscribe
           selector={(formState) => [
             formState.canSubmit,
             formState.isSubmitting,
@@ -232,7 +251,7 @@ export function CardForm() {
               {isSubmitting ? tc("payButtonProcessing") : tc("payButtonReady")}
             </Button>
           )}
-        </form.Subscribe>
+        </form.Subscribe> */}
       </form>
     </div>
   );
