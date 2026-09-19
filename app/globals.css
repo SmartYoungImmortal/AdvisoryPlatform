@@ -212,17 +212,21 @@
     color-mix(in oklab, var(--primary) 34%, var(--card)) 100%
   );
 
-  /* The footer's ground. Figma's own footer frame (225:10503) is
-     `rgba(212,194,255,0)` — transparent, carrying white ink — so the dark comes
-     from the page behind it, and this token is that page reduced to one flat
-     value. It is dark in both themes on purpose, like `--on-media` and
-     `--scrim`; flipping it in `.dark` would invert it.
+  /* The footer's ground — one flat colour, no gradient and no decorative layer.
+     Figma's own footer frame (225:10503) is `rgba(212,194,255,0)`, transparent
+     with white ink, so the dark belongs to the page behind it and this token is
+     that page reduced to a single value.
 
-     The five-stop radial glow that used to sit on top of this is gone. Its own
-     comment admitted its "palette and geometry are the author's, tuned by eye",
-     which is to say it was not in the design at all, and a five-colour gradient
-     behind a legal footer was the loudest thing on the page. */
-  --footer-surface: #040413;
+     A deep navy rather than near-black. It was `#040413`, which is black to the
+     eye — 2% lightness with a trace of blue nobody can see — and a black band is
+     the one ending that makes a page look unfinished rather than closed. This is
+     the brand blue taken down to a ground: the same hue family as
+     `--primary: #2563eb`, dark enough that white body copy clears AAA on it
+     several times over, light enough to read as a colour.
+
+     Dark in both themes on purpose, like `--on-media` and `--scrim`; flipping it
+     in `.dark` would invert it. */
+  --footer-surface: #16213e;
   --chart-1: oklch(0.809 0.105 251.813);
   --chart-2: oklch(0.623 0.214 259.815);
   --chart-3: oklch(0.546 0.245 262.881);

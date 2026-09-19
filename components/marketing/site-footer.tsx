@@ -191,20 +191,9 @@ export function SiteFooter({ className }: { readonly className?: string }) {
           Anchored to the bottom at full width, with the wrapper clipping the rest,
           so what shows is the part the frame shows. `-z-10` under an `isolate`
           parent keeps it off the text. */}
-      <div
-        aria-hidden
-        className="pointer-events-none absolute inset-0 -z-10 overflow-clip"
-      >
-        {/* Not `next/image`: this is a decorative vector with no intrinsic layout
-            to reserve and no optimisation to do — `images.unoptimized` is on and
-            the export emits it untouched either way. */}
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img
-          alt=""
-          className="absolute bottom-0 left-0 w-full max-w-none"
-          src="/footer-glow.svg"
-        />
-      </div>
+      {/* Nothing is drawn over the ground. Both attempts at the glow — the CSS
+          reimplementation and then Figma's own asset — are gone; the footer is one
+          flat colour, and `--footer-surface` is the whole of it. */}
 
       {/* The desktop footer.
 
