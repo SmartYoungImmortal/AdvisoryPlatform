@@ -1,5 +1,5 @@
-import { AdminLoginScreen } from "@/components/admin/admin-login-screen";
+import { CmsLoginScreen } from "@/components/cms/login-screen";
 
 export default function AdminLoginPage() {
-  return <AdminLoginScreen />;
+  return <CmsLoginScreen />;
 }

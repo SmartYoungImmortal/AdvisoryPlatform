@@ -37,9 +37,12 @@ export function ScreeningQuestionsScreen() {
   const c = useTranslations("common");
 
   return (
-    <MobileScreen>
+    // No desktop frame was drawn for this flow, so it follows the rule the
+    // drawn ones set: the canvas opens up and the blocks hold a readable
+    // column rather than a 448px strip stranded on a 1440 page.
+    <MobileScreen wide>
       <ScreenTopBar href="/matching/results" label={c("back")} />
-      <ScreenBody>
+      <ScreenBody className="lg:[&>*]:mx-auto lg:[&>*]:w-full lg:[&>*]:max-w-[720px]">
         {/* Figma "Stage Header": 8px top padding, 10px gap, 20px subtitle. */}
         <div className="flex w-full shrink-0 flex-col items-start gap-2.5 overflow-clip px-6 pt-2">
           <h1 className="w-full text-heading font-semibold text-foreground">
@@ -84,9 +87,12 @@ export function ScreeningSubmittedScreen() {
   const c = useTranslations("common");
 
   return (
-    <MobileScreen>
+    // No desktop frame was drawn for this flow, so it follows the rule the
+    // drawn ones set: the canvas opens up and the blocks hold a readable
+    // column rather than a 448px strip stranded on a 1440 page.
+    <MobileScreen wide>
       <ScreenTopBar href="/screening/questions" label={c("back")} />
-      <ScreenBody>
+      <ScreenBody className="lg:[&>*]:mx-auto lg:[&>*]:w-full lg:[&>*]:max-w-[720px]">
         <StatusHero
           badgeClassName="bg-primary/10"
           icon={Hourglass}
@@ -127,9 +133,12 @@ export function ScreeningAcceptedScreen() {
   const c = useTranslations("common");
 
   return (
-    <MobileScreen>
+    // No desktop frame was drawn for this flow, so it follows the rule the
+    // drawn ones set: the canvas opens up and the blocks hold a readable
+    // column rather than a 448px strip stranded on a 1440 page.
+    <MobileScreen wide>
       <ScreenTopBar href="/screening/submitted" label={c("back")} />
-      <ScreenBody>
+      <ScreenBody className="lg:[&>*]:mx-auto lg:[&>*]:w-full lg:[&>*]:max-w-[720px]">
         <StatusHero
           badgeClassName="bg-success-surface"
           icon={CircleCheckBig}
@@ -162,9 +171,12 @@ export function ScreeningDeclinedScreen() {
   const c = useTranslations("common");
 
   return (
-    <MobileScreen>
+    // No desktop frame was drawn for this flow, so it follows the rule the
+    // drawn ones set: the canvas opens up and the blocks hold a readable
+    // column rather than a 448px strip stranded on a 1440 page.
+    <MobileScreen wide>
       <ScreenTopBar href="/screening/submitted" label={c("back")} />
-      <ScreenBody>
+      <ScreenBody className="lg:[&>*]:mx-auto lg:[&>*]:w-full lg:[&>*]:max-w-[720px]">
         <StatusHero
           icon={Clock}
           subtitle={t("declinedSubtitle")}
@@ -202,9 +214,12 @@ export function TrialConsultationScreen() {
   const c = useTranslations("common");
 
   return (
-    <MobileScreen>
+    // No desktop frame was drawn for this flow, so it follows the rule the
+    // drawn ones set: the canvas opens up and the blocks hold a readable
+    // column rather than a 448px strip stranded on a 1440 page.
+    <MobileScreen wide>
       <ScreenTopBar href="/screening/accepted" label={c("back")} />
-      <ScreenBody>
+      <ScreenBody className="lg:[&>*]:mx-auto lg:[&>*]:w-full lg:[&>*]:max-w-[720px]">
         <ScreenHeading
           className="gap-2 pt-4"
           subtitle={t("trialSubtitle")}

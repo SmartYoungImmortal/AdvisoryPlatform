@@ -7,19 +7,34 @@ import { cn } from "@/lib/utils";
 /**
  * Figma "Stage Header" — a 354x8 progress track with a proportional fill, the
  * "ขั้นตอนที่ n จาก 3" caption and the 28/40 stage title.
+ *
+ * The desktop frames keep every part of it and only change the measure and the
+ * title's step: Figma "Step Band" (1787:24450) is the same track over the same
+ * caption in an 800px column, with the title at 40/60. Callers pass those as
+ * `lg:` classes rather than the band being a second component.
  */
 export function StageHeader({
   step,
   label,
   title,
+  className,
+  subtitle,
 }: {
   readonly step: 1 | 2 | 3;
   readonly label: string;
   readonly title: string;
+  readonly className?: string;
+  /** Figma's stage 3 hangs its intro line under the title, inside the band. */
+  readonly subtitle?: ReactNode;
 }) {
   return (
     // 88px total: 8 top padding + 8 track + 10 + 18 caption + 4 + 40 title.
-    <div className="flex w-full shrink-0 flex-col items-start overflow-clip px-6 pt-2">
+    <div
+      className={cn(
+        "flex w-full shrink-0 flex-col items-start overflow-clip px-6 pt-2",
+        className,
+      )}
+    >
       <div className="h-2 w-full shrink-0 overflow-clip rounded-full bg-muted">
         <div
           className="h-full rounded-full bg-primary"
@@ -29,9 +44,14 @@ export function StageHeader({
       <p className="mt-2.5 w-full text-xs font-normal text-muted-foreground">
         {label}
       </p>
-      <h1 className="mt-1 w-full text-heading font-semibold text-foreground">
+      <h1 className="mt-1 w-full text-heading font-semibold text-foreground lg:text-display">
         {title}
       </h1>
+      {subtitle ? (
+        <p className="hidden w-full pt-2 text-sm font-normal text-muted-foreground lg:block">
+          {subtitle}
+        </p>
+      ) : null}
     </div>
   );
 }

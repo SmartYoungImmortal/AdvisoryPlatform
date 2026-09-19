@@ -1,11 +1,12 @@
-import Image from "next/image";
 import Link from "next/link";
 import { UserRoundCog } from "lucide-react";
+import type { ReactNode } from "react";
 
+import { AccountAvatar } from "@/components/session/account-bits";
 import { arayaS as araya } from "@/lib/assets/r2";
 import { cn } from "@/lib/utils";
 
-type Stat = { readonly value: string; readonly label: string };
+type Stat = { readonly value: ReactNode; readonly label: string };
 
 /**
  * Figma "Identity Card" — surface, 14px radius, 14px padding, 12px gaps: a 56px
@@ -19,7 +20,7 @@ export function IdentityCard({
   editLabel,
   className,
 }: {
-  readonly name: string;
+  readonly name: ReactNode;
   readonly subtitle: string;
   readonly stats: readonly Stat[];
   readonly editHref: string;
@@ -34,13 +35,7 @@ export function IdentityCard({
       )}
     >
       <div className="flex w-full shrink-0 items-center gap-3 overflow-clip">
-        <Image
-          alt=""
-          className="size-14 shrink-0 rounded-full object-cover"
-          height={56}
-          src={araya}
-          width={56}
-        />
+        <AccountAvatar className="size-14" fallback={araya} size={56} />
         <div className="flex min-w-px flex-1 flex-col items-start gap-0.5 overflow-clip">
           <p className="w-full text-base font-medium text-foreground">
             {name}

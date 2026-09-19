@@ -90,7 +90,11 @@ export function LandingScreen() {
   const t = useTranslations("landing");
 
   return (
-    <MobileScreen>
+    // Figma "Desktop / Landing – About & FAQ (Light)" (1564:25086) keeps every
+    // band of the phone page and lets each one breathe across the 1200 column:
+    // the steps sit four across, the good-to-know points two across, and the
+    // hero and closing band hold their copy to a readable measure.
+    <MobileScreen wide>
       <ScreenBody>
         {/* The design gave this frame its own nav (wordmark + a login link over
             the photo). It uses the shared bar instead, so the landing reads as the
@@ -100,7 +104,7 @@ export function LandingScreen() {
             540px band with a still; this fills the phone screen with the clip
             instead, so `h-full` (the height ScreenBody has left) replaces it. The
             copy centres in whatever height that turns out to be. */}
-        <section className="relative flex h-full w-full shrink-0 flex-col items-start justify-center overflow-clip">
+        <section className="relative flex h-full w-full shrink-0 flex-col items-start justify-center overflow-clip lg:h-[540px]">
           <HlsVideo
             className="absolute inset-0"
             poster={landingHeroPoster.src}
@@ -109,7 +113,7 @@ export function LandingScreen() {
           <div className="absolute inset-0 bg-scrim/58" />
 
           {/* Figma "Hero Copy" */}
-          <div className="relative flex w-full shrink-0 flex-col items-start gap-3 overflow-clip px-6">
+          <div className="relative flex w-full shrink-0 flex-col items-start gap-3 overflow-clip px-6 lg:mx-auto lg:max-w-[1440px] lg:px-10 xl:px-30 lg:[&>*]:max-w-[640px]">
             <p className="w-full text-sm font-semibold text-on-media/75">
               {t("heroEyebrow")}
             </p>
@@ -123,14 +127,14 @@ export function LandingScreen() {
             </p>
             {/* `nativeButton={false}` because the CTA renders an anchor — without it
                 Base UI warns that the native button semantics were dropped. */}
-            <Button className="w-full" nativeButton={false} render={<Link href="/matching" />}>
+            <Button className="w-full lg:w-auto lg:px-8" nativeButton={false} render={<Link href="/matching" />}>
               {t("heroCta")}
             </Button>
           </div>
         </section>
 
         {/* Figma "About" (1091:16068) */}
-        <section id="about" className="flex w-full shrink-0 flex-col items-start gap-4 overflow-clip px-6 pt-12 pb-2">
+        <section id="about" className="flex w-full shrink-0 flex-col items-start gap-4 overflow-clip px-6 pt-12 pb-2 lg:mx-auto lg:max-w-[1440px] lg:px-10 xl:px-30 lg:pt-20 lg:pb-6 lg:[&>p]:max-w-[820px]">
           <SectionHeader eyebrow={t("aboutEyebrow")} title={t("aboutTitle")} />
           {/* No ThaiText here: the closing run is wider than the 354px column, and
               a non-wrapping run that cannot fit overflows instead of breaking. */}
@@ -162,9 +166,9 @@ export function LandingScreen() {
         </section>
 
         {/* Figma "How it works" (1092:16067) */}
-        <section id="how-it-works" className="flex w-full shrink-0 flex-col items-start gap-4 overflow-clip px-6 pt-12 pb-2">
+        <section id="how-it-works" className="flex w-full shrink-0 flex-col items-start gap-4 overflow-clip px-6 pt-12 pb-2 lg:mx-auto lg:max-w-[1440px] lg:px-10 xl:px-30 lg:pt-20 lg:pb-6">
           <SectionHeader eyebrow={t("stepsEyebrow")} title={t("stepsTitle")} />
-          <div className="flex w-full shrink-0 flex-col items-start gap-3 overflow-clip">
+          <div className="flex w-full shrink-0 flex-col items-start gap-3 overflow-clip lg:grid lg:grid-cols-4 lg:gap-4">
             <Step index="1" title={t("step1Title")}>
               <ThaiText>{t("step1Body")}</ThaiText>
             </Step>
@@ -181,8 +185,10 @@ export function LandingScreen() {
         </section>
 
         {/* Figma "Good to know" (1093:16067) — the one muted-surface band. */}
-        <section id="good-to-know" className="flex w-full shrink-0 flex-col items-start gap-4 overflow-clip bg-muted px-6 py-12">
-          <SectionHeader eyebrow={t("knowEyebrow")} title={t("knowTitle")} />
+        <section id="good-to-know" className="flex w-full shrink-0 flex-col items-start gap-4 overflow-clip bg-muted px-6 py-12 lg:grid lg:grid-cols-2 lg:gap-6 lg:px-10 xl:px-30 lg:py-20">
+          <div className="w-full lg:col-span-2 lg:mx-auto lg:max-w-[1200px]">
+            <SectionHeader eyebrow={t("knowEyebrow")} title={t("knowTitle")} />
+          </div>
           {/* Same overflow caveat as About: this run does not fit the column. */}
           <KnowPoint icon={ShieldCheck} title={t("know1Title")}>
             {t("know1Body")}
@@ -200,7 +206,7 @@ export function LandingScreen() {
 
         {/* Figma "FAQ" (1094:16119) — see `FaqSection`; the rows really open now. */}
         <section
-          className="flex w-full shrink-0 flex-col items-start gap-4 overflow-clip px-6 pt-12 pb-2"
+          className="flex w-full shrink-0 flex-col items-start gap-4 overflow-clip px-6 pt-12 pb-2 lg:mx-auto lg:max-w-[1440px] lg:px-10 xl:px-30 lg:pt-20 lg:pb-10"
           id="faq"
         >
           <SectionHeader eyebrow={t("faqEyebrow")} title={t("faqTitle")} />
@@ -211,25 +217,25 @@ export function LandingScreen() {
         </section>
 
         {/* Figma "CTA Band" (1097:16133) — 402 x 320 under a 66% black scrim. */}
-        <section className="relative flex h-[320px] w-full shrink-0 flex-col items-start overflow-clip">
+        <section className="relative flex h-[320px] w-full shrink-0 flex-col items-start overflow-clip lg:h-[360px] lg:justify-center">
           <Image
             alt=""
             className="absolute inset-0 size-full object-cover"
             src={landingCtaBand}
           />
           <div className="absolute inset-0 bg-scrim/66" />
-          <div className="relative flex w-full shrink-0 flex-col items-start gap-3 overflow-clip px-6 pt-14">
+          <div className="relative flex w-full shrink-0 flex-col items-start gap-3 overflow-clip px-6 pt-14 lg:mx-auto lg:max-w-[1440px] lg:px-10 xl:px-30 lg:pt-0 lg:[&>*]:max-w-[640px]">
             <h2 className="w-full text-heading font-semibold text-on-media">
               {t("ctaTitle")}
             </h2>
             <p className="w-full text-base font-normal text-on-media/82">
               <ThaiText>{t("ctaBody")}</ThaiText>
             </p>
-            <Button className="w-full" nativeButton={false} render={<Link href="/register" />}>
+            <Button className="w-full lg:w-auto lg:px-8" nativeButton={false} render={<Link href="/register" />}>
               {t("ctaPrimary")}
             </Button>
             <Link
-              className="w-full text-center text-sm font-semibold text-on-media/85"
+              className="w-full text-center text-sm font-semibold text-on-media/85 lg:w-auto lg:text-start"
               href="/advisor/apply"
             >
               {t("ctaSecondary")}

@@ -1,7 +1,13 @@
+"use client";
+
 import { Check, CircleAlert, CircleCheckBig, Hourglass } from "lucide-react";
 import { useTranslations } from "next-intl";
 
 import { NeutralButton, PrimaryButton } from "@/components/mobile/buttons";
+import { formatDate } from "@/lib/mock-db/format";
+import { useDatabase } from "@/lib/mock-db/store";
+import { advisorLevelTitles } from "@/lib/mock-db/types";
+import { useSession } from "@/lib/session";
 import {
   MobileScreen,
   ScreenActions,
@@ -9,33 +15,71 @@ import {
   ScreenSpacer,
   ScreenTopBar,
 } from "@/components/mobile/screen";
+import { SiteFooter } from "@/components/marketing/site-footer";
 import { StepRow } from "@/components/onboarding/parts";
 import { StatusHero } from "@/components/screening/parts";
+import { TopBar } from "@/components/topbar";
+
+/**
+ * Figma "Card" (1787:25040) — the 560px panel the three outcome frames centre in
+ * the page, 48px inset on the card surface. These frames carry no back bar: the
+ * nav and the card's own actions are the only ways off them.
+ */
+const STATUS_CARD =
+  "flex w-full flex-1 flex-col lg:my-24 lg:w-[560px] lg:flex-none lg:rounded-2xl lg:border lg:border-border lg:bg-card lg:px-12 lg:pb-12";
+
+/** Figma "Actions" — a 360px stack, centred in the card. */
+const STATUS_ACTIONS = "lg:mx-auto lg:w-[360px] lg:px-0 lg:pt-8 lg:pb-0";
+const STATUS_BUTTON = "lg:h-11";
+
+/** The signed-in account's most recent advisor application. */
+function useLatestApplication() {
+  const session = useSession();
+  const accountId = session.status === "authenticated" ? session.account.id : null;
+  return useDatabase((db) =>
+    accountId ? db.identityRequests.find((r) => r.accountId === accountId) : undefined,
+  );
+}
 
 /** Figma "Thank You (Light)" — 995:6579. */
 export function OnboardingThankYouScreen() {
   const t = useTranslations("advisorOnboarding");
   const c = useTranslations("common");
+  const application = useLatestApplication();
 
   return (
-    <MobileScreen>
-      <ScreenTopBar href="/advisor-onboarding/stage-3" label={c("back")} />
+    // Figma "Desktop / Thank You (Light)" (1787:24947) — the phone frame's whole
+    // column, held as one 560px card under the app's nav.
+    <MobileScreen wide>
+      <div className="hidden w-full lg:block">
+        <TopBar unreadNotifications />
+      </div>
+      <ScreenTopBar className="lg:hidden" href="/advisor-onboarding/stage-3" label={c("back")} />
       <ScreenBody>
-        <StatusHero
-          badgeClassName="bg-success-surface"
-          icon={CircleCheckBig}
-          iconClassName="text-foreground"
-          subtitle={t("thanksSubtitle")}
-          title={t("thanksTitle")}
-        />
-        <p className="w-full px-6 pt-3 text-center text-xs font-normal text-muted-foreground">
-          {t("thanksMeta")}
-        </p>
-        <ScreenSpacer />
-        <ScreenActions>
-          <PrimaryButton href="/advisor-onboarding/pending">{t("seeStatus")}</PrimaryButton>
-          <NeutralButton href="/profile">{t("backHome")}</NeutralButton>
-        </ScreenActions>
+        <div className={STATUS_CARD}>
+          <StatusHero
+            badgeClassName="bg-success-surface"
+            icon={CircleCheckBig}
+            iconClassName="text-foreground"
+            subtitle={t("thanksSubtitle")}
+            title={t("thanksTitle")}
+          />
+          <p className="w-full px-6 pt-3 text-center text-xs font-normal text-muted-foreground lg:px-0">
+            {application
+              ? t("thanksMetaAt", { date: formatDate(application.submittedAt) })
+              : t("thanksMeta")}
+          </p>
+          <ScreenSpacer className="lg:hidden" />
+          <ScreenActions className={STATUS_ACTIONS}>
+            <PrimaryButton className={STATUS_BUTTON} href="/advisor-onboarding/pending">
+              {t("seeStatus")}
+            </PrimaryButton>
+            <NeutralButton className={STATUS_BUTTON} href="/profile">
+              {t("backHome")}
+            </NeutralButton>
+          </ScreenActions>
+        </div>
+        <SiteFooter className="mt-auto hidden lg:flex" />
       </ScreenBody>
     </MobileScreen>
   );
@@ -44,6 +88,10 @@ export function OnboardingThankYouScreen() {
 /**
  * Figma "Verification Pending" (995:6703) and "Verification Failed" (995:6658) —
  * the same step list with different statuses, plus a reviewer note when failed.
+ *
+ * With an application on file the screen shows its real outcome — including an
+ * approval, which the frames never drew — and `state` only decides the static
+ * frame a visitor without one sees.
  */
 export function VerificationStatusScreen({
   state,
@@ -52,12 +100,75 @@ export function VerificationStatusScreen({
 }) {
   const t = useTranslations("advisorOnboarding");
   const c = useTranslations("common");
-  const failed = state === "failed";
+  const session = useSession();
+  const application = useLatestApplication();
+  const outcome = application
+    ? application.status === "submitted"
+      ? "pending"
+      : application.status === "rejected"
+        ? "failed"
+        : "approved"
+    : state;
+  const failed = outcome === "failed";
+
+  if (outcome === "approved") {
+    const advisor = session.status === "authenticated" ? session.account.advisor : null;
+    return (
+      <MobileScreen wide>
+        <div className="hidden w-full lg:block">
+          <TopBar unreadNotifications />
+        </div>
+        <ScreenTopBar className="lg:hidden" href="/profile" label={c("back")} />
+        <ScreenBody>
+          <div className={STATUS_CARD}>
+            <StatusHero
+              badgeClassName="bg-success-surface"
+              icon={CircleCheckBig}
+              iconClassName="text-foreground"
+              subtitle={
+                advisor
+                  ? t("approvedSubtitle", {
+                      level: advisor.level,
+                      title: advisorLevelTitles[advisor.level],
+                    })
+                  : t("approvedSubtitleShort")
+              }
+              title={t("approvedTitle")}
+            />
+            <div className="flex w-full shrink-0 flex-col items-start px-6 pt-8 lg:px-0">
+              <div className="flex w-full shrink-0 flex-col items-start gap-3 overflow-clip rounded-xl bg-card p-3.5 lg:border lg:border-border">
+                <StepRow icon={Check} label={t("stepPersonal")} status={t("statusApproved")} />
+                <StepRow icon={Check} label={t("stepDocument")} status={t("statusApproved")} />
+                <StepRow icon={Check} label={t("stepSkills")} status={t("statusApproved")} />
+                <StepRow icon={Check} label={t("stepTeamReview")} status={t("statusApproved")} />
+              </div>
+            </div>
+            <ScreenSpacer className="lg:hidden" />
+            <ScreenActions className={STATUS_ACTIONS}>
+              <PrimaryButton className={STATUS_BUTTON} href="/advisor/services/new">
+                {t("createService")}
+              </PrimaryButton>
+              <NeutralButton className={STATUS_BUTTON} href="/work">
+                {t("goToWork")}
+              </NeutralButton>
+            </ScreenActions>
+          </div>
+          <SiteFooter className="mt-auto hidden lg:flex" />
+        </ScreenBody>
+      </MobileScreen>
+    );
+  }
 
   return (
-    <MobileScreen>
-      <ScreenTopBar href="/advisor-onboarding/thank-you" label={c("back")} />
+    // Figma "Desktop / Verification Pending" (1787:25016) and "… Failed"
+    // (1787:25101) — the same 560px card, with the reviewer's note inside it.
+    <MobileScreen wide>
+      <div className="hidden w-full lg:block">
+        <TopBar unreadNotifications />
+      </div>
+      <ScreenTopBar className="lg:hidden" href="/advisor-onboarding/thank-you" label={c("back")} />
       <ScreenBody>
+        <div className={STATUS_CARD}>
         <StatusHero
           badgeClassName={failed ? "bg-destructive/10" : "bg-primary/10"}
           icon={failed ? CircleAlert : Hourglass}
@@ -66,8 +177,8 @@ export function VerificationStatusScreen({
           title={failed ? t("failedTitle") : t("pendingTitle")}
         />
 
-        <div className="flex w-full shrink-0 flex-col items-start px-6 pt-8">
-          <div className="flex w-full shrink-0 flex-col items-start gap-3 overflow-clip rounded-xl bg-card p-3.5">
+        <div className="flex w-full shrink-0 flex-col items-start px-6 pt-8 lg:px-0">
+          <div className="flex w-full shrink-0 flex-col items-start gap-3 overflow-clip rounded-xl bg-card p-3.5 lg:border lg:border-border">
             <StepRow
               icon={Check}
               label={t("stepPersonal")}
@@ -97,7 +208,7 @@ export function VerificationStatusScreen({
 
         {failed ? (
           /* Figma "Note": the reviewer's rejection reason. */
-          <div className="flex w-full shrink-0 flex-col items-start px-6 pt-3">
+          <div className="flex w-full shrink-0 flex-col items-start px-6 pt-3 lg:px-0">
             <div className="flex w-full shrink-0 items-start gap-2.5 overflow-clip rounded-xl border border-destructive bg-card p-3.5">
               <CircleAlert className="size-4 shrink-0 text-destructive" />
               <div className="flex min-w-px flex-1 flex-col items-start gap-0.5 overflow-clip">
@@ -105,24 +216,32 @@ export function VerificationStatusScreen({
                   {t("reviewerNote")}
                 </p>
                 <p className="w-full text-sm font-normal text-foreground">
-                  {t("reviewerReason")}
+                  {application?.decision?.note ?? t("reviewerReason")}
                 </p>
               </div>
             </div>
           </div>
         ) : null}
 
-        <ScreenSpacer />
-        <ScreenActions>
+        <ScreenSpacer className="lg:hidden" />
+        <ScreenActions className={STATUS_ACTIONS}>
           {failed ? (
             <>
-              <PrimaryButton href="/advisor-onboarding/stage-2">{t("resubmit")}</PrimaryButton>
-              <NeutralButton href="/profile">{t("backHome")}</NeutralButton>
+              <PrimaryButton className={STATUS_BUTTON} href="/advisor-onboarding/stage-2">
+                {t("resubmit")}
+              </PrimaryButton>
+              <NeutralButton className={STATUS_BUTTON} href="/profile">
+                {t("backHome")}
+              </NeutralButton>
             </>
           ) : (
-            <PrimaryButton href="/profile">{t("backHome")}</PrimaryButton>
+            <PrimaryButton className={STATUS_BUTTON} href="/profile">
+              {t("backHome")}
+            </PrimaryButton>
           )}
         </ScreenActions>
+        </div>
+        <SiteFooter className="mt-auto hidden lg:flex" />
       </ScreenBody>
     </MobileScreen>
   );

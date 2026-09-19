@@ -1,9 +1,6 @@
-import { AdminLoginScreen } from "@/components/admin/admin-login-screen";
+import { CmsEntry } from "@/components/cms/entry";
 
-/**
- * Mirrors Nexus's behaviour where an unauthenticated hit on `/admin` redirects to
- * the login screen — in this static prototype `/admin` simply renders it.
- */
+/** Nexus's `/admin`: signed in goes to the first desk, signed out to the login. */
 export default function AdminIndexPage() {
-  return <AdminLoginScreen />;
+  return <CmsEntry />;
 }

@@ -32,10 +32,28 @@
      which is neither the size nor the leading the design asks for. */
   --text-heading-lg: 2rem;
   --text-heading-lg--line-height: 2.75rem;
+  /* Figma "Headline" on the desktop home hero (1564:24868) — 40/60, a step
+     above anything the phone frames ask for, and the widest leading in the
+     scale because the line has to breathe across a 720px column. */
+  --text-display: 2.5rem;
+  --text-display--line-height: 3.75rem;
 
   --color-success: var(--success);
   --color-success-foreground: var(--success-foreground);
   --color-success-surface: var(--success-surface);
+  --color-warning: var(--warning);
+  --color-info: var(--info);
+  /* Nuxt UI's text ramp, which the admin console is ported from: `highlighted`
+     is headings and table heads, `dimmed` is placeholders and resting icons.
+     `accented` is the stronger hairline inputs and outline buttons ring with. */
+  --color-highlighted: var(--highlighted);
+  --color-dimmed: var(--dimmed);
+  --color-accented: var(--accented);
+  /* The console's call-to-action colour — Nuxt UI's `secondary` in Nexus. It is
+     its own token because shadcn's `secondary` already means the neutral fill. */
+  --color-action: var(--action);
+  --color-action-foreground: var(--action-foreground);
+  --color-accent-surface: var(--accent-surface);
   --color-brand-image: var(--brand-image);
   /* A `background-image`, not a colour: it paints on its own decorative band in
      the scroll flow, over whatever ground the frame already has. */
@@ -133,6 +151,19 @@
   --success: #65a30d;
   --success-foreground: #ffffff;
   --success-surface: #ecfccb;
+  --warning: #ca8a04;
+  --info: #2563eb;
+  --highlighted: #18181b;
+  --dimmed: #a1a1aa;
+  --accented: #d4d4d8;
+  --action: #2563eb;
+  --action-foreground: #ffffff;
+  /* Figma "accent-surface" — the tinted ground the accent sits on when it is a
+     status rather than an action (the countdown pill on a booking). It pairs with
+     `--primary` the way `--success-surface` pairs with `--success`, which is why
+     it is a token of its own and not `primary/10`: that mix lands on #e9effd and
+     the frame asks for #e0e8f8. */
+  --accent-surface: #e0e8f8;
   --border: #e4e4e7;
   --input: #a1a1aa;
   --ring: #a1a1aa;
@@ -188,6 +219,45 @@
   --sidebar-ring: oklch(0.705 0.015 286.067);
 }
 
+/* Admin console — Nexus's black/white CMS theme (`.cms-admin` in Nexus's
+   main.css), mapped onto this project's token names. Scoped to the console's
+   wrapper and to <body> while the console is mounted, so dialogs and menus that
+   portal out of the wrapper still pick it up, and consumer pages never do.
+   Values are Nexus's overrides plus the Nuxt UI defaults it leaves alone
+   (slate neutrals, green/yellow/blue status colours, a 0.25rem base radius that
+   makes 6px controls and 8px cards — this scale's `md` and `lg` at 0.5rem). */
+.cms-admin {
+  --background: #ffffff;
+  --foreground: #334155;
+  --highlighted: #0f172a;
+  --muted: #f1f5f9;
+  --muted-foreground: #64748b;
+  --dimmed: #94a3b8;
+  --accented: #cbd5e1;
+  --card: #ffffff;
+  --card-foreground: #334155;
+  --popover: #ffffff;
+  --popover-foreground: #334155;
+  --primary: #000000;
+  --primary-foreground: #ffffff;
+  --secondary: #f1f5f9;
+  --secondary-foreground: #0f172a;
+  --accent: #f1f5f9;
+  --accent-foreground: #0f172a;
+  --border: #e2e8f0;
+  --input: #cbd5e1;
+  --ring: #000000;
+  --destructive: #ef4444;
+  --destructive-foreground: #ffffff;
+  --success: #22c55e;
+  --success-foreground: #ffffff;
+  --warning: #eab308;
+  --info: #3b82f6;
+  --action: #3b82f6;
+  --action-foreground: #ffffff;
+  --radius: 0.5rem;
+}
+
 .dark {
   --brand-image: oklch(0.623 0.214 259.815);
   /* Same geometry, roughly half the strength: on a dark ground the tint reads far
@@ -215,6 +285,13 @@
   --success: oklch(0.768 0.233 130.85);
   --success-foreground: oklch(0.141 0.005 285.823);
   --success-surface: oklch(0.405 0.101 131.063);
+  --warning: oklch(0.852 0.199 91.936);
+  --info: oklch(0.623 0.214 259.815);
+  --highlighted: oklch(0.985 0 0);
+  --dimmed: oklch(0.552 0.016 285.938);
+  --accented: oklch(1 0 0 / 20%);
+  --action: oklch(0.623 0.214 259.815);
+  --action-foreground: oklch(0.985 0 0);
   --border: oklch(1 0 0 / 10%);
   --input: oklch(1 0 0 / 15%);
   --ring: oklch(0.552 0.016 285.938);

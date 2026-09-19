@@ -2,6 +2,7 @@ import Image from "next/image";
 import Link from "next/link";
 import {
   BadgeCheck,
+  Briefcase,
   CalendarDays,
   ChevronRight,
   ChevronsUpDown,
@@ -23,6 +24,13 @@ import {
 import { useTranslations } from "next-intl";
 
 import { advisor } from "@/lib/assets/r2";
+import { advisorLevel } from "@/lib/catalogue/profiles";
+import { LevelBadge } from "@/components/advisor-public/level-badge";
+import {
+  AccountAvatar,
+  AccountLevelBadge,
+  AccountName,
+} from "@/components/session/account-bits";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
 import { NeutralButton, PrimaryButton } from "@/components/mobile/buttons";
@@ -46,33 +54,46 @@ import { QuickActions } from "@/components/profile/quick-actions";
 import { BottomBar } from "@/components/bottombar";
 import { TopBar } from "@/components/topbar";
 
-/** Figma "Advisor profile - View (Light)" — 995:8633. */
+/**
+ * Figma "Advisor profile - View (Light)" — 995:8633, updated to 1390:25505: the
+ * level badge replaces the plain role line, and the tiles and rows that had no
+ * destination now open the service list and the "งานของฉัน" hub.
+ */
 export function AdvisorProfileScreen() {
   const t = useTranslations("advisor");
+  // The prototype's signed-in advisor.
+  const level = advisorLevel("sarah-jenskins");
 
   return (
-    <MobileScreen className="pb-0">
-      <ScreenBody className="pb-19.5">
+    <MobileScreen className="pb-0" wide>
+      <ScreenBody className="pb-19.5 lg:[&>*:not(.sticky)]:mx-auto lg:[&>*:not(.sticky)]:w-full lg:[&>*:not(.sticky)]:max-w-[880px]">
         <TopBar unreadNotifications />
         {/* Figma "Identity Card": verified name, role, then rating/booking/review stats. */}
         <div className="flex w-full shrink-0 flex-col items-start overflow-clip px-6 pt-4">
           <div className="flex w-full shrink-0 flex-col items-start gap-3 overflow-clip rounded-xl bg-card p-3.5">
             <div className="flex w-full shrink-0 items-center gap-3 overflow-clip">
-              <Image
-                alt=""
-                className="size-14 shrink-0 rounded-full object-cover"
-                height={56}
-                src={advisor}
-                width={56}
-              />
-              <div className="flex min-w-px flex-1 flex-col items-start gap-0.5 overflow-clip">
+              <AccountAvatar className="size-14" fallback={advisor} size={56} />
+              <div className="flex min-w-px flex-1 flex-col items-start gap-1 overflow-clip">
                 <p className="font-latin flex w-full items-center gap-1 text-base font-medium text-foreground">
-                  {t("name")}
+                  <AccountName fallback={t("name")} />
                   <BadgeCheck className="size-4 shrink-0 text-primary" />
                 </p>
-                <p className="w-full text-xs font-normal text-muted-foreground">
-                  {t("role")}
-                </p>
+                <AccountLevelBadge
+                  fallback={
+                    level ? (
+                      <LevelBadge level={level} />
+                    ) : (
+                      <p className="w-full text-xs font-normal text-muted-foreground">
+                        {t("role")}
+                      </p>
+                    )
+                  }
+                  none={
+                    <p className="w-full text-xs font-normal text-muted-foreground">
+                      {t("role")}
+                    </p>
+                  }
+                />
               </div>
               <span className="flex size-9 shrink-0 items-center justify-center overflow-clip rounded-md bg-muted">
                 <UserRoundCog className="size-4.5 text-muted-foreground" />
@@ -107,9 +128,9 @@ export function AdvisorProfileScreen() {
         <div className="flex w-full shrink-0 flex-col items-start overflow-clip px-6 pt-4">
           <QuickActions
             actions={[
-              { icon: FileText, label: t("tileServices"), href: "/screening/requests" },
-              { icon: CalendarDays, label: t("tileBookings") },
-              { icon: Wallet, label: t("tileEarnings"), href: "/earnings" },
+              { icon: Briefcase, label: t("tileServices"), href: "/advisor/services" },
+              { icon: CalendarDays, label: t("tileBookings"), href: "/work/calendar" },
+              { icon: Wallet, label: t("tileEarnings"), href: "/work/earnings" },
               { icon: MessageSquare, label: t("tileChat"), href: "/chat" },
             ]}
           />
@@ -124,7 +145,7 @@ export function AdvisorProfileScreen() {
               value={<Badge className="size-5 p-0">3</Badge>}
             />
             <SettingsDivider />
-            <SettingsRow icon={CalendarDays} label={t("myBookings")} />
+            <SettingsRow href="/work/calendar" icon={CalendarDays} label={t("myBookings")} />
             <SettingsDivider />
             <SettingsRow href="/advisor/edit" icon={UserRoundCog} label={t("editAdvisor")} />
             <SettingsDivider />
@@ -165,7 +186,7 @@ export function AdvisorProfileScreen() {
           </SettingsCard>
         </SettingsSection>
       </ScreenBody>
-      <BottomBar role="advisor" selected="user" />
+      <BottomBar className="lg:hidden" role="advisor" selected="user" />
     </MobileScreen>
   );
 }
@@ -176,9 +197,9 @@ export function AdvisorProfileEditScreen() {
   const c = useTranslations("common");
 
   return (
-    <MobileScreen>
+    <MobileScreen wide>
       <ScreenTopBar href="/advisor/profile" label={c("back")} />
-      <ScreenBody>
+      <ScreenBody className="lg:[&>*:not(.sticky)]:mx-auto lg:[&>*:not(.sticky)]:w-full lg:[&>*:not(.sticky)]:max-w-[880px]">
         <ScreenHeading
           className="gap-2 pt-4"
           subtitle={t("editSubtitle")}
@@ -262,9 +283,9 @@ export function SkillManagementScreen() {
   ];
 
   return (
-    <MobileScreen>
+    <MobileScreen wide>
       <ScreenTopBar href="/advisor/edit" label={c("back")} />
-      <ScreenBody>
+      <ScreenBody className="lg:[&>*:not(.sticky)]:mx-auto lg:[&>*:not(.sticky)]:w-full lg:[&>*:not(.sticky)]:max-w-[880px]">
         <ScreenHeading
           className="gap-2 pt-4"
           subtitle={t("skillsSubtitle")}
@@ -312,9 +333,9 @@ export function PayoutSetupScreen() {
   const c = useTranslations("common");
 
   return (
-    <MobileScreen>
+    <MobileScreen wide>
       <ScreenTopBar href="/earnings" label={c("back")} />
-      <ScreenBody>
+      <ScreenBody className="lg:[&>*:not(.sticky)]:mx-auto lg:[&>*:not(.sticky)]:w-full lg:[&>*:not(.sticky)]:max-w-[880px]">
         <ScreenHeading className="pt-4" title={t("payoutSetupTitle")} />
         <div className="flex w-full shrink-0 flex-col items-start gap-4 px-6 pt-2">
           <Field
@@ -350,9 +371,9 @@ export function PayoutAccountScreen() {
   const c = useTranslations("common");
 
   return (
-    <MobileScreen>
+    <MobileScreen wide>
       <ScreenTopBar href="/earnings" label={c("back")} />
-      <ScreenBody>
+      <ScreenBody className="lg:[&>*:not(.sticky)]:mx-auto lg:[&>*:not(.sticky)]:w-full lg:[&>*:not(.sticky)]:max-w-[880px]">
         <ScreenHeading className="pt-4" title={t("payoutTitle")} />
 
         <div className="flex w-full shrink-0 flex-col items-start px-6 pt-2">
@@ -408,9 +429,9 @@ export function PayoutFailedScreen() {
   const c = useTranslations("common");
 
   return (
-    <MobileScreen>
+    <MobileScreen wide>
       <ScreenTopBar href="/earnings/payout-history" label={c("back")} />
-      <ScreenBody>
+      <ScreenBody className="lg:[&>*:not(.sticky)]:mx-auto lg:[&>*:not(.sticky)]:w-full lg:[&>*:not(.sticky)]:max-w-[880px]">
         <div className="flex w-full shrink-0 flex-col items-center px-6 pt-4">
           <span className="flex size-10 shrink-0 items-center justify-center rounded-full bg-destructive/10">
             <CircleAlert className="size-5 text-destructive" />
@@ -482,9 +503,9 @@ export function PayoutHistoryScreen() {
   ];
 
   return (
-    <MobileScreen>
+    <MobileScreen wide>
       <ScreenTopBar href="/earnings" label={c("back")} />
-      <ScreenBody>
+      <ScreenBody className="lg:[&>*:not(.sticky)]:mx-auto lg:[&>*:not(.sticky)]:w-full lg:[&>*:not(.sticky)]:max-w-[880px]">
         <ScreenHeading className="pt-4" title={t("historyTitle")} />
 
         <div className="flex w-full shrink-0 flex-col items-start px-6 pt-2">
@@ -547,8 +568,8 @@ export function EarningsScreen() {
   const t = useTranslations("advisor");
 
   return (
-    <MobileScreen className="pb-0">
-      <ScreenBody className="pb-19.5">
+    <MobileScreen className="pb-0" wide>
+      <ScreenBody className="pb-19.5 lg:[&>*:not(.sticky)]:mx-auto lg:[&>*:not(.sticky)]:w-full lg:[&>*:not(.sticky)]:max-w-[880px]">
         <TopBar unreadNotifications />
         <ScreenHeading className="pt-4" title={t("earningsTitle")} />
 
@@ -657,7 +678,8 @@ export function EarningsScreen() {
           </SettingsCard>
         </SettingsSection>
       </ScreenBody>
-      <BottomBar role="advisor" selected="earnings" />
+      {/* Earnings now lives inside the "งานของฉัน" hub, so that is the tab it lights. */}
+      <BottomBar className="lg:hidden" role="advisor" selected="work" />
     </MobileScreen>
   );
 }

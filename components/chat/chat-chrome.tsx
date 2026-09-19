@@ -12,18 +12,25 @@ import { cn } from "@/lib/utils";
  * avatar, the 24/24 Geist semibold name (-0.625 tracking) and 24px action glyphs,
  * closed by a hairline 20px below the row.
  */
-export function ChatHeader() {
+/**
+ * `threadId` is only here so the trailing control can address this thread's
+ * report screen. The header is otherwise identical for every thread — the
+ * prototype renders the same conversation behind each id.
+ */
+export function ChatHeader({ threadId }: { readonly threadId: string }) {
   const t = useTranslations("chat");
   const c = useTranslations("common");
 
   // Figma draws the closing rule as a zero-height stroke, so it is painted with
   // ::after and the 20px trailing space is padding instead of a gap.
   return (
-    <div className="relative flex w-full shrink-0 flex-col items-start pt-6 pb-5 after:absolute after:bottom-0 after:left-0 after:h-px after:w-full after:bg-border after:content-['']">
-      <div className="flex w-full shrink-0 items-center gap-4 px-4">
+    <div className="relative flex w-full shrink-0 flex-col items-start pt-6 pb-5 after:absolute after:bottom-0 after:left-0 after:h-px after:w-full after:bg-border after:content-[''] lg:py-4">
+      <div className="flex w-full shrink-0 items-center gap-4 px-4 lg:gap-3 lg:px-5">
+        {/* The desktop pane has the inbox beside it, so there is nothing for a
+            back chevron to do there. */}
         <Button
           aria-label={c("back")}
-          className="size-10 shrink-0"
+          className="size-10 shrink-0 lg:hidden"
           nativeButton={false}
           render={<Link href="/chat" />}
           size="icon"
@@ -45,7 +52,18 @@ export function ChatHeader() {
         >
           <Video className="size-6" />
         </Button>
-        <Button aria-label={t("info")} className="size-6 shrink-0" size="icon" variant="ghost">
+        {/* The one way into the report flow. It sat inert here — a ghost button
+            with no href and no handler — until the report frames landed.
+            `nativeButton={false}` is what tells Base UI it ended up on an anchor;
+            without it `check-a11y-render.mjs` fails the build. */}
+        <Button
+          aria-label={t("info")}
+          className="size-6 shrink-0"
+          nativeButton={false}
+          render={<Link href={`/chat/${threadId}/report`} />}
+          size="icon"
+          variant="ghost"
+        >
           <Info className="size-6" />
         </Button>
       </div>

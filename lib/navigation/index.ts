@@ -1,5 +1,6 @@
 import { RoleKeys } from "@/lib/roles";
 import {
+  Briefcase,
   CalendarDays,
   Home,
   LucideIcon,
@@ -10,6 +11,7 @@ import {
 
 export const pageKeys = [
   "home",
+  "work",
   "bookings",
   "chat",
   "earnings",
@@ -19,11 +21,14 @@ export const pageKeys = [
 export type PageKeys = (typeof pageKeys)[number];
 
 /**
- * `bookings` has no Figma frame yet, so it has no destination — the tab bar
- * renders those entries as plain labels instead of dead links.
+ * A tab with no entry here has no destination — the tab bar renders it as a
+ * plain label rather than a dead link. `bookings` was one of those until Figma
+ * 1326:18632 landed.
  */
 export const pageHrefs: Partial<Record<PageKeys, string>> = {
   home: "/",
+  work: "/work",
+  bookings: "/bookings",
   chat: "/chat",
   earnings: "/earnings",
   user: "/profile",
@@ -77,10 +82,17 @@ export const pages: Record<
       href: pageHrefs.user,
     },
   },
+  // Figma "Advisor - Home" (1374:20712): the Advisor's second tab is the
+  // "งานของฉัน" hub. Earnings did not leave — it is one of that hub's three views
+  // — so it no longer needs a tab of its own. Order follows the frame.
   advisor: {
     home: {
       icon: Home,
       href: pageHrefs.home,
+    },
+    work: {
+      icon: Briefcase,
+      href: pageHrefs.work,
     },
     bookings: {
       icon: CalendarDays,
@@ -90,13 +102,10 @@ export const pages: Record<
       icon: MessageSquare,
       href: pageHrefs.chat,
     },
-    earnings: {
-      icon: Wallet,
-      href: pageHrefs.earnings,
-    },
+    // An advisor's own profile is the workspace one, not the advisee's.
     user: {
       icon: UserRound,
-      href: pageHrefs.user,
+      href: "/advisor/profile",
     },
   },
   admin: {

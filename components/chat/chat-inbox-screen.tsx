@@ -15,6 +15,7 @@ import { PrimaryButton } from "@/components/mobile/buttons";
 import { MobileScreen, ScreenBody } from "@/components/mobile/screen";
 import { BottomBar } from "@/components/bottombar";
 import { TopBar } from "@/components/topbar";
+import { cn } from "@/lib/utils";
 
 /** Figma "Chat 1..3" row — 12px top padding, 40px avatar, name/preview stack, hairline. */
 function ChatRow({
@@ -22,14 +23,24 @@ function ChatRow({
   avatar,
   name,
   preview,
+  active = false,
 }: {
   readonly href: string;
   readonly avatar: React.ReactNode;
   readonly name: string;
   readonly preview: string;
+  /** The thread open in the pane beside this list — desktop only. */
+  readonly active?: boolean;
 }) {
   return (
-    <Link className="flex h-[70px] w-full shrink-0 flex-col items-start border-b border-border pt-3" href={href}>
+    <Link
+      aria-current={active ? "page" : undefined}
+      className={cn(
+        "flex h-[70px] w-full shrink-0 flex-col items-start border-b border-border pt-3",
+        active && "bg-muted/60",
+      )}
+      href={href}
+    >
       <div className="flex w-full shrink-0 items-center gap-0.5 px-4">
         <div className="flex min-w-px flex-1 items-center gap-2 self-stretch">
           {avatar}
@@ -47,6 +58,76 @@ function ChatRow({
   );
 }
 
+/** The three threads the prototype ships with, in the order the frame lists them. */
+const THREADS = [
+  { id: "sarah-jenskins", name: "partner", preview: "list.sarahPreview" },
+  { id: "christopher-nolan", name: "list.christopher", preview: "list.christopherPreview" },
+  { id: "james-gunn", name: "list.james", preview: "list.jamesPreview" },
+] as const;
+
+/** The portrait each thread carries — `sarah` is `ChatAvatar`'s own default. */
+const THREAD_AVATAR = {
+  "sarah-jenskins": <ChatAvatar size={40} />,
+  "christopher-nolan": <ChatAvatar crop={false} size={40} src={chris} />,
+  "james-gunn": <ChatAvatar crop={false} size={40} src={james} />,
+} as const;
+
+/**
+ * The inbox itself — title, search, threads.
+ *
+ * Figma's desktop chat (1952:8003) shows this beside the open thread instead of
+ * on a screen of its own, so it is a component both screens render: the inbox
+ * page at every width, the thread page from `lg`. `activeId` is what marks the
+ * row being read, which only the two-pane layout can show.
+ */
+export function ChatList({
+  activeId,
+  className,
+}: {
+  readonly activeId?: string;
+  readonly className?: string;
+}) {
+  const t = useTranslations("chat");
+
+  return (
+    <div className={cn("flex w-full shrink-0 flex-col items-start gap-4", className)}>
+      <div className="flex shrink-0 items-start gap-6 px-4">
+        <p className="shrink-0 text-xl font-semibold whitespace-nowrap text-foreground">
+          {t("title")}
+        </p>
+      </div>
+
+      <div className="flex w-full shrink-0 items-start px-4">
+        <InputGroup className="gap-2 bg-muted px-3 shadow-none">
+          <InputGroupAddon className="p-0">
+            <Search />
+          </InputGroupAddon>
+          <InputGroupInput
+            aria-label={t("searchPlaceholder")}
+            className="px-0 text-sm"
+            placeholder={t("searchPlaceholder")}
+            type="search"
+          />
+        </InputGroup>
+      </div>
+
+      <div className="flex w-full min-h-0 flex-1 flex-col items-start overflow-y-auto">
+        <div className="h-px w-full shrink-0 bg-muted" />
+        {THREADS.map((thread) => (
+          <ChatRow
+            active={thread.id === activeId}
+            avatar={THREAD_AVATAR[thread.id]}
+            href={`/chat/${thread.id}`}
+            key={thread.id}
+            name={t(thread.name)}
+            preview={t(thread.preview)}
+          />
+        ))}
+      </div>
+    </div>
+  );
+}
+
 /**
  * Figma "Chat Inbox" (995:8260) and "Chat inbox - Empty" (995:8325).
  */
@@ -61,9 +142,9 @@ export function ChatInboxScreen({
   const hasBanner = state === "session-banner";
 
   return (
-    <MobileScreen className="pb-0">
+    <MobileScreen className="pb-0" wide>
       {/* Figma "Container": 2px side padding, 16px top padding, 16px between blocks. */}
-      <ScreenBody className="items-start gap-4 px-0.5 pb-[144px]">
+      <ScreenBody className="items-start gap-4 px-0.5 pb-[144px] lg:gap-0 lg:px-10 xl:px-30 lg:pb-6">
         <TopBar unreadNotifications />
         {hasBanner ? (
           /* Figma "In-app banner" (995:11104) — a 64px accent-tinted strip above
@@ -86,26 +167,6 @@ export function ChatInboxScreen({
             </Button>
           </div>
         ) : null}
-
-        <div className="flex shrink-0 items-start gap-6 px-4">
-          <p className="shrink-0 text-xl font-semibold whitespace-nowrap text-foreground">
-            {t("title")}
-          </p>
-        </div>
-
-        <div className="flex w-full shrink-0 items-start px-4">
-          <InputGroup className="gap-2 bg-muted px-3 shadow-none">
-            <InputGroupAddon className="p-0">
-              <Search />
-            </InputGroupAddon>
-            <InputGroupInput
-              aria-label={t("searchPlaceholder")}
-              className="px-0 text-sm"
-              placeholder={t("searchPlaceholder")}
-              type="search"
-            />
-          </InputGroup>
-        </div>
 
         {isEmpty ? (
           /* Figma "Empty State" — 280px illustration, 16px gaps, 200px CTA. */
@@ -130,30 +191,19 @@ export function ChatInboxScreen({
             </div>
           </div>
         ) : (
-          <div className="flex w-full shrink-0 flex-col items-start">
-            <div className="h-px w-full shrink-0 bg-muted" />
-            <ChatRow
-              avatar={<ChatAvatar size={40} />}
-              href="/chat/sarah-jenskins"
-              name={t("partner")}
-              preview={t("list.sarahPreview")}
-            />
-            <ChatRow
-              avatar={<ChatAvatar crop={false} size={40} src={chris} />}
-              href="/chat/christopher-nolan"
-              name={t("list.christopher")}
-              preview={t("list.christopherPreview")}
-            />
-            <ChatRow
-              avatar={<ChatAvatar crop={false} size={40} src={james} />}
-              href="/chat/james-gunn"
-              name={t("list.james")}
-              preview={t("list.jamesPreview")}
-            />
+          /* Figma's desktop frame stands the list in the left half of a card
+             and leaves the right half waiting for a thread to be picked. */
+          <div className="flex w-full min-h-0 flex-1 flex-col items-start lg:mx-auto lg:max-w-[1440px] lg:flex-row lg:overflow-clip lg:rounded-xl lg:border lg:border-border lg:bg-card">
+            <ChatList className="lg:h-full lg:w-80 lg:shrink-0 lg:border-e lg:border-border lg:pt-4" />
+            <div className="hidden lg:flex lg:min-w-px lg:flex-1 lg:items-center lg:justify-center lg:p-10">
+              <p className="max-w-80 text-center text-sm font-normal text-muted-foreground">
+                {t("pickThread")}
+              </p>
+            </div>
           </div>
         )}
       </ScreenBody>
-      <BottomBar role="anon" selected="chat" />
+      <BottomBar className="lg:hidden" role="anon" selected="chat" />
     </MobileScreen>
   );
 }

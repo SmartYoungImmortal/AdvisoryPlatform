@@ -1,4 +1,4 @@
-import { VerificationScreen } from "@/components/admin/verification-screen";
+import { VerificationScreen } from "@/components/cms/screens/verification";
 
 export default function VerificationPage() {
   return <VerificationScreen />;

@@ -1,8 +1,23 @@
+"use client";
+
 import Link from "next/link";
 import { PageKeys, pages } from "@/lib/navigation";
+import type { Role } from "@/lib/mock-db/types";
 import { RoleKeys } from "@/lib/roles";
+import { useSession } from "@/lib/session";
 import { cn } from "@/lib/utils";
 import { useTranslations } from "next-intl";
+
+/**
+ * The tab set follows who is signed in: an advisor browsing home still gets the
+ * advisor's tabs. The console has no tab set of its own in the consumer app, so an
+ * admin sees the advisee's. Signed out, the screen's own `role` stands.
+ */
+const NAV_ROLE: Record<Role, RoleKeys> = {
+  advisee: "user",
+  advisor: "advisor",
+  admin: "user",
+};
 
 /**
  * `TopBar`'s frosted wash, mirrored — the same two gradients off the same token:
@@ -42,7 +57,10 @@ export function BottomBar({
   readonly className?: string;
 }) {
   const t = useTranslations("navigation");
-  const rolePages = Object.entries(pages[role]);
+  const session = useSession();
+  const navRole =
+    session.status === "authenticated" ? NAV_ROLE[session.account.role] : role;
+  const rolePages = Object.entries(pages[navRole]);
   const pagesButton = rolePages.map(([key, value]) => {
     const isSelected = selected === key;
     const className = cn(
