@@ -2,27 +2,45 @@ import Image, { type StaticImageData } from "next/image";
 import { FileText, TriangleAlert } from "lucide-react";
 import type { ReactNode } from "react";
 
-import { Badge } from "@/components/ui/badge";
 import { ChatAvatar } from "@/components/chat/chat-avatar";
+import { StatusPill } from "@/components/mobile/status-pill";
 import { cn } from "@/lib/utils";
 
-/** Figma "Time Stamp" chip — border-filled pill, 8/4 padding, 12/18 Thai semibold. */
+/**
+ * The corners a bubble keeps, and the corner it gives up to point at its author.
+ *
+ * Both sides were drawn at `md` (8px) with a square tail. 12px is the step the
+ * rest of the app's cards now take, and a bubble is the smallest card in the
+ * product, so it takes the same one — the tail stays square.
+ */
+const BUBBLE = "flex max-w-[276px] shrink-0 overflow-hidden px-3 py-2";
+
+/**
+ * A day break in the thread.
+ *
+ * It used to be a filled `bg-border` pill at the same 12px semibold as the copy
+ * around it, which made a separator the loudest object on the screen. A day
+ * break is chrome: a hairline across the column with the date sitting in it, so
+ * the eye reads it as structure and moves on.
+ */
 export function DayDivider({ children }: { readonly children: ReactNode }) {
   return (
-    <div className="flex w-full shrink-0 flex-col items-center">
-      <Badge className="h-auto bg-border py-1 font-semibold text-foreground">
+    <div className="flex w-full shrink-0 items-center gap-3 py-1">
+      <span aria-hidden className="h-px min-w-px flex-1 bg-border" />
+      <span className="shrink-0 text-xs font-medium whitespace-nowrap text-muted-foreground">
         {children}
-      </Badge>
+      </span>
+      <span aria-hidden className="h-px min-w-px flex-1 bg-border" />
     </div>
   );
 }
 
-/** 12/14 Geist timestamp under a bubble. */
+/** 12/14 Geist timestamp under a bubble — a number, so tabular and muted. */
 function Stamp({ children, className }: { readonly children: ReactNode; readonly className?: string }) {
   return (
     <p
       className={cn(
-        "font-latin text-xs leading-3.5 font-normal text-foreground",
+        "font-latin text-xs leading-3.5 font-normal tabular-nums text-muted-foreground",
         className,
       )}
     >
@@ -32,8 +50,14 @@ function Stamp({ children, className }: { readonly children: ReactNode; readonly
 }
 
 /**
- * Figma "Conversation Partner's Message" — 32px avatar, bubble on surface-muted with
- * a square bottom-left corner, then a timestamp indented 40px.
+ * Figma "Conversation Partner's Message" — 32px avatar, bubble with a square
+ * bottom-left corner, then a timestamp indented 40px.
+ *
+ * The bubble was `bg-muted` on the page ground. Those two are now one step
+ * apart, so the most-read screen in the product was grey text in a grey box on a
+ * grey page — the "mush" the owner means. It sits on the card surface with the
+ * hairline and the resting elevation instead: a white object on the thread's
+ * ground, against the accent block the reader's own messages are.
  */
 export function PartnerMessage({
   time,
@@ -52,7 +76,8 @@ export function PartnerMessage({
           <div className="flex max-w-[276px] shrink-0 flex-col items-start gap-3">
             <div
               className={cn(
-                "flex max-w-[276px] shrink-0 items-center justify-center rounded-tl-md rounded-tr-md rounded-br-md bg-muted p-2",
+                BUBBLE,
+                "items-center justify-center rounded-tl-card rounded-tr-card rounded-br-card border border-border bg-card shadow-card",
                 bubbleClassName,
               )}
             >
@@ -68,10 +93,10 @@ export function PartnerMessage({
   );
 }
 
-/** Plain Thai body text inside a partner bubble (14/20, max 260px). */
+/** Plain Thai body text inside a partner bubble (14/20, the bubble's measure). */
 export function PartnerText({ children }: { readonly children: ReactNode }) {
   return (
-    <p className="max-w-[260px] min-w-px flex-1 text-sm font-normal whitespace-pre-line text-foreground">
+    <p className="max-w-63 min-w-px flex-1 text-sm font-normal whitespace-pre-line text-foreground">
       {children}
     </p>
   );
@@ -80,6 +105,9 @@ export function PartnerText({ children }: { readonly children: ReactNode }) {
 /**
  * Figma "My Message" — right-aligned stack with 10px padding, an accent bubble with
  * a square bottom-right corner, then a right-aligned timestamp.
+ *
+ * The accent fill already separates this side; what it was missing is the weight
+ * to match the partner's new card, so it carries the same resting elevation.
  */
 export function MyMessage({
   time,
@@ -96,7 +124,8 @@ export function MyMessage({
         <div className="flex max-w-[276px] shrink-0 flex-col items-start">
           <div
             className={cn(
-              "flex max-w-[276px] shrink-0 items-start rounded-tl-md rounded-tr-md rounded-bl-md bg-primary p-2",
+              BUBBLE,
+              "items-start rounded-tl-card rounded-tr-card rounded-bl-card bg-primary shadow-card",
               bubbleClassName,
             )}
           >
@@ -111,16 +140,23 @@ export function MyMessage({
   );
 }
 
-/** Thai body text inside my bubble (14/20 white, max 260px). */
+/** Thai body text inside my bubble (14/20, the accent's paired ink). */
 export function MyText({ children }: { readonly children: ReactNode }) {
   return (
-    <p className="max-w-[260px] text-sm font-normal whitespace-pre-line text-primary-foreground">
+    <p className="max-w-63 text-sm font-normal whitespace-pre-line text-primary-foreground">
       {children}
     </p>
   );
 }
 
-/** Figma file bubble body — 36px file glyph, then a 214px name/meta stack. */
+/**
+ * Figma file bubble body — 36px file glyph, then a 214px name/meta stack.
+ *
+ * The glyph now sits in its own tinted chip: a bare 36px outline against 14px
+ * copy was the largest thing in the bubble and the least informative. The meta
+ * line drops to the app's 12px meta step and takes tabular figures, since it is
+ * a date and a file size.
+ */
 export function FileBody({
   name,
   meta,
@@ -130,12 +166,14 @@ export function FileBody({
 }) {
   return (
     <>
-      <FileText className="size-9 shrink-0 text-foreground" />
-      <div className="flex w-[214px] shrink-0 flex-col items-start gap-2 font-normal">
-        <p className="font-latin w-full text-sm text-foreground">
+      <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-primary/10">
+        <FileText aria-hidden className="size-4.5 text-primary" />
+      </span>
+      <div className="flex w-[214px] shrink-0 flex-col items-start gap-1 font-normal">
+        <p className="font-latin w-full text-sm font-medium text-foreground">
           {name}
         </p>
-        <p className="w-full text-sm whitespace-pre-wrap text-muted-foreground">
+        <p className="w-full text-xs tabular-nums whitespace-pre-wrap text-muted-foreground">
           {meta}
         </p>
       </div>
@@ -159,8 +197,13 @@ export function ImageBody({
 }
 
 /**
- * Figma "Failed Message" — surface-muted bubble with a destructive hairline and a
- * 14px radius, plus a retry hint below.
+ * Figma "Failed Message" — a bubble with a destructive hairline and a retry hint
+ * below.
+ *
+ * The fill was `bg-muted`, which is now the page's own step; on a destructive
+ * hairline a faint destructive tint says the same thing and reads as one object
+ * with the warning under it. The hint becomes a pill so the state is a status
+ * rather than a stray red line.
  */
 export function FailedMessage({
   text,
@@ -171,19 +214,16 @@ export function FailedMessage({
 }) {
   return (
     <div className="flex w-full shrink-0 items-start justify-end overflow-clip px-4">
-      <div className="flex shrink-0 flex-col items-end gap-1 overflow-clip">
-        {/* Figma "Bubble" is exactly 260 x 40 with the stroke drawn inside. */}
-        <div className="flex h-10 w-[260px] shrink-0 items-start overflow-clip rounded-xl border border-destructive bg-muted px-3.5 py-2.5">
-          <p className="min-w-px flex-1 text-sm font-normal text-muted-foreground">
+      <div className="flex shrink-0 flex-col items-end gap-1.5 overflow-clip">
+        {/* Figma "Bubble" is 260px wide with the stroke drawn inside. */}
+        <div className="flex w-[260px] shrink-0 items-start overflow-clip rounded-tl-card rounded-tr-card rounded-bl-card border border-destructive bg-destructive/8 px-3.5 py-2.5">
+          <p className="min-w-px flex-1 text-sm font-normal text-foreground">
             {text}
           </p>
         </div>
-        <div className="flex shrink-0 items-center gap-1.5 overflow-clip">
-          <TriangleAlert className="size-3 shrink-0 text-destructive" />
-          <p className="text-right text-xs font-normal whitespace-nowrap text-destructive">
-            {meta}
-          </p>
-        </div>
+        <StatusPill icon={TriangleAlert} tone="danger">
+          {meta}
+        </StatusPill>
       </div>
     </div>
   );

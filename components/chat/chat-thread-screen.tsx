@@ -1,7 +1,7 @@
 import { useTranslations } from "next-intl";
 
 import { deskPhoto as desk, documentPreview as doc } from "@/lib/assets/r2";
-import { ChatFooter, ChatHeader } from "@/components/chat/chat-chrome";
+import { CHAT_PANE, ChatFooter, ChatHeader } from "@/components/chat/chat-chrome";
 import { ChatList } from "@/components/chat/chat-inbox-screen";
 import {
   DayDivider,
@@ -15,6 +15,7 @@ import {
 } from "@/components/chat/messages";
 import { MobileScreen, ScreenBody } from "@/components/mobile/screen";
 import { TopBar } from "@/components/topbar";
+import { cn } from "@/lib/utils";
 
 /**
  * Figma "Chat" (995:8152) and "Chat - Message failed" (995:8209). The failed frame
@@ -41,7 +42,7 @@ export function ChatThreadScreen({
         <TopBar unreadNotifications />
       </div>
 
-      <div className="flex w-full min-h-0 flex-1 flex-col lg:mx-auto lg:w-full lg:max-w-[1440px] lg:flex-row lg:overflow-clip lg:rounded-xl lg:border lg:border-border lg:bg-card">
+      <div className={cn("flex w-full min-h-0 flex-1 flex-col", CHAT_PANE)}>
         <ChatList
           activeId={threadId}
           className="hidden lg:flex lg:h-full lg:w-80 lg:shrink-0 lg:border-e lg:border-border lg:pt-4"
@@ -49,8 +50,10 @@ export function ChatThreadScreen({
 
         <div className="flex w-full min-h-0 flex-1 flex-col">
       <ChatHeader threadId={threadId} />
-      {/* Figma "Container": 16px side padding, 12px between messages. */}
-      <ScreenBody className="items-start gap-3 px-4 lg:px-6 lg:py-4">
+      {/* Figma "Container": 16px side padding, 12px between messages. The ground
+          is stated rather than inherited: inside the desktop pane the card
+          surface would otherwise reach under the bubbles and flatten them. */}
+      <ScreenBody className="items-start gap-3 bg-background px-4 py-3 lg:px-6 lg:py-4">
         {isFailed ? null : (
           <>
             <DayDivider>{t("yesterday")}</DayDivider>
@@ -70,22 +73,22 @@ export function ChatThreadScreen({
             <PartnerMessage bubbleClassName="items-start gap-2.5" time="00.03">
               <FileBody meta={t("thread.fileMeta")} name={t("thread.fileName")} />
             </PartnerMessage>
-            <MyMessage bubbleClassName="gap-2.5 bg-muted" time="00.05">
+            {/* A file I sent: the accent fill would put muted meta on blue, so
+                the bubble takes the accent's *surface* token instead — still
+                plainly my side, still readable. It was `bg-muted`, which is now
+                the page's own step. */}
+            <MyMessage bubbleClassName="gap-2.5 bg-accent-surface" time="00.05">
               <FileBody meta={t("thread.fileMeta")} name={t("thread.fileName")} />
             </MyMessage>
           </>
         )}
 
-        <PartnerMessage
-          bubbleClassName="h-[213px] w-[184px] items-start gap-2.5"
-          time="00.06"
-        >
+        {/* A photo fills its bubble now — the 8px ring of bubble colour round
+            the image was the only padding in the thread doing nothing. */}
+        <PartnerMessage bubbleClassName="h-[213px] w-46 p-0" time="00.06">
           <ImageBody src={doc} />
         </PartnerMessage>
-        <MyMessage
-          bubbleClassName="h-[149px] w-[255px] gap-2.5 bg-brand-image"
-          time="00.07"
-        >
+        <MyMessage bubbleClassName="h-[149px] w-[255px] bg-brand-image p-0" time="00.07">
           <ImageBody src={desk} />
         </MyMessage>
 

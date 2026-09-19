@@ -6,6 +6,7 @@ import { useState } from "react";
 
 import { arayaS as araya, christopherNolan as chris, jamesGunn as james } from "@/lib/assets/r2";
 import { SiteFooter } from "@/components/marketing/site-footer";
+import { EmptyState } from "@/components/mobile/empty-state";
 import {
   MobileScreen,
   ScreenBody,
@@ -13,6 +14,7 @@ import {
   ScreenSpacer,
   ScreenTopBar,
 } from "@/components/mobile/screen";
+import { Surface } from "@/components/mobile/surface";
 import { ThaiText } from "@/components/mobile/thai-text";
 import {
   ACCOUNT_NAV,
@@ -21,16 +23,19 @@ import {
 } from "@/components/profile/account-chrome";
 import { ReplyComposer, ReviewCard, Stars } from "@/components/reviews/review-parts";
 import { TopBar } from "@/components/topbar";
+import { NARROW_COLUMN, PAGE } from "@/lib/layout";
 import { cn } from "@/lib/utils";
 
 /** Figma "Distribution" row — a 6px track with a proportional fill. */
 function DistributionRow({ label, fill }: { readonly label: string; readonly fill: number }) {
   return (
     <div className="flex h-3.5 w-full shrink-0 items-center">
-      <span className="font-latin w-2 shrink-0 text-xs leading-3.5 font-normal text-muted-foreground">
+      <span className="font-latin w-2 shrink-0 text-xs leading-3.5 font-normal tabular-nums text-muted-foreground">
         {label}
       </span>
-      <div className="ml-2 h-1.5 min-w-px flex-1 overflow-clip rounded-full bg-muted">
+      {/* The track was `bg-muted`, which is the tint the whole summary block now
+          sits on, so an empty bar was invisible and only the fill read. */}
+      <div className="ml-2 h-1.5 min-w-px flex-1 overflow-clip rounded-full bg-accented/60">
         <div className="h-full rounded-full bg-primary" style={{ width: `${fill}%` }} />
       </div>
     </div>
@@ -139,7 +144,7 @@ export function MyReviewsScreen({
         {/* Figma "Head Band" — the title on the card surface, above the page.
             It holds the page column rather than the account column: what runs
             under it here is the 1200 grid, not an 800px form. */}
-        <div className="w-full shrink-0 lg:bg-card">
+        <div className="w-full shrink-0 lg:border-b lg:border-border lg:bg-card lg:shadow-card">
           <ScreenHeading
             className={cn(ACCOUNT_PAGE, "pt-4 lg:pt-5 lg:pb-9")}
             title={t("title")}
@@ -147,44 +152,50 @@ export function MyReviewsScreen({
         </div>
 
         {state === "empty" ? (
-          /* Figma "Empty State": 80px badge, 34/40 title block, then a 5-star row. */
-          <div className="flex w-full shrink-0 flex-col items-center px-6 pt-[72px] text-center lg:mx-auto lg:max-w-[640px] lg:pt-28">
-            <span className="flex size-20 shrink-0 items-center justify-center rounded-full bg-muted">
-              <Star className="size-8.5 text-muted-foreground" />
-            </span>
-            <p className="mt-4 w-full text-2xl font-semibold text-foreground">
-              {t("emptyTitle")}
-            </p>
-            <p className="mt-2 w-full text-sm font-normal text-muted-foreground">
-              <ThaiText>{t("emptyBody")}</ThaiText>
-            </p>
-            <Stars className="mt-4" filled={0} gap={3} size={18} />
+          /* Figma "Empty State": a badge, the title block, then a 5-star row —
+             `EmptyState` holds the first three and the star row rides in its
+             action slot, which is where the frame puts it. */
+          <div className={cn("w-full shrink-0 pt-14 lg:pt-24", NARROW_COLUMN)}>
+            <EmptyState
+              action={<Stars filled={0} gap={3} size={20} />}
+              body={<ThaiText>{t("emptyBody")}</ThaiText>}
+              icon={Star}
+              title={t("emptyTitle")}
+            />
           </div>
         ) : (
           /* Figma "Body" (1787:26467) — the score stops being the first card of
              the list and becomes the column beside it, so a reader scrolling
              the reviews still has the shape of the score in view. */
-          <div className="flex w-full shrink-0 flex-col items-start lg:mx-auto lg:grid lg:max-w-[1440px] lg:grid-cols-[384px_minmax(0,1fr)] lg:items-start lg:gap-8 lg:px-10 xl:px-30 lg:pt-12 lg:pb-24">
-            {/* Figma "Summary Card": 4.9 score block beside the 5-bar distribution. */}
+          <div
+            className={cn(
+              "flex w-full shrink-0 flex-col items-start lg:grid lg:grid-cols-[384px_minmax(0,1fr)] lg:items-start lg:gap-8 lg:pt-12 lg:pb-24",
+              PAGE,
+            )}
+          >
+            {/* Figma "Summary Card": 4.9 score block beside the 5-bar distribution.
+                The score is the one figure on the page, so it is set at the size
+                a figure gets — `StatTile`'s step — instead of the 20px a card
+                title wears. */}
             <div className="flex w-full shrink-0 flex-col items-start px-6 pt-2 lg:px-0 lg:pt-0">
-              <div className="flex w-full shrink-0 items-start gap-4 overflow-clip rounded-xl bg-card p-3.5">
-                <div className="flex w-[72px] shrink-0 flex-col items-center gap-2.5 pt-3.5">
-                  <p className="font-latin text-xl leading-6 font-semibold text-foreground">
+              <Surface className="flex w-full shrink-0 items-start gap-4 p-3.5">
+                <div className="flex w-[72px] shrink-0 flex-col items-center gap-2 pt-2">
+                  <p className="font-latin text-heading leading-9 font-semibold tabular-nums text-foreground">
                     4.9
                   </p>
-                  <Stars gap={3} size={12} />
-                  <p className="text-xs font-normal whitespace-nowrap text-muted-foreground">
+                  <Stars gap={3} size={13} />
+                  <p className="text-xs font-normal tabular-nums whitespace-nowrap text-muted-foreground">
                     {t("reviewCount")}
                   </p>
                 </div>
-                <div className="flex min-w-px flex-1 flex-col items-start gap-[5px]">
+                <div className="flex min-w-px flex-1 flex-col items-start gap-[5px] pt-1.5">
                   <DistributionRow fill={38} label="5" />
                   <DistributionRow fill={5} label="4" />
                   <DistributionRow fill={2} label="3" />
                   <DistributionRow fill={1} label="2" />
                   <DistributionRow fill={1} label="1" />
                 </div>
-              </div>
+              </Surface>
             </div>
 
             {/* Figma "Review List": 20px top padding, 12px between cards. The

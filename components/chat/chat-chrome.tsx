@@ -8,6 +8,19 @@ import { ChatAvatar } from "@/components/chat/chat-avatar";
 import { cn } from "@/lib/utils";
 
 /**
+ * The desktop two-pane card the three thread screens share — Figma's desktop
+ * chat (1952:8003) stands the inbox and the open thread side by side in one
+ * card.
+ *
+ * It is `Surface`'s raised tier written as `lg:` variants rather than the
+ * component: below `lg` there is no card at all, because the thread *is* the
+ * screen — full-bleed, `h-dvh`, its own scroll. It was pasted in all three files
+ * before this, at `rounded-xl` instead of the card step and with no elevation.
+ */
+export const CHAT_PANE =
+  "lg:mx-auto lg:w-full lg:max-w-[1440px] lg:flex-row lg:overflow-clip lg:rounded-card lg:border lg:border-border lg:bg-card lg:shadow-card";
+
+/**
  * Figma "Chat Header" — 402 x 84: 24px top padding, a 40px back chevron, a 40px
  * avatar, the 24/24 Geist semibold name (-0.625 tracking) and 24px action glyphs,
  * closed by a hairline 20px below the row.
@@ -23,8 +36,12 @@ export function ChatHeader({ threadId }: { readonly threadId: string }) {
 
   // Figma draws the closing rule as a zero-height stroke, so it is painted with
   // ::after and the 20px trailing space is padding instead of a gap.
+  //
+  // The bar takes the card surface: the messages behind it sit on the page
+  // ground now, so the chrome at either end of the thread has to be the thing
+  // that does not scroll *and* does not look like a message.
   return (
-    <div className="relative flex w-full shrink-0 flex-col items-start pt-6 pb-5 after:absolute after:bottom-0 after:left-0 after:h-px after:w-full after:bg-border after:content-[''] lg:py-4">
+    <div className="relative flex w-full shrink-0 flex-col items-start bg-card pt-6 pb-5 after:absolute after:bottom-0 after:left-0 after:h-px after:w-full after:bg-border after:content-[''] lg:py-4">
       <div className="flex w-full shrink-0 items-center gap-4 px-4 lg:gap-3 lg:px-5">
         {/* The desktop pane has the inbox beside it, so there is nothing for a
             back chevron to do there. */}
@@ -38,9 +55,9 @@ export function ChatHeader({ threadId }: { readonly threadId: string }) {
         >
           <ChevronLeft className="size-10" />
         </Button>
-        <div className="flex min-w-px flex-1 items-center gap-2 self-stretch">
-          <ChatAvatar size={40} />
-          <p className="font-latin shrink-0 text-2xl leading-6 font-semibold tracking-[-0.625px] whitespace-nowrap text-foreground">
+        <div className="flex min-w-px flex-1 items-center gap-2.5 self-stretch">
+          <ChatAvatar presence="online" size={40} />
+          <p className="font-latin min-w-px flex-1 truncate text-2xl leading-6 font-semibold tracking-[-0.625px] text-foreground">
             {t("partner")}
           </p>
         </div>
@@ -83,7 +100,9 @@ export function ChatFooter({
   const t = useTranslations("chat");
 
   return (
-    <div className="relative flex w-full shrink-0 flex-col items-start pt-4 pb-6 before:absolute before:top-0 before:left-0 before:h-px before:w-full before:bg-border before:content-['']">
+    // Card surface, like the header: the compose row is the other end of the
+    // thread's chrome, and the messages scroll on the page ground between them.
+    <div className="relative flex w-full shrink-0 flex-col items-start bg-card pt-4 pb-6 before:absolute before:top-0 before:left-0 before:h-px before:w-full before:bg-border before:content-['']">
       <div className="flex w-full shrink-0 items-center gap-2 px-2">
         {/* Figma draws these as bare 24px glyphs; as real buttons they keep that
             box but gain the focus ring, hover and press states. */}
@@ -100,7 +119,7 @@ export function ChatFooter({
         </Button>
         <Input
           aria-label={t("title")}
-          className="font-latin min-w-px flex-1 bg-muted px-3 text-sm shadow-none"
+          className="font-latin min-w-px flex-1 rounded-card border-border bg-muted px-3.5 text-sm shadow-none"
           placeholder={t("messagePlaceholder")}
           type="text"
         />
@@ -108,7 +127,9 @@ export function ChatFooter({
           aria-label={t("send")}
           className={cn(
             "size-9 shrink-0 border-0",
-            sendVariant === "muted" && "bg-border text-foreground hover:bg-border/80",
+            // Nothing to send: the well step rather than the hairline colour,
+            // which was a border token doing duty as a fill.
+            sendVariant === "muted" && "bg-muted text-muted-foreground hover:bg-accented",
           )}
           size="icon"
         >

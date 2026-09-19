@@ -12,24 +12,41 @@ import {
   ScreenSpacer,
   ScreenTopBar,
 } from "@/components/mobile/screen";
-import { FEED_COLUMN } from "@/components/notifications/notification-center-screen";
+import { SurfaceList } from "@/components/mobile/surface";
 import { TopBar } from "@/components/topbar";
+import { READING_COLUMN } from "@/lib/layout";
+import { cn } from "@/lib/utils";
 
-/** Figma "Info Card" row — 64px tall, 16px glyph, title/body stack. */
+/**
+ * Figma "Info Card" row — 64px tall, 16px glyph, title/body stack.
+ *
+ * The glyph takes the same tinted chip the notification rows give it, so the
+ * screen that explains the three kinds of alert uses the same colour vocabulary
+ * as the feed it is explaining.
+ */
 function PrimerRow({
   icon: Icon,
+  iconClassName,
   title,
   body,
 }: {
   readonly icon: LucideIcon;
+  readonly iconClassName: string;
   readonly title: string;
   readonly body: string;
 }) {
   return (
-    <div className="flex h-16 w-full shrink-0 items-start gap-3 overflow-clip p-3.5">
-      <Icon className="size-4 shrink-0 text-muted-foreground" />
+    <div className="flex h-16 w-full shrink-0 items-center gap-3 overflow-clip p-3.5">
+      <span
+        className={cn(
+          "flex size-9 shrink-0 items-center justify-center rounded-lg",
+          iconClassName,
+        )}
+      >
+        <Icon aria-hidden className="size-4.5" />
+      </span>
       <div className="flex min-w-px flex-1 flex-col items-start gap-0.5 overflow-clip">
-        <p className="w-full text-sm font-medium text-foreground">
+        <p className="w-full text-sm font-semibold text-foreground">
           {title}
         </p>
         <p className="w-full text-xs font-normal text-muted-foreground">
@@ -61,37 +78,42 @@ export function PushPrimerScreen() {
         </div>
 
         {/* Figma "Head Band" — title over subtitle on the card surface. */}
-        <div className="w-full shrink-0 lg:border-b lg:border-border lg:bg-card">
+        <div className="w-full shrink-0 lg:border-b lg:border-border lg:bg-card lg:shadow-card">
           <ScreenHeading
-            className={`gap-2 pt-4 lg:pt-5 lg:pb-9 ${FEED_COLUMN}`}
+            className={cn("gap-2 pt-4 lg:pt-5 lg:pb-9", READING_COLUMN)}
             subtitle={t("primerSubtitle")}
             title={t("primerTitle")}
           />
         </div>
 
-        {/* Figma "What We Use": 12px top padding, then a 194px three-row card. */}
+        {/* Figma "What We Use": 12px top padding, then a 194px three-row card —
+            one `SurfaceList`, which is where the hairlines come from now. */}
         <div
-          className={`flex w-full shrink-0 flex-col items-start px-6 pt-3 lg:pt-12 ${FEED_COLUMN}`}
+          className={cn(
+            "flex w-full shrink-0 flex-col items-start px-6 pt-3 lg:px-0 lg:pt-12",
+            READING_COLUMN,
+          )}
         >
-          <div className="flex w-full shrink-0 flex-col items-start overflow-clip rounded-xl bg-card lg:border lg:border-border">
+          <SurfaceList>
             <PrimerRow
               body={t("primerBookingsBody")}
               icon={CalendarDays}
+              iconClassName="bg-info/10 text-info"
               title={t("primerBookingsTitle")}
             />
-            <div className="h-px w-full shrink-0 bg-muted" />
             <PrimerRow
               body={t("primerMessagesBody")}
               icon={MessageSquare}
+              iconClassName="bg-accent-surface text-primary"
               title={t("primerMessagesTitle")}
             />
-            <div className="h-px w-full shrink-0 bg-muted" />
             <PrimerRow
               body={t("primerPaymentsBody")}
               icon={CreditCard}
+              iconClassName="bg-success/12 text-success"
               title={t("primerPaymentsTitle")}
             />
-          </div>
+          </SurfaceList>
         </div>
 
         {/* The phone pins the pair to the bottom edge; the 1440 frame sets them

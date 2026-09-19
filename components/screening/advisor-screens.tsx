@@ -16,13 +16,8 @@ import {
   ScreenSpacer,
   ScreenTopBar,
 } from "@/components/mobile/screen";
-import {
-  Card,
-  CardDivider,
-  FootNote,
-  StackRow,
-  TimeMeta,
-} from "@/components/screening/parts";
+import { StatusPill } from "@/components/mobile/status-pill";
+import { Card, FootNote, StackRow, TimeMeta } from "@/components/screening/parts";
 
 /** Figma "Advisor - Screening setup (Light)" — 995:11456. */
 export function ScreeningSetupScreen() {
@@ -42,36 +37,32 @@ export function ScreeningSetupScreen() {
           title={t("setupTitle")}
         />
 
-        {/* Figma "Questions": 20px top padding, 18px caption, 8px gap, card. */}
+        {/* Figma "Questions": 20px top padding, a caption, 8px gap, card. The
+            caption was a 12px muted line above a card of 14px rows — quieter
+            than the content it introduces. It is a section head now. */}
         <div className="flex w-full shrink-0 flex-col items-start gap-2 px-6 pt-5">
-          <p className="w-full text-xs font-normal text-muted-foreground">
+          <p className="w-full text-base font-semibold text-foreground lg:text-lg">
             {t("yourQuestions")}
           </p>
           <Card>
             <StackRow
               body={t("required")}
-              centerIcon
               icon={CircleHelp}
               title={t("q1")}
-              trailing={<ChevronRight className="mt-2.5 size-4 text-muted-foreground" />}
+              trailing={<ChevronRight className="size-4 text-muted-foreground" />}
             />
-            <CardDivider />
             <StackRow
               body={t("required")}
-              centerIcon
               icon={CircleHelp}
               title={t("q2")}
-              trailing={<ChevronRight className="mt-2.5 size-4 text-muted-foreground" />}
+              trailing={<ChevronRight className="size-4 text-muted-foreground" />}
             />
-            <CardDivider />
             <StackRow
               body={t("optional")}
-              centerIcon
               icon={CircleHelp}
               title={t("q3")}
-              trailing={<ChevronRight className="mt-2.5 size-4 text-muted-foreground" />}
+              trailing={<ChevronRight className="size-4 text-muted-foreground" />}
             />
-            <CardDivider />
             {/* Figma "Add question": a 48px single-line row. */}
             <AddRow label={t("addQuestion")} />
           </Card>
@@ -97,34 +88,36 @@ export function ScreeningRequestsScreen() {
       <ScreenBody className="lg:[&>*]:mx-auto lg:[&>*]:w-full lg:[&>*]:max-w-[720px]">
         <ScreenHeading className="pt-4" title={t("requestsTitle")} />
 
+        {/* The two groups had the same grey caption and identical rows, so
+            nothing on the screen said which requests were still owed an answer.
+            The heads state it, and the group's own colour carries it: amber
+            chips and a pill on what is waiting, the outcome on what is done. */}
         <div className="flex w-full shrink-0 flex-col items-start gap-2 px-6 pt-5">
-          <p className="w-full text-xs font-normal text-muted-foreground">
+          <p className="w-full text-base font-semibold text-foreground lg:text-lg">
             {t("pending")}
           </p>
           <Card>
             <StackRow
               body={t("req1Body")}
-              centerIcon
-              icon={FileText}
               href="/screening/review"
+              icon={FileText}
+              iconClassName="bg-warning/15 text-warning"
               title={t("req1Name")}
               trailing={<TimeMeta time={t("req1Time")} unread />}
             />
-            <CardDivider />
             <StackRow
               body={t("req2Body")}
-              centerIcon
-              icon={FileText}
               href="/screening/review"
+              icon={FileText}
+              iconClassName="bg-warning/15 text-warning"
               title={t("req2Name")}
               trailing={<TimeMeta time={t("req2Time")} unread />}
             />
-            <CardDivider />
             <StackRow
               body={t("req3Body")}
-              centerIcon
-              icon={FileText}
               href="/screening/review"
+              icon={FileText}
+              iconClassName="bg-warning/15 text-warning"
               title={t("req3Name")}
               trailing={<TimeMeta time={t("req3Time")} />}
             />
@@ -132,24 +125,26 @@ export function ScreeningRequestsScreen() {
         </div>
 
         <div className="flex w-full shrink-0 flex-col items-start gap-2 px-6 pt-5">
-          <p className="w-full text-xs font-normal text-muted-foreground">
+          <p className="w-full text-base font-semibold text-foreground lg:text-lg">
             {t("answered")}
           </p>
           <Card>
+            {/* These two rows' bodies already *are* the outcome — "รับคำขอแล้ว"
+                and "ปฏิเสธคำขอ" — so the outcome moves into a pill and the body
+                stops being a grey line that has to be read to be found. */}
             <StackRow
-              body={t("req4Body")}
-              centerIcon
-              icon={FileText}
+              body={<StatusPill tone="success">{t("req4Body")}</StatusPill>}
               href="/screening/review"
+              icon={FileText}
+              iconClassName="bg-success/12 text-success"
               title={t("req4Name")}
               trailing={<TimeMeta time={t("yesterday")} />}
             />
-            <CardDivider />
             <StackRow
-              body={t("req5Body")}
-              centerIcon
-              icon={FileText}
+              body={<StatusPill tone="danger">{t("req5Body")}</StatusPill>}
               href="/screening/review"
+              icon={FileText}
+              iconClassName="bg-destructive/10 text-destructive"
               title={t("req5Name")}
               trailing={<TimeMeta time={t("yesterday")} />}
             />
@@ -159,6 +154,34 @@ export function ScreeningRequestsScreen() {
         <ScreenSpacer />
       </ScreenBody>
     </MobileScreen>
+  );
+}
+
+/**
+ * One screening answer, on the review screen — the question as the quiet label,
+ * the answer as the thing being read.
+ *
+ * `StackRow` is the wrong way round for this one block: there the title is the
+ * heading and the body is meta, and here the body *is* the content. So it is a
+ * row of its own rather than a fourth flag on the shared one.
+ */
+function AnswerRow({
+  question,
+  answer,
+}: {
+  readonly question: string;
+  readonly answer: string;
+}) {
+  return (
+    <div className="flex w-full shrink-0 items-start gap-3 p-3.5">
+      <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-accent-surface">
+        <CircleHelp aria-hidden className="size-4.5 text-primary" />
+      </span>
+      <div className="flex min-w-px flex-1 flex-col items-start gap-1">
+        <p className="w-full text-xs font-normal text-muted-foreground">{question}</p>
+        <p className="w-full text-sm font-normal text-foreground">{answer}</p>
+      </div>
+    </div>
   );
 }
 
@@ -180,14 +203,15 @@ export function ReviewAnswersScreen() {
           title={t("reviewTitle")}
         />
 
-        {/* Figma "Info Card": each screening question with the advisee's answer. */}
+        {/* Figma "Info Card": each screening question with the advisee's answer.
+            The answer is the reason this screen exists, so it stops being a 12px
+            grey line under the question and becomes the row's body copy — read
+            at the same size as the question, in the foreground ink. */}
         <div className="flex w-full shrink-0 flex-col items-start px-6 pt-3">
           <Card>
-            <StackRow body={t("a1")} icon={CircleHelp} title={t("q1")} />
-            <CardDivider />
-            <StackRow body={t("a2")} icon={CircleHelp} title={t("q2")} />
-            <CardDivider />
-            <StackRow body={t("a3")} icon={CircleHelp} title={t("q3")} />
+            <AnswerRow answer={t("a1")} question={t("q1")} />
+            <AnswerRow answer={t("a2")} question={t("q2")} />
+            <AnswerRow answer={t("a3")} question={t("q3")} />
           </Card>
         </div>
 

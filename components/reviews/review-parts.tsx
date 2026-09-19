@@ -4,6 +4,8 @@ import { useTranslations } from "next-intl";
 import type { ReactNode } from "react";
 
 import { NeutralButton, PrimaryButton } from "@/components/mobile/buttons";
+import { StatusPill } from "@/components/mobile/status-pill";
+import { Surface } from "@/components/mobile/surface";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
@@ -33,7 +35,11 @@ export function Stars({
         <Star
           className={cn(
             "shrink-0",
-            i < filled ? "fill-primary text-primary" : "fill-none text-border",
+            // An empty star was drawn on `--border`, the hairline colour, which
+            // on the cooler ground reads as nothing at all — so a 3-star review
+            // and a 5-star one looked alike. `--accented` is the stronger of the
+            // two neutral edges, and the fill keeps the shape readable.
+            i < filled ? "fill-primary text-primary" : "fill-muted text-accented",
           )}
           key={i}
           style={{ width: size, height: size }}
@@ -75,48 +81,54 @@ export function ReviewCard({
   readonly children?: ReactNode;
 }) {
   return (
-    <div className="flex w-full shrink-0 flex-col items-start overflow-clip rounded-xl bg-card p-3.5">
+    <Surface className="flex w-full shrink-0 flex-col items-start p-3.5">
       <div className="flex w-full shrink-0 items-start gap-2.5 overflow-clip">
         <Image
           alt=""
-          className="mt-1 size-8 shrink-0 rounded-full object-cover"
-          height={32}
+          className="mt-0.5 size-9 shrink-0 rounded-full object-cover"
+          height={36}
           src={avatar}
-          width={32}
+          width={36}
         />
         <div className="flex min-w-px flex-1 flex-col items-start gap-0.5 overflow-clip">
-          <p className="w-full text-sm font-medium text-foreground">
+          <p className="w-full text-sm font-semibold text-foreground">
             {name}
           </p>
-          <p className="w-full text-xs font-normal text-muted-foreground">
+          <p className="w-full text-xs font-normal tabular-nums text-muted-foreground">
             {meta}
           </p>
         </div>
-        <span className="mt-[11px] shrink-0 text-xs font-normal whitespace-nowrap text-muted-foreground">
+        <span className="font-latin mt-0.5 shrink-0 text-xs font-normal tabular-nums whitespace-nowrap text-muted-foreground">
           {date}
         </span>
       </div>
 
-      <Stars className="mt-2" gap={3} size={13} />
+      <Stars className="mt-2.5" gap={3} size={14} />
 
       <p className="mt-2 w-full text-sm font-normal text-foreground">
         {body}
       </p>
 
       {reply ? (
-        <div className="mt-2 flex w-full shrink-0 flex-col items-start gap-1 overflow-clip rounded-lg bg-muted px-3 py-2.5">
-          <p className="w-full text-xs font-normal text-muted-foreground">
+        /* The advisor's reply belongs under the review it answers — the `well`
+           tier — and its caption is a status, not a label in the same grey as
+           the review's own meta line. */
+        <Surface
+          className="mt-3 flex w-full shrink-0 flex-col items-start gap-1.5 p-3"
+          tier="well"
+        >
+          <StatusPill icon={MessageSquareReply} tone="accent">
             {replyLabel}
-          </p>
+          </StatusPill>
           <p className="w-full text-sm font-normal text-foreground">
             {reply}
           </p>
-        </div>
+        </Surface>
       ) : null}
 
       {replyAction ? (
         <Button
-          className="mt-2 h-auto shrink-0 gap-1.5 overflow-clip p-0 no-underline"
+          className="mt-2.5 h-auto shrink-0 gap-1.5 overflow-clip p-0 no-underline"
           onClick={onReply}
           variant="link"
         >
@@ -128,7 +140,7 @@ export function ReviewCard({
       ) : null}
 
       {children}
-    </div>
+    </Surface>
   );
 }
 
@@ -167,14 +179,17 @@ export function ReplyComposer({
   const noteId = `${id}-note`;
 
   return (
-    <div className="mt-2 flex w-full shrink-0 flex-col items-start gap-2 overflow-clip rounded-lg bg-muted px-3 py-2.5">
-      <label className="w-full text-xs font-normal text-muted-foreground" htmlFor={id}>
+    <Surface
+      className="mt-3 flex w-full shrink-0 flex-col items-start gap-2 p-3"
+      tier="well"
+    >
+      <label className="w-full text-sm font-medium text-foreground" htmlFor={id}>
         {t("yourReply")}
       </label>
       <Textarea
         aria-describedby={noteId}
         aria-invalid={failed || undefined}
-        className="h-18 resize-none bg-card px-3 text-sm shadow-none field-sizing-fixed"
+        className="h-18 resize-none rounded-card border-border bg-card px-3 text-sm shadow-none field-sizing-fixed"
         id={id}
         maxLength={REPLY_MAX}
         onChange={(event) => onChange(event.target.value)}
@@ -215,6 +230,6 @@ export function ReplyComposer({
           {failed ? t("retry") : t("replySend")}
         </PrimaryButton>
       </div>
-    </div>
+    </Surface>
   );
 }
