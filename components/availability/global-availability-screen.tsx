@@ -1,5 +1,11 @@
 import Link from "next/link";
-import { ChevronRight, Info } from "lucide-react";
+import {
+  CalendarRange,
+  ChevronRight,
+  Hourglass,
+  Info,
+  Timer,
+} from "lucide-react";
 import { useTranslations } from "next-intl";
 import type { ReactNode } from "react";
 
@@ -9,11 +15,14 @@ import {
   ScreenBody,
   ScreenTopBar,
 } from "@/components/mobile/screen";
+import { StatTile } from "@/components/mobile/stat-tile";
+import { surfaceClass } from "@/components/mobile/surface";
 import { ThaiText } from "@/components/mobile/thai-text";
 import { NeutralButton, PrimaryButton } from "@/components/mobile/buttons";
 import { TopBar } from "@/components/topbar";
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
+import { READING_COLUMN } from "@/lib/layout";
 import { cn } from "@/lib/utils";
 import {
   BUFFER_MINUTE_OPTIONS,
@@ -32,16 +41,24 @@ import {
 const BACK_BAR = "lg:h-13 lg:bg-card lg:pt-0 lg:pb-0 lg:pl-10 xl:pl-30";
 const HEAD_BAND = "w-full shrink-0 lg:border-b lg:border-border lg:bg-card";
 
-/** Figma "Heading" (1994:27899) — the same 800px column the form card uses. */
-const COLUMN = "lg:mx-auto lg:w-[800px] lg:px-0";
+/**
+ * Figma "Heading" (1994:27899) — the same 800px column the form card uses, which
+ * is `READING_COLUMN`; it was spelled out here as `lg:w-[800px]`.
+ */
+const COLUMN = cn(READING_COLUMN, "lg:px-0");
 
 /**
  * Figma "Card" — the 800px panel the whole form becomes at 1440: a 40px inset
  * on the card surface, 48px clear of the band above it. On the phone the form
  * is the screen, so this is a set of `lg:` classes rather than a second layout.
+ *
+ * `shadow-panel` is the token for exactly this — a desktop panel floating over
+ * the page ground — and it only exists from `lg`, where the panel does.
  */
-const FORM_CARD =
-  "flex w-full shrink-0 flex-col gap-4 lg:my-12 lg:w-[800px] lg:gap-5 lg:rounded-2xl lg:border lg:border-border lg:bg-card lg:p-10";
+const FORM_CARD = cn(
+  "flex w-full shrink-0 flex-col gap-4 lg:my-12 lg:gap-5 lg:rounded-2xl lg:border lg:border-border lg:bg-card lg:p-10 lg:shadow-panel",
+  READING_COLUMN,
+);
 
 /** Figma "Actions" — the pair stops filling the width and holds the card's end. */
 const CARD_ACTIONS = "lg:justify-end lg:border-0 lg:bg-transparent lg:px-0 lg:py-0";
@@ -75,7 +92,20 @@ function OptionChip({
   );
 }
 
-/** Figma "Row" — the bordered surface every group's control sits on. 12px radius. */
+/**
+ * Figma "Row" — the surface every group's control sits on, at the 12px step
+ * `rounded-card` now names.
+ *
+ * Two tiers in one row, because the row is two different objects at the two
+ * widths: on the phone the form *is* the screen, so each row is a card on the grey
+ * page ground and takes `raised`; inside the 800px desktop panel it is a block
+ * within a card, so the shadow comes off and it reads `flat`.
+ */
+const GROUP_SURFACE = cn(
+  surfaceClass(),
+  "flex w-full shrink-0 overflow-clip px-3.5 py-3 lg:shadow-none",
+);
+
 function GroupSurface({
   children,
   className,
@@ -83,16 +113,7 @@ function GroupSurface({
   readonly children: ReactNode;
   readonly className?: string;
 }) {
-  return (
-    <div
-      className={cn(
-        "flex w-full shrink-0 overflow-clip rounded-[12px] border border-border bg-card px-3.5 py-3",
-        className,
-      )}
-    >
-      {children}
-    </div>
-  );
+  return <div className={cn(GROUP_SURFACE, className)}>{children}</div>;
 }
 
 /** Figma "Group" — a 14/20 label, an optional 12/18 hint, then the control. */
@@ -153,6 +174,37 @@ function CustomValueRow({
 }
 
 /**
+ * A figure and its unit, for the `StatTile` row.
+ *
+ * `StatTile` sets its value in `font-latin tabular-nums` — Geist, which has no Thai
+ * glyphs — so the unit cannot ride inside the numeral's span or it falls back to
+ * whatever the machine has. The numeral keeps the Latin face and the unit steps
+ * down into the Thai one, which is the right typographic split anyway.
+ */
+function Figure({
+  value,
+  unit,
+}: {
+  readonly value: number;
+  readonly unit: string;
+}) {
+  return (
+    <>
+      {value}
+      <span className="font-sans text-sm font-normal text-muted-foreground">
+        {" "}
+        {unit}
+      </span>
+    </>
+  );
+}
+
+/** A `StatTile` value that is a word rather than a number — "ไม่เว้น", "ไม่จำกัด". */
+function FigureWord({ children }: { readonly children: string }) {
+  return <span className="font-sans text-base">{children}</span>;
+}
+
+/**
  * Figma "Availability - Global" (1594:30833 / 31442 / 31959) — the Advisor's one
  * Global Availability record: which profiles are in play, how far ahead bookings
  * open, the recovery gap between appointments, and an optional daily ceiling.
@@ -173,6 +225,9 @@ export function GlobalAvailabilityScreen({
   const c = useTranslations("common");
   const fixture = GLOBAL_AVAILABILITY[state];
   const limitOn = state !== "default";
+  const bufferMinutes = fixture.bufferMinutes ?? fixture.customBufferMinutes ?? 0;
+  const dailyLimitHours =
+    fixture.dailyLimitHours ?? fixture.customDailyLimitHours ?? 0;
 
   // The phone pins these to its bottom edge over a hairline; the desktop frame
   // parks the same pair at the end of the card. Written once, placed twice.
@@ -213,27 +268,76 @@ export function GlobalAvailabilityScreen({
               <ThaiText>{t("subtitle")}</ThaiText>
             </p>
           </div>
+
+          {/* The record, as the three numbers it actually is. At 1440 this band was
+              a full-width white slab carrying two lines of text, and the settings
+              below it were only legible by reading which chip was filled. `lg:`
+              only — on the phone the form is the screen and the chips are right
+              there, so nothing is added to it. */}
+          <div
+            className={cn("hidden px-6", COLUMN, "lg:grid lg:grid-cols-3 lg:gap-3 lg:pb-6")}
+          >
+            <StatTile
+              icon={CalendarRange}
+              label={t("horizonLabel")}
+              tone="accent"
+              value={
+                <Figure
+                  unit={t("dayUnit")}
+                  value={fixture.horizonDays ?? fixture.customHorizonDays ?? 0}
+                />
+              }
+            />
+            <StatTile
+              icon={Timer}
+              label={t("bufferLabel")}
+              value={
+                bufferMinutes === 0 ? (
+                  <FigureWord>{t("noBuffer")}</FigureWord>
+                ) : (
+                  <Figure unit={t("minuteUnit")} value={bufferMinutes} />
+                )
+              }
+            />
+            <StatTile
+              icon={Hourglass}
+              label={t("limitLabel")}
+              value={
+                limitOn ? (
+                  <Figure unit={t("hourUnit")} value={dailyLimitHours} />
+                ) : (
+                  <FigureWord>{t("limitOffTitle")}</FigureWord>
+                )
+              }
+            />
+          </div>
         </div>
 
         <div className={FORM_CARD}>
         <Group label={t("profilesLabel")}>
-          <GroupSurface className="items-center gap-3">
-            <div className="flex min-w-px flex-1 flex-col items-start gap-0.5 overflow-clip">
-              <Link
-                className="w-full text-base font-medium text-foreground"
-                href="/availability/profiles"
-              >
+          {/* The whole row is the target now, not the four words inside it: it has
+              a chevron at its end and it navigates, so the surface is the link and
+              takes the row hover. */}
+          <Link
+            className={cn(
+              GROUP_SURFACE,
+              "items-center gap-3 transition-colors hover:bg-muted/50",
+            )}
+            href="/availability/profiles"
+          >
+            <span className="flex min-w-px flex-1 flex-col items-start gap-0.5 overflow-clip">
+              <span className="w-full text-base font-medium text-foreground">
                 {t("profilesAction")}
-              </Link>
-              <p className="w-full text-xs font-normal text-muted-foreground">
+              </span>
+              <span className="w-full text-xs font-normal text-muted-foreground">
                 {t("profilesMeta", {
                   profiles: fixture.profileCount,
                   services: fixture.serviceCount,
                 })}
-              </p>
-            </div>
+              </span>
+            </span>
             <ChevronRight className="size-4 shrink-0 text-muted-foreground" />
-          </GroupSurface>
+          </Link>
         </Group>
 
         <Group

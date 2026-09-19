@@ -1,5 +1,6 @@
 import { useTranslations } from "next-intl";
 
+import { SurfaceList } from "@/components/mobile/surface";
 import { cn } from "@/lib/utils";
 import { WEEKDAYS, type Weekday } from "@/lib/availability/profiles";
 
@@ -17,6 +18,11 @@ import { WEEKDAYS, type Weekday } from "@/lib/availability/profiles";
  * `compact` is the edit-service frame's preview of the chosen profile: the same
  * table at 12/18 regular with 8px rows, because there it is a reminder under a
  * select rather than the thing being read.
+ *
+ * The seven rows are a `SurfaceList` at the `well` tier — the hairlines used to be
+ * seven hand-placed `h-px` divs inside a wrapper each row carried only so the
+ * first one could be skipped. `divide-y` says the same thing once, and `well` is
+ * what this is: a block that belongs *under* the card it sits in.
  */
 export function WeekTable({
   windows,
@@ -31,49 +37,42 @@ export function WeekTable({
   const compact = density === "compact";
 
   return (
-    <div
-      className={cn(
-        "flex w-full shrink-0 flex-col items-start overflow-clip rounded-lg bg-muted",
-        className,
-      )}
-    >
-      {WEEKDAYS.map((day, index) => {
+    <SurfaceList className={cn("shrink-0", className)} tier="well">
+      {WEEKDAYS.map((day) => {
         const window = windows[day];
 
         return (
-          <div className="w-full" key={day}>
-            {index > 0 ? <div className="h-px w-full bg-border" /> : null}
-            <div
+          <div
+            className={cn(
+              "flex w-full shrink-0 items-center gap-2 overflow-clip px-3",
+              compact ? "py-2" : "py-2.5",
+            )}
+            key={day}
+          >
+            <p
               className={cn(
-                "flex w-full shrink-0 items-center gap-2 overflow-clip px-3",
-                compact ? "py-2" : "py-2.5",
+                "shrink-0 whitespace-nowrap",
+                compact ? "text-xs font-normal" : "text-sm font-medium",
+                window
+                  ? "text-foreground"
+                  : "text-muted-foreground line-through",
               )}
             >
-              <p
-                className={cn(
-                  "shrink-0 whitespace-nowrap",
-                  compact ? "text-xs font-normal" : "text-sm font-medium",
-                  window
-                    ? "text-foreground"
-                    : "text-muted-foreground line-through",
-                )}
-              >
-                {t(`weekday.${day}`)}
-              </p>
-              <div className="h-px min-w-px flex-1" />
-              <p
-                className={cn(
-                  "shrink-0 text-right font-normal whitespace-nowrap",
-                  compact ? "text-xs" : "text-sm",
-                  window ? "text-foreground" : "text-muted-foreground",
-                )}
-              >
-                {window ?? t("dayClosed")}
-              </p>
-            </div>
+              {t(`weekday.${day}`)}
+            </p>
+            <div className="h-px min-w-px flex-1" />
+            <p
+              className={cn(
+                "shrink-0 text-right font-normal whitespace-nowrap",
+                compact ? "text-xs" : "text-sm",
+                window ? "text-foreground" : "text-muted-foreground",
+              )}
+            >
+              {window ?? t("dayClosed")}
+            </p>
           </div>
         );
       })}
-    </div>
+    </SurfaceList>
   );
 }
