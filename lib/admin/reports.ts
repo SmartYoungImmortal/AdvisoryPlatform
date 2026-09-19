@@ -1,11 +1,17 @@
+import type { ReportCategory } from "@/lib/reports/categories";
+
 /**
  * USER_REPORTS + folded OFF_PLATFORM_FLAGS (CF-08) — wireframe cards read
  * "Off-platform (เสี่ยงต่ำ)" with a reported user and a chat-log excerpt
  * (1042:15219). Admin resolves: dismiss (restore ranking) or suspend.
+ *
+ * `category` is the shared vocabulary in `lib/reports/categories`, not a union
+ * spelled out here: the reporter picks from that same list, so a reason cannot
+ * exist on the form without the console being able to name it.
  */
 export type UserReport = {
   readonly id: string;
-  readonly category: "off-platform" | "harassment" | "scam";
+  readonly category: ReportCategory;
   readonly risk: "LOW" | "HIGH";
   readonly reportedUser: string;
   readonly reportedUserId: string;

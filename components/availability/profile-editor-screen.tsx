@@ -5,6 +5,7 @@ import type { ReactNode } from "react";
 
 import { AddDateSheet } from "@/components/availability/add-date-sheet";
 import { TimePickerPopover } from "@/components/availability/time-picker-popover";
+import { SiteFooter } from "@/components/marketing/site-footer";
 import {
   MobileScreen,
   ScreenBody,
@@ -12,6 +13,7 @@ import {
 } from "@/components/mobile/screen";
 import { ThaiText } from "@/components/mobile/thai-text";
 import { NeutralButton, PrimaryButton } from "@/components/mobile/buttons";
+import { TopBar } from "@/components/topbar";
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
 import { cn } from "@/lib/utils";
@@ -27,6 +29,22 @@ import {
   type EditorTab,
   type TimeRange,
 } from "@/lib/availability/editor";
+
+/**
+ * Figma "Back Bar" (1994:29194) and "Head Band" (1994:29197) — the 52px row
+ * under the app's nav and the white band the heading sits in, above the grey
+ * form band that holds the editor's own card.
+ */
+const BACK_BAR = "lg:h-13 lg:bg-card lg:pt-0 lg:pb-0 lg:pl-10 xl:pl-30";
+const HEAD_BAND = "w-full shrink-0 lg:border-b lg:border-border lg:bg-card";
+const COLUMN = "lg:mx-auto lg:w-[800px] lg:px-0";
+
+/**
+ * Figma "Card" — the 800px panel the whole editor becomes at 1440: a 40px inset
+ * on the card surface, 48px clear of the band above it.
+ */
+const FORM_CARD =
+  "flex w-full shrink-0 flex-col gap-4 lg:my-12 lg:w-[800px] lg:gap-4 lg:rounded-2xl lg:border lg:border-border lg:bg-card lg:p-10";
 
 const TAB_HREF: Record<EditorTab, string> = {
   weekly: "/availability/profiles/edit",
@@ -64,7 +82,7 @@ function EditorTabs({
   const hrefs = isCreate(mode) ? CREATE_TAB_HREF : TAB_HREF;
 
   return (
-    <div className="flex w-full shrink-0 flex-col items-start overflow-clip px-6">
+    <div className="flex w-full shrink-0 flex-col items-start overflow-clip px-6 lg:px-0">
       <div className="flex w-full shrink-0 items-start overflow-clip rounded-[12px] bg-muted p-1">
         {tabs.map((tab) => (
           <Link
@@ -211,7 +229,7 @@ function AddDashedRow({
 /** Figma "Validation Note" — the tinted accent strip each tab closes on. */
 function Note({ children }: { readonly children: string }) {
   return (
-    <div className="flex w-full shrink-0 flex-col items-start overflow-clip px-6">
+    <div className="flex w-full shrink-0 flex-col items-start overflow-clip px-6 lg:px-0">
       <div className="flex w-full shrink-0 items-start gap-2 overflow-clip rounded-lg bg-accent-surface px-3 py-2.5">
         <Info className="mt-px size-4 shrink-0 text-muted-foreground" />
         <p className="min-w-px flex-1 text-xs font-normal text-muted-foreground">
@@ -291,7 +309,7 @@ function ApplyToServiceBlock() {
   const t = useTranslations("availability");
 
   return (
-    <div className="flex w-full shrink-0 flex-col items-start gap-2 overflow-clip px-6">
+    <div className="flex w-full shrink-0 flex-col items-start gap-2 overflow-clip px-6 lg:px-0">
       <p className="w-full text-sm font-medium text-foreground">
         {t("applyLabel")}
       </p>
@@ -324,7 +342,7 @@ function WeeklyTab({
   const days = create ? PRESET_WEEKLY_DAYS : WEEKLY_DAYS;
 
   return (
-    <div className="flex w-full shrink-0 flex-col items-start gap-2.5 px-6">
+    <div className="flex w-full shrink-0 flex-col items-start gap-2.5 px-6 lg:px-0">
       {create ? <PresetRow /> : null}
       {create ? (
         <p className="w-full pt-1.5 text-sm font-medium text-foreground">
@@ -409,7 +427,7 @@ function SpecificTab({ mode }: { readonly mode: EditorMode }) {
   const href = create ? CREATE_TAB_HREF.specific : TAB_HREF.specific;
 
   return (
-    <div className="flex w-full shrink-0 flex-col items-start gap-2.5 overflow-clip px-6">
+    <div className="flex w-full shrink-0 flex-col items-start gap-2.5 overflow-clip px-6 lg:px-0">
       {create ? (
         <SectionIntro
           hint={t("specificHint")}
@@ -461,7 +479,7 @@ function BlockedTab({ mode }: { readonly mode: EditorMode }) {
   const href = create ? CREATE_TAB_HREF.blocked : TAB_HREF.blocked;
 
   return (
-    <div className="flex w-full shrink-0 flex-col items-start gap-2.5 overflow-clip px-6">
+    <div className="flex w-full shrink-0 flex-col items-start gap-2.5 overflow-clip px-6 lg:px-0">
       {create ? (
         <SectionIntro hint={t("blockedHint")} label={t("tab.blocked")} />
       ) : null}
@@ -542,28 +560,57 @@ export function ProfileEditorScreen({
   const invalid = state === "error";
   const picker = state === "picker";
 
-  return (
-    <MobileScreen className="pb-0">
-      <ScreenTopBar href="/availability/profiles" label={c("back")} />
+  // The phone pins these to its bottom edge; the desktop card parks the same
+  // pair at its end. Written once, placed twice.
+  const actions = (
+    <>
+      <NeutralButton className="w-30 shrink-0 lg:w-auto lg:px-6" href="/availability/profiles">
+        {c("cancel")}
+      </NeutralButton>
+      {/* Nothing can be saved while a range is invalid, which the frame shows by
+          dimming the action rather than removing it. */}
+      <PrimaryButton
+        className="min-w-px flex-1 lg:w-auto lg:flex-none lg:px-8"
+        disabled={invalid}
+        href={invalid ? undefined : "/availability/profiles"}
+      >
+        {create ? t("createProfile") : t("saveProfile")}
+      </PrimaryButton>
+    </>
+  );
 
-      <ScreenBody className="gap-4 pb-6">
-        <div className="flex w-full shrink-0 flex-col items-start gap-1.5 overflow-clip px-6">
-          <h1 className="w-full text-2xl font-semibold text-foreground">
-            {create ? t("createTitle") : t("editorTitle")}
-          </h1>
-          <p className="text-sm font-normal text-muted-foreground">
-            {create || tab === "weekly" ? (
-              <ThaiText>
-                {create ? t("createSubtitle") : t("editorSubtitle")}
-              </ThaiText>
-            ) : (
-              EDITED_PROFILE_NAME
-            )}
-          </p>
+  return (
+    // Figma "Desktop / Availability - Profile / …" (1994:29171, 29651, 29917)
+    // and the create variants (1994:28617, 28790, 28970, 29071): the heading
+    // becomes a white band and the editor becomes one 800px card below it,
+    // tabs and all, with its actions inside rather than pinned to the edge.
+    <MobileScreen className="pb-0" wide>
+      <div className="hidden w-full lg:block">
+        <TopBar unreadNotifications />
+      </div>
+      <ScreenTopBar className={BACK_BAR} href="/availability/profiles" label={c("back")} />
+
+      <ScreenBody className="gap-4 pb-6 lg:gap-0 lg:pb-0">
+        <div className={HEAD_BAND}>
+          <div className={cn("flex w-full shrink-0 flex-col items-start gap-1.5 overflow-clip px-6", COLUMN, "lg:gap-2 lg:py-5")}>
+            <h1 className="w-full text-2xl font-semibold text-foreground lg:text-display">
+              {create ? t("createTitle") : t("editorTitle")}
+            </h1>
+            <p className="text-sm font-normal text-muted-foreground">
+              {create || tab === "weekly" ? (
+                <ThaiText>
+                  {create ? t("createSubtitle") : t("editorSubtitle")}
+                </ThaiText>
+              ) : (
+                EDITED_PROFILE_NAME
+              )}
+            </p>
+          </div>
         </div>
 
+        <div className={FORM_CARD}>
         {create || tab === "weekly" ? (
-          <div className="flex w-full shrink-0 flex-col items-start gap-1 overflow-clip px-6">
+          <div className="flex w-full shrink-0 flex-col items-start gap-1 overflow-clip px-6 lg:px-0">
             <p className="w-full text-sm font-medium text-foreground">
               {t("nameLabel")}
             </p>
@@ -601,21 +648,18 @@ export function ProfileEditorScreen({
                 ? t("createNote.weekly")
                 : t("createNote.weeklyFromList")}
         </Note>
+
+        <div className="hidden w-full shrink-0 items-center justify-end gap-3 lg:flex">
+          {actions}
+        </div>
+        </div>
+
+        <SiteFooter className="mt-auto hidden lg:flex" />
       </ScreenBody>
 
-      <div className="flex w-full shrink-0 items-start gap-3 overflow-clip border-t border-border bg-card px-6 py-3">
-        <NeutralButton className="w-30 shrink-0" href="/availability/profiles">
-          {c("cancel")}
-        </NeutralButton>
-        {/* Nothing can be saved while a range is invalid, which the frame shows by
-            dimming the action rather than removing it. */}
-        <PrimaryButton
-          className="min-w-px flex-1"
-          disabled={invalid}
-          href={invalid ? undefined : "/availability/profiles"}
-        >
-          {create ? t("createProfile") : t("saveProfile")}
-        </PrimaryButton>
+      {/* The desktop card carries the same pair, so the bar stops at `lg`. */}
+      <div className="flex w-full shrink-0 items-start gap-3 overflow-clip border-t border-border bg-card px-6 py-3 lg:hidden">
+        {actions}
       </div>
 
       {state === "add-date" ? <AddDateSheet /> : null}

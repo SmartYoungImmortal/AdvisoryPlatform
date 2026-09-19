@@ -34,7 +34,9 @@ export function DeleteProfileDialog() {
   return (
     <AlertDialog defaultOpen>
       <AlertDialogContent
-        className="w-[326px] gap-4 p-5 shadow-none max-sm:max-w-[calc(100%---spacing(8))]"
+        // Figma's desktop "Dialog" (1994:28609) is the same panel at 420 x 208,
+        // which is the phone's 326 given the room a 1440 page has for it.
+        className="w-[326px] gap-4 p-5 shadow-none max-sm:max-w-[calc(100%---spacing(8))] lg:w-[420px] lg:p-6"
         size="sm"
       >
         <AlertDialogHeader className="place-items-start gap-2 text-left">

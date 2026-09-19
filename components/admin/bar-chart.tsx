@@ -1,5 +1,3 @@
-import { cn } from "@/lib/utils";
-
 /**
  * Dep-free bar chart on the `--chart-*` tokens. Single-series by design: fee
  * (5%) and GMV differ by 20x, so charting them on one scale renders the fee

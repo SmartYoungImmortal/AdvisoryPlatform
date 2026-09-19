@@ -3,6 +3,7 @@ import { useTranslations } from "next-intl";
 import { notFound } from "next/navigation";
 import type { ReactNode } from "react";
 
+import { SiteFooter } from "@/components/marketing/site-footer";
 import { PrimaryButton } from "@/components/mobile/buttons";
 import {
   MobileScreen,
@@ -10,6 +11,7 @@ import {
   ScreenTopBar,
 } from "@/components/mobile/screen";
 import { ThaiText } from "@/components/mobile/thai-text";
+import { TopBar } from "@/components/topbar";
 import { cn } from "@/lib/utils";
 import { WEEKDAY_KEYS, buddhistYear } from "@/lib/calendar";
 import { advisorService } from "@/lib/advisor-services";
@@ -24,6 +26,16 @@ import {
   monthGrid,
   type SlotKind,
 } from "@/lib/advisor-services/schedule";
+
+/**
+ * Figma "Back Bar" — the 52px row under the app's nav, at the page inset — and
+ * the white "Head Band" the title sits in, above the grey body.
+ */
+const BACK_BAR = "lg:h-13 lg:bg-card lg:pt-0 lg:pb-0 lg:pl-10 xl:pl-30";
+const HEAD_BAND = "w-full shrink-0 lg:border-b lg:border-border lg:bg-card";
+
+/** The 1200 content column, inset 120 from the 1440 page. */
+const COLUMN = "lg:mx-auto lg:w-full lg:max-w-[1440px] lg:px-10 xl:px-30";
 
 /** Figma month-nav button — a small white square with a hairline and an arrow. */
 function MonthNav({
@@ -146,26 +158,41 @@ export function ServiceScheduleScreen({
   const monthLabel = t("month", { year: buddhistYear(SCHEDULE_YEAR) });
 
   return (
-    <MobileScreen className="pb-0">
+    // Figma "Desktop / Service availability (Light)" (1998:29072): the month and
+    // the day it selects hold the 788px column, and the arithmetic behind that
+    // day — plus the way to change it — moves into the 380px rail.
+    <MobileScreen className="pb-0" wide>
+      <div className="hidden w-full lg:block">
+        <TopBar unreadNotifications />
+      </div>
       <ScreenTopBar
+        className={BACK_BAR}
         href={`/advisor/services/${serviceId}`}
         label={c("back")}
       />
 
-      <ScreenBody className="gap-4 pb-6">
-        <div className="flex w-full shrink-0 flex-col items-start gap-1.5 overflow-clip px-6">
-          <h1 className="w-full text-2xl font-semibold text-foreground">
-            {t("title")}
-          </h1>
-          <p className="text-sm font-normal text-muted-foreground">
-            {t("subtitle", {
-              service: record.service.title,
-              profile: record.profileName,
-            })}
-          </p>
+      <ScreenBody className="gap-4 pb-6 lg:gap-0 lg:pb-0">
+        <div className={HEAD_BAND}>
+          <div className={cn("flex w-full shrink-0 flex-col items-start gap-1.5 overflow-clip px-6", COLUMN, "lg:py-6")}>
+            <h1 className="w-full text-2xl font-semibold text-foreground">
+              {t("title")}
+            </h1>
+            <p className="text-sm font-normal text-muted-foreground">
+              {t("subtitle", {
+                service: record.service.title,
+                profile: record.profileName,
+              })}
+            </p>
+          </div>
         </div>
 
-        <div className="flex w-full shrink-0 flex-col items-start gap-3 overflow-clip px-6">
+        <div
+          className={cn(
+            "contents lg:grid lg:grid-cols-[minmax(0,1fr)_380px] lg:items-start lg:gap-x-8 lg:gap-y-6 lg:pt-10 lg:pb-22",
+            COLUMN,
+          )}
+        >
+        <div className="flex w-full shrink-0 flex-col items-start gap-3 overflow-clip px-6 lg:col-start-1 lg:row-start-1 lg:px-0">
           <div className="flex w-full shrink-0 items-center gap-3">
             <MonthNav direction="prev" label={t("prevMonth")} />
             <p className="min-w-px flex-1 text-center text-base font-medium text-foreground">
@@ -225,7 +252,7 @@ export function ServiceScheduleScreen({
           </div>
         </div>
 
-        <div className="flex w-full shrink-0 flex-col items-start gap-2 overflow-clip px-6">
+        <div className="flex w-full shrink-0 flex-col items-start gap-2 overflow-clip px-6 lg:col-start-1 lg:row-start-2 lg:px-0">
           <div className="flex w-full shrink-0 items-center gap-3">
             <h2 className="min-w-px flex-1 text-base font-semibold text-foreground">
               {t("selectedDay")}
@@ -239,7 +266,9 @@ export function ServiceScheduleScreen({
           ))}
         </div>
 
-        <div className="flex w-full shrink-0 flex-col items-start overflow-clip px-6">
+        {/* The day's arithmetic — under the slots on the phone, beside them in
+            the desktop rail, with the way to change it directly below. */}
+        <div className="flex w-full shrink-0 flex-col items-start overflow-clip px-6 lg:col-start-2 lg:row-start-1 lg:row-span-2 lg:gap-4 lg:px-0">
           <div className="flex w-full shrink-0 flex-col items-start gap-2 overflow-clip rounded-xl border border-border bg-card p-3.5">
             <h3 className="w-full text-sm font-semibold text-foreground">
               {t("sourceTitle")}
@@ -279,10 +308,18 @@ export function ServiceScheduleScreen({
               <ThaiText>{t("sourceFootnote")}</ThaiText>
             </p>
           </div>
+
+          <PrimaryButton className="hidden lg:flex lg:h-11" href="/availability/profiles/edit">
+            {t("editProfile")}
+          </PrimaryButton>
         </div>
+        </div>
+
+        <SiteFooter className="mt-auto hidden lg:flex" />
       </ScreenBody>
 
-      <div className="flex w-full shrink-0 items-start overflow-clip border-t border-border bg-card px-6 py-3">
+      {/* The desktop rail carries the same action, so the pinned bar stops here. */}
+      <div className="flex w-full shrink-0 items-start overflow-clip border-t border-border bg-card px-6 py-3 lg:hidden">
         <PrimaryButton href="/availability/profiles/edit">
           {t("editProfile")}
         </PrimaryButton>

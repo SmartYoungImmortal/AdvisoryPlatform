@@ -5,22 +5,34 @@ import type { ReactNode } from "react";
 
 import { DeleteProfileDialog } from "@/components/availability/delete-profile-dialog";
 import { WeekTable } from "@/components/availability/week-table";
+import { SiteFooter } from "@/components/marketing/site-footer";
 import {
   MobileScreen,
   ScreenBody,
   ScreenTopBar,
 } from "@/components/mobile/screen";
 import { ThaiText } from "@/components/mobile/thai-text";
+import { TopBar } from "@/components/topbar";
+import { cn } from "@/lib/utils";
 import {
   AVAILABILITY_PROFILES,
   type AvailabilityProfileFixture,
   type ProfilesScreenState,
 } from "@/lib/availability/profiles";
 
+/**
+ * Figma "Back Bar" (1994:28375) and "Head Band" (1994:28378) — the 52px row
+ * under the app's nav and the white band the heading sits in, both at the
+ * measure the 800px content column sets.
+ */
+const BACK_BAR = "lg:h-13 lg:bg-card lg:pt-0 lg:pb-0 lg:pl-10 xl:pl-30";
+const HEAD_BAND = "w-full shrink-0 lg:border-b lg:border-border lg:bg-card";
+const COLUMN = "lg:mx-auto lg:w-[800px] lg:px-0";
+
 /** Figma "Note" — the tinted accent strip both states close on. */
 function Note({ children }: { readonly children: string }) {
   return (
-    <div className="flex w-full shrink-0 flex-col items-start overflow-clip px-6">
+    <div className={cn("flex w-full shrink-0 flex-col items-start overflow-clip px-6", COLUMN, "lg:pt-4 lg:pb-16")}>
       <div className="flex w-full shrink-0 items-start gap-2 overflow-clip rounded-lg bg-accent-surface px-3 py-2.5">
         <Info className="mt-px size-4 shrink-0 text-muted-foreground" />
         <p className="min-w-px flex-1 text-xs font-normal text-muted-foreground">
@@ -126,20 +138,28 @@ export function ProfilesScreen({
   const isEmpty = state === "empty";
 
   return (
-    <MobileScreen>
-      <ScreenTopBar href="/availability" label={c("back")} />
+    // Figma "Desktop / Availability - Profiles (Light)" (1994:28352) and its
+    // empty state (1994:28276): the heading becomes a white band, and the cards
+    // keep their own surfaces in an 800px column on the grey ground below.
+    <MobileScreen wide>
+      <div className="hidden w-full lg:block">
+        <TopBar unreadNotifications />
+      </div>
+      <ScreenTopBar className={BACK_BAR} href="/availability" label={c("back")} />
 
-      <ScreenBody className="gap-4 pb-6">
-        <div className="flex w-full shrink-0 flex-col items-start gap-1.5 overflow-clip px-6">
-          <h1 className="w-full text-2xl font-semibold text-foreground">
-            {t("profilesTitle")}
-          </h1>
-          <p className="text-sm font-normal text-muted-foreground">
-            <ThaiText>{t("profilesSubtitle")}</ThaiText>
-          </p>
+      <ScreenBody className="gap-4 pb-6 lg:gap-0 lg:pb-0">
+        <div className={HEAD_BAND}>
+          <div className={cn("flex w-full shrink-0 flex-col items-start gap-1.5 overflow-clip px-6", COLUMN, "lg:gap-2 lg:py-5")}>
+            <h1 className="w-full text-2xl font-semibold text-foreground lg:text-display">
+              {t("profilesTitle")}
+            </h1>
+            <p className="text-sm font-normal text-muted-foreground">
+              <ThaiText>{t("profilesSubtitle")}</ThaiText>
+            </p>
+          </div>
         </div>
 
-        <div className="flex w-full shrink-0 flex-col items-start gap-2.5 overflow-clip px-6">
+        <div className={cn("flex w-full shrink-0 flex-col items-start gap-2.5 overflow-clip px-6", COLUMN, "lg:pt-12")}>
           {isEmpty ? (
             /* Figma "Empty" — a single card carrying the centred explanation. */
             <div className="flex w-full shrink-0 flex-col items-center gap-1.5 overflow-clip rounded-xl border border-border bg-card px-3.5 py-5 text-center">
@@ -160,6 +180,8 @@ export function ProfilesScreen({
         </div>
 
         <Note>{isEmpty ? t("emptyNote") : t("profilesNote")}</Note>
+
+        <SiteFooter className="mt-auto hidden lg:flex" />
       </ScreenBody>
 
       {state === "delete" ? <DeleteProfileDialog /> : null}

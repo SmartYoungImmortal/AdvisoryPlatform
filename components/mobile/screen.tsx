@@ -13,13 +13,21 @@ import { cn } from "@/lib/utils";
  * mock OS chrome; content starts flush at the top and only the bottom keeps a
  * short inset so the last row is not jammed against the edge. Frames that need
  * the bottom edge too opt out with `pb-0`.
+ *
+ * `wide` says this screen also draws Figma's desktop frame, which lifts the
+ * 448px cap `MobileViewport` puts on the route group from `lg` up — the same
+ * route, the same file, one layout that answers to the viewport. It also drops
+ * the home-indicator inset there, since a desktop page ends on its footer.
  */
 export function MobileScreen({
   children,
   className,
+  wide = false,
 }: {
   readonly children: ReactNode;
   readonly className?: string;
+  /** This screen has a desktop layout — see `MobileViewport`. */
+  readonly wide?: boolean;
 }) {
   return (
     <div
@@ -27,8 +35,10 @@ export function MobileScreen({
         // No `flex-1` here: as a flex item it would take flex-basis 0 and grow past
         // the frame, so the tab bar would slide off the viewport.
         "relative flex h-dvh w-full flex-col items-center overflow-hidden bg-background pb-4",
+        wide && "lg:pb-0",
         className,
       )}
+      data-wide={wide ? "" : undefined}
     >
       {children}
     </div>

@@ -30,11 +30,21 @@ import { StatusBadge, type AdminStatus } from "@/components/admin/status-badge";
 
 type ReportsState = "default" | "suspend" | "suspended" | "dismissed";
 
-/** Wireframe cards read literal English category names — Latin-only runs. */
+/**
+ * Wireframe cards read literal English category names — Latin-only runs.
+ *
+ * Keyed off `UserReport["category"]`, so it is exhaustive by construction: adding
+ * a reason to `lib/reports/categories` fails the typecheck here until the console
+ * can name it. The last three arrived with the reporter-facing form, which offers
+ * six reasons where this queue previously knew three.
+ */
 const CATEGORY_LABELS: Record<UserReport["category"], string> = {
   "off-platform": "Off-platform",
   harassment: "Harassment",
   scam: "Scam",
+  spam: "Spam",
+  misrepresentation: "Misrepresentation",
+  other: "Other",
 };
 
 const RISK_KEYS: Record<UserReport["risk"], "riskLow" | "riskHigh"> = {

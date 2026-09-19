@@ -5,6 +5,11 @@ export function generateStaticParams() {
   return chatThreadIds.map((id) => ({ id }));
 }
 
-export default function ChatThreadMessageFailedPage() {
-  return <ChatThreadScreen state="message-failed" />;
+export default async function ChatThreadMessageFailedPage({
+  params,
+}: {
+  readonly params: Promise<{ id: string }>;
+}) {
+  const { id } = await params;
+  return <ChatThreadScreen state="message-failed" threadId={id} />;
 }

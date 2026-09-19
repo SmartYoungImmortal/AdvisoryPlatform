@@ -8,6 +8,7 @@ import {
   ScreenHeading,
 } from "@/components/mobile/screen";
 import { SegmentedTabs } from "@/components/mobile/segmented-tabs";
+import { SiteFooter } from "@/components/marketing/site-footer";
 import { TopBar } from "@/components/topbar";
 import { WORK_TAB_HREF, type WorkTab } from "@/lib/work";
 
@@ -49,14 +50,21 @@ export function WorkHub({
   const t = useTranslations("work");
 
   return (
-    <MobileScreen className="pb-0">
-      <ScreenBody className="gap-1.5 pb-19.5">
+    // Figma "Desktop / Advisor dashboard (Light)" (1787:26587): the same hub —
+    // heading, the three tabs, the tab's own content — inside the 1200 column,
+    // with the app nav above it and the site footer under it. The blocks keep
+    // their own 24px inset, so the page inset here is 96.
+    <MobileScreen className="pb-0" wide>
+      <ScreenBody className="gap-1.5 pb-19.5 lg:gap-0 lg:pb-0">
         <TopBar unreadNotifications />
-        <ScreenHeading className="gap-1" subtitle={subtitle} title={t("title")} />
-        <WorkTabs current={tab} />
-        {children}
+        <div className="contents lg:mx-auto lg:flex lg:w-full lg:max-w-[1440px] lg:flex-col lg:gap-2 lg:px-4 xl:px-24 lg:pt-4 lg:pb-14">
+          <ScreenHeading className="gap-1" subtitle={subtitle} title={t("title")} />
+          <WorkTabs current={tab} />
+          {children}
+        </div>
+        <SiteFooter className="hidden lg:flex" />
       </ScreenBody>
-      <BottomBar role="advisor" selected="work" />
+      <BottomBar className="lg:hidden" role="advisor" selected="work" />
     </MobileScreen>
   );
 }

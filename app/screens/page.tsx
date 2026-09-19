@@ -72,6 +72,11 @@ const SECTIONS: ReadonlyArray<{
       { href: "/chat/empty", label: "Chat inbox – Empty" },
       { href: "/chat/sarah-jenskins", label: "Chat" },
       { href: "/chat/sarah-jenskins/message-failed", label: "Chat – Message failed" },
+      { href: "/chat/sarah-jenskins/report", label: "Report a conversation" },
+      {
+        href: "/chat/sarah-jenskins/report/submitted",
+        label: "Report – Submitted",
+      },
     ],
   },
   {

@@ -7,6 +7,7 @@ import { useTranslations } from "next-intl";
 import { useState, type FormEvent } from "react";
 
 import { Checkbox } from "@/components/ui/checkbox";
+import { AUTH_CARD, AuthFooter, AuthTopNav } from "@/components/auth/auth-chrome";
 import { NeutralButton, PrimaryButton } from "@/components/mobile/buttons";
 import { Field, RevealPasswordButton } from "@/components/mobile/field";
 import {
@@ -105,10 +106,17 @@ export function RegisterScreen({
   );
 
   return (
-    <MobileScreen>
-      <ScreenTopBar href="/login" label={c("back")} />
-      <ScreenBody>
-        <form className="flex w-full flex-1 flex-col items-center" noValidate onSubmit={submit}>
+    // Figma "Desktop / Register (Light)" (1787:23891) — the same form as the
+    // auth card, under the guest nav. See `components/auth/auth-chrome`.
+    <MobileScreen wide>
+      <ScreenTopBar className="lg:hidden" href="/login" label={c("back")} />
+      <ScreenBody className="lg:items-stretch lg:justify-center">
+        <AuthTopNav />
+        <form
+          className={cn("flex w-full flex-1 flex-col items-center lg:mx-auto", AUTH_CARD)}
+          noValidate
+          onSubmit={submit}
+        >
           {/* Figma "Heading": 16px top / 8px bottom padding, 10px gap. */}
           <ScreenHeading
             className="gap-2.5 pt-4"
@@ -243,7 +251,7 @@ export function RegisterScreen({
             </div>
           ) : null}
 
-          <ScreenSpacer />
+          <ScreenSpacer className="lg:hidden" />
           {/* Figma "Actions": 8px padding, 14px gap above the sign-in link. */}
           <ScreenActions className="gap-3.5">
             <PrimaryButton type="submit">{t("submit")}</PrimaryButton>
@@ -256,6 +264,7 @@ export function RegisterScreen({
             </p>
           </ScreenActions>
         </form>
+        <AuthFooter className="lg:mt-auto" />
       </ScreenBody>
     </MobileScreen>
   );

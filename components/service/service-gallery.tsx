@@ -27,8 +27,12 @@ export function ServiceGallery({
 
   return (
     <div className="relative w-full shrink-0">
+      {/* Figma's desktop frame (1564:26172) opens on a mosaic instead of a
+          pager: the cover across two rows on the left, the next two photos
+          stacked beside it. Same photos, same order — at 1440 there is room to
+          show three at once, so the track stops being a track. */}
       <div
-        className="flex w-full snap-x snap-mandatory overflow-x-auto"
+        className="flex w-full snap-x snap-mandatory overflow-x-auto lg:grid lg:h-95 lg:grid-cols-[2fr_1fr] lg:grid-rows-2 lg:gap-2 lg:overflow-hidden lg:rounded-xl lg:[&>img]:aspect-auto lg:[&>img]:h-full lg:[&>img:first-child]:row-span-2 lg:[&>img:nth-child(n+4)]:hidden"
         onScroll={() => {
           const track = trackRef.current;
           if (!track) return;
@@ -47,8 +51,9 @@ export function ServiceGallery({
         ))}
       </div>
 
+      {/* Nothing is paging on the desktop mosaic, so the counter goes with it. */}
       {photos.length > 1 ? (
-        <span className="absolute right-4 bottom-3 flex items-start rounded-full bg-scrim/55 px-2.5 py-1 text-xs font-normal whitespace-nowrap text-on-media">
+        <span className="absolute right-4 bottom-3 flex items-start rounded-full bg-scrim/55 px-2.5 py-1 text-xs font-normal whitespace-nowrap text-on-media lg:hidden">
           {t("photoCounter", { current: index + 1, total: photos.length })}
         </span>
       ) : null}

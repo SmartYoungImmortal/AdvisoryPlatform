@@ -6,11 +6,13 @@ import { notFound } from "next/navigation";
 import type { ReactNode } from "react";
 
 import { WeekTable } from "@/components/availability/week-table";
+import { SiteFooter } from "@/components/marketing/site-footer";
 import {
   MobileScreen,
   ScreenBody,
   ScreenTopBar,
 } from "@/components/mobile/screen";
+import { TopBar } from "@/components/topbar";
 import { getAdvisor } from "@/lib/catalogue/services";
 import { cn } from "@/lib/utils";
 import {
@@ -22,6 +24,9 @@ import {
   advisorService,
   type ServiceBookingFixture,
 } from "@/lib/advisor-services";
+
+/** The 1200 content column, inset 120 from the 1440 page. */
+const COLUMN = "lg:mx-auto lg:w-full lg:max-w-[1440px] lg:px-10 xl:px-30";
 
 /** Figma "Stats" — three counts separated by hairlines, the sold one in accent. */
 function SlotStat({
@@ -143,10 +148,25 @@ export function AdvisorServiceDetailScreen({
   const published = record.status === "published";
 
   return (
-    <MobileScreen>
-      <div className="flex w-full shrink-0 items-center gap-3 overflow-clip pt-8 pr-6 pb-2 pl-4">
+    // Figma "Desktop / Service detail - advisor (Light)" (1998:28898): the phone's
+    // one column becomes the 788px record beside a 380px rail — the counts, the
+    // week it draws slots from, and the next ones it will open.
+    <MobileScreen wide>
+      <div className="hidden w-full lg:block">
+        <TopBar unreadNotifications />
+      </div>
+
+      {/* Figma "Back Bar" (1998:28921) — the chevron and the edit link on the
+          same row, at the 120px page inset from `lg`. */}
+      <div
+        className={cn(
+          "flex w-full shrink-0 items-center gap-3 overflow-clip pt-8 pr-6 pb-2 pl-4",
+          COLUMN,
+          "lg:h-19 lg:bg-card lg:pt-0 lg:pr-10 lg:pb-0 lg:pl-10 xl:pr-30 xl:pl-30",
+        )}
+      >
         <ScreenTopBar
-          className="w-auto min-w-px flex-1 p-0 pl-0"
+          className="w-auto min-w-px flex-1 p-0 pl-0 lg:h-auto lg:bg-transparent lg:pl-0"
           href="/advisor/services"
           label={c("back")}
         />
@@ -158,9 +178,15 @@ export function AdvisorServiceDetailScreen({
         </Link>
       </div>
 
-      <ScreenBody className="gap-4 pb-6">
+      <ScreenBody className="gap-4 pb-6 lg:gap-0 lg:pb-0">
+        <div
+          className={cn(
+            "contents lg:grid lg:grid-cols-[minmax(0,1fr)_380px] lg:items-start lg:gap-x-8 lg:gap-y-5 lg:pt-10 lg:pb-22",
+            COLUMN,
+          )}
+        >
         {/* Figma "Service Card" — the same card as the list, one row tall. */}
-        <div className="flex w-full shrink-0 flex-col items-start overflow-clip px-6">
+        <div className="flex w-full shrink-0 flex-col items-start overflow-clip px-6 lg:col-start-1 lg:row-start-1 lg:px-0">
           <div className="flex w-full shrink-0 items-center gap-3 overflow-clip rounded-xl border border-border bg-card p-2">
             <Image
               alt=""
@@ -191,8 +217,10 @@ export function AdvisorServiceDetailScreen({
           </div>
         </div>
 
-        <div className="flex w-full shrink-0 flex-col items-start overflow-clip px-6">
-          <div className="flex w-full shrink-0 items-stretch overflow-clip rounded-[12px] bg-card py-3">
+        {/* Figma "Stats" — the head of the desktop rail, the second block of the
+            phone's column. */}
+        <div className="flex w-full shrink-0 flex-col items-start overflow-clip px-6 lg:col-start-2 lg:row-start-1 lg:px-0">
+          <div className="flex w-full shrink-0 items-stretch overflow-clip rounded-[12px] bg-card py-3 lg:border lg:border-border">
             <SlotStat
               label={t("statSlots", { days: SERVICE_SLOT_STATS.horizonDays })}
               value={SERVICE_SLOT_STATS.openedSlots}
@@ -208,7 +236,9 @@ export function AdvisorServiceDetailScreen({
           </div>
         </div>
 
-        <div className="flex w-full shrink-0 flex-col items-start gap-2.5 overflow-clip px-6">
+        {/* The week this service draws its slots from — under the record on the
+            phone, beside it in the desktop rail. */}
+        <div className="flex w-full shrink-0 flex-col items-start gap-2.5 overflow-clip px-6 lg:col-start-2 lg:row-start-2 lg:px-0">
           <SectionHead
             action={t("viewSchedule")}
             href={`/advisor/services/${serviceId}/schedule`}
@@ -258,7 +288,7 @@ export function AdvisorServiceDetailScreen({
           </div>
         </div>
 
-        <div className="flex w-full shrink-0 flex-col items-start gap-2.5 overflow-clip px-6">
+        <div className="flex w-full shrink-0 flex-col items-start gap-2.5 overflow-clip px-6 lg:col-start-1 lg:row-start-2 lg:px-0">
           <div className="flex w-full shrink-0 items-center gap-3 overflow-clip">
             <h2 className="min-w-px flex-1 text-base font-semibold text-foreground">
               {t("bookingsTitle")}
@@ -271,6 +301,9 @@ export function AdvisorServiceDetailScreen({
             <BookingRow booking={booking} key={booking.id} />
           ))}
         </div>
+        </div>
+
+        <SiteFooter className="mt-auto hidden lg:flex" />
       </ScreenBody>
     </MobileScreen>
   );

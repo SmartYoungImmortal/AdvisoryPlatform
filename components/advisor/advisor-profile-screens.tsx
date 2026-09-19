@@ -65,8 +65,8 @@ export function AdvisorProfileScreen() {
   const level = advisorLevel("sarah-jenskins");
 
   return (
-    <MobileScreen className="pb-0">
-      <ScreenBody className="pb-19.5">
+    <MobileScreen className="pb-0" wide>
+      <ScreenBody className="pb-19.5 lg:[&>*:not(.sticky)]:mx-auto lg:[&>*:not(.sticky)]:w-full lg:[&>*:not(.sticky)]:max-w-[880px]">
         <TopBar unreadNotifications />
         {/* Figma "Identity Card": verified name, role, then rating/booking/review stats. */}
         <div className="flex w-full shrink-0 flex-col items-start overflow-clip px-6 pt-4">
@@ -186,7 +186,7 @@ export function AdvisorProfileScreen() {
           </SettingsCard>
         </SettingsSection>
       </ScreenBody>
-      <BottomBar role="advisor" selected="user" />
+      <BottomBar className="lg:hidden" role="advisor" selected="user" />
     </MobileScreen>
   );
 }
@@ -197,9 +197,9 @@ export function AdvisorProfileEditScreen() {
   const c = useTranslations("common");
 
   return (
-    <MobileScreen>
+    <MobileScreen wide>
       <ScreenTopBar href="/advisor/profile" label={c("back")} />
-      <ScreenBody>
+      <ScreenBody className="lg:[&>*:not(.sticky)]:mx-auto lg:[&>*:not(.sticky)]:w-full lg:[&>*:not(.sticky)]:max-w-[880px]">
         <ScreenHeading
           className="gap-2 pt-4"
           subtitle={t("editSubtitle")}
@@ -283,9 +283,9 @@ export function SkillManagementScreen() {
   ];
 
   return (
-    <MobileScreen>
+    <MobileScreen wide>
       <ScreenTopBar href="/advisor/edit" label={c("back")} />
-      <ScreenBody>
+      <ScreenBody className="lg:[&>*:not(.sticky)]:mx-auto lg:[&>*:not(.sticky)]:w-full lg:[&>*:not(.sticky)]:max-w-[880px]">
         <ScreenHeading
           className="gap-2 pt-4"
           subtitle={t("skillsSubtitle")}
@@ -333,9 +333,9 @@ export function PayoutSetupScreen() {
   const c = useTranslations("common");
 
   return (
-    <MobileScreen>
+    <MobileScreen wide>
       <ScreenTopBar href="/earnings" label={c("back")} />
-      <ScreenBody>
+      <ScreenBody className="lg:[&>*:not(.sticky)]:mx-auto lg:[&>*:not(.sticky)]:w-full lg:[&>*:not(.sticky)]:max-w-[880px]">
         <ScreenHeading className="pt-4" title={t("payoutSetupTitle")} />
         <div className="flex w-full shrink-0 flex-col items-start gap-4 px-6 pt-2">
           <Field
@@ -371,9 +371,9 @@ export function PayoutAccountScreen() {
   const c = useTranslations("common");
 
   return (
-    <MobileScreen>
+    <MobileScreen wide>
       <ScreenTopBar href="/earnings" label={c("back")} />
-      <ScreenBody>
+      <ScreenBody className="lg:[&>*:not(.sticky)]:mx-auto lg:[&>*:not(.sticky)]:w-full lg:[&>*:not(.sticky)]:max-w-[880px]">
         <ScreenHeading className="pt-4" title={t("payoutTitle")} />
 
         <div className="flex w-full shrink-0 flex-col items-start px-6 pt-2">
@@ -429,9 +429,9 @@ export function PayoutFailedScreen() {
   const c = useTranslations("common");
 
   return (
-    <MobileScreen>
+    <MobileScreen wide>
       <ScreenTopBar href="/earnings/payout-history" label={c("back")} />
-      <ScreenBody>
+      <ScreenBody className="lg:[&>*:not(.sticky)]:mx-auto lg:[&>*:not(.sticky)]:w-full lg:[&>*:not(.sticky)]:max-w-[880px]">
         <div className="flex w-full shrink-0 flex-col items-center px-6 pt-4">
           <span className="flex size-10 shrink-0 items-center justify-center rounded-full bg-destructive/10">
             <CircleAlert className="size-5 text-destructive" />
@@ -503,9 +503,9 @@ export function PayoutHistoryScreen() {
   ];
 
   return (
-    <MobileScreen>
+    <MobileScreen wide>
       <ScreenTopBar href="/earnings" label={c("back")} />
-      <ScreenBody>
+      <ScreenBody className="lg:[&>*:not(.sticky)]:mx-auto lg:[&>*:not(.sticky)]:w-full lg:[&>*:not(.sticky)]:max-w-[880px]">
         <ScreenHeading className="pt-4" title={t("historyTitle")} />
 
         <div className="flex w-full shrink-0 flex-col items-start px-6 pt-2">
@@ -568,8 +568,8 @@ export function EarningsScreen() {
   const t = useTranslations("advisor");
 
   return (
-    <MobileScreen className="pb-0">
-      <ScreenBody className="pb-19.5">
+    <MobileScreen className="pb-0" wide>
+      <ScreenBody className="pb-19.5 lg:[&>*:not(.sticky)]:mx-auto lg:[&>*:not(.sticky)]:w-full lg:[&>*:not(.sticky)]:max-w-[880px]">
         <TopBar unreadNotifications />
         <ScreenHeading className="pt-4" title={t("earningsTitle")} />
 
@@ -679,7 +679,7 @@ export function EarningsScreen() {
         </SettingsSection>
       </ScreenBody>
       {/* Earnings now lives inside the "งานของฉัน" hub, so that is the tab it lights. */}
-      <BottomBar role="advisor" selected="work" />
+      <BottomBar className="lg:hidden" role="advisor" selected="work" />
     </MobileScreen>
   );
 }

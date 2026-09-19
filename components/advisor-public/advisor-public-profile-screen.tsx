@@ -19,6 +19,8 @@ import {
   ScreenTopBar,
 } from "@/components/mobile/screen";
 import { SegmentedTabs } from "@/components/mobile/segmented-tabs";
+import { SiteFooter } from "@/components/marketing/site-footer";
+import { TopBar } from "@/components/topbar";
 import { ThaiText } from "@/components/mobile/thai-text";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -46,31 +48,38 @@ function Header({ profile }: { readonly profile: PublicProfile }) {
   const { advisor } = profile;
 
   return (
-    <div className="flex w-full shrink-0 flex-col items-center gap-3 overflow-clip px-6">
+    // Figma's desktop header (1564:26852) lays the same parts on one row: the
+    // portrait, then the name and credential beside it, with the three counts
+    // holding the right edge and no card around them.
+    <div className="flex w-full shrink-0 flex-col items-center gap-3 overflow-clip px-6 lg:mx-auto lg:max-w-[1440px] lg:flex-row lg:items-center lg:gap-5 lg:border-b lg:border-border lg:px-10 xl:px-30 lg:py-6">
       <ChatAvatar crop={advisor.crop} size={80} src={advisor.avatar} />
-      <div className="flex shrink-0 items-center gap-1">
-        <h1 className="font-latin text-2xl font-semibold text-foreground">
-          {advisor.name}
-        </h1>
-        {advisor.verified ? (
-          <ShieldCheck
-            aria-label={s("verified")}
-            className="size-4.5 shrink-0 text-primary"
-            role="img"
-          />
-        ) : null}
+      {/* `contents` keeps the phone's stack exactly as it was; from `lg` these
+          three become the middle column of the row. */}
+      <div className="contents lg:flex lg:min-w-px lg:flex-1 lg:flex-col lg:items-start lg:gap-1">
+        <div className="flex shrink-0 items-center gap-1">
+          <h1 className="font-latin text-2xl font-semibold text-foreground">
+            {advisor.name}
+          </h1>
+          {advisor.verified ? (
+            <ShieldCheck
+              aria-label={s("verified")}
+              className="size-4.5 shrink-0 text-primary"
+              role="img"
+            />
+          ) : null}
+        </div>
+        {profile.level ? <LevelBadge level={profile.level} /> : null}
+        <p className="text-center text-sm font-normal text-muted-foreground lg:text-start">
+          {t("credentialField", {
+            credential: advisor.credential,
+            field: advisor.field,
+          })}
+        </p>
       </div>
-      {profile.level ? <LevelBadge level={profile.level} /> : null}
-      <p className="text-center text-sm font-normal text-muted-foreground">
-        {t("credentialField", {
-          credential: advisor.credential,
-          field: advisor.field,
-        })}
-      </p>
 
       {/* Figma "Stats" — three counts on a bordered card, split by hairlines. The
           frame's 12/16px padding sits inside its stroke, hence one pixel less here. */}
-      <div className="flex w-full shrink-0 items-start gap-2 overflow-clip rounded-xl border border-border bg-card px-[15px] py-[11px]">
+      <div className="flex w-full shrink-0 items-start gap-2 overflow-clip rounded-xl border border-border bg-card px-[15px] py-[11px] lg:w-auto lg:gap-8 lg:border-0 lg:bg-transparent lg:p-0">
         {[
           { value: advisor.rating, label: t("statRating") },
           { value: String(advisor.consultations), label: t("statConsultations") },
@@ -78,7 +87,7 @@ function Header({ profile }: { readonly profile: PublicProfile }) {
         ].map((stat, index) => (
           <Fragment key={stat.label}>
             {index > 0 ? (
-              <div className="w-px shrink-0 self-stretch bg-border" />
+              <div className="w-px shrink-0 self-stretch bg-border lg:hidden" />
             ) : null}
             <div className="flex min-w-px flex-1 flex-col items-center gap-1 text-center">
               <p className="w-full font-latin text-base font-semibold text-foreground">
@@ -168,17 +177,21 @@ function ServicesTab({ profile }: { readonly profile: PublicProfile }) {
   const total = profile.listing.length;
 
   return (
-    <section className="flex w-full shrink-0 flex-col items-start gap-3 overflow-clip px-6">
-      <SectionHead
-        title={t("servicesTitle")}
-        trailing={t("serviceCount", { count: total })}
-      />
+    // Figma's desktop frame lays the listings two across inside a card of
+    // their own; the phone stacks them full width.
+    <section className="flex w-full shrink-0 flex-col items-start gap-3 overflow-clip px-6 lg:grid lg:grid-cols-2 lg:gap-4 lg:rounded-xl lg:border lg:border-border lg:bg-card lg:p-5">
+      <div className="w-full lg:col-span-2">
+        <SectionHead
+          title={t("servicesTitle")}
+          trailing={t("serviceCount", { count: total })}
+        />
+      </div>
       {profile.listing.slice(0, LISTING_PREVIEW).map((entry) => (
         <ListingCard entry={entry} key={entry.title} />
       ))}
       {total > LISTING_PREVIEW ? (
         <NeutralButton
-          className="h-11.5 text-primary"
+          className="h-11.5 text-primary lg:col-span-2"
           href={profileHref(profile.advisor.id, "sheet")}
         >
           {t("seeAllServices", { count: total })}
@@ -192,12 +205,17 @@ function AboutTab({ profile }: { readonly profile: PublicProfile }) {
   const t = useTranslations("advisorProfile");
 
   return (
-    <section className="flex w-full shrink-0 flex-col items-start gap-6 overflow-clip px-6">
+    <section className="flex w-full shrink-0 flex-col items-start gap-6 overflow-clip px-6 lg:gap-3 lg:rounded-xl lg:border lg:border-border lg:bg-card lg:p-5">
+      <h2 className="hidden w-full text-base font-semibold text-foreground lg:block">
+        {t("tab.about")}
+      </h2>
       <p className="w-full text-sm font-normal text-muted-foreground">
         <ThaiText>{profile.about}</ThaiText>
       </p>
+      {/* Figma's desktop frame (1564:26852) moves the skills into the column
+          beside the page, so here they stop at the breakpoint. */}
       {profile.skills.length > 0 ? (
-        <div className="flex w-full shrink-0 flex-col items-start gap-3">
+        <div className="flex w-full shrink-0 flex-col items-start gap-3 lg:hidden">
           <h2 className="w-full text-base font-semibold text-foreground">
             {t("verifiedSkills")}
           </h2>
@@ -431,13 +449,20 @@ export function AdvisorPublicProfileScreen({
   const tabs: readonly ProfileTab[] = ["services", "about", "reviews"];
 
   return (
-    <MobileScreen className="pb-0">
-      <ScreenTopBar href="/search" label={c("back")} />
+    // Figma "Desktop / Advisor public profile (Light)" (1564:26852): the phone
+    // frame pages three tabs; at 1440 they are three sections of one page, with
+    // the way to book — and the skills that justify it — held beside them.
+    <MobileScreen className="pb-0" wide>
+      <ScreenTopBar className="lg:hidden" href="/search" label={c("back")} />
 
-      <ScreenBody className={cn("gap-6 pb-6", sheet && "overflow-hidden")}>
+      <ScreenBody className={cn("gap-6 pb-6 lg:gap-0 lg:pb-0", sheet && "overflow-hidden")}>
+        <div className="hidden w-full lg:block">
+          <TopBar unreadNotifications />
+        </div>
+
         <Header profile={profile} />
         <SegmentedTabs
-          className="pt-1 pb-2"
+          className="pt-1 pb-2 lg:hidden"
           current={tab}
           items={tabs.map((key) => ({
             key,
@@ -446,12 +471,60 @@ export function AdvisorPublicProfileScreen({
           }))}
           label={profile.advisor.name}
         />
-        {tab === "services" ? <ServicesTab profile={profile} /> : null}
-        {tab === "about" ? <AboutTab profile={profile} /> : null}
-        {tab === "reviews" ? <ReviewsTab profile={profile} /> : null}
+
+        <div className="w-full lg:mx-auto lg:grid lg:max-w-[1440px] lg:grid-cols-[minmax(0,1fr)_360px] lg:items-start lg:gap-6 lg:px-4 xl:px-24 lg:pt-6 lg:pb-14">
+          {/* Each tab keeps its route on the phone and simply stacks here. */}
+          <div className="flex w-full flex-col gap-6 lg:px-6">
+            <div className={cn("w-full", tab !== "services" && "hidden lg:block")}>
+              <ServicesTab profile={profile} />
+            </div>
+            <div className={cn("w-full", tab !== "about" && "hidden lg:block")}>
+              <AboutTab profile={profile} />
+            </div>
+            <div className={cn("w-full", tab !== "reviews" && "hidden lg:block")}>
+              <ReviewsTab profile={profile} />
+            </div>
+          </div>
+
+          <aside className="hidden lg:sticky lg:top-24 lg:me-6 lg:flex lg:flex-col lg:gap-4">
+            <div className="flex flex-col gap-3 rounded-xl border border-border bg-card p-4">
+              <div className="flex flex-col gap-0.5">
+                <p className="text-sm font-semibold text-foreground">
+                  {t("pickServiceTitle")}
+                </p>
+                <p className="text-xs font-normal text-muted-foreground">
+                  {t("serviceCount", { count: profile.listing.length })} ·{" "}
+                  {t("slotLength")}
+                </p>
+              </div>
+              <PrimaryButton href={profileHref(advisorId, "sheet")}>
+                {t("chooseService")}
+              </PrimaryButton>
+              <NeutralButton href={`/chat/${advisorId}`}>{t("chat")}</NeutralButton>
+            </div>
+
+            {profile.skills.length > 0 ? (
+              <div className="flex flex-col gap-3 rounded-xl border border-border bg-card p-4">
+                <p className="text-sm font-semibold text-foreground">
+                  {t("verifiedSkills")}
+                </p>
+                {profile.skills.map((skill) => (
+                  <div className="flex flex-col gap-0.5 rounded-lg bg-muted/60 p-3" key={skill}>
+                    <p className="text-sm font-medium text-foreground">{skill}</p>
+                    <p className="text-xs font-normal text-muted-foreground">
+                      {t("verifiedByTeam")}
+                    </p>
+                  </div>
+                ))}
+              </div>
+            ) : null}
+          </aside>
+        </div>
+
+        <SiteFooter className="hidden lg:flex" />
       </ScreenBody>
 
-      <div className="flex w-full shrink-0 items-center gap-3 overflow-clip border-t border-border bg-card px-6 py-3">
+      <div className="flex w-full shrink-0 items-center gap-3 overflow-clip border-t border-border bg-card px-6 py-3 lg:hidden">
         <Button
           aria-label={t("chat")}
           className="size-9 shrink-0"

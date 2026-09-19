@@ -32,6 +32,11 @@
      which is neither the size nor the leading the design asks for. */
   --text-heading-lg: 2rem;
   --text-heading-lg--line-height: 2.75rem;
+  /* Figma "Headline" on the desktop home hero (1564:24868) — 40/60, a step
+     above anything the phone frames ask for, and the widest leading in the
+     scale because the line has to breathe across a 720px column. */
+  --text-display: 2.5rem;
+  --text-display--line-height: 3.75rem;
 
   --color-success: var(--success);
   --color-success-foreground: var(--success-foreground);
