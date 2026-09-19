@@ -97,7 +97,7 @@ export function DropZone({
     // a 16/24 title, 4 gap, a 12/18 subtitle, 12 gap, then the 36px browse button.
     <div
       className={cn(
-        "flex w-full shrink-0 flex-col items-center justify-center overflow-clip rounded-xl border border-dashed bg-card",
+        "flex w-full shrink-0 flex-col items-center justify-center overflow-clip rounded-card border border-dashed bg-card",
         compact ? "px-4 py-4" : "px-5 py-7",
         invalid ? "border-destructive" : "border-input",
       )}

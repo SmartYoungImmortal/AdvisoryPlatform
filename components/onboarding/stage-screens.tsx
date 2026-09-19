@@ -184,7 +184,7 @@ export function BecomeAdvisorScreen() {
                 {/* The chip takes the accent as a *status* ground: three grey
                     squares on a grey band was the flattest block on the page,
                     and these three panels are the pitch. */}
-                <span className="flex size-12 shrink-0 items-center justify-center rounded-xl bg-accent-surface">
+                <span className="flex size-12 shrink-0 items-center justify-center rounded-lg bg-accent-surface">
                   <Icon className="size-5.5 text-primary" />
                 </span>
                 {/* `leading-7` is what `text-lg` now resolves to. */}
@@ -430,7 +430,7 @@ export function OnboardingStage2Screen({
             <>
               <Image
                 alt={fileName}
-                className="h-[208px] w-full shrink-0 rounded-xl border border-border object-cover"
+                className="h-[208px] w-full shrink-0 rounded-card border border-border object-cover"
                 src={idCard}
               />
               {/* The file's name, size and accepted-ness, as one chip in a well

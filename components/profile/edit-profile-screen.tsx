@@ -121,7 +121,7 @@ export function EditProfileScreen({
                 {/* The read-only card is the page surface on the phone; inside
                     the panel it would vanish into it, so it takes the muted
                     tint the frame gives it there. */}
-                <div className="flex w-full shrink-0 items-center gap-2.5 overflow-clip rounded-xl bg-card p-3.5 lg:bg-muted/50">
+                <div className="flex w-full shrink-0 items-center gap-2.5 overflow-clip rounded-card bg-card p-3.5 lg:bg-muted/50">
                   <Lock className="size-4 shrink-0 text-muted-foreground" />
                   <div className="flex min-w-px flex-1 flex-col items-start gap-0.5 overflow-clip">
                     <p className="w-full text-xs font-normal text-muted-foreground">

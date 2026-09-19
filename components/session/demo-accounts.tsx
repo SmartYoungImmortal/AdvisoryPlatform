@@ -28,7 +28,7 @@ export function DemoAccounts({
   return (
     <div
       className={cn(
-        "flex w-full flex-col gap-2 rounded-xl border border-dashed border-border bg-card p-3",
+        "flex w-full flex-col gap-2 rounded-card border border-dashed border-border bg-card p-3",
         className,
       )}
     >

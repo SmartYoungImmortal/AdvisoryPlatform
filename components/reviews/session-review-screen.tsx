@@ -113,7 +113,7 @@ function SubmitFailed() {
           card is the page surface on the phone; on the panel it would
           vanish into it, so it takes the muted tint the frame gives it. */}
       <div className="flex w-full shrink-0 flex-col items-start px-6 pt-6">
-        <div className="flex w-full shrink-0 flex-col items-start gap-3 overflow-clip rounded-xl bg-card p-3.5 lg:bg-muted/50">
+        <div className="flex w-full shrink-0 flex-col items-start gap-3 overflow-clip rounded-card bg-card p-3.5 lg:bg-muted/50">
           <SummaryRow icon={Clock} label={t("durationLabel")} value={t("durationValue")} />
           <SummaryRow icon={Paperclip} label={t("filesLabel")} value={t("filesValue")} />
         </div>
@@ -210,7 +210,7 @@ function AlreadySubmitted() {
           takes the same muted tint the summary does, for the same reason —
           on the panel a white card on white has no edge. */}
       <div className="flex w-full shrink-0 flex-col items-center gap-2.5 px-6 pt-6">
-        <div className="flex w-full shrink-0 flex-col items-start gap-2.5 overflow-clip rounded-xl bg-card p-3.5 lg:bg-muted/50">
+        <div className="flex w-full shrink-0 flex-col items-start gap-2.5 overflow-clip rounded-card bg-card p-3.5 lg:bg-muted/50">
           <div className="flex w-full shrink-0 items-center gap-2.5">
             <span className="min-w-px flex-1 text-sm font-normal text-muted-foreground">
               {t("submittedRatingLabel")}

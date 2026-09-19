@@ -30,7 +30,7 @@ export function IdentityCard({
   return (
     <div
       className={cn(
-        "flex w-full shrink-0 flex-col items-start gap-3 overflow-clip rounded-xl bg-card p-3.5",
+        "flex w-full shrink-0 flex-col items-start gap-3 overflow-clip rounded-card bg-card p-3.5",
         className,
       )}
     >
