@@ -215,11 +215,7 @@ export function LegalDocument({
                 of the document ends up the third-largest thing on it. That is a
                 flaw in the reference, not a house style, so the ladder here is
                 monotonic at every width instead: see `TYPE_LADDER` below. */}
-            {/* `brand-image` rather than `primary`: the lighter, brighter blue.
-                `primary` is this app's link and button colour, and a 48px heading
-                in it reads as something to press; the brand tint carries the same
-                identity without asking to be clicked. */}
-            <h1 className="font-latin w-full text-3xl font-bold text-brand-image md:text-4xl md:tracking-tight lg:text-5xl">
+            <h1 className="font-latin w-full text-3xl font-bold text-foreground md:text-4xl md:tracking-tight lg:text-5xl">
               {title}
             </h1>
             <p className="w-full text-sm font-bold text-muted-foreground md:text-base lg:text-lg">

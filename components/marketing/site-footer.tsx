@@ -163,8 +163,15 @@ export function SiteFooter({ className }: { readonly className?: string }) {
   return (
     <footer
       className={cn(
+        // One surface at every width. The desktop footer used to switch to
+        // `bg-card` with a hairline above it, which meant the page ended in a
+        // plain white band with grey text while the same footer on a phone ended
+        // in the dark brand ground with the glow behind it. The colour is the
+        // brand; only the arrangement is a question of width. Buono Group's
+        // footer does exactly this — `bg-[#5E2B66] text-white` on the element
+        // itself, then `text-center md:text-left` and a grid for the layout.
         "relative isolate flex w-full shrink-0 flex-col items-center gap-9 bg-footer-surface px-4 pt-12 pb-[29px]",
-        "lg:gap-0 lg:border-t lg:border-border lg:bg-card lg:px-10 xl:px-30 lg:pt-12 lg:pb-8",
+        "lg:gap-0 lg:px-10 xl:px-30 lg:pt-14 lg:pb-8",
         className,
       )}
     >
@@ -175,30 +182,32 @@ export function SiteFooter({ className }: { readonly className?: string }) {
           without leaking behind the page. */}
       <div
         aria-hidden
-        className="pointer-events-none absolute inset-0 -z-10 bg-footer-glow lg:hidden"
+        className="pointer-events-none absolute inset-0 -z-10 bg-footer-glow"
       />
 
       {/* The desktop footer: brand, three link columns, rule, copyright. */}
       <div className="hidden w-full lg:mx-auto lg:block lg:max-w-[1200px]">
         <div className="grid grid-cols-4 gap-6">
-          <div className="flex flex-col items-start gap-2.5">
+          <div className="flex flex-col items-start gap-3">
+            {/* Reversed out of the dark ground, the same way the phone wordmark
+                is — the logo is dark ink and would disappear otherwise. */}
             <Image
               alt="Advisory Platform"
-              className="h-8 w-auto"
+              className="h-8 w-auto brightness-0 invert"
               src={logo}
             />
-            <p className="text-sm font-normal text-muted-foreground">
+            <p className="max-w-64 text-sm leading-6 font-normal text-on-media/80">
               {t("footerTagline")}
             </p>
           </div>
           {columns.map(({ heading, links: items }) => (
-            <nav className="flex flex-col items-start gap-2.5" key={heading}>
-              <p className="text-sm leading-5 font-semibold text-foreground">
+            <nav className="flex flex-col items-start gap-3" key={heading}>
+              <p className="text-sm leading-5 font-semibold text-on-media">
                 {heading}
               </p>
               {items.map(({ label, href }) => (
                 <Link
-                  className="text-sm font-normal text-muted-foreground transition-colors hover:text-foreground"
+                  className="text-sm leading-6 font-normal text-on-media/75 transition-colors duration-150 hover:text-on-media motion-reduce:transition-none"
                   href={href}
                   key={label}
                 >
@@ -208,8 +217,8 @@ export function SiteFooter({ className }: { readonly className?: string }) {
             </nav>
           ))}
         </div>
-        <div className="mt-6 border-t border-border pt-6">
-          <p className="font-latin text-sm font-normal text-muted-foreground">
+        <div className="mt-10 border-t border-on-media/20 pt-6">
+          <p className="font-latin text-sm font-normal text-on-media/70">
             {t("footerCopyright")}
           </p>
         </div>

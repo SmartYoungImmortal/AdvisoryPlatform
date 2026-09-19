@@ -13,6 +13,13 @@ import { logo } from "@/lib/assets/r2";
 import { avatarImage, initials } from "@/lib/mock-db/avatars";
 import { useSession } from "@/lib/session";
 import { Button } from "@/components/ui/button";
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+  SheetTrigger,
+} from "@/components/ui/sheet";
 import { cn } from "@/lib/utils";
 
 gsap.registerPlugin(useGSAP);
@@ -273,6 +280,7 @@ export function TopBar({
   const nav = useTranslations("navigation");
   const pathname = usePathname();
   const [frosted, setFrosted] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
   const sentinelRef = useRef<HTMLDivElement>(null);
   // Read here as well as in `NavAvatar`, so the two halves of the trailing slot
   // agree about whether anyone is signed in. `useSession` is a subscription to
@@ -371,14 +379,51 @@ export function TopBar({
                   <ChevronLeft className="size-6" />
                 </Button>
               ) : (
-                <Button
-                  aria-label={t("menu")}
-                  className={cn(trigger, ink, "size-9")}
-                  size="icon"
-                  variant="ghost"
-                >
-                  <MenuGlyph className="size-7" />
-                </Button>
+                /* It was a `<Button>` with no handler and no href: the one
+                   control on the phone bar, and pressing it did nothing. It opens
+                   the navigation now — the links the desktop bar shows inline,
+                   which the phone had no way to reach at all. */
+                <Sheet onOpenChange={setMenuOpen} open={menuOpen}>
+                  <SheetTrigger
+                    aria-label={t("menu")}
+                    className={cn(trigger, ink, "size-9")}
+                  >
+                    <MenuGlyph className="size-7" />
+                  </SheetTrigger>
+                  <SheetContent
+                    className="w-4/5 gap-0 sm:max-w-sm"
+                    side="left"
+                  >
+                    <SheetHeader className="border-b border-border">
+                      <SheetTitle className="text-left">{t("menu")}</SheetTitle>
+                    </SheetHeader>
+                    <nav className="flex w-full flex-col items-stretch p-2">
+                      {links.map(({ label, href }) => {
+                        const path = href.split("#")[0];
+                        const current =
+                          path === "/"
+                            ? pathname === "/"
+                            : pathname === path || pathname.startsWith(`${path}/`);
+                        return (
+                          <Link
+                            aria-current={current ? "page" : undefined}
+                            className={cn(
+                              "flex min-h-12 items-center rounded-lg px-3 text-base font-medium transition-colors duration-150 motion-reduce:transition-none",
+                              current
+                                ? "bg-accent-surface font-semibold text-primary"
+                                : "text-foreground hover:bg-accent",
+                            )}
+                            href={href}
+                            key={href}
+                            onClick={() => setMenuOpen(false)}
+                          >
+                            {label}
+                          </Link>
+                        );
+                      })}
+                    </nav>
+                  </SheetContent>
+                </Sheet>
               )}
             </div>
 
