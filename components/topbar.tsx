@@ -208,7 +208,9 @@ function NavAvatar() {
   return (
     <Link
       aria-label={t("profile")}
-      className="hidden shrink-0 lg:block"
+      // A ring that appears on hover, so the portrait is visibly a control. It
+      // was the one item in the desktop bar with no state at all.
+      className="hidden shrink-0 rounded-full ring-2 ring-transparent transition-[box-shadow,--tw-ring-color] duration-150 hover:ring-border motion-reduce:transition-none lg:block"
       href="/profile"
     >
       {image ? (
@@ -248,8 +250,14 @@ export function TopBar({
 }: {
   readonly unreadNotifications?: boolean;
   /**
-   * Puts a sign-in link in the trailing slot instead of the notification bell.
-   * For the pre-auth landing frame — every signed-in screen keeps the bell.
+   * This page is reachable by a guest, so the trailing slot falls back to a
+   * sign-in link **when there is no session**.
+   *
+   * It is not "always show sign in". It used to be, and because `NavAvatar`
+   * renders on its own whenever a session exists, a signed-in reader on one of
+   * these pages got a sign-in link and their own portrait side by side — two
+   * controls stating the opposite thing. A signed-in reader now gets the bell and
+   * the portrait here exactly as they do everywhere else.
    */
   readonly login?: boolean;
   /** Swaps the leading menu glyph for a back chevron pointing here. */
@@ -266,6 +274,10 @@ export function TopBar({
   const pathname = usePathname();
   const [frosted, setFrosted] = useState(false);
   const sentinelRef = useRef<HTMLDivElement>(null);
+  // Read here as well as in `NavAvatar`, so the two halves of the trailing slot
+  // agree about whether anyone is signed in. `useSession` is a subscription to
+  // the same store, not a second source of truth.
+  const signedIn = useSession().status === "authenticated";
 
   // Figma's desktop nav carries four: find an advisor, bookings, chat, about.
   const links = [
@@ -291,8 +303,17 @@ export function TopBar({
   const onMedia = overlay && !frosted;
   // This is a touch UI — the ghost variant's hover tint only ever fires as a
   // stuck highlight after a tap, so the bar opts out of it entirely.
-  const trigger =
-    "relative flex size-6 shrink-0 items-center justify-center hover:bg-transparent before:absolute before:-inset-2 before:content-['']";
+  // The opt-out is now scoped to the phone. A pointer has no reason to lose
+  // hover feedback, and the desktop bar had none at all: every control on it
+  // answered a click with nothing, which is most of why it read as unfinished
+  // beside the phone bar. From `lg` each glyph gets a real 36px target with a
+  // hover ground, and `before:inset-0` retires the phone's invisible 40px
+  // padded hit area, which would otherwise make the new grounds overlap.
+  const trigger = cn(
+    "relative flex size-6 shrink-0 items-center justify-center before:absolute before:-inset-2 before:content-['']",
+    "max-lg:hover:bg-transparent",
+    "lg:size-9 lg:rounded-lg lg:transition-colors lg:duration-150 lg:before:inset-0 lg:hover:bg-accent motion-reduce:lg:transition-none",
+  );
   const ink = onMedia
     ? "text-on-media hover:text-on-media"
     : "text-foreground hover:text-foreground";
@@ -382,10 +403,18 @@ export function TopBar({
                   <Link
                     aria-current={current ? "page" : undefined}
                     className={cn(
-                      "text-sm leading-5 font-medium whitespace-nowrap transition-colors",
+                      // 16 rather than 14. This nav only exists from `lg`, and it
+                      // was set at the phone's smallest body size — the only text
+                      // on a 68px bar, reading like a footnote.
+                      "relative text-base leading-5 font-medium whitespace-nowrap transition-colors duration-150 motion-reduce:transition-none",
+                      // The section the reader is in was stated by ink alone, at
+                      // 14px, against a colour one step away. It now carries
+                      // weight and a 2px rule under it, so the bar says where you
+                      // are without being read word by word.
+                      "after:absolute after:-bottom-1.5 after:left-0 after:h-0.5 after:w-full after:rounded-full after:transition-colors after:content-['']",
                       current
-                        ? "text-foreground"
-                        : "text-muted-foreground hover:text-foreground",
+                        ? "font-semibold text-foreground after:bg-primary"
+                        : "text-muted-foreground after:bg-transparent hover:text-foreground hover:after:bg-border",
                     )}
                     href={href}
                     key={href}
@@ -397,7 +426,7 @@ export function TopBar({
             </nav>
 
             <div className="flex flex-1 items-center justify-end lg:flex-none lg:gap-4">
-              {login ? (
+              {login && !signedIn ? (
                 <Link
                   className={cn(
                     "flex shrink-0 items-center gap-1.5 text-sm font-semibold whitespace-nowrap",

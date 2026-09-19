@@ -26,8 +26,15 @@ export function MobileScreen({
 }: {
   readonly children: ReactNode;
   readonly className?: string;
-  /** This screen has a desktop layout — see `MobileViewport`. */
-  readonly wide?: boolean;
+  /**
+   * This screen has a desktop layout — see `MobileViewport`.
+   *
+   * `"md"` lifts the cap at the tablet instead of the desktop. It is for a screen
+   * that is one column of text: a document has no blocks to rearrange at 768px,
+   * so the only thing the cap achieves there is a phone-width page with empty
+   * margins. `true` keeps the `lg` behaviour every arranged screen wants.
+   */
+  readonly wide?: boolean | "md";
 }) {
   return (
     <div
@@ -35,10 +42,11 @@ export function MobileScreen({
         // No `flex-1` here: as a flex item it would take flex-basis 0 and grow past
         // the frame, so the tab bar would slide off the viewport.
         "relative flex h-dvh w-full flex-col items-center overflow-hidden bg-background pb-4",
-        wide && "lg:pb-0",
+        wide === "md" && "md:pb-0",
+        wide === true && "lg:pb-0",
         className,
       )}
-      data-wide={wide ? "" : undefined}
+      data-wide={wide === "md" ? "md" : wide ? "" : undefined}
     >
       {children}
     </div>

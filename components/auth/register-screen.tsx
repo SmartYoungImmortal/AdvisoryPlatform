@@ -19,7 +19,7 @@ import {
   ScreenTopBar,
 } from "@/components/mobile/screen";
 import { Surface } from "@/components/mobile/surface";
-import { isEmail, passwordProblems, register } from "@/lib/session";
+import { isEmail, passwordProblems, register, roleHome } from "@/lib/session";
 import { cn } from "@/lib/utils";
 
 type Errors = Partial<
@@ -95,7 +95,11 @@ export function RegisterScreen({
       setErrors({ email: t("emailInUse") });
       return;
     }
-    router.push("/pdpa");
+    // Into the app, not onto the privacy policy. The consent this form needs is
+    // the checkbox above, which already blocks submission until it is ticked;
+    // routing a new account to a document to press "accept" a second time
+    // recorded nothing and read as a step that could be failed.
+    router.push(roleHome(result.account.role));
   }
 
   const reveal = (
