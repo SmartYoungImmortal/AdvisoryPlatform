@@ -288,7 +288,14 @@ export function TopBar({
   // Read here as well as in `NavAvatar`, so the two halves of the trailing slot
   // agree about whether anyone is signed in. `useSession` is a subscription to
   // the same store, not a second source of truth.
-  const signedIn = useSession().status === "authenticated";
+  // Three states, not two. Reading the session is a round trip now that it comes
+  // from `/api/v1/users/me`, so `status` is `loading` for the first render of
+  // every page view. Collapsing that to "not signed in" made a signed-in reader
+  // see the sign-in link and no portrait, then watch both swap — so `loading`
+  // renders neither rather than guessing wrong for a whole request.
+  const sessionStatus = useSession().status;
+  const signedIn = sessionStatus === "authenticated";
+  const sessionKnown = sessionStatus !== "loading";
 
   // Figma's desktop nav carries four: find an advisor, bookings, chat, about.
   /**
@@ -573,7 +580,12 @@ export function TopBar({
                 are what let the absolutely-centred nav land on the bar's centre
                 rather than the centre of what is left over. */}
             <div className="flex flex-1 items-center justify-end lg:flex-none lg:gap-4 xl:flex-1">
-              {login && !signedIn ? (
+              {/* `sessionKnown` gates the whole either/or: until the session has
+                  answered, neither the sign-in link nor the bell is drawn, so the
+                  slot is empty for one request rather than showing the wrong one.
+                  The bar's height does not depend on what is in it, so nothing
+                  moves when the answer lands. */}
+              {!sessionKnown && login ? null : login && !signedIn ? (
                 <Link
                   className={cn(
                     "flex shrink-0 items-center gap-1.5 text-sm font-semibold whitespace-nowrap",
