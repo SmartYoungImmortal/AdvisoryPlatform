@@ -346,12 +346,18 @@ export function TopBar({
             // gradient, which a class cannot outrank, hence the `!` pair.
             // A hairline alone left the bar floating on a ground that is now a
             // real step darker; the resting elevation is what seats it.
-            // 72px, not 68. The desktop bar was *shorter* than the phone's 80,
-            // which is backwards: the wider viewport is where a bar has room to
-            // be a band rather than a strip. everyday-cat-clinic-v2's header goes
-            // `h-14` on the phone and `lg:h-[72px]` on the desktop for the same
-            // reason.
-            "lg:h-18 lg:border-border lg:bg-card! lg:bg-none! lg:px-0 lg:py-4 lg:shadow-card lg:backdrop-blur-none",
+            // The glass is kept at every width. This used to read
+            // `lg:bg-card! lg:bg-none! lg:backdrop-blur-none`, which threw the
+            // frosted treatment away and put a flat card band in its place — the
+            // same mistake the footer was making, and the reason the phone bar
+            // looked considered while the desktop one looked like a placeholder.
+            // What changes with the width is the height and the layout, not the
+            // material.
+            //
+            // 72px, not 68: the desktop bar was *shorter* than the phone's 80,
+            // which is backwards, since the wider viewport is where a bar has
+            // room to be a band rather than a strip.
+            "lg:h-18 lg:px-0 lg:py-4",
             className,
           )}
           style={frosted ? { background: FROSTED } : undefined}
@@ -420,7 +426,15 @@ export function TopBar({
                       </Link>
                     </div>
 
-                    <nav className="flex min-h-0 w-full flex-1 flex-col items-stretch gap-1 overflow-y-auto px-4 pt-6">
+                    {/* Centred, at 24px, 24px apart, each a 44px target, with the
+                        current section stated in the accent and nothing else —
+                        the shape `everyday-cat-clinic-v2`'s drawer uses
+                        (`items-center gap-6`, `min-h-11`, `text-2xl`, colour for
+                        state). The first attempt here was a left-aligned list of
+                        20px rows with a tinted background behind the current one,
+                        which is a settings list, not a menu: four destinations on
+                        a phone want to be the only thing on the screen. */}
+                    <nav className="mx-auto flex min-h-0 w-full flex-1 flex-col items-center gap-6 overflow-y-auto overscroll-contain px-5 pt-10">
                       {links.map(({ label, href }) => {
                         const path = href.split("#")[0];
                         const current =
@@ -431,13 +445,10 @@ export function TopBar({
                           <Link
                             aria-current={current ? "page" : undefined}
                             className={cn(
-                              // 56px rows and 20px type: a phone menu is the one
-                              // place with room to be read at arm's length, and
-                              // it was set at body size in a 48px row.
-                              "flex min-h-14 items-center rounded-card px-4 text-xl font-medium transition-colors duration-150 motion-reduce:transition-none",
+                              "flex min-h-11 items-center rounded-md px-2 text-2xl leading-none transition-colors duration-150 motion-reduce:transition-none",
                               current
-                                ? "bg-accent-surface font-semibold text-primary"
-                                : "text-foreground active:bg-accent",
+                                ? "font-semibold text-primary"
+                                : "font-medium text-foreground",
                             )}
                             href={href}
                             key={href}
@@ -452,12 +463,13 @@ export function TopBar({
                     {/* The way in or the way to your own account, at the thumb
                         end of the panel. Without it the menu listed four
                         marketing pages and nothing about the reader. */}
-                    <div className="flex w-full shrink-0 flex-col items-stretch gap-3 border-t border-border p-4">
+                    <div className="mx-auto flex w-full max-w-80 shrink-0 flex-col items-stretch px-5 pt-8 pb-10">
                       {signedIn ? (
                         <NeutralButton
                           block
                           href="/profile"
                           onClick={() => setMenuOpen(false)}
+                          size="lg"
                         >
                           {t("profile")}
                         </NeutralButton>
@@ -466,6 +478,7 @@ export function TopBar({
                           block
                           href="/login"
                           onClick={() => setMenuOpen(false)}
+                          size="lg"
                         >
                           {t("login")}
                         </PrimaryButton>
