@@ -53,10 +53,18 @@ function SummaryLine({
 }
 
 /**
- * The card this reader has already paid with. There is no saved-card model yet —
- * nothing in `lib/mock-db` stores a payment instrument — so the one the frame
- * draws is a fixture here, beside the rest of this screen's numbers. Only the
- * data is local; the wording it goes into stays in `messages/th.json`.
+ * The card this reader has already paid with, as a fixture — and it has to be one.
+ *
+ * The API does model saved instruments: `omise_cards` and `omise_customers` are
+ * real tables and `payment/providers/omise/omise.repository.ts` reads them. But
+ * **`POST /api/v1/payment/checkout` is the only route the payment module exposes**,
+ * so nothing can list a reader's cards, name one, or delete one. The data exists
+ * and there is no door to it.
+ *
+ * So this is not a fixture standing in for a model that does not exist — it is a
+ * fixture standing in for three endpoints that do not: `GET`, `POST` and `DELETE`
+ * on the reader's own cards. Closing it is API work, not screen work. Only the
+ * numbers are local; the wording they go into stays in `messages/th.json`.
  */
 const SAVED_CARD = { last4: "7841", expiry: "09/28" } as const;
 
