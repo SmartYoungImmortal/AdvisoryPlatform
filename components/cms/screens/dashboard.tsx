@@ -15,6 +15,7 @@ import { useMemo } from "react";
 
 import { CmsPerson } from "@/components/cms/avatar";
 import { CmsCard } from "@/components/cms/card";
+import { useDashboardCounts } from "@/components/cms/dashboard-data";
 import { CmsLinkButton } from "@/components/cms/fields";
 import { useAccountLookup } from "@/components/cms/hooks";
 import { CmsPage } from "@/components/cms/layout";
@@ -70,18 +71,24 @@ export function DashboardScreen() {
   const db = useDatabase((d) => d);
   const person = useAccountLookup();
 
+  /**
+   * The five queue counters and the account total come from the API — one
+   * `?limit=1` request each, reading `total` off the paginated body, because there
+   * is no aggregate endpoint and a counter has no business fetching a queue.
+   * `undefined` until each answers, so `Stat` shows a dash rather than a zero it
+   * has not earned.
+   *
+   * `payoutsDue` stays on the fixture, and it is the only figure here that does:
+   * summing outstanding payouts needs their amounts, `GET /admin/payouts` returns a
+   * page rather than a sum, and adding one page of amounts would understate the
+   * total the moment there are more payouts than a page.
+   */
+  const live = useDashboardCounts();
   const stats = useMemo(
     () => ({
-      verifications:
-        db.identityRequests.filter((r) => r.status === "submitted").length +
-        db.skillProofs.filter((p) => p.status === "pending").length,
-      refunds: db.refunds.filter((r) => r.status === "pending").length,
-      reports: db.reports.filter((r) => r.status === "open").length,
-      flags: db.offPlatformFlags.filter((f) => f.status === "open").length,
       payoutsDue: db.payouts
         .filter((p) => p.status !== "paid")
         .reduce((sum, p) => sum + p.amountSatang, 0),
-      users: db.accounts.length,
     }),
     [db],
   );
@@ -104,12 +111,12 @@ export function DashboardScreen() {
   return (
     <CmsPage title={t("title")}>
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-6">
-        <Stat href="/admin/verification" icon={ShieldCheck} label={t("verifications")} value={stats.verifications} />
-        <Stat href="/admin/refunds" icon={Receipt} label={t("refunds")} value={stats.refunds} />
-        <Stat href="/admin/reports" icon={Flag} label={t("reports")} value={stats.reports} />
-        <Stat href="/admin/off-platform" icon={Radar} label={t("flags")} value={stats.flags} />
+        <Stat href="/admin/verification" icon={ShieldCheck} label={t("verifications")} value={live.verification} />
+        <Stat href="/admin/refunds" icon={Receipt} label={t("refunds")} value={live.refunds} />
+        <Stat href="/admin/reports" icon={Flag} label={t("reports")} value={live.reports} />
+        <Stat href="/admin/off-platform" icon={Radar} label={t("flags")} value={live.flags} />
         <Stat href="/admin/payouts" icon={Banknote} label={t("payoutsDue")} value={formatBaht(stats.payoutsDue)} />
-        <Stat href="/admin/users" icon={Users} label={t("users")} value={stats.users} />
+        <Stat href="/admin/users" icon={Users} label={t("users")} value={live.users} />
       </div>
 
       <CmsCard
@@ -248,7 +255,8 @@ function Stat({
   readonly href: string;
   readonly icon: LucideIcon;
   readonly label: string;
-  readonly value: number | string;
+  /** `undefined` while the count is in flight, or if the read failed. */
+  readonly value: number | string | undefined;
 }) {
   return (
     <Link
@@ -260,7 +268,12 @@ function Stat({
       </span>
       <span className="flex min-w-0 flex-col">
         <span className="truncate text-sm text-muted-foreground">{label}</span>
-        <span className="font-latin text-2xl font-semibold text-highlighted">{value}</span>
+        {/* An em-width dash while the count is unknown, not a zero: a queue
+            reading 0 when it has not been counted is the one wrong answer that
+            looks like a right one. */}
+        <span className="font-latin text-2xl font-semibold tabular-nums text-highlighted">
+          {value ?? <span className="text-muted-foreground">&ndash;</span>}
+        </span>
       </span>
     </Link>
   );
