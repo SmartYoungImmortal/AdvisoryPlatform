@@ -25,7 +25,12 @@ import {
   SettingsSection,
 } from "@/components/mobile/settings-list";
 import { IdentityCard } from "@/components/profile/identity-card";
-import { OwnAvatar, hasRole, useOwnProfile } from "@/components/profile/profile-data";
+import {
+  OwnAvatar,
+  hasRole,
+  useOwnBookingCount,
+  useOwnProfile,
+} from "@/components/profile/profile-data";
 import { AccountName, AccountStat } from "@/components/session/account-bits";
 import { QuickActions } from "@/components/profile/quick-actions";
 import { BottomBar } from "@/components/bottombar";
@@ -68,6 +73,7 @@ export function ProfileScreen({
   const t = useTranslations("profile");
   const isView = variant === "view";
   const profile = useOwnProfile();
+  const bookingCount = useOwnBookingCount();
   // The settings column runs flush with the top of the aside, so only the
   // sections after the first keep Figma's 32px rhythm between them.
   const section = "lg:px-0 lg:pt-8";
@@ -98,7 +104,16 @@ export function ProfileScreen({
                     label: t("stats.sessions"),
                   },
                   {
-                    value: <AccountStat fallback="1" stat="bookings" />,
+                    /* The one real figure of the three. `GET /bookings/me`
+                       carries `total` in its paginated body, so a one-row
+                       request answers the count. The other two stay on the
+                       fixture because the API counts neither. */
+                    value:
+                      bookingCount === undefined ? (
+                        <AccountStat fallback="1" stat="bookings" />
+                      ) : (
+                        String(bookingCount)
+                      ),
                     label: isView ? t("stats.bookings") : t("stats.upcoming"),
                   },
                   {
