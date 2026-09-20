@@ -4,15 +4,16 @@ import { useTranslations } from "next-intl";
 import { BottomBar } from "@/components/bottombar";
 import { SiteFooter } from "@/components/marketing/site-footer";
 import { MobileScreen, ScreenBody } from "@/components/mobile/screen";
+import { StatusPill } from "@/components/mobile/status-pill";
 import {
   CachedRecordRow,
   CaptionedCard,
   ConnectivityBanner,
-  OFFLINE_COLUMN,
-  OfflineDivider,
 } from "@/components/offline/parts";
 import { RetryLink } from "@/components/offline/retry";
 import { TopBar } from "@/components/topbar";
+import { READING_COLUMN } from "@/lib/layout";
+import { cn } from "@/lib/utils";
 
 /**
  * Figma "ออฟไลน์ - แถบแจ้งเตือน" (1952:36279) and "กลับมาออนไลน์ - กำลังซิงก์"
@@ -49,13 +50,17 @@ export function ConnectivityScreen({
         <ConnectivityBanner
           icon={offline ? WifiOff : Wifi}
           message={offline ? t("bannerOffline") : t("bannerSyncing")}
+          tone={offline ? "warning" : "info"}
           trailing={
             offline ? (
               <RetryLink>{t("bannerRetry")}</RetryLink>
             ) : (
-              <span className="shrink-0 text-sm font-medium whitespace-nowrap text-primary">
+              /* How many records are still on their way is a status, not a
+                 control, so it is a pill rather than an accent word that looks
+                 like the retry beside it in the other state. */
+              <StatusPill className="tabular-nums" tone="info">
                 {t("bannerSyncingCount")}
-              </span>
+              </StatusPill>
             )
           }
         />
@@ -64,15 +69,19 @@ export function ConnectivityScreen({
             phone's last block has to clear the tab bar the frame draws over it;
             the desktop page has no tab bar, so the inset goes with it. */}
         <div
-          className={`flex w-full flex-1 flex-col items-start gap-5 px-6 pt-5 pb-[101px] lg:px-0 lg:pb-6 ${OFFLINE_COLUMN}`}
+          className={cn(
+            "flex w-full flex-1 flex-col items-start gap-5 px-6 pt-5 pb-[101px] lg:px-0 lg:pb-6",
+            READING_COLUMN,
+          )}
         >
-          <CaptionedCard caption={t("cachedBookings")} cardClassName="border border-border px-4">
+          {/* `CaptionedCard` is a `SurfaceList` now, so the hairline and the rule
+              between the two rows come with it — both used to be passed in. */}
+          <CaptionedCard caption={t("cachedBookings")} cardClassName="px-4">
             <CachedRecordRow
               body={t("cachedBooking1Body")}
               time={t("cachedBooking1Time")}
               title={t("cachedBooking1Name")}
             />
-            <OfflineDivider className="bg-border" />
             <CachedRecordRow
               body={t("cachedBooking2Body")}
               time={t("cachedBooking2Time")}
@@ -80,13 +89,12 @@ export function ConnectivityScreen({
             />
           </CaptionedCard>
 
-          <CaptionedCard caption={t("cachedChats")} cardClassName="border border-border px-4">
+          <CaptionedCard caption={t("cachedChats")} cardClassName="px-4">
             <CachedRecordRow
               body={t("cachedChat1Body")}
               time={t("cachedChat1Time")}
               title={t("cachedChat1Name")}
             />
-            <OfflineDivider className="bg-border" />
             <CachedRecordRow
               body={t("cachedChat2Body")}
               time={t("cachedChat2Time")}
@@ -94,7 +102,7 @@ export function ConnectivityScreen({
             />
           </CaptionedCard>
 
-          <p className="w-full text-xs font-normal text-muted-foreground">
+          <p className="w-full text-xs font-normal tabular-nums text-muted-foreground">
             {offline ? t("cachedNoteOffline") : t("cachedNoteSyncing")}
           </p>
         </div>

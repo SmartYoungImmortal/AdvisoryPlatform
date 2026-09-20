@@ -51,7 +51,7 @@ function EmailCard({
   return (
     <div
       className={cn(
-        "flex w-full shrink-0 items-center gap-2.5 overflow-clip rounded-xl bg-card p-3.5 lg:bg-muted/50",
+        "flex w-full shrink-0 items-center gap-2.5 overflow-clip rounded-card bg-card p-3.5 lg:bg-muted/50",
         className,
       )}
     >

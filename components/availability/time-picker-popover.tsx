@@ -1,5 +1,6 @@
 import { useTranslations } from "next-intl";
 
+import { surfaceClass } from "@/components/mobile/surface";
 import { cn } from "@/lib/utils";
 import {
   END_TIME_OPTIONS,
@@ -16,12 +17,21 @@ import {
  *
  * Positioned absolutely under its trigger and allowed to overlap what follows,
  * exactly as the frame draws it. The list scrolls rather than growing the page.
+ *
+ * The card is the `raised` surface with `--shadow-panel` over it: a popover is one
+ * of the things that shadow exists for, and it replaces the wide `shadow-lift`
+ * wash, which is the hero treatment and read as fog under a 208px list.
  */
 export function TimePickerPopover() {
   const t = useTranslations("availability");
 
   return (
-    <div className="absolute top-full right-0 z-10 mt-1 flex w-52 flex-col overflow-clip rounded-[12px] border border-border bg-card shadow-lift">
+    <div
+      className={cn(
+        surfaceClass(),
+        "absolute top-full right-0 z-10 mt-1 flex w-52 flex-col overflow-clip shadow-panel",
+      )}
+    >
       <p className="shrink-0 px-3 pt-2.5 pb-1 text-xs font-normal text-muted-foreground">
         {t("picker.endLabel")}
       </p>

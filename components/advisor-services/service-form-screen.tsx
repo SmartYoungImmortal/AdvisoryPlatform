@@ -13,6 +13,7 @@ import {
   ScreenBody,
   ScreenTopBar,
 } from "@/components/mobile/screen";
+import { Surface, surfaceClass } from "@/components/mobile/surface";
 import { ThaiText } from "@/components/mobile/thai-text";
 import { TopBar } from "@/components/topbar";
 import { Input } from "@/components/ui/input";
@@ -25,6 +26,7 @@ import {
 } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
+import { PAGE } from "@/lib/layout";
 import { cn } from "@/lib/utils";
 import { SLOT_MINUTES, type AdvisorServiceRecord } from "@/lib/advisor-services";
 import {
@@ -46,9 +48,6 @@ import {
  */
 const BACK_BAR = "lg:h-13 lg:bg-card lg:pt-0 lg:pb-0 lg:pl-10 xl:pl-30";
 const HEAD_BAND = "w-full shrink-0 lg:border-b lg:border-border lg:bg-card";
-
-/** The 1200 content column, inset 120 from the 1440 page. */
-const COLUMN = "lg:mx-auto lg:w-full lg:max-w-[1440px] lg:px-10 xl:px-30";
 
 /** Figma field label — the form's 14/20 semibold. */
 function FieldLabel({
@@ -122,7 +121,14 @@ function GroundNote({
   );
 }
 
-/** Figma "Row" — a bordered surface with a title, a caption and a trailing control. */
+/**
+ * Figma "Row" — a card with a title, a caption and a trailing control.
+ *
+ * The rows that lead somewhere are `Surface interactive`, so the hover lift and
+ * the press come from the same place every other tappable card in the app gets
+ * them; the ones holding a Switch stay static, because the card is not what you
+ * click.
+ */
 function SettingRow({
   title,
   caption,
@@ -154,8 +160,10 @@ function SettingRow({
       {trailing}
     </>
   );
-  const className =
-    "flex w-full shrink-0 items-center gap-3 overflow-clip rounded-[12px] border border-border bg-card p-3";
+  const className = cn(
+    surfaceClass({ interactive: Boolean(href) }),
+    "flex w-full shrink-0 items-center gap-3 overflow-clip p-3",
+  );
 
   return href ? (
     <Link className={className} href={href}>
@@ -232,7 +240,7 @@ function CreateProfileRow() {
 
   return (
     <Link
-      className="flex w-full shrink-0 items-center justify-center gap-2 overflow-clip rounded-[12px] border border-dashed border-border bg-muted px-3.5 py-3 text-sm font-medium text-primary"
+      className="flex w-full shrink-0 items-center justify-center gap-2 overflow-clip rounded-card border border-dashed border-border bg-muted px-3.5 py-3 text-sm font-medium text-primary transition-colors hover:bg-accent-surface"
       href="/availability/profiles/new"
     >
       {t("createProfile")}
@@ -247,12 +255,12 @@ function ImageStrip({ record }: { readonly record: AdvisorServiceRecord }) {
       {record.service.gallery.slice(0, 3).map((image) => (
         <Image
           alt=""
-          className="h-22 min-w-px flex-1 rounded-[12px] object-cover"
+          className="h-22 min-w-px flex-1 rounded-card object-cover lg:h-28"
           key={image.src}
           src={image}
         />
       ))}
-      <span className="flex h-22 min-w-px flex-1 items-center justify-center overflow-clip rounded-[12px] border border-dashed border-input bg-muted">
+      <span className="flex h-22 min-w-px flex-1 items-center justify-center overflow-clip rounded-card border border-dashed border-input bg-muted lg:h-28">
         <Plus className="size-4.5 text-muted-foreground" />
       </span>
     </div>
@@ -264,7 +272,7 @@ function ImageDropzone() {
   const t = useTranslations("serviceForm");
 
   return (
-    <div className="flex h-30 w-full shrink-0 flex-col items-center justify-center gap-2 overflow-clip rounded-[12px] border border-dashed border-input bg-muted">
+    <div className="flex h-30 w-full shrink-0 flex-col items-center justify-center gap-2 overflow-clip rounded-card border border-dashed border-input bg-muted lg:h-36">
       <span className="flex size-9 items-center justify-center rounded-full bg-card">
         <Plus className="size-4.5 text-primary" />
       </span>
@@ -280,7 +288,7 @@ function LimitStepper() {
   const t = useTranslations("serviceForm");
 
   return (
-    <div className="flex w-full shrink-0 items-center gap-3 overflow-clip rounded-[12px] border border-border bg-card p-3">
+    <Surface className="flex w-full shrink-0 items-center gap-3 overflow-clip p-3">
       <p className="min-w-px flex-1 text-base font-medium text-foreground">
         {t("limitStepperLabel")}
       </p>
@@ -301,7 +309,7 @@ function LimitStepper() {
           <Plus className="size-4" />
         </span>
       </div>
-    </div>
+    </Surface>
   );
 }
 
@@ -367,7 +375,7 @@ export function ServiceFormScreen({
 
       <ScreenBody className="gap-4 pb-6 lg:gap-0 lg:pb-0">
         <div className={HEAD_BAND}>
-          <div className={cn("flex w-full shrink-0 flex-col items-start gap-1.5 overflow-clip px-6", COLUMN, "lg:py-6")}>
+          <div className={cn("flex w-full shrink-0 flex-col items-start gap-1.5 overflow-clip px-6", PAGE, "lg:py-6")}>
             <h1 className="w-full text-2xl font-semibold text-foreground">
               {edit ? t("editTitle") : t("createTitle")}
             </h1>
@@ -386,7 +394,7 @@ export function ServiceFormScreen({
         <div
           className={cn(
             "contents lg:grid lg:grid-cols-[minmax(0,1fr)_380px] lg:items-start lg:gap-x-8 lg:pt-10 lg:pb-22",
-            COLUMN,
+            PAGE,
           )}
         >
         <div className="contents lg:col-start-1 lg:row-start-1 lg:flex lg:flex-col lg:gap-3.5">

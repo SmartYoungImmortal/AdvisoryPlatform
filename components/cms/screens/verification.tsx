@@ -3,99 +3,166 @@
 import { useRouter } from "next/navigation";
 import { Check, FileText, X } from "lucide-react";
 import { useTranslations } from "next-intl";
-import { useMemo } from "react";
+import { useCallback, useMemo } from "react";
 
+import { CmsApiError, CmsTableSkeleton, useRuling } from "@/components/cms/api";
 import { CmsPerson } from "@/components/cms/avatar";
 import { CmsButton } from "@/components/cms/button";
 import { useCmsFeedback } from "@/components/cms/feedback";
-import { useAccountLookup, useActorId } from "@/components/cms/hooks";
 import { CmsPage } from "@/components/cms/layout";
 import { CmsQueryTabs, useQueryTab } from "@/components/cms/query-tabs";
-import { CmsStatus, useStatusOptions } from "@/components/cms/status";
+import { CmsApiStatus, useApiStatusOptions } from "@/components/cms/status";
 import { CmsFilterMenu, CmsTable, type CmsColumn } from "@/components/cms/table";
 import { useCmsList } from "@/components/cms/use-cms-list";
-import { decideSkillProofs } from "@/lib/mock-db/actions";
+import {
+  ADMIN_KEYS,
+  ADMIN_MAX_LIMIT,
+  approveSkillProof,
+  listIdentityVerifications,
+  listSkillProofs,
+  rejectSkillProof,
+  type IdentityVerification,
+  type SkillProof,
+} from "@/lib/api/admin";
+import type { Paginated } from "@/lib/api/client";
+import { useResource } from "@/lib/api/use-resource";
 import { formatDateTime, timeValue } from "@/lib/mock-db/format";
-import { useDatabase } from "@/lib/mock-db/store";
-import type { IdentityRequest, SkillProof } from "@/lib/mock-db/types";
 
 type Kind = "identity" | "skills";
 
+const IDENTITY_KEY = ADMIN_KEYS.identity;
+const PROOFS_KEY = ADMIN_KEYS.skillProofs;
+
 /** Waiting items first, then newest — a review queue reads top-down. */
-function queueOrder<T extends { readonly status: string }>(
+function queueOrder<T>(
   rows: readonly T[],
-  waiting: string,
-  at: (row: T) => string,
+  waiting: (row: T) => boolean,
+  at: (row: T) => string | null,
 ): readonly T[] {
   return [...rows].sort((a, b) => {
-    const rank = Number(b.status === waiting) - Number(a.status === waiting);
-    return rank !== 0 ? rank : at(b).localeCompare(at(a));
+    const rank = Number(waiting(b)) - Number(waiting(a));
+    return rank !== 0 ? rank : (at(b) ?? "").localeCompare(at(a) ?? "");
   });
 }
 
 /**
- * The verification desk: identity requests (who may become an advisor, and at
- * what level) and skill proofs (documents backing a listed skill).
+ * The verification desk, from `GET /api/v1/admin/identity-verifications` and
+ * `GET /api/v1/admin/skill-proofs`.
+ *
+ * ## Both queues are empty, and that is the database, not a failure
+ *
+ * `advisor_identity` and `skill_proof_documents` have no rows, and nothing can put
+ * one in the identity queue yet: there is no advisor-facing submission endpoint, so
+ * no advisor can send an identity document at all. The empty state is therefore the
+ * honest state — an empty list here is not an error, and the table says "ยังไม่มี
+ * รายการ" rather than pretending something went wrong.
+ *
+ * Both tabs are fetched on mount because both tabs carry a waiting count in the tab
+ * strip, and a count cannot come from a page that has not been read.
  */
 export function VerificationScreen() {
   const t = useTranslations("cms.verification");
-  const requests = useDatabase((db) => db.identityRequests);
-  const proofs = useDatabase((db) => db.skillProofs);
+
+  const identityFetcher = useCallback(
+    (signal: AbortSignal) => listIdentityVerifications({ limit: ADMIN_MAX_LIMIT }, signal),
+    [],
+  );
+  const proofsFetcher = useCallback(
+    (signal: AbortSignal) => listSkillProofs({ limit: ADMIN_MAX_LIMIT }, signal),
+    [],
+  );
+
+  const identity = useResource<Paginated<IdentityVerification>>(
+    `${IDENTITY_KEY}?limit=${ADMIN_MAX_LIMIT}`,
+    identityFetcher,
+  );
+  const proofs = useResource<Paginated<SkillProof>>(
+    `${PROOFS_KEY}?limit=${ADMIN_MAX_LIMIT}`,
+    proofsFetcher,
+  );
+
+  const requests = useMemo(() => identity.data?.items ?? [], [identity.data]);
+  const proofItems = useMemo(() => proofs.data?.items ?? [], [proofs.data]);
 
   const tabs = [
     {
       value: "identity" as const,
       label: t("tab.identity"),
-      count: requests.filter((r) => r.status === "submitted").length,
+      count: requests.filter((r) => r.verificationStatus === "SUBMITTED").length,
       alert: true,
     },
     {
       value: "skills" as const,
       label: t("tab.skills"),
-      count: proofs.filter((p) => p.status === "pending").length,
+      count: proofItems.filter((p) => p.reviewStatus === "PENDING").length,
       alert: true,
     },
   ];
   const kind = useQueryTab<Kind>(tabs);
+  const active = kind === "identity" ? identity : proofs;
 
   return (
     <CmsPage title={t("title")}>
       <CmsQueryTabs items={tabs} />
-      {kind === "identity" ? <IdentityTable requests={requests} /> : <ProofTable proofs={proofs} />}
+      {active.loading ? (
+        <CmsTableSkeleton columns={kind === "identity" ? 3 : 5} />
+      ) : active.error ? (
+        <CmsApiError error={active.error} onRetry={active.reload} />
+      ) : kind === "identity" ? (
+        <IdentityTable requests={requests} />
+      ) : (
+        <ProofTable proofs={proofItems} />
+      )}
     </CmsPage>
   );
 }
 
-function IdentityTable({ requests }: { readonly requests: readonly IdentityRequest[] }) {
+/**
+ * Identity requests.
+ *
+ * A row is keyed by `advisorId` — `advisor_identity` has no surrogate key — so the
+ * review link carries the advisor id, not a request id. `fullName`, birth date,
+ * national id, credential and field are not on `IdentityVerificationResponseDto`,
+ * so the credential column is gone: the applicant is named by display name and
+ * email, which is what the route returns.
+ */
+function IdentityTable({ requests }: { readonly requests: readonly IdentityVerification[] }) {
   const t = useTranslations("cms.verification");
   const router = useRouter();
-  const person = useAccountLookup();
-  const statusOptions = useStatusOptions("identity").filter((o) => o.value !== "none");
-  const rows = useMemo(() => queueOrder(requests, "submitted", (r) => r.submittedAt), [requests]);
+  const statusOptions = useApiStatusOptions("identity", [
+    "SUBMITTED",
+    "VERIFIED",
+    "REJECTED",
+  ]);
+  const rows = useMemo(
+    () =>
+      queueOrder(
+        requests,
+        (r) => r.verificationStatus === "SUBMITTED",
+        (r) => r.submittedAt,
+      ),
+    [requests],
+  );
 
-  const list = useCmsList(rows, {
+  // `useCmsList` keys rows by `id`; this queue's key is the advisor's id.
+  const keyed = useMemo(() => rows.map((r) => ({ ...r, id: r.advisorId })), [rows]);
+  const list = useCmsList(keyed, {
     prefix: "i_",
-    searchText: (r) => `${r.fullName} ${person(r.accountId)?.email ?? ""} ${r.credential} ${r.field}`,
-    sortValue: (r, id) => (id === "submittedAt" ? timeValue(r.submittedAt) : r.fullName),
-    filters: [{ key: "status", test: (r, values) => values.includes(r.status) }],
+    searchText: (r) => `${r.displayName} ${r.email}`,
+    sortValue: (r, id) => (id === "submittedAt" ? timeValue(r.submittedAt) : r.displayName),
+    filters: [
+      { key: "status", test: (r, values) => values.includes(r.verificationStatus) },
+    ],
   });
 
-  const columns: ReadonlyArray<CmsColumn<IdentityRequest>> = [
+  type Row = (typeof keyed)[number];
+
+  const columns: ReadonlyArray<CmsColumn<Row>> = [
     {
       id: "applicant",
       header: t("col.applicant"),
       sortable: true,
-      render: (r) => <CmsPerson account={person(r.accountId)} detail={r.fullName} />,
-    },
-    {
-      id: "credential",
-      header: t("col.credential"),
-      render: (r) => (
-        <span className="flex flex-col">
-          <span className="text-highlighted">{r.credential}</span>
-          <span className="text-xs">{r.field}</span>
-        </span>
-      ),
+      render: (r) => <CmsPerson account={{ name: r.displayName }} detail={r.email} />,
     },
     {
       id: "submittedAt",
@@ -107,7 +174,7 @@ function IdentityTable({ requests }: { readonly requests: readonly IdentityReque
       id: "status",
       header: t("col.status"),
       align: "center",
-      render: (r) => <CmsStatus group="identity" value={r.status} />,
+      render: (r) => <CmsApiStatus group="identity" value={r.verificationStatus} />,
     },
   ];
 
@@ -123,26 +190,36 @@ function IdentityTable({ requests }: { readonly requests: readonly IdentityReque
         />
       }
       list={list}
-      onRowClick={(r) => router.push(`/admin/verification/review?id=${r.id}`)}
+      onRowClick={(r) => router.push(`/admin/verification/review?id=${r.advisorId}`)}
       searchPlaceholder={t("searchIdentity")}
       selectable={false}
     />
   );
 }
 
+/**
+ * Skill proofs.
+ *
+ * `objectKey` is a SeaweedFS key with no admin route that presigns it, so the
+ * document is named and not opened — there is no URL to open it with. Approving
+ * takes no body; rejecting takes a reason, capped at 4000 characters by the API.
+ */
 function ProofTable({ proofs }: { readonly proofs: readonly SkillProof[] }) {
   const t = useTranslations("cms.verification");
-  const actorId = useActorId();
-  const person = useAccountLookup();
-  const { confirm, prompt, toast } = useCmsFeedback();
-  const statusOptions = useStatusOptions("proof");
-  const rows = useMemo(() => queueOrder(proofs, "pending", (p) => p.submittedAt), [proofs]);
+  const { confirm, prompt } = useCmsFeedback();
+  const rule = useRuling();
+  const statusOptions = useApiStatusOptions("proof", ["PENDING", "APPROVED", "REJECTED"]);
+  const rows = useMemo(
+    () => queueOrder(proofs, (p) => p.reviewStatus === "PENDING", (p) => p.createdAt),
+    [proofs],
+  );
 
   const list = useCmsList(rows, {
     prefix: "s_",
-    searchText: (p) => `${p.skill} ${p.documentName} ${person(p.accountId)?.name ?? ""}`,
-    sortValue: (p, id) => (id === "submittedAt" ? timeValue(p.submittedAt) : p.skill),
-    filters: [{ key: "status", test: (p, values) => values.includes(p.status) }],
+    searchText: (p) =>
+      `${p.skillName} ${p.originalFileName} ${p.advisorDisplayName}`,
+    sortValue: (p, id) => (id === "submittedAt" ? timeValue(p.createdAt) : p.skillName),
+    filters: [{ key: "status", test: (p, values) => values.includes(p.reviewStatus) }],
   });
 
   async function approve(ids: readonly string[]) {
@@ -152,9 +229,12 @@ function ProofTable({ proofs }: { readonly proofs: readonly SkillProof[] }) {
       confirmLabel: t("approve"),
     });
     if (!ok) return;
-    decideSkillProofs(ids, "approved", null, actorId);
-    list.clearSelection();
-    toast({ title: t("approvedProof", { count: ids.length }) });
+    await rule({
+      keyPrefix: PROOFS_KEY,
+      onDone: list.clearSelection,
+      run: ids.map((id) => () => approveSkillProof(id)),
+      success: t("approvedProof", { count: ids.length }),
+    });
   }
 
   async function reject(ids: readonly string[]) {
@@ -166,16 +246,20 @@ function ProofTable({ proofs }: { readonly proofs: readonly SkillProof[] }) {
       confirmLabel: t("reject"),
     });
     if (note === null) return;
-    decideSkillProofs(ids, "rejected", note, actorId);
-    list.clearSelection();
-    toast({ color: "warning", title: t("rejectedProof", { count: ids.length }) });
+    await rule({
+      keyPrefix: PROOFS_KEY,
+      onDone: list.clearSelection,
+      run: ids.map((id) => () => rejectSkillProof(id, note)),
+      success: t("rejectedProof", { count: ids.length }),
+      successColor: "warning",
+    });
   }
 
   const columns: ReadonlyArray<CmsColumn<SkillProof>> = [
     {
       id: "advisor",
       header: t("col.advisor"),
-      render: (p) => <CmsPerson account={person(p.accountId)} detail={person(p.accountId)?.email} />,
+      render: (p) => <CmsPerson account={{ name: p.advisorDisplayName }} />,
     },
     {
       id: "skill",
@@ -183,10 +267,10 @@ function ProofTable({ proofs }: { readonly proofs: readonly SkillProof[] }) {
       sortable: true,
       render: (p) => (
         <span className="flex flex-col gap-0.5">
-          <span className="text-highlighted">{p.skill}</span>
+          <span className="text-highlighted">{p.skillName}</span>
           <span className="flex items-center gap-1 font-latin text-xs">
             <FileText aria-hidden className="size-3.5" />
-            {p.documentName}
+            {p.originalFileName}
           </span>
         </span>
       ),
@@ -195,13 +279,13 @@ function ProofTable({ proofs }: { readonly proofs: readonly SkillProof[] }) {
       id: "submittedAt",
       header: t("col.submittedAt"),
       sortable: true,
-      render: (p) => formatDateTime(p.submittedAt),
+      render: (p) => formatDateTime(p.createdAt),
     },
     {
       id: "status",
       header: t("col.status"),
       align: "center",
-      render: (p) => <CmsStatus group="proof" value={p.status} />,
+      render: (p) => <CmsApiStatus group="proof" value={p.reviewStatus} />,
     },
     {
       id: "actions",
@@ -209,7 +293,7 @@ function ProofTable({ proofs }: { readonly proofs: readonly SkillProof[] }) {
       align: "end",
       interactive: true,
       render: (p) =>
-        p.status === "pending" ? (
+        p.reviewStatus === "PENDING" ? (
           <span className="inline-flex gap-1">
             <CmsButton
               aria-label={t("approve")}
@@ -227,7 +311,7 @@ function ProofTable({ proofs }: { readonly proofs: readonly SkillProof[] }) {
             />
           </span>
         ) : (
-          <span className="text-xs">{p.decision?.note ?? ""}</span>
+          <span className="text-xs">{p.rejectionReason ?? ""}</span>
         ),
     },
   ];

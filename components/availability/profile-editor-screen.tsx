@@ -1,21 +1,32 @@
 import Link from "next/link";
-import { ChevronDown, Info, TriangleAlert } from "lucide-react";
+import {
+  CalendarOff,
+  CalendarPlus,
+  ChevronDown,
+  Info,
+  TriangleAlert,
+} from "lucide-react";
+import type { LucideIcon } from "lucide-react";
 import { useTranslations } from "next-intl";
 import type { ReactNode } from "react";
 
 import { AddDateSheet } from "@/components/availability/add-date-sheet";
 import { TimePickerPopover } from "@/components/availability/time-picker-popover";
 import { SiteFooter } from "@/components/marketing/site-footer";
+import { EmptyState } from "@/components/mobile/empty-state";
 import {
   MobileScreen,
   ScreenBody,
   ScreenTopBar,
 } from "@/components/mobile/screen";
+import { StatusPill } from "@/components/mobile/status-pill";
+import { surfaceClass } from "@/components/mobile/surface";
 import { ThaiText } from "@/components/mobile/thai-text";
 import { NeutralButton, PrimaryButton } from "@/components/mobile/buttons";
 import { TopBar } from "@/components/topbar";
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
+import { READING_COLUMN } from "@/lib/layout";
 import { cn } from "@/lib/utils";
 import {
   BLOCKED_DATES,
@@ -33,18 +44,64 @@ import {
 /**
  * Figma "Back Bar" (1994:29194) and "Head Band" (1994:29197) — the 52px row
  * under the app's nav and the white band the heading sits in, above the grey
- * form band that holds the editor's own card.
+ * form band that holds the editor's own card. The 800px measure is
+ * `READING_COLUMN`, which this file used to spell out as `lg:w-[800px]`.
  */
 const BACK_BAR = "lg:h-13 lg:bg-card lg:pt-0 lg:pb-0 lg:pl-10 xl:pl-30";
 const HEAD_BAND = "w-full shrink-0 lg:border-b lg:border-border lg:bg-card";
-const COLUMN = "lg:mx-auto lg:w-[800px] lg:px-0";
+const COLUMN = cn(READING_COLUMN, "lg:px-0");
 
 /**
  * Figma "Card" — the 800px panel the whole editor becomes at 1440: a 40px inset
- * on the card surface, 48px clear of the band above it.
+ * on the card surface, 48px clear of the band above it, on `shadow-panel` — the
+ * token for a desktop panel over the page ground.
  */
-const FORM_CARD =
-  "flex w-full shrink-0 flex-col gap-4 lg:my-12 lg:w-[800px] lg:gap-4 lg:rounded-2xl lg:border lg:border-border lg:bg-card lg:p-10";
+const FORM_CARD = cn(
+  "flex w-full shrink-0 flex-col gap-4 lg:my-12 lg:gap-4 lg:rounded-2xl lg:border lg:border-border lg:bg-card lg:p-10 lg:shadow-panel",
+  READING_COLUMN,
+);
+
+/**
+ * How long a range is, in minutes. Every time here is an Advisor-local
+ * `HH:MM` wall-clock string, so this is arithmetic on the strings rather than on
+ * dates — see the note at the top of `lib/availability/editor`.
+ *
+ * The error fixture's second range runs backwards on purpose, so a non-positive
+ * length is a real case and the callers drop it.
+ */
+function rangeMinutes(range: TimeRange): number {
+  const [startHour, startMinute] = range.start.split(":").map(Number);
+  const [endHour, endMinute] = range.end.split(":").map(Number);
+  return endHour * 60 + endMinute - (startHour * 60 + startMinute);
+}
+
+/**
+ * How much time a day or a date actually offers.
+ *
+ * The frames put nothing here — an open day was its name, a switch, and rows of
+ * start/end pairs the reader had to add up. The total is the number the Advisor
+ * is deciding by, the same reasoning `TimePickerPopover` already follows for a
+ * single range, so it is stated.
+ */
+function RangesTotal({ ranges }: { readonly ranges: readonly TimeRange[] }) {
+  const t = useTranslations("availability");
+  const minutes = ranges.reduce(
+    (total, range) => total + Math.max(rangeMinutes(range), 0),
+    0,
+  );
+
+  if (minutes <= 0) return null;
+
+  return (
+    <span className="shrink-0 text-xs font-normal whitespace-nowrap text-muted-foreground">
+      {minutes < 60
+        ? t("minutes", { count: minutes })
+        : minutes % 60 === 0
+          ? t("hours", { count: minutes / 60 })
+          : t("hoursDecimal", { hours: minutes / 60 })}
+    </span>
+  );
+}
 
 const TAB_HREF: Record<EditorTab, string> = {
   weekly: "/availability/profiles/edit",
@@ -83,14 +140,23 @@ function EditorTabs({
 
   return (
     <div className="flex w-full shrink-0 flex-col items-start overflow-clip px-6 lg:px-0">
-      <div className="flex w-full shrink-0 items-start overflow-clip rounded-[12px] bg-muted p-1">
+      {/* The track is the `well` tier: muted ground, no edge, at the 12px step. */}
+      <div
+        className={cn(
+          surfaceClass({ tier: "well" }),
+          "flex w-full shrink-0 items-start overflow-clip p-1",
+        )}
+      >
         {tabs.map((tab) => (
           <Link
             className={cn(
-              "flex min-w-px flex-1 items-center justify-center overflow-clip rounded-[9px] p-2 text-sm whitespace-nowrap",
+              "flex min-w-px flex-1 items-center justify-center overflow-clip rounded-[9px] p-2 text-sm whitespace-nowrap transition-colors",
               tab === current
                 ? "bg-card font-medium text-foreground"
-                : "font-normal text-muted-foreground",
+                : // The row hover is `bg-muted/50`, which is invisible on a muted
+                  // track — an unselected segment reaches for the selected one's
+                  // surface instead, at half strength.
+                  "font-normal text-muted-foreground hover:bg-card/60 hover:text-foreground",
             )}
             href={hrefs[tab]}
             key={tab}
@@ -147,7 +213,9 @@ function RangeRow({
   readonly picker?: boolean;
 }) {
   return (
-    <div className="flex w-full shrink-0 items-center gap-2">
+    // Bounded at `lg`: inside the 800px panel the two triggers were 340px each to
+    // hold "09:00", which is a time field pretending to be a search bar.
+    <div className="flex w-full shrink-0 items-center gap-2 lg:max-w-96">
       <TimeTrigger invalid={invalid} value={range.start} />
       <span className="shrink-0 text-sm font-normal whitespace-nowrap text-muted-foreground">
         –
@@ -170,7 +238,13 @@ function RangeRow({
   );
 }
 
-/** Figma "Day" / "Date" — the card every tab stacks. */
+/**
+ * Figma "Day" / "Date" — the card every tab stacks.
+ *
+ * `raised` on the phone, where the card sits on the grey page ground and is an
+ * object in its own right; `flat` from `lg`, where it is a block inside the
+ * editor's 800px panel and a shadow would stack on a shadow.
+ */
 function EditorCard({
   children,
   invalid = false,
@@ -183,8 +257,9 @@ function EditorCard({
   return (
     <div
       className={cn(
-        "flex w-full shrink-0 flex-col items-start gap-2 rounded-[12px] border bg-card px-3.5 py-3",
-        invalid ? "border-destructive" : "border-border",
+        surfaceClass(),
+        "flex w-full shrink-0 flex-col items-start gap-2 px-3.5 py-3 lg:shadow-none",
+        invalid && "border-destructive",
         className,
       )}
     >
@@ -202,13 +277,21 @@ function AddLink({
   readonly href: string;
 }) {
   return (
-    <Link className="w-full text-sm font-medium text-primary" href={href}>
+    <Link
+      className="w-full text-sm font-medium text-primary transition-colors hover:underline"
+      href={href}
+    >
       {children}
     </Link>
   );
 }
 
-/** Figma "+ เพิ่มวันที่…" — the dashed row that appends a date to a tab's list. */
+/**
+ * Figma "+ เพิ่มวันที่…" — the dashed row that appends a date to a tab's list.
+ *
+ * On the muted ground the `bg-muted/50` row hover is a no-op, so a "create" row
+ * takes the accent tint instead — the same call the profile list's add row makes.
+ */
 function AddDashedRow({
   children,
   href,
@@ -218,7 +301,7 @@ function AddDashedRow({
 }) {
   return (
     <Link
-      className="flex w-full shrink-0 items-center justify-center gap-2 overflow-clip rounded-[12px] border border-dashed border-border bg-muted p-3.5 text-sm font-medium text-primary"
+      className="flex w-full shrink-0 items-center justify-center gap-2 overflow-clip rounded-card border border-dashed border-border bg-muted p-3.5 text-sm font-medium text-primary transition-colors hover:bg-accent-surface"
       href={href}
     >
       {children}
@@ -258,20 +341,27 @@ function SectionIntro({
   );
 }
 
-/** Figma "Empty" — the card a create-mode date tab starts on. */
+/**
+ * Figma "Empty" — the card a create-mode date tab starts on, now the app's one
+ * `EmptyState`: the same two lines, with the mark and the 18px title an empty list
+ * is meant to lead with instead of a 16px row that looks like a disabled card.
+ */
 function EmptyDatesCard({
+  icon,
   title,
   body,
 }: {
+  readonly icon: LucideIcon;
   readonly title: ReactNode;
   readonly body: string;
 }) {
   return (
-    <EditorCard className="items-center gap-1.5 py-5 text-center">
-      <p className="w-full text-base font-medium text-foreground">{title}</p>
-      <p className="w-full text-xs font-normal text-muted-foreground">
-        <ThaiText>{body}</ThaiText>
-      </p>
+    <EditorCard className="overflow-clip p-0">
+      <EmptyState
+        body={<ThaiText>{body}</ThaiText>}
+        icon={icon}
+        title={title}
+      />
     </EditorCard>
   );
 }
@@ -352,7 +442,7 @@ function WeeklyTab({
 
       {invalid ? (
         /* Figma "Error Banner" — the count of what must be fixed, above the list. */
-        <div className="flex w-full shrink-0 items-center gap-2 overflow-clip rounded-[12px] border border-destructive bg-destructive/10 px-3.5 py-3">
+        <div className="flex w-full shrink-0 items-center gap-2 overflow-clip rounded-card border border-destructive bg-destructive/10 px-3.5 py-3">
           <TriangleAlert className="size-4 shrink-0 text-destructive" />
           <p className="min-w-px flex-1 text-sm font-medium text-destructive">
             {t("errorCount", { count: 1 })}
@@ -376,10 +466,12 @@ function WeeklyTab({
               <p className="min-w-px flex-1 text-base font-medium text-foreground">
                 {t(`weekday.${day}`)}
               </p>
-              {isOpen ? null : (
-                <span className="shrink-0 text-xs font-normal whitespace-nowrap text-muted-foreground">
-                  {t("dayClosed")}
-                </span>
+              {/* An open day states how long it is; a closed one says so in a pill
+                  rather than as 12px grey text that read as a hint. */}
+              {isOpen ? (
+                dayInvalid ? null : <RangesTotal ranges={shown} />
+              ) : (
+                <StatusPill tone="neutral">{t("dayClosed")}</StatusPill>
               )}
               <Switch
                 aria-label={t(`weekday.${day}`)}
@@ -438,6 +530,7 @@ function SpecificTab({ mode }: { readonly mode: EditorMode }) {
       {create ? (
         <EmptyDatesCard
           body={t("specificEmptyBody")}
+          icon={CalendarPlus}
           title={t("specificEmptyTitle")}
         />
       ) : (
@@ -447,8 +540,9 @@ function SpecificTab({ mode }: { readonly mode: EditorMode }) {
               <p className="min-w-px flex-1 text-base font-medium text-foreground">
                 {date.label}
               </p>
+              <RangesTotal ranges={date.ranges} />
               <Link
-                className="shrink-0 text-sm font-medium whitespace-nowrap text-destructive"
+                className="shrink-0 text-sm font-medium whitespace-nowrap text-destructive transition-colors hover:underline"
                 href={href}
               >
                 {t("delete")}
@@ -487,6 +581,7 @@ function BlockedTab({ mode }: { readonly mode: EditorMode }) {
       {create ? (
         <EmptyDatesCard
           body={t("blockedEmptyBody")}
+          icon={CalendarOff}
           title={t("blockedEmptyTitle")}
         />
       ) : (
@@ -500,16 +595,21 @@ function BlockedTab({ mode }: { readonly mode: EditorMode }) {
                   {date.label}
                 </p>
                 <Link
-                  className="shrink-0 text-sm font-medium whitespace-nowrap text-destructive"
+                  className="shrink-0 text-sm font-medium whitespace-nowrap text-destructive transition-colors hover:underline"
                   href={href}
                 >
                   {t("delete")}
                 </Link>
               </div>
+              {/* The two blocks are not the same severity and the tab used to say
+                  both in the same grey: a whole day off the calendar is the hard
+                  state, a window inside a day is the partial one. */}
               <div className="flex w-full shrink-0 items-center gap-2 overflow-clip">
-                <p className="min-w-px flex-1 text-sm font-normal text-muted-foreground">
-                  {wholeDay ? t("blockWholeDay") : t("blockPartial")}
-                </p>
+                <span className="min-w-px flex-1">
+                  <StatusPill tone={wholeDay ? "danger" : "warning"}>
+                    {wholeDay ? t("blockWholeDay") : t("blockPartial")}
+                  </StatusPill>
+                </span>
                 <Switch
                   aria-label={t("blockWholeDay")}
                   className="shrink-0"

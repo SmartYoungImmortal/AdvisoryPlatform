@@ -28,7 +28,7 @@ import { cn } from "@/lib/utils";
 export const ACCOUNT_COLUMN = "lg:mx-auto lg:w-full lg:max-w-[800px] lg:px-0";
 
 /** Figma's page column — 1200 wide, inset 120 from a 1440 page. */
-export const ACCOUNT_PAGE = "lg:mx-auto lg:w-full lg:max-w-[1440px] lg:px-10 xl:px-30";
+export const ACCOUNT_PAGE = "lg:mx-auto lg:w-full lg:max-w-[1440px] lg:px-8 xl:px-12";
 
 /**
  * Figma "Heading" inside the head band: 20px above the 28/40 title and 36px
@@ -84,7 +84,7 @@ export function AccountBackBar({
   return (
     <div
       className={cn(
-        "hidden w-full shrink-0 items-center bg-card lg:flex lg:h-13 lg:px-10 xl:px-30",
+        "hidden w-full shrink-0 items-center bg-card lg:flex lg:h-13 lg:px-8 xl:px-12",
         className,
       )}
     >

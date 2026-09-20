@@ -14,7 +14,14 @@ import type { ReactNode } from "react";
  */
 export function MobileViewport({ children }: { readonly children: ReactNode }) {
   return (
-    <div className="mx-auto flex min-h-dvh w-full max-w-md flex-col lg:has-[[data-wide]]:max-w-none">
+    // `data-wide="md"` lifts the cap a breakpoint earlier, for a screen whose
+    // layout is a single column of text rather than a frame of arranged blocks.
+    // A document has nothing to rearrange at 768px, so holding it to 448 there
+    // left a tablet showing a phone with 320px of empty page either side. The
+    // `lg` rule stays for every other wide screen: those do have blocks to place,
+    // and giving them the full width before their `lg:` variants exist would
+    // stretch a phone layout across a tablet.
+    <div className="mx-auto flex min-h-dvh w-full max-w-md flex-col md:has-[[data-wide='md']]:max-w-none lg:has-[[data-wide]]:max-w-none">
       {children}
     </div>
   );

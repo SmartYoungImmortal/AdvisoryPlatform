@@ -47,10 +47,19 @@ export function FaqSection({
   ].slice(0, limit ?? 8);
 
   return (
-    <Accordion className={cn("w-full", className)}>
+    // The questions used to be bare rows on the page ground — hairlines and
+    // nothing else, so a list of eight read as a wall of text. They sit on the
+    // card surface now, which is what makes each one look like something you
+    // can open.
+    <Accordion
+      className={cn(
+        "w-full overflow-hidden rounded-card border border-border bg-card shadow-card",
+        className,
+      )}
+    >
       {items.map(({ q, a }) => (
         <AccordionItem
-          className="border-b border-border last:border-b-0"
+          className="border-b border-border px-4 transition-colors last:border-b-0 hover:bg-muted/50"
           key={q}
           value={q}
         >

@@ -2,93 +2,89 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Ban, CircleSlash, MessageSquareWarning } from "lucide-react";
+import { CircleSlash, Gavel } from "lucide-react";
 import { useTranslations } from "next-intl";
-import { useId, useState, type ReactNode } from "react";
+import { useCallback, useMemo, type ReactNode } from "react";
 
-import { CmsBadge } from "@/components/cms/badge";
-import { CmsAvatar, CmsPerson } from "@/components/cms/avatar";
+import { CmsApiError, CmsCardSkeleton, useRuling } from "@/components/cms/api";
+import { CmsPerson } from "@/components/cms/avatar";
 import { CmsButton } from "@/components/cms/button";
 import { CmsCard } from "@/components/cms/card";
 import { useCmsFeedback } from "@/components/cms/feedback";
-import { CmsFormField, CmsTextarea } from "@/components/cms/fields";
-import { useAccountLookup, useActorId, useRecordId } from "@/components/cms/hooks";
+import { useRecordId } from "@/components/cms/hooks";
 import { CmsPage } from "@/components/cms/layout";
-import { CmsDataRow, CmsMissing, CmsSidebarOptions } from "@/components/cms/sidebar-options";
-import { CmsStatus } from "@/components/cms/status";
+import { FLAGS_KEY, REPORTS_KEY } from "@/components/cms/screens/cases";
 import {
-  HighlightedMessage,
-  useCategoryLabels,
-  useSignalLabels,
-} from "@/components/cms/screens/cases";
-import { resolveFlags, resolveReports, type Resolution } from "@/lib/mock-db/actions";
-import { formatDate, formatDateTime } from "@/lib/mock-db/format";
-import { useDatabase } from "@/lib/mock-db/store";
-import type { Account, Decision, ReportStatus } from "@/lib/mock-db/types";
+  CmsDataRow,
+  CmsMissing,
+  CmsSidebarOptions,
+} from "@/components/cms/sidebar-options";
+import { CmsApiStatus } from "@/components/cms/status";
+import {
+  ADMIN_MAX_LIMIT,
+  getReport,
+  listOffPlatformFlags,
+  resolveOffPlatformFlag,
+  resolveReport,
+  type AdminReport,
+  type OffPlatformFlag,
+  type OffPlatformFlagOutcome,
+  type ReportOutcome,
+} from "@/lib/api/admin";
+import type { Paginated } from "@/lib/api/client";
+import { useResource } from "@/lib/api/use-resource";
+import { formatDateTime } from "@/lib/mock-db/format";
 
 /**
- * The decision column both case pages share: a note, then dismiss, warn or
- * suspend. Suspending needs the note — it becomes the reason on the account.
+ * The decision column both case pages share.
+ *
+ * Two buttons, not three: the API's outcomes are `ACTIONED | DISMISSED` for a report
+ * and `CONFIRMED | DISMISSED` for a flag, and neither route has a warning outcome, a
+ * suspend-the-account outcome or a note field — the body is whitelisted, so a note
+ * would be rejected. The note textarea is gone with them, and suspending the account
+ * behind a case is now a separate ruling on `/admin/users`.
  */
 function CaseDecision({
-  status,
-  decision,
-  subject,
+  open,
+  acted,
   onResolve,
   info,
+  children,
 }: {
-  readonly status: ReportStatus;
-  readonly decision: Decision | null;
-  readonly subject: Account | undefined;
-  readonly onResolve: (resolution: Resolution, note: string | null) => void;
-  readonly info: ReadonlyArray<{ readonly label: string; readonly by?: string; readonly at: string | null }>;
+  readonly open: boolean;
+  /** The confirm/label copy for the acted-on outcome, which differs per queue. */
+  readonly acted: { readonly label: string; readonly danger: boolean };
+  readonly onResolve: (outcome: "ACTED" | "DISMISSED") => void;
+  readonly info: ReadonlyArray<{
+    readonly label: string;
+    readonly by?: string;
+    readonly at: string | null;
+  }>;
+  readonly children?: ReactNode;
 }) {
   const t = useTranslations("cms.cases");
-  const person = useAccountLookup();
-  const { confirm } = useCmsFeedback();
-  const noteId = useId();
-  const [note, setNote] = useState("");
-  const [noteError, setNoteError] = useState<string | undefined>();
-  const open = status === "open";
-
-  async function decide(resolution: Resolution) {
-    if (resolution === "suspended" && !note.trim()) {
-      setNoteError(t("noteRequired"));
-      return;
-    }
-    const ok = await confirm({
-      type: resolution === "suspended" ? "danger" : resolution === "warned" ? "warning" : "info",
-      title:
-        resolution === "suspended"
-          ? t("suspendTitle", { count: 1 })
-          : resolution === "warned"
-            ? t("warnTitle", { count: 1 })
-            : t("dismissTitle", { count: 1 }),
-      description:
-        resolution === "suspended"
-          ? t("suspendOne", { name: subject?.name ?? "" })
-          : resolution === "warned"
-            ? t("warnBody")
-            : t("dismissBody"),
-      confirmLabel:
-        resolution === "suspended" ? t("suspend") : resolution === "warned" ? t("warn") : t("dismiss"),
-    });
-    if (!ok) return;
-    onResolve(resolution, note.trim() || null);
-  }
-
   return (
     <CmsSidebarOptions
       actions={
         open ? (
           <>
-            <CmsButton block color="error" icon={Ban} onClick={() => decide("suspended")} size="lg">
-              {t("suspend30")}
+            <CmsButton
+              block
+              color={acted.danger ? "error" : "warning"}
+              icon={Gavel}
+              onClick={() => onResolve("ACTED")}
+              size="lg"
+            >
+              {acted.label}
             </CmsButton>
-            <CmsButton block color="warning" icon={MessageSquareWarning} onClick={() => decide("warned")} size="lg" variant="soft">
-              {t("warn")}
-            </CmsButton>
-            <CmsButton block color="neutral" icon={CircleSlash} onClick={() => decide("dismissed")} size="lg" variant="outline">
+            <CmsButton
+              block
+              color="neutral"
+              icon={CircleSlash}
+              onClick={() => onResolve("DISMISSED")}
+              size="lg"
+              variant="outline"
+            >
               {t("dismiss")}
             </CmsButton>
           </>
@@ -96,259 +92,278 @@ function CaseDecision({
       }
       info={info}
     >
-      {open ? (
-        <CmsFormField error={noteError} help={t("noteHelp")} htmlFor={noteId} label={t("note")}>
-          <CmsTextarea
-            id={noteId}
-            invalid={Boolean(noteError)}
-            onChange={(event) => {
-              setNote(event.target.value);
-              setNoteError(undefined);
-            }}
-            rows={4}
-            value={note}
-          />
-        </CmsFormField>
-      ) : (
-        <dl className="space-y-3">
-          <CmsDataRow label={t("col.status")}>
-            <CmsStatus group="report" value={status} />
-          </CmsDataRow>
-          {decision?.note ? <CmsDataRow label={t("note")}>{decision.note}</CmsDataRow> : null}
-          {decision ? (
-            <CmsDataRow label={t("decidedBy")}>{person(decision.by)?.name ?? decision.by}</CmsDataRow>
-          ) : null}
-        </dl>
-      )}
+      {children}
     </CmsSidebarOptions>
   );
 }
 
-/** The account a case is about, with how it stands now. */
-function SubjectCard({
-  title,
-  account,
-  extra,
-}: {
-  readonly title: string;
-  readonly account: Account | undefined;
-  readonly extra?: ReactNode;
-}) {
-  const t = useTranslations("cms.cases");
-  return (
-    <CmsCard title={title}>
-      {account ? (
-        <dl className="space-y-3">
-          <CmsDataRow label={t("account")}>
-            <Link className="inline-block" href={`/admin/users/edit?id=${account.id}`}>
-              <CmsPerson account={account} detail={account.email} />
-            </Link>
-          </CmsDataRow>
-          <CmsDataRow label={t("col.status")}>
-            <span className="flex flex-wrap items-center gap-2">
-              <CmsStatus group="account" value={account.status} />
-              {account.suspension?.until ? (
-                <span className="text-xs font-normal text-muted-foreground">
-                  {t("until", { date: formatDate(account.suspension.until) })}
-                </span>
-              ) : null}
-            </span>
-          </CmsDataRow>
-          <CmsDataRow label={t("role")}>
-            <CmsStatus group="role" value={account.role} />
-          </CmsDataRow>
-          {extra}
-        </dl>
-      ) : (
-        <p className="text-sm text-muted-foreground">—</p>
-      )}
-    </CmsCard>
-  );
-}
-
+/**
+ * One report, from `GET /api/v1/admin/reports/:reportId`.
+ *
+ * `reason` is the whole of it: free text, no category, no message excerpt. The two
+ * people are display names — there is no account status, role or prior-report count
+ * on the row, and no route that counts a user's reports, so the two subject cards
+ * that showed all of that are a name each now.
+ */
 export function ReportReviewScreen() {
   const t = useTranslations("cms.cases");
-  const router = useRouter();
   const id = useRecordId();
-  const actorId = useActorId();
-  const person = useAccountLookup();
-  const { toast } = useCmsFeedback();
-  const categoryLabels = useCategoryLabels();
-  const report = useDatabase((db) => db.reports.find((r) => r.id === id));
-  const reports = useDatabase((db) => db.reports);
 
-  if (!report) {
+  const fetcher = useCallback((signal: AbortSignal) => getReport(id, signal), [id]);
+  const report = useResource<AdminReport>(`${REPORTS_KEY}/${id}`, fetcher);
+
+  if (id === "") {
     return (
       <CmsPage backHref="/admin/reports" title={t("reportTitle")}>
         <CmsMissing backHref="/admin/reports" />
       </CmsPage>
     );
   }
-  const subject = person(report.reportedId);
-  const prior = reports.filter((r) => r.reportedId === report.reportedId).length - 1;
+
+  if (report.loading) {
+    return (
+      <CmsPage backHref="/admin/reports" title={t("reportTitle")}>
+        <CmsCardSkeleton rows={3} />
+      </CmsPage>
+    );
+  }
+
+  if (report.error || !report.data) {
+    return (
+      <CmsPage backHref="/admin/reports" title={t("reportTitle")}>
+        {report.error ? (
+          <CmsApiError error={report.error} onRetry={report.reload} />
+        ) : (
+          <CmsMissing backHref="/admin/reports" />
+        )}
+      </CmsPage>
+    );
+  }
+
+  return <ReportRecord key={report.data.id} report={report.data} />;
+}
+
+function ReportRecord({ report }: { readonly report: AdminReport }) {
+  const t = useTranslations("cms.cases");
+  const router = useRouter();
+  const { confirm } = useCmsFeedback();
+  const rule = useRuling();
+  const acted = t("tab.closed");
+
+  async function decide(choice: "ACTED" | "DISMISSED") {
+    const outcome: ReportOutcome = choice === "ACTED" ? "ACTIONED" : "DISMISSED";
+    const ok = await confirm({
+      type: choice === "ACTED" ? "warning" : "info",
+      title: choice === "ACTED" ? acted : t("dismissTitle", { count: 1 }),
+      description: choice === "ACTED" ? undefined : t("dismissBody"),
+      confirmLabel: choice === "ACTED" ? acted : t("dismiss"),
+    });
+    if (!ok) return;
+    const result = await rule({
+      keyPrefix: REPORTS_KEY,
+      run: [() => resolveReport(report.id, outcome)],
+      success: choice === "ACTED" ? acted : t("done.dismissed", { count: 1 }),
+      successColor: choice === "ACTED" ? "warning" : "success",
+    });
+    if (result.ok) router.push("/admin/reports");
+  }
 
   return (
     <CmsPage
       aside={
         <CaseDecision
-          decision={report.decision}
+          acted={{ label: acted, danger: false }}
           info={[
-            { label: t("reportedAt"), by: person(report.reporterId)?.name, at: report.createdAt },
-            ...(report.decision
-              ? [{ label: t("decidedAt"), by: person(report.decision.by)?.name, at: report.decision.at }]
+            { label: t("reportedAt"), by: report.reporterDisplayName, at: report.createdAt },
+            ...(report.resolvedAt
+              ? [{ label: t("decidedAt"), at: report.resolvedAt }]
               : []),
           ]}
-          onResolve={(resolution, note) => {
-            resolveReports([report.id], resolution, note, actorId);
-            toast({ title: t(`done.${resolution}`, { count: 1 }) });
-            router.push("/admin/reports");
-          }}
-          status={report.status}
-          subject={subject}
-        />
+          onResolve={decide}
+          open={report.status === "OPEN"}
+        >
+          <dl className="space-y-3">
+            <CmsDataRow label={t("col.status")}>
+              <CmsApiStatus group="report" value={report.status} />
+            </CmsDataRow>
+          </dl>
+        </CaseDecision>
       }
       backHref="/admin/reports"
-      badge={<CmsStatus group="report" value={report.status} />}
-      title={t("reportHeading", { id: report.id })}
+      badge={<CmsApiStatus group="report" value={report.status} />}
+      title={t("reportHeading", { id: report.id.slice(0, 8) })}
     >
       <CmsCard title={t("caseTitle")}>
         <dl className="space-y-3">
-          <CmsDataRow label={t("col.category")}>
-            <CmsBadge color="error">{categoryLabels[report.category]}</CmsBadge>
-          </CmsDataRow>
           <CmsDataRow label={t("col.detail")}>
-            <span className="font-normal text-foreground">{report.detail}</span>
+            <span className="font-normal text-foreground">{report.reason}</span>
           </CmsDataRow>
-          <CmsDataRow label={t("col.createdAt")}>{formatDateTime(report.createdAt)}</CmsDataRow>
+          <CmsDataRow label={t("col.createdAt")}>
+            {formatDateTime(report.createdAt)}
+          </CmsDataRow>
+          {report.chatRoomId ? (
+            <CmsDataRow label={t("conversation")}>
+              <span className="font-latin break-all">{report.chatRoomId}</span>
+            </CmsDataRow>
+          ) : null}
         </dl>
       </CmsCard>
 
-      <CmsCard title={t("excerpt")}>
-        <ul className="flex flex-col gap-2">
-          {report.excerpt.map((line, index) => (
-            <li className="flex items-end gap-2" key={index}>
-              {subject ? <CmsAvatar account={subject} size="sm" /> : null}
-              <span className="max-w-md rounded-lg rounded-bl-sm bg-muted px-3 py-2 text-sm text-highlighted">
-                {line}
-              </span>
-            </li>
-          ))}
-        </ul>
+      <CmsCard title={t("reportedAccount")}>
+        <dl className="space-y-3">
+          <CmsDataRow label={t("account")}>
+            <Link
+              className="inline-block"
+              href={`/admin/users/edit?id=${report.reportedUserId}`}
+            >
+              <CmsPerson account={{ name: report.reportedDisplayName }} />
+            </Link>
+          </CmsDataRow>
+        </dl>
       </CmsCard>
 
-      <SubjectCard
-        account={subject}
-        extra={
-          <CmsDataRow label={t("priorReports")}>
-            <span className="font-latin">{prior}</span>
+      <CmsCard title={t("reporterAccount")}>
+        <dl className="space-y-3">
+          <CmsDataRow label={t("account")}>
+            <Link
+              className="inline-block"
+              href={`/admin/users/edit?id=${report.reporterUserId}`}
+            >
+              <CmsPerson account={{ name: report.reporterDisplayName }} />
+            </Link>
           </CmsDataRow>
-        }
-        title={t("reportedAccount")}
-      />
-      <SubjectCard account={person(report.reporterId)} title={t("reporterAccount")} />
+        </dl>
+      </CmsCard>
     </CmsPage>
   );
 }
 
+/**
+ * One off-platform flag.
+ *
+ * **There is no `GET /admin/off-platform-flags/:flagId`** — the controller has the
+ * list and the resolve route and nothing else — so this reads the list and finds its
+ * row in it. One request either way, and the alternative was leaving the route on
+ * fixture data while its queue read the API, which is the one outcome worth avoiding.
+ *
+ * What the row carries is the message's id and the pattern that matched. The message
+ * itself, the sender, the recipient and the conversation are not on it, so the
+ * flagged text cannot be shown, let alone highlighted, and the sender's other flags
+ * cannot be counted.
+ */
 export function FlagReviewScreen() {
   const t = useTranslations("cms.cases");
-  const router = useRouter();
   const id = useRecordId();
-  const actorId = useActorId();
-  const person = useAccountLookup();
-  const { toast } = useCmsFeedback();
-  const signalLabels = useSignalLabels();
-  const flag = useDatabase((db) => db.offPlatformFlags.find((f) => f.id === id));
-  const flags = useDatabase((db) => db.offPlatformFlags);
 
-  if (!flag) {
+  const fetcher = useCallback(
+    (signal: AbortSignal) => listOffPlatformFlags({ limit: ADMIN_MAX_LIMIT }, signal),
+    [],
+  );
+  const flags = useResource<Paginated<OffPlatformFlag>>(
+    `${FLAGS_KEY}?limit=${ADMIN_MAX_LIMIT}`,
+    fetcher,
+  );
+  const flag = useMemo(
+    () => flags.data?.items.find((f) => f.id === id),
+    [flags.data, id],
+  );
+
+  if (id === "") {
     return (
       <CmsPage backHref="/admin/off-platform" title={t("flagTitle")}>
         <CmsMissing backHref="/admin/off-platform" />
       </CmsPage>
     );
   }
-  const sender = person(flag.senderId);
-  const history = flags.filter((f) => f.senderId === flag.senderId && f.id !== flag.id);
+
+  if (flags.loading) {
+    return (
+      <CmsPage backHref="/admin/off-platform" title={t("flagTitle")}>
+        <CmsCardSkeleton rows={3} />
+      </CmsPage>
+    );
+  }
+
+  if (flags.error || !flag) {
+    return (
+      <CmsPage backHref="/admin/off-platform" title={t("flagTitle")}>
+        {flags.error ? (
+          <CmsApiError error={flags.error} onRetry={flags.reload} />
+        ) : (
+          <CmsMissing backHref="/admin/off-platform" />
+        )}
+      </CmsPage>
+    );
+  }
+
+  return <FlagRecord flag={flag} key={flag.id} />;
+}
+
+function FlagRecord({ flag }: { readonly flag: OffPlatformFlag }) {
+  const t = useTranslations("cms.cases");
+  const router = useRouter();
+  const { confirm } = useCmsFeedback();
+  const rule = useRuling();
+  const acted = t("tab.closed");
+
+  async function decide(choice: "ACTED" | "DISMISSED") {
+    const outcome: OffPlatformFlagOutcome =
+      choice === "ACTED" ? "CONFIRMED" : "DISMISSED";
+    const ok = await confirm({
+      type: choice === "ACTED" ? "danger" : "info",
+      title: choice === "ACTED" ? acted : t("dismissTitle", { count: 1 }),
+      description: choice === "ACTED" ? undefined : t("dismissBody"),
+      confirmLabel: choice === "ACTED" ? acted : t("dismiss"),
+    });
+    if (!ok) return;
+    const result = await rule({
+      keyPrefix: FLAGS_KEY,
+      // No penalty points: the field needs a labelled number input and
+      // `cms.cases` has no copy for one, so the API's default of zero applies.
+      run: [() => resolveOffPlatformFlag(flag.id, outcome)],
+      success: choice === "ACTED" ? acted : t("done.dismissed", { count: 1 }),
+      successColor: choice === "ACTED" ? "warning" : "success",
+    });
+    if (result.ok) router.push("/admin/off-platform");
+  }
 
   return (
     <CmsPage
       aside={
         <CaseDecision
-          decision={flag.decision}
+          acted={{ label: acted, danger: true }}
           info={[
-            { label: t("col.detectedAt"), at: flag.detectedAt },
-            ...(flag.decision
-              ? [{ label: t("decidedAt"), by: person(flag.decision.by)?.name, at: flag.decision.at }]
-              : []),
+            { label: t("col.detectedAt"), at: flag.createdAt },
+            ...(flag.reviewedAt ? [{ label: t("decidedAt"), at: flag.reviewedAt }] : []),
           ]}
-          onResolve={(resolution, note) => {
-            resolveFlags([flag.id], resolution, note, actorId);
-            toast({ title: t(`done.${resolution}`, { count: 1 }) });
-            router.push("/admin/off-platform");
-          }}
-          status={flag.status}
-          subject={sender}
-        />
+          onResolve={decide}
+          open={flag.status === "PENDING_REVIEW"}
+        >
+          <dl className="space-y-3">
+            <CmsDataRow label={t("col.status")}>
+              <CmsApiStatus group="flag" value={flag.status} />
+            </CmsDataRow>
+          </dl>
+        </CaseDecision>
       }
       backHref="/admin/off-platform"
-      badge={<CmsStatus group="risk" value={flag.risk} />}
-      title={t("flagHeading", { id: flag.id })}
+      badge={<CmsApiStatus group="flag" value={flag.status} />}
+      title={t("flagHeading", { id: flag.id.slice(0, 8) })}
     >
       <CmsCard title={t("flaggedMessage")}>
-        <p className="rounded-lg bg-muted p-4 text-base leading-relaxed text-highlighted">
-          <HighlightedMessage flag={flag} />
-        </p>
-        <dl className="mt-4 space-y-3">
+        <dl className="space-y-3">
           <CmsDataRow label={t("col.signals")}>
-            <span className="flex flex-wrap gap-2">
-              {flag.matches.map((m) => (
-                <CmsBadge key={`${m.signal}-${m.text}`} variant="outline">
-                  {signalLabels[m.signal]} · <span className="font-latin">{m.text}</span>
-                </CmsBadge>
-              ))}
-            </span>
+            {/* The pattern the scanner matched. The message it matched in is not
+                on the flag, so there is nothing to highlight it inside. */}
+            <span className="font-latin break-all">{flag.matchedPattern}</span>
           </CmsDataRow>
-          <CmsDataRow label={t("conversation")}>
-            <span className="font-latin">{flag.conversationId}</span>
+          <CmsDataRow label={t("col.message")}>
+            <span className="font-latin break-all">{flag.messageId}</span>
           </CmsDataRow>
-          <CmsDataRow label={t("recipient")}>{person(flag.recipientId)?.name ?? "—"}</CmsDataRow>
+          <CmsDataRow label={t("col.detectedAt")}>
+            {formatDateTime(flag.createdAt)}
+          </CmsDataRow>
         </dl>
-      </CmsCard>
-
-      <SubjectCard
-        account={sender}
-        extra={
-          <CmsDataRow label={t("otherFlags")}>
-            <span className="font-latin">{history.length}</span>
-          </CmsDataRow>
-        }
-        title={t("senderAccount")}
-      />
-
-      <CmsCard bodyClassName="p-0 sm:p-0" title={t("historyTitle")}>
-        <ul className="divide-y divide-border">
-          {history.length === 0 ? (
-            <li className="p-4 text-sm text-muted-foreground sm:px-6">{t("noHistory")}</li>
-          ) : (
-            history.map((item) => (
-              <li key={item.id}>
-                <Link
-                  className="flex items-center justify-between gap-3 p-4 text-sm transition-colors hover:bg-muted/50 sm:px-6"
-                  href={`/admin/off-platform/review?id=${item.id}`}
-                >
-                  <span className="min-w-0 truncate">
-                    <HighlightedMessage flag={item} />
-                  </span>
-                  <span className="flex shrink-0 items-center gap-3">
-                    <span className="text-xs text-muted-foreground">{formatDateTime(item.detectedAt)}</span>
-                    <CmsStatus group="report" value={item.status} />
-                  </span>
-                </Link>
-              </li>
-            ))
-          )}
-        </ul>
       </CmsCard>
     </CmsPage>
   );

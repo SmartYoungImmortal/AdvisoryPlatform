@@ -1,19 +1,24 @@
-import Image, { type StaticImageData } from "next/image";
 import { MessageSquareReply, Star } from "lucide-react";
 import { useTranslations } from "next-intl";
 import type { ReactNode } from "react";
 
 import { NeutralButton, PrimaryButton } from "@/components/mobile/buttons";
+import { StatusPill } from "@/components/mobile/status-pill";
+import { Surface } from "@/components/mobile/surface";
+import { REVIEW_TEXT_MAX_LENGTH } from "@/components/reviews/reviews-data";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
 
 /**
- * The reply length the composer counts against. Figma draws no counter, so the
- * ceiling is the one the app already uses for its other free-text field (the
- * chat report's details box) rather than a second number.
+ * The reply length the composer counts against.
+ *
+ * Figma draws no counter, and this used to be 500 borrowed from the chat report's
+ * details box. The API has an actual bound — `REVIEW_TEXT_MAX_LENGTH`, 4,000, in
+ * `reviews.constants.ts` — and a field that stops a reader at 500 when the server
+ * would have taken 4,000 is the counter lying about the limit.
  */
-export const REPLY_MAX = 500;
+export const REPLY_MAX = REVIEW_TEXT_MAX_LENGTH;
 
 /** Figma star rows — filled stars use the accent, empty ones the border tint. */
 export function Stars({
@@ -33,7 +38,11 @@ export function Stars({
         <Star
           className={cn(
             "shrink-0",
-            i < filled ? "fill-primary text-primary" : "fill-none text-border",
+            // An empty star was drawn on `--border`, the hairline colour, which
+            // on the cooler ground reads as nothing at all — so a 3-star review
+            // and a 5-star one looked alike. `--accented` is the stronger of the
+            // two neutral edges, and the fill keeps the shape readable.
+            i < filled ? "fill-primary text-primary" : "fill-muted text-accented",
           )}
           key={i}
           style={{ width: size, height: size }}
@@ -44,12 +53,37 @@ export function Stars({
 }
 
 /**
+ * The reviewer's portrait slot with nothing to put in it.
+ *
+ * `ReviewResponseDto` carries `reviewerDisplayName` and `reviewerAvatarKey`, and
+ * an avatar key is a storage key, not a URL. The only route that presigns one is
+ * `GET /users/me/avatar` — your own. There is nothing that turns *another*
+ * person's key into a picture, so a real review has no photograph available to it
+ * and this is their initial on the muted step instead.
+ */
+export function ReviewerMark({ name }: { readonly name: string }) {
+  return (
+    <span
+      aria-hidden
+      className="mt-0.5 flex size-9 shrink-0 items-center justify-center rounded-full bg-muted text-sm font-medium text-muted-foreground"
+    >
+      {name.trim().slice(0, 1)}
+    </span>
+  );
+}
+
+/**
  * Figma "Review Card" — surface, 14px radius: a 32px avatar row with a date, a 13px
  * star row, the review body, then either the advisor's reply or a reply affordance.
  *
  * `children` is the third of those endings: the frames that open a composer
  * (995:8857) put it exactly where the reply block and the reply link go, so the
  * card takes it as a slot rather than growing a second copy of the composer.
+ *
+ * `stars` and `avatar` are what connecting this to the API needed. The star row
+ * was hard-coded to five, so a three-star review drew five filled stars; and the
+ * portrait took a bundled `StaticImageData`, which a review row can never supply
+ * — see `ReviewerMark`.
  */
 export function ReviewCard({
   avatar,
@@ -57,17 +91,20 @@ export function ReviewCard({
   meta,
   date,
   body,
+  stars = 5,
   replyLabel,
   reply,
   replyAction,
   onReply,
   children,
 }: {
-  readonly avatar: StaticImageData;
+  readonly avatar: ReactNode;
   readonly name: string;
-  readonly meta: string;
+  readonly meta: ReactNode;
   readonly date: string;
-  readonly body: string;
+  readonly body: ReactNode;
+  /** 1 to 5, as the API stores it. */
+  readonly stars?: number;
   readonly replyLabel?: string;
   readonly reply?: string;
   readonly replyAction?: string;
@@ -75,48 +112,53 @@ export function ReviewCard({
   readonly children?: ReactNode;
 }) {
   return (
-    <div className="flex w-full shrink-0 flex-col items-start overflow-clip rounded-xl bg-card p-3.5">
+    <Surface className="flex w-full shrink-0 flex-col items-start p-3.5">
       <div className="flex w-full shrink-0 items-start gap-2.5 overflow-clip">
-        <Image
-          alt=""
-          className="mt-1 size-8 shrink-0 rounded-full object-cover"
-          height={32}
-          src={avatar}
-          width={32}
-        />
+        {avatar}
         <div className="flex min-w-px flex-1 flex-col items-start gap-0.5 overflow-clip">
-          <p className="w-full text-sm font-medium text-foreground">
+          <p className="w-full text-sm font-semibold text-foreground">
             {name}
           </p>
-          <p className="w-full text-xs font-normal text-muted-foreground">
+          <p className="w-full text-xs font-normal tabular-nums text-muted-foreground">
             {meta}
           </p>
         </div>
-        <span className="mt-[11px] shrink-0 text-xs font-normal whitespace-nowrap text-muted-foreground">
+        <span className="font-latin mt-0.5 shrink-0 text-xs font-normal tabular-nums whitespace-nowrap text-muted-foreground">
           {date}
         </span>
       </div>
 
-      <Stars className="mt-2" gap={3} size={13} />
+      <Stars className="mt-2.5" filled={stars} gap={3} size={14} />
 
-      <p className="mt-2 w-full text-sm font-normal text-foreground">
-        {body}
-      </p>
+      {/* A review's comment is optional in the API — the stars stand on their
+          own — so a rating with nothing written leaves this out rather than
+          drawing an empty line. */}
+      {body ? (
+        <p className="mt-2 w-full text-sm font-normal text-foreground">
+          {body}
+        </p>
+      ) : null}
 
       {reply ? (
-        <div className="mt-2 flex w-full shrink-0 flex-col items-start gap-1 overflow-clip rounded-lg bg-muted px-3 py-2.5">
-          <p className="w-full text-xs font-normal text-muted-foreground">
+        /* The advisor's reply belongs under the review it answers — the `well`
+           tier — and its caption is a status, not a label in the same grey as
+           the review's own meta line. */
+        <Surface
+          className="mt-3 flex w-full shrink-0 flex-col items-start gap-1.5 p-3"
+          tier="well"
+        >
+          <StatusPill icon={MessageSquareReply} tone="accent">
             {replyLabel}
-          </p>
+          </StatusPill>
           <p className="w-full text-sm font-normal text-foreground">
             {reply}
           </p>
-        </div>
+        </Surface>
       ) : null}
 
       {replyAction ? (
         <Button
-          className="mt-2 h-auto shrink-0 gap-1.5 overflow-clip p-0 no-underline"
+          className="mt-2.5 h-auto shrink-0 gap-1.5 overflow-clip p-0 no-underline"
           onClick={onReply}
           variant="link"
         >
@@ -128,7 +170,7 @@ export function ReviewCard({
       ) : null}
 
       {children}
-    </div>
+    </Surface>
   );
 }
 
@@ -167,14 +209,17 @@ export function ReplyComposer({
   const noteId = `${id}-note`;
 
   return (
-    <div className="mt-2 flex w-full shrink-0 flex-col items-start gap-2 overflow-clip rounded-lg bg-muted px-3 py-2.5">
-      <label className="w-full text-xs font-normal text-muted-foreground" htmlFor={id}>
+    <Surface
+      className="mt-3 flex w-full shrink-0 flex-col items-start gap-2 p-3"
+      tier="well"
+    >
+      <label className="w-full text-sm font-medium text-foreground" htmlFor={id}>
         {t("yourReply")}
       </label>
       <Textarea
         aria-describedby={noteId}
         aria-invalid={failed || undefined}
-        className="h-18 resize-none bg-card px-3 text-sm shadow-none field-sizing-fixed"
+        className="h-18 resize-none rounded-card border-border bg-card px-3 text-sm shadow-none field-sizing-fixed"
         id={id}
         maxLength={REPLY_MAX}
         onChange={(event) => onChange(event.target.value)}
@@ -215,6 +260,6 @@ export function ReplyComposer({
           {failed ? t("retry") : t("replySend")}
         </PrimaryButton>
       </div>
-    </div>
+    </Surface>
   );
 }

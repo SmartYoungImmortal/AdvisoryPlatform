@@ -3,77 +3,109 @@
 import { useRouter } from "next/navigation";
 import { X } from "lucide-react";
 import { useTranslations } from "next-intl";
-import { useMemo } from "react";
+import { useCallback, useMemo } from "react";
 
+import { CmsApiError, CmsTableSkeleton, useRuling } from "@/components/cms/api";
 import { CmsPerson } from "@/components/cms/avatar";
 import { CmsButton } from "@/components/cms/button";
 import { useCmsFeedback } from "@/components/cms/feedback";
-import { useAccountLookup, useActorId } from "@/components/cms/hooks";
 import { CmsPage } from "@/components/cms/layout";
 import { CmsQueryTabs, useQueryTab } from "@/components/cms/query-tabs";
-import { CmsStatus } from "@/components/cms/status";
+import { CmsApiStatus } from "@/components/cms/status";
 import { CmsTable, type CmsColumn } from "@/components/cms/table";
 import { useCmsList } from "@/components/cms/use-cms-list";
-import { rejectRefunds } from "@/lib/mock-db/actions";
+import {
+  ADMIN_MAX_LIMIT,
+  listRefundCases,
+  rejectRefundCase,
+  type AdminRefundCase,
+} from "@/lib/api/admin";
+import type { Paginated } from "@/lib/api/client";
+import { useResource } from "@/lib/api/use-resource";
 import { formatBaht, formatDateTime, timeValue } from "@/lib/mock-db/format";
-import { useDatabase } from "@/lib/mock-db/store";
-import type { RefundRequest, RefundStatus } from "@/lib/mock-db/types";
 
-type Tab = RefundStatus | "all";
+/** `OPEN` is the API's name for what the tab strip calls "รอดำเนินการ". */
+type Tab = "pending" | "approved" | "rejected" | "all";
 
-/** The refund desk — requests land here from a booking's cancel/refund flow. */
+const TAB_STATUS = {
+  pending: "OPEN",
+  approved: "APPROVED",
+  rejected: "REJECTED",
+} as const;
+
+export const REFUNDS_KEY = "admin/refunds";
+
+/**
+ * The refund desk, from `GET /api/v1/admin/refunds`.
+ *
+ * `refund_cases` has no rows yet, so this queue is legitimately empty — an empty
+ * list here is the state of the database, not a failed read.
+ *
+ * ## What a refund case carries, and what it does not
+ *
+ * `AdminRefundCaseResponseDto` is the invoice, the requester's display name, the
+ * invoice amount in satang, the requester's own reason and the status. It does
+ * **not** carry a booking reference, the service, the session time or the advisor,
+ * so the four columns that showed them are gone: there is nothing to put in them
+ * and nothing that would fill them (a booking reference would need the invoice
+ * joined through to its appointment).
+ *
+ * Rejecting takes a reason, which the API validates and then only writes to its own
+ * log — `refund_cases` has no column for it — so it never comes back on a row and
+ * is not shown as though it had been stored.
+ */
 export function RefundsScreen() {
   const t = useTranslations("cms.refunds");
   const router = useRouter();
-  const actorId = useActorId();
-  const person = useAccountLookup();
-  const { prompt, toast } = useCmsFeedback();
-  const refunds = useDatabase((db) => db.refunds);
+  const { prompt } = useCmsFeedback();
+  const rule = useRuling();
+
+  const fetcher = useCallback(
+    (signal: AbortSignal) => listRefundCases({ limit: ADMIN_MAX_LIMIT }, signal),
+    [],
+  );
+  const refunds = useResource<Paginated<AdminRefundCase>>(
+    `${REFUNDS_KEY}?limit=${ADMIN_MAX_LIMIT}`,
+    fetcher,
+  );
+  const items = useMemo(() => refunds.data?.items ?? [], [refunds.data]);
 
   const tabs = (["pending", "approved", "rejected", "all"] as const).map((value) => ({
     value,
     label: t(`tab.${value}`),
     count:
-      value === "pending" ? refunds.filter((r) => r.status === "pending").length : undefined,
+      value === "pending" ? items.filter((r) => r.status === "OPEN").length : undefined,
     alert: true,
   }));
   const tab = useQueryTab<Tab>(tabs);
   const rows = useMemo(
-    () => (tab === "all" ? refunds : refunds.filter((r) => r.status === tab)),
-    [refunds, tab],
+    () => (tab === "all" ? items : items.filter((r) => r.status === TAB_STATUS[tab])),
+    [items, tab],
   );
 
   const list = useCmsList(rows, {
-    searchText: (r) =>
-      `${r.id} ${r.bookingRef} ${r.serviceTitle} ${r.reason} ${person(r.requesterId)?.name ?? ""} ${person(r.advisorId)?.name ?? ""}`,
-    sortValue: (r, id) => (id === "amount" ? r.paidSatang : timeValue(r.requestedAt)),
+    searchText: (r) => `${r.id} ${r.reason} ${r.requesterDisplayName}`,
+    sortValue: (r, id) =>
+      id === "amount" ? r.invoiceAmountSatang : timeValue(r.createdAt),
   });
 
-  const columns: ReadonlyArray<CmsColumn<RefundRequest>> = [
+  const columns: ReadonlyArray<CmsColumn<AdminRefundCase>> = [
     {
       id: "request",
       header: t("col.request"),
       render: (r) => (
         <span className="flex flex-col">
-          <span className="font-latin font-medium text-highlighted">{r.id}</span>
-          <span className="font-latin text-xs">{r.bookingRef}</span>
+          <span className="font-latin font-medium text-highlighted">
+            {r.id.slice(0, 8)}
+          </span>
+          <span className="font-latin text-xs">{r.invoiceId.slice(0, 8)}</span>
         </span>
       ),
     },
     {
       id: "requester",
       header: t("col.requester"),
-      render: (r) => <CmsPerson account={person(r.requesterId)} detail={person(r.requesterId)?.email} />,
-    },
-    {
-      id: "service",
-      header: t("col.service"),
-      render: (r) => (
-        <span className="flex max-w-56 flex-col">
-          <span className="truncate text-highlighted">{r.serviceTitle}</span>
-          <span className="truncate text-xs">{person(r.advisorId)?.name ?? "—"}</span>
-        </span>
-      ),
+      render: (r) => <CmsPerson account={{ name: r.requesterDisplayName }} />,
     },
     {
       id: "reason",
@@ -85,52 +117,72 @@ export function RefundsScreen() {
       header: t("col.amount"),
       sortable: true,
       className: "font-latin",
-      render: (r) =>
-        r.status === "approved" && r.refundedSatang !== null && r.refundedSatang !== r.paidSatang
-          ? `${formatBaht(r.refundedSatang)} / ${formatBaht(r.paidSatang)}`
-          : formatBaht(r.paidSatang),
+      render: (r) => formatBaht(r.invoiceAmountSatang),
     },
     {
       id: "requestedAt",
       header: t("col.requestedAt"),
       sortable: true,
-      render: (r) => formatDateTime(r.requestedAt),
+      render: (r) => formatDateTime(r.createdAt),
     },
     {
       id: "status",
       header: t("col.status"),
       align: "center",
-      render: (r) => <CmsStatus group="refund" value={r.status} />,
+      render: (r) => <CmsApiStatus group="refund" value={r.status} />,
     },
   ];
+
+  if (refunds.loading) {
+    return (
+      <CmsPage title={t("title")}>
+        <CmsTableSkeleton columns={columns.length} />
+      </CmsPage>
+    );
+  }
+
+  if (refunds.error) {
+    return (
+      <CmsPage title={t("title")}>
+        <CmsApiError error={refunds.error} onRetry={refunds.reload} />
+      </CmsPage>
+    );
+  }
 
   return (
     <CmsPage title={t("title")}>
       <CmsQueryTabs items={tabs} />
       <CmsTable
         bulkActions={(ids) => {
-          const pendingIds = ids.filter((id) => refunds.find((r) => r.id === id)?.status === "pending");
-          return pendingIds.length > 0 ? (
+          const open = ids.filter(
+            (id) => items.find((r) => r.id === id)?.status === "OPEN",
+          );
+          if (open.length === 0) return null;
+          return (
             <CmsButton
               color="error"
               icon={X}
               onClick={async () => {
                 const note = await prompt({
                   type: "danger",
-                  title: t("rejectTitle", { count: pendingIds.length }),
+                  title: t("rejectTitle", { count: open.length }),
                   inputLabel: t("reason"),
                   placeholder: t("rejectPlaceholder"),
                   confirmLabel: t("reject"),
                 });
                 if (note === null) return;
-                rejectRefunds(pendingIds, note, actorId);
-                list.clearSelection();
-                toast({ color: "warning", title: t("rejected", { count: pendingIds.length }) });
+                await rule({
+                  keyPrefix: REFUNDS_KEY,
+                  onDone: list.clearSelection,
+                  run: open.map((id) => () => rejectRefundCase(id, note)),
+                  success: t("rejected", { count: open.length }),
+                  successColor: "warning",
+                });
               }}
             >
-              {t("rejectSelected", { count: pendingIds.length })}
+              {t("rejectSelected", { count: open.length })}
             </CmsButton>
-          ) : null;
+          );
         }}
         columns={columns}
         list={list}

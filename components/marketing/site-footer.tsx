@@ -163,42 +163,80 @@ export function SiteFooter({ className }: { readonly className?: string }) {
   return (
     <footer
       className={cn(
+        // One surface at every width. The desktop footer used to switch to
+        // `bg-card` with a hairline above it, which meant the page ended in a
+        // plain white band with grey text while the same footer on a phone ended
+        // in the dark brand ground with the glow behind it. The colour is the
+        // brand; only the arrangement is a question of width. Buono Group's
+        // footer does exactly this — `bg-[#5E2B66] text-white` on the element
+        // itself, then `text-center md:text-left` and a grid for the layout.
         "relative isolate flex w-full shrink-0 flex-col items-center gap-9 bg-footer-surface px-4 pt-12 pb-[29px]",
-        "lg:gap-0 lg:border-t lg:border-border lg:bg-card lg:px-10 xl:px-30 lg:pt-12 lg:pb-8",
+        "lg:gap-0 lg:px-8 xl:px-12 lg:pt-14 lg:pb-8",
         className,
       )}
     >
-      {/* The glow the frame inherits from the page layer behind it. Its own
-          layer rather than a background on the footer, so the footer keeps a
-          flat ground underneath and the copy is never sitting on the gradient's
-          colour-mix. `-z-10` under an `isolate` parent keeps it off the text
-          without leaking behind the page. */}
-      <div
-        aria-hidden
-        className="pointer-events-none absolute inset-0 -z-10 bg-footer-glow lg:hidden"
-      />
+      {/* The glow, as Figma actually draws it.
 
-      {/* The desktop footer: brand, three link columns, rule, copyright. */}
+          Node 1213:16952 is a 3003 x 10664 SVG of seventeen gaussian-blurred
+          ellipses, and the footer shows its bottom slice. It was previously
+          reimplemented as five CSS radial-gradients whose own comment said the
+          "palette and geometry are the author's" — and comparing the two, the
+          reimplementation took four of the asset's eight colours and dropped every
+          vivid one: `#00E599` and `#2EE897` green, `#1200FF` blue, `#E000A1`
+          magenta all went, leaving only `#278C9D`, `#3229A8`, `#770056` and
+          `#103A48`. That is why it read as muddy.
+
+          The asset is used rather than approximated again. The old objection was
+          not shipping something 10,656px tall, but it is a 9 KB SVG, not a raster.
+          Anchored to the bottom at full width, with the wrapper clipping the rest,
+          so what shows is the part the frame shows. `-z-10` under an `isolate`
+          parent keeps it off the text. */}
+      {/* Nothing is drawn over the ground. Both attempts at the glow — the CSS
+          reimplementation and then Figma's own asset — are gone; the footer is one
+          flat colour, and `--footer-surface` is the whole of it. */}
+
+      {/* The desktop footer.
+
+          It used to be a 32px logo, a tagline and three columns of 14px links —
+          about a quarter of what the phone footer carries. The phone has the full
+          `Wordmark` lockup, a Contact block with the address, email and phone at
+          16px, and the social marks; none of that reached the desktop, which is
+          most of why the two ends of the same page did not look like the same
+          product. Everything is here now, arranged as a brand column against the
+          links rather than stacked. */}
       <div className="hidden w-full lg:mx-auto lg:block lg:max-w-[1200px]">
-        <div className="grid grid-cols-4 gap-6">
-          <div className="flex flex-col items-start gap-2.5">
-            <Image
-              alt="Advisory Platform"
-              className="h-8 w-auto"
-              src={logo}
-            />
-            <p className="text-sm font-normal text-muted-foreground">
+        <div className="grid grid-cols-[minmax(0,1.4fr)_repeat(3,minmax(0,1fr))] gap-10">
+          <div className="flex flex-col items-start gap-6">
+            {/* The same lockup the phone opens with, left-aligned instead of
+                centred. It reverses itself — see `Wordmark`. */}
+            <Wordmark />
+            <p className="max-w-72 text-base leading-7 font-normal text-on-media/80">
               {t("footerTagline")}
             </p>
+            <div className="flex shrink-0 items-center gap-4">
+              <SocialMark
+                height={18.0775}
+                label={t("footerX")}
+                src="/icons/x.svg"
+                width={20}
+              />
+              <SocialMark
+                height={22.2222}
+                label={t("footerFacebook")}
+                src="/icons/facebook.svg"
+                width={12.2222}
+              />
+            </div>
           </div>
+
           {columns.map(({ heading, links: items }) => (
-            <nav className="flex flex-col items-start gap-2.5" key={heading}>
-              <p className="text-sm leading-5 font-semibold text-foreground">
+            <nav className="flex flex-col items-start gap-3.5" key={heading}>
+              <p className="text-base leading-6 font-semibold text-on-media">
                 {heading}
               </p>
               {items.map(({ label, href }) => (
                 <Link
-                  className="text-sm font-normal text-muted-foreground transition-colors hover:text-foreground"
+                  className="text-base leading-6 font-normal text-on-media/75 transition-colors duration-150 hover:text-on-media motion-reduce:transition-none"
                   href={href}
                   key={label}
                 >
@@ -208,8 +246,33 @@ export function SiteFooter({ className }: { readonly className?: string }) {
             </nav>
           ))}
         </div>
-        <div className="mt-6 border-t border-border pt-6">
-          <p className="font-latin text-sm font-normal text-muted-foreground">
+
+        {/* The contact block the phone footer closes on, as a row above the
+            copyright rather than a fifth column — an address wants a wider
+            measure than a link list. */}
+        <div className="mt-14 flex items-end justify-between gap-10 border-t border-on-media/20 pt-8">
+          <div className="flex flex-col items-start gap-2 font-latin text-base leading-6 font-medium text-on-media/85">
+            <p>
+              {t("footerAddress1")}
+              <br />
+              {t("footerAddress2")}
+            </p>
+            <div className="flex items-center gap-6">
+              <a
+                className="whitespace-nowrap transition-colors duration-150 hover:text-on-media motion-reduce:transition-none"
+                href={`mailto:${t("footerEmailAddress")}`}
+              >
+                {t("footerEmail")}
+              </a>
+              <a
+                className="whitespace-nowrap transition-colors duration-150 hover:text-on-media motion-reduce:transition-none"
+                href={`tel:${t("footerPhoneNumber")}`}
+              >
+                {t("footerPhone")}
+              </a>
+            </div>
+          </div>
+          <p className="shrink-0 font-latin text-sm font-normal text-on-media/70">
             {t("footerCopyright")}
           </p>
         </div>

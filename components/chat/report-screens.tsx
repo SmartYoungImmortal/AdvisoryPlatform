@@ -15,6 +15,7 @@ import {
   ScreenSpacer,
   ScreenTopBar,
 } from "@/components/mobile/screen";
+import { surfaceClass } from "@/components/mobile/surface";
 import { ThaiText } from "@/components/mobile/thai-text";
 import { cn } from "@/lib/utils";
 
@@ -54,13 +55,20 @@ function EvidenceRow({
   readonly deleteLabel: string;
 }) {
   return (
-    <div className="flex w-full shrink-0 items-center gap-2.5 overflow-clip rounded-[12px] border bg-card py-2.5 pr-2 pl-3">
-      <FileText aria-hidden className="size-4.5 shrink-0 text-muted-foreground" />
+    <div
+      className={cn(
+        surfaceClass({ tier: "flat" }),
+        "flex w-full shrink-0 items-center gap-2.5 overflow-clip py-2.5 pr-2 pl-3",
+      )}
+    >
+      <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-muted">
+        <FileText aria-hidden className="size-4.5 text-muted-foreground" />
+      </span>
       <div className="flex min-w-px flex-1 flex-col items-start gap-0.5 overflow-clip">
         <p className="w-full truncate font-latin text-sm font-medium text-foreground">
           {name}
         </p>
-        <p className="w-full text-xs font-normal text-muted-foreground">
+        <p className="w-full text-xs font-normal tabular-nums text-muted-foreground">
           <ThaiText>{meta}</ThaiText>
         </p>
       </div>
@@ -126,11 +134,13 @@ export function ReportScreen({ threadId }: { readonly threadId: string }) {
               {reportCategories.map((category) => (
                 <label
                   className={cn(
+                    surfaceClass({ tier: "flat" }),
+                    "group flex w-full shrink-0 cursor-pointer items-center gap-3 overflow-clip px-3.5 py-4",
+                    "transition-colors duration-150 ease-out hover:border-accented motion-reduce:transition-none",
                     // The selected card is the only place the accent fills a
                     // surface rather than a control, so it gets the 1.5px stroke
                     // the frame draws to hold its weight against the plain rows.
-                    "group flex w-full shrink-0 cursor-pointer items-center gap-3 overflow-clip rounded-[12px] px-3.5 py-4",
-                    "border bg-card has-data-checked:border-[1.5px] has-data-checked:border-primary has-data-checked:bg-accent-surface",
+                    "has-data-checked:border-[1.5px] has-data-checked:border-primary has-data-checked:bg-accent-surface",
                   )}
                   key={category}
                 >
@@ -146,14 +156,19 @@ export function ReportScreen({ threadId }: { readonly threadId: string }) {
           {/* Figma "Details" */}
           <div className="flex w-full shrink-0 flex-col items-start gap-1.5 overflow-clip">
             <FieldLabel>{t("detailsLabel")}</FieldLabel>
-            <div className="flex h-26 w-full shrink-0 flex-col items-start gap-2 overflow-clip rounded-[12px] border bg-card px-3.5 pt-3 pb-2.5">
+            <div
+              className={cn(
+                surfaceClass({ tier: "flat" }),
+                "flex h-26 w-full shrink-0 flex-col items-start gap-2 overflow-clip px-3.5 pt-3 pb-2.5",
+              )}
+            >
               <Textarea
                 aria-label={t("detailsLabel")}
                 className="min-h-px flex-1 resize-none border-0 bg-transparent p-0 text-sm shadow-none focus-visible:ring-0 field-sizing-fixed"
                 maxLength={500}
                 placeholder={t("detailsPlaceholder")}
               />
-              <p className="w-full text-right font-latin text-xs font-normal text-muted-foreground">
+              <p className="w-full text-right font-latin text-xs font-normal tabular-nums text-muted-foreground">
                 {t("detailsCounter")}
               </p>
             </div>
@@ -177,8 +192,14 @@ export function ReportScreen({ threadId }: { readonly threadId: string }) {
               />
             </div>
             {/* `DropZone` in onboarding/parts is a vertical stack on the card
-                surface; this frame draws a single centred row on the muted one. */}
-            <div className="flex w-full shrink-0 items-center justify-center gap-2 overflow-clip rounded-[12px] border border-dashed bg-muted p-3.5">
+                surface; this frame draws a single centred row on the muted one —
+                the `well` tier, plus the dashed edge that says "drop here". */}
+            <div
+              className={cn(
+                surfaceClass({ tier: "well" }),
+                "flex w-full shrink-0 items-center justify-center gap-2 overflow-clip border border-dashed border-accented p-3.5",
+              )}
+            >
               <Upload aria-hidden className="size-4.5 shrink-0 text-primary" />
               <p className="text-sm font-medium whitespace-nowrap text-primary">
                 {t("evidenceUpload")}
@@ -190,7 +211,12 @@ export function ReportScreen({ threadId }: { readonly threadId: string }) {
           </div>
 
           {/* Figma "Block row" */}
-          <label className="flex w-full shrink-0 cursor-pointer items-center gap-3 overflow-clip rounded-[12px] border bg-card px-3.5 py-3">
+          <label
+            className={cn(
+              surfaceClass({ tier: "flat" }),
+              "flex w-full shrink-0 cursor-pointer items-center gap-3 overflow-clip px-3.5 py-3",
+            )}
+          >
             <span className="flex min-w-px flex-1 flex-col items-start gap-0.5 overflow-clip">
               <span className="w-full text-sm font-medium text-foreground">
                 {t("blockTitle")}
@@ -228,7 +254,7 @@ function SummaryRow({
       <p className="w-[70px] shrink-0 text-xs font-normal text-muted-foreground">
         {label}
       </p>
-      <p className="min-w-px flex-1 text-right text-sm font-medium text-foreground">
+      <p className="min-w-px flex-1 text-right text-sm font-medium tabular-nums text-foreground">
         {value}
       </p>
     </div>
@@ -260,7 +286,10 @@ export function ReportSubmittedScreen({
         <ScreenSpacer />
 
         <div className="flex w-full shrink-0 flex-col items-center gap-3.5 overflow-clip px-6 pt-6 pb-5">
-          <span className="flex size-14 shrink-0 items-center justify-center rounded-full bg-success/10">
+          {/* `--success-surface` is the paired ground for `--success`; a 10% mix
+              of the ink is a different, greyer green than the one the review and
+              payment results use for the same badge. */}
+          <span className="flex size-14 shrink-0 items-center justify-center rounded-full bg-success-surface">
             <CircleCheck className="size-7 text-success" />
           </span>
           <p className="w-full text-center text-2xl font-semibold text-foreground">
@@ -270,7 +299,14 @@ export function ReportSubmittedScreen({
             <ThaiText>{t("submittedBody")}</ThaiText>
           </p>
 
-          <div className="flex w-full shrink-0 flex-col items-start gap-2 overflow-clip rounded-[12px] border bg-muted p-3.5">
+          {/* The recap of what was filed sits *under* the copy that announces it
+              — the `well` tier, which is what a muted inset is now called. */}
+          <div
+            className={cn(
+              surfaceClass({ tier: "well" }),
+              "flex w-full shrink-0 flex-col items-start gap-2 overflow-clip p-3.5",
+            )}
+          >
             <SummaryRow
               label={t("summaryReason")}
               value={t("reasonOffPlatform")}

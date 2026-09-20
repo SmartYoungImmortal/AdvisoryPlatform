@@ -13,6 +13,7 @@ import { useTranslations } from "next-intl";
 
 import { Button } from "@/components/ui/button";
 import { SiteFooter } from "@/components/marketing/site-footer";
+import { EmptyState } from "@/components/mobile/empty-state";
 import {
   MobileScreen,
   ScreenBody,
@@ -20,22 +21,44 @@ import {
   ScreenSpacer,
   ScreenTopBar,
 } from "@/components/mobile/screen";
+import { SurfaceList } from "@/components/mobile/surface";
 import { TopBar } from "@/components/topbar";
+import { READING_COLUMN } from "@/lib/layout";
+import { cn } from "@/lib/utils";
 
 /**
- * The 800px reading column the desktop notification frames centre in the page —
- * every band inside "Desktop / Notification center (Light)" (1952:35428) lays
- * its content out on it, at x=320 of the 1440 frame. The phone frame has no such
- * column, so it is a `lg:`-only cap on the block that already spans the width.
+ * What each kind of notification is *about*, in colour.
+ *
+ * Every row was the same 16px grey glyph, so a payout and a harassment report
+ * looked identical until they were read. There is no noun in the message file to
+ * label a kind with — and colour must never be the only carrier — so the colour
+ * rides on the glyph chip and doubles the glyph that is already there: money is
+ * green, a request needs an answer and is amber, a message is the accent, a
+ * booking is informational.
  */
-export const FEED_COLUMN = "lg:mx-auto lg:max-w-200 lg:px-0";
+const KINDS = {
+  booking: "bg-info/10 text-info",
+  message: "bg-accent-surface text-primary",
+  money: "bg-success/12 text-success",
+  verified: "bg-success/12 text-success",
+  request: "bg-warning/15 text-warning",
+  review: "bg-warning/15 text-warning",
+} as const;
+
+type NotificationKind = keyof typeof KINDS;
 
 /**
  * Figma notification row — 64px tall: a 16px glyph, a title/body stack and a
  * right-aligned relative time with an optional 8px unread dot.
+ *
+ * Unread used to be one 8px dot and nothing else, on a row whose title was the
+ * same weight as the row below it. It now carries weight the way the chat inbox
+ * does — a tinted ground, a semibold title — so the feed has a shape before it
+ * is read. The row also answers the pointer, which it never did.
  */
 function NotificationRow({
   icon: Icon,
+  kind,
   title,
   body,
   time,
@@ -43,6 +66,7 @@ function NotificationRow({
   href,
 }: {
   readonly icon: LucideIcon;
+  readonly kind: NotificationKind;
   readonly title: string;
   readonly body: string;
   readonly time: string;
@@ -51,29 +75,54 @@ function NotificationRow({
 }) {
   return (
     <Link
-      className="flex h-16 w-full shrink-0 items-start gap-3 overflow-clip px-3.5 py-3"
+      className={cn(
+        "flex w-full shrink-0 items-center gap-3 overflow-clip px-3.5 py-3 transition-colors duration-150 ease-out hover:bg-muted motion-reduce:transition-none",
+        unread && "bg-accent-surface/40 hover:bg-accent-surface/70",
+      )}
       href={href}
     >
-      <Icon className="mt-3 size-4 shrink-0 text-muted-foreground" />
+      <span
+        className={cn(
+          "flex size-9 shrink-0 items-center justify-center rounded-lg",
+          KINDS[kind],
+        )}
+      >
+        <Icon aria-hidden className="size-4.5" />
+      </span>
       <div className="flex min-w-px flex-1 flex-col items-start gap-0.5 overflow-clip">
-        <p className="w-full text-sm font-medium text-foreground">
+        <p
+          className={cn(
+            "w-full truncate text-sm text-foreground",
+            unread ? "font-semibold" : "font-medium",
+          )}
+        >
           {title}
         </p>
-        <p className="w-full text-xs font-normal text-muted-foreground">
+        <p className="w-full truncate text-xs font-normal tabular-nums text-muted-foreground">
           {body}
         </p>
       </div>
-      <div className="mt-[11px] flex shrink-0 items-center gap-2">
-        <span className="text-xs font-normal whitespace-nowrap text-muted-foreground">
+      <div className="flex shrink-0 items-center gap-2">
+        <span className="font-latin text-xs font-normal tabular-nums whitespace-nowrap text-muted-foreground">
           {time}
         </span>
-        {unread ? <span className="size-2 shrink-0 rounded-full bg-primary" /> : null}
+        {unread ? (
+          <span aria-hidden className="size-2 shrink-0 rounded-full bg-primary" />
+        ) : null}
       </div>
     </Link>
   );
 }
 
-/** Figma day group — 20px top padding, an 18px caption, then the card. */
+/**
+ * Figma day group — 20px top padding, a caption, then the card.
+ *
+ * The caption was a 12px muted line, the same step as the body copy inside the
+ * card under it, so a day heading had less presence than a notification's
+ * subtitle. It is a section head now. The card is `SurfaceList`, which is where
+ * the hairlines between the rows come from — the group used to space them with a
+ * hand-built `Divider` between every pair.
+ */
 function DayGroup({
   label,
   children,
@@ -82,21 +131,18 @@ function DayGroup({
   readonly children: React.ReactNode;
 }) {
   return (
-    <div className={`flex w-full shrink-0 flex-col items-start gap-2 px-6 pt-5 lg:pt-6 ${FEED_COLUMN}`}>
-      <p className="w-full text-xs font-normal text-muted-foreground">
+    <div
+      className={cn(
+        "flex w-full shrink-0 flex-col items-start gap-2 px-6 pt-5 lg:px-0 lg:pt-6",
+        READING_COLUMN,
+      )}
+    >
+      <p className="w-full text-base font-semibold text-foreground lg:text-lg">
         {label}
       </p>
-      {/* On the page ground the desktop frame puts behind this band the card
-          needs its own hairline; on the phone the surface change carries it. */}
-      <div className="flex w-full shrink-0 flex-col items-start overflow-clip rounded-xl bg-card lg:border lg:border-border">
-        {children}
-      </div>
+      <SurfaceList>{children}</SurfaceList>
     </div>
   );
-}
-
-function Divider() {
-  return <div className="h-px w-full shrink-0 bg-muted" />;
 }
 
 /** Figma's feed for the reader who books: a confirmation, a reply, a receipt. */
@@ -110,24 +156,25 @@ function AdviseeFeed() {
           body={t("bookingConfirmedBody")}
           href="/transactions/detail"
           icon={CalendarDays}
+          kind="booking"
           time={t("bookingConfirmedTime")}
           title={t("bookingConfirmedTitle")}
           unread
         />
-        <Divider />
         <NotificationRow
           body={t("newMessageBody")}
           href="/chat/sarah-jenskins"
           icon={MessageSquare}
+          kind="message"
           time={t("newMessageTime")}
           title={t("newMessageTitle")}
           unread
         />
-        <Divider />
         <NotificationRow
           body={t("paymentBody")}
           href="/transactions/detail"
           icon={CreditCard}
+          kind="money"
           time={t("paymentTime")}
           title={t("paymentTitle")}
         />
@@ -138,14 +185,15 @@ function AdviseeFeed() {
           body={t("newMessageBody")}
           href="/chat/sarah-jenskins"
           icon={MessageSquare}
+          kind="message"
           time={t("yesterday")}
           title={t("newMessageTitle")}
         />
-        <Divider />
         <NotificationRow
           body={t("newMessageBody")}
           href="/chat/sarah-jenskins"
           icon={MessageSquare}
+          kind="message"
           time={t("yesterday")}
           title={t("newMessageTitle")}
         />
@@ -172,33 +220,34 @@ function AdvisorFeed() {
           body={t("screeningRequestBody")}
           href="/screening/requests"
           icon={FileText}
+          kind="request"
           time={t("screeningRequestTime")}
           title={t("screeningRequestTitle")}
           unread
         />
-        <Divider />
         <NotificationRow
           body={t("newBookingBody")}
           href="/work/calendar"
           icon={CalendarDays}
+          kind="booking"
           time={t("bookingConfirmedTime")}
           title={t("newBookingTitle")}
           unread
         />
-        <Divider />
         <NotificationRow
           body={t("newMessageBody")}
           href="/chat"
           icon={MessageSquare}
+          kind="message"
           time={t("newMessageTime")}
           title={t("advisorMessageTitle")}
           unread
         />
-        <Divider />
         <NotificationRow
           body={t("payoutBody")}
           href="/earnings"
           icon={CreditCard}
+          kind="money"
           time={t("paymentTime")}
           title={t("payoutTitle")}
         />
@@ -209,14 +258,15 @@ function AdvisorFeed() {
           body={t("reviewBody")}
           href="/reviews"
           icon={Star}
+          kind="review"
           time={t("yesterday")}
           title={t("reviewTitle")}
         />
-        <Divider />
         <NotificationRow
           body={t("verifiedBody")}
           href="/advisor/profile"
           icon={BadgeCheck}
+          kind="verified"
           time={t("yesterday")}
           title={t("verifiedTitle")}
         />
@@ -226,25 +276,15 @@ function AdvisorFeed() {
 }
 
 /**
- * Figma "Empty State": 72px circle, 12px gaps, 306px copy column — the desktop
- * frame keeps all three and only widens the column.
+ * Figma "Empty State": a circled glyph, a title and a line of copy — which is
+ * `EmptyState`, at the size every other empty list in the app now uses.
  */
 function EmptyFeed() {
   const t = useTranslations("notifications");
 
   return (
-    <div
-      className={`flex w-full shrink-0 flex-col items-center gap-3 px-12 pt-20 text-center ${FEED_COLUMN}`}
-    >
-      <span className="flex size-[72px] shrink-0 items-center justify-center rounded-full bg-muted">
-        <Bell className="size-7 text-muted-foreground" />
-      </span>
-      <p className="w-full text-xl font-semibold text-foreground">
-        {t("emptyTitle")}
-      </p>
-      <p className="w-full text-sm font-normal text-muted-foreground">
-        {t("emptyBody")}
-      </p>
+    <div className={cn("w-full shrink-0 pt-14", READING_COLUMN)}>
+      <EmptyState body={t("emptyBody")} icon={Bell} title={t("emptyTitle")} />
     </div>
   );
 }
@@ -297,8 +337,8 @@ export function NotificationCenterScreen({
 
         {/* Figma "Head Band" — the title sits on the card surface rather than
             the page, so the band is full-bleed and only its content is capped. */}
-        <div className="w-full shrink-0 lg:border-b lg:border-border lg:bg-card">
-          <div className={`relative ${FEED_COLUMN}`}>
+        <div className="w-full shrink-0 lg:border-b lg:border-border lg:bg-card lg:shadow-card">
+          <div className={cn("relative", READING_COLUMN)}>
             <ScreenHeading className="pt-4 lg:pt-5 lg:pb-9" title={t("title")} />
             {/* Figma's desktop head band carries this beside the title; the
                 phone frame has no room for it. */}

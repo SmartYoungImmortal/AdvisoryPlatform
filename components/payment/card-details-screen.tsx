@@ -1,3 +1,5 @@
+"use client";
+
 import { CreditCard, Lock } from "lucide-react";
 import { useTranslations } from "next-intl";
 
@@ -18,36 +20,32 @@ import {
   ScreenSpacer,
   ScreenTopBar,
 } from "@/components/mobile/screen";
-import { PAGE_BAND, PAGE_HEAD_BAND } from "@/components/payment/invoice-screens";
+import { Surface } from "@/components/mobile/surface";
+import { asUuid, useQueryValue } from "@/components/bookings/booking-flow";
+import { LiveCheckoutScreen } from "@/components/payment/checkout-live";
+import { BODY_GRID, PAGE_HEAD_BAND } from "@/components/payment/invoice-screens";
 import { FootNote } from "@/components/screening/parts";
 import { TopBar } from "@/components/topbar";
+import { PAGE } from "@/lib/layout";
+import { cn } from "@/lib/utils";
 
-/** Figma order-summary line — label left, amount right. */
+/**
+ * Figma order-summary line — label left, amount right, `font-latin tabular-nums`
+ * so the fees line up under each other and under the total below them.
+ */
 function SummaryLine({
   label,
   value,
-  strong = false,
 }: {
   readonly label: string;
   readonly value: string;
-  readonly strong?: boolean;
 }) {
   return (
-    <div className="flex w-full shrink-0 items-center justify-between gap-3">
-      <span
-        className={`min-w-px flex-1 text-sm ${
-          strong ? "font-medium text-foreground" : "font-normal text-muted-foreground"
-        }`}
-      >
+    <div className="flex w-full shrink-0 items-center justify-between gap-3 px-3.5 py-2.5">
+      <span className="min-w-px flex-1 text-sm font-normal text-muted-foreground">
         {label}
       </span>
-      <span
-        className={`font-latin shrink-0 text-sm whitespace-nowrap ${
-          strong
-            ? "font-semibold text-foreground lg:text-base"
-            : "font-normal text-foreground"
-        }`}
-      >
+      <span className="font-latin shrink-0 text-sm font-normal whitespace-nowrap tabular-nums text-foreground">
         {value}
       </span>
     </div>
@@ -73,7 +71,10 @@ function SavedCardMethod() {
 
   return (
     <div className="flex w-full shrink-0 flex-col items-start gap-2 overflow-clip">
-      <p className="w-full text-sm font-semibold text-foreground" id="payment-method-label">
+      <p
+        className="w-full text-base font-semibold text-foreground lg:text-lg"
+        id="payment-method-label"
+      >
         {t("methodTitle")}
       </p>
       <Select defaultValue="saved" items={[{ label, value: "saved" }]}>
@@ -123,6 +124,12 @@ export function CardDetailsScreen({
   const c = useTranslations("common");
   const err = state === "errors";
   const saved = state === "saved";
+  // A booking that `POST /bookings` has already held — the slot chips on
+  // `/service/…` send the reader here with its id. Without one this is the
+  // fixture screen it has always been.
+  const booking = asUuid(useQueryValue("bookingId"));
+
+  if (booking) return <LiveCheckoutScreen bookingId={booking} />;
 
   return (
     <MobileScreen wide>
@@ -133,29 +140,42 @@ export function CardDetailsScreen({
         </div>
 
         <div className={PAGE_HEAD_BAND}>
-          <ScreenHeading className={`pt-4 ${PAGE_BAND} lg:pt-5 lg:pb-9`} title={t("cardTitle")} />
+          <ScreenHeading className={cn("pt-4 lg:pt-5 lg:pb-9", PAGE)} title={t("cardTitle")} />
         </div>
 
-        {/* Figma "Body" — 788 + 32 + 380 on the 1200 column. The third row is
-            the flexible one, so the aside's two blocks sit tight together at
-            the top while the form column runs past them. */}
-        <div className="flex w-full flex-1 flex-col lg:mx-auto lg:grid lg:max-w-[1440px] lg:grid-cols-[minmax(0,1fr)_380px] lg:grid-rows-[auto_auto_minmax(0,1fr)] lg:gap-x-8 lg:px-10 xl:px-30 lg:pt-12 lg:pb-14">
-          {/* Figma "Order Summary": caption, advisor line, fees, then the total. */}
+        {/* Figma "Body" — 788 + 32 + 380 on the 1200 column, the same grid the
+            invoice lays out on. The third row is the flexible one, so the aside's
+            two blocks sit tight together at the top while the form column runs
+            past them. */}
+        <div className={BODY_GRID}>
+          {/* Figma "Order Summary": caption, advisor line, fees, then the total.
+              This is the one card on a checkout screen, and it was a borderless
+              white box whose total — the number the whole page is about — was 14px
+              beside a 14px label. It is a `Surface` with hairline rows and a total
+              in a well at 24px: the biggest figure on the screen, as it should be. */}
           <div className="flex w-full shrink-0 flex-col items-start px-6 pt-2 lg:col-start-2 lg:row-start-1 lg:px-0 lg:pt-0">
-            <div className="flex w-full shrink-0 flex-col items-start gap-2.5 overflow-clip rounded-xl bg-card p-3.5 lg:border lg:border-border">
-              <div className="flex w-full items-center justify-between gap-3">
-                <span className="text-xs font-normal text-muted-foreground lg:text-sm">
+            <Surface className="w-full divide-y divide-border overflow-hidden">
+              <div className="flex w-full items-center justify-between gap-3 p-3.5">
+                <span className="text-base font-semibold text-foreground lg:text-lg">
                   {t("orderSummary")}
                 </span>
                 <span className="font-latin text-xs font-normal text-muted-foreground">
                   {t("advisor")}
                 </span>
               </div>
-              <SummaryLine label={t("session")} value={t("sessionPrice")} />
-              <SummaryLine label={t("platformFee")} value={t("platformFeeValue")} />
-              <div className="h-px w-full shrink-0 bg-muted" />
-              <SummaryLine label={t("total")} strong value={t("totalValue")} />
-            </div>
+              <div className="flex w-full flex-col divide-y divide-border">
+                <SummaryLine label={t("session")} value={t("sessionPrice")} />
+                <SummaryLine label={t("platformFee")} value={t("platformFeeValue")} />
+              </div>
+              <div className="flex w-full items-center justify-between gap-3 bg-muted px-3.5 py-3">
+                <span className="min-w-px flex-1 text-sm font-medium text-foreground">
+                  {t("total")}
+                </span>
+                <span className="font-latin shrink-0 text-2xl font-semibold whitespace-nowrap tabular-nums text-foreground">
+                  {t("totalValue")}
+                </span>
+              </div>
+            </Surface>
           </div>
 
           {/* The form column. `lg:*:px-0` drops the phone's 24px gutter off both
@@ -173,6 +193,7 @@ export function CardDetailsScreen({
                 <div className="flex w-full shrink-0 flex-col items-start px-6 pt-4 lg:pt-6">
                   <div className="w-full lg:max-w-55">
                     <Field
+                      className="tabular-nums"
                       id="card-cvc"
                       label={t("cvcLabel")}
                       latin
@@ -186,8 +207,12 @@ export function CardDetailsScreen({
                 {/* Figma "Form Fields": card number, an expiry/CVC row, then
                     the name. The row is already two halves, which is what the
                     frame's 388 + 12 + 388 comes to inside the 788 column. */}
+                {/* Card digits take tabular figures: the four groups of a card
+                    number and a `ดด / ปป` expiry are a number being typed, and
+                    proportional figures made them shift under the caret. */}
                 <div className="flex w-full shrink-0 flex-col items-start gap-4 px-6 pt-4 lg:pt-0">
                   <Field
+                    className="tabular-nums"
                     defaultValue={err ? t("cardNumberFilled") : undefined}
                     error={err ? t("cardNumberError") : undefined}
                     id="card-number"
@@ -199,6 +224,7 @@ export function CardDetailsScreen({
                   <div className="flex w-full shrink-0 items-start gap-3">
                     <div className="min-w-px flex-1">
                       <Field
+                        className="tabular-nums"
                         defaultValue={err ? t("expiryFilled") : undefined}
                         error={err ? t("expiryError") : undefined}
                         id="card-expiry"
@@ -210,6 +236,7 @@ export function CardDetailsScreen({
                     </div>
                     <div className="min-w-px flex-1">
                       <Field
+                        className="tabular-nums"
                         defaultValue={err ? t("cvcFilled") : undefined}
                         error={err ? t("cvcError") : undefined}
                         id="card-cvc"
@@ -241,12 +268,15 @@ export function CardDetailsScreen({
               so it stays disabled there rather than pretending to authorise. */}
           <ScreenSpacer className="lg:hidden" />
           <div className="flex w-full shrink-0 flex-col items-center px-6 pt-2 pb-2 lg:col-start-2 lg:row-start-2 lg:px-0 lg:pt-5 lg:pb-0">
+            {/* `block`: the pay button holds the width of the summary above it,
+                which is what the frame draws and what a single primary action in
+                a column wants. Without it it would shrink to its label at `lg`. */}
             {saved ? (
-              <PrimaryButton className="disabled:opacity-40 lg:h-11" disabled>
+              <PrimaryButton block className="disabled:opacity-40 lg:h-11" disabled>
                 {t("pay")}
               </PrimaryButton>
             ) : (
-              <PrimaryButton className="lg:h-11" href="/checkout/processing">
+              <PrimaryButton block className="lg:h-11" href="/checkout/processing">
                 {t("pay")}
               </PrimaryButton>
             )}

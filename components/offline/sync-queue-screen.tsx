@@ -1,6 +1,5 @@
 import { Clock, TriangleAlert } from "lucide-react";
 import { useTranslations } from "next-intl";
-import { Fragment } from "react";
 
 import { SiteFooter } from "@/components/marketing/site-footer";
 import {
@@ -10,15 +9,12 @@ import {
   ScreenSpacer,
   ScreenTopBar,
 } from "@/components/mobile/screen";
-import {
-  CaptionedCard,
-  OFFLINE_COLUMN,
-  OfflineDivider,
-  QueuedItemRow,
-  QueueStatus,
-} from "@/components/offline/parts";
+import { StatusPill } from "@/components/mobile/status-pill";
+import { CaptionedCard, QueuedItemRow } from "@/components/offline/parts";
 import { RetryLink } from "@/components/offline/retry";
 import { TopBar } from "@/components/topbar";
+import { READING_COLUMN } from "@/lib/layout";
+import { cn } from "@/lib/utils";
 
 /**
  * Figma "ออฟไลน์ - คิวรอซิงก์" (1952:36060) — everything the device is holding
@@ -49,10 +45,10 @@ export function SyncQueueScreen() {
     { title: t("queueUploadTitle"), body: t("queueUploadBody") },
   ];
 
-  // On the page ground the desktop layout puts behind these bands, a card needs
-  // its own hairline; on the phone the surface change already carries it.
-  const listCard = "lg:border lg:border-border";
-  const band = `flex w-full shrink-0 flex-col items-start px-6 pt-5 lg:px-0 lg:pt-6 ${OFFLINE_COLUMN}`;
+  const band = cn(
+    "flex w-full shrink-0 flex-col items-start px-6 pt-5 lg:px-0 lg:pt-6",
+    READING_COLUMN,
+  );
 
   return (
     <MobileScreen wide>
@@ -65,8 +61,8 @@ export function SyncQueueScreen() {
         {/* Figma "Heading" — the title and its "3 รายการรอส่ง" count. The band is
             full-bleed so the surface crosses the desktop page; only the copy
             inside it is capped. */}
-        <div className="w-full shrink-0 lg:border-b lg:border-border lg:bg-card">
-          <div className={OFFLINE_COLUMN}>
+        <div className="w-full shrink-0 lg:border-b lg:border-border lg:bg-card lg:shadow-card">
+          <div className={READING_COLUMN}>
             <ScreenHeading
               className="lg:pt-5 lg:pb-9"
               subtitle={t("queueSubtitle")}
@@ -76,37 +72,38 @@ export function SyncQueueScreen() {
         </div>
 
         <div className={band}>
-          <CaptionedCard caption={t("queueAutoCaption")} cardClassName={listCard}>
-            {automatic.map((item, i) => (
-              <Fragment key={item.title}>
-                {i > 0 ? <OfflineDivider /> : null}
-                <QueuedItemRow
-                  body={item.body}
-                  icon={Clock}
-                  title={item.title}
-                  trailing={<QueueStatus>{t("queuePending")}</QueueStatus>}
-                />
-              </Fragment>
+          {/* "รอส่ง" was 12px grey against a 12px grey body line, so the one word
+              that says what will happen to a row looked like part of it. It is a
+              pill: amber, because it is waiting on something. */}
+          <CaptionedCard caption={t("queueAutoCaption")}>
+            {automatic.map((item) => (
+              <QueuedItemRow
+                body={item.body}
+                icon={Clock}
+                iconClassName="bg-warning/15 text-warning"
+                key={item.title}
+                title={item.title}
+                trailing={<StatusPill tone="warning">{t("queuePending")}</StatusPill>}
+              />
             ))}
           </CaptionedCard>
         </div>
 
         <div className={band}>
-          <CaptionedCard caption={t("queueManualCaption")} cardClassName={listCard}>
-            {blocked.map((item, i) => (
-              <Fragment key={item.title}>
-                {i > 0 ? <OfflineDivider /> : null}
-                <QueuedItemRow
-                  body={item.body}
-                  icon={TriangleAlert}
-                  title={item.title}
-                  trailing={
-                    <RetryLink className="text-xs font-normal text-muted-foreground">
-                      {t("queueRetry")}
-                    </RetryLink>
-                  }
-                />
-              </Fragment>
+          <CaptionedCard caption={t("queueManualCaption")}>
+            {blocked.map((item) => (
+              <QueuedItemRow
+                body={item.body}
+                icon={TriangleAlert}
+                iconClassName="bg-destructive/10 text-destructive"
+                key={item.title}
+                title={item.title}
+                trailing={
+                  <RetryLink className="text-xs font-medium text-primary">
+                    {t("queueRetry")}
+                  </RetryLink>
+                }
+              />
             ))}
           </CaptionedCard>
         </div>
@@ -116,7 +113,12 @@ export function SyncQueueScreen() {
         <ScreenSpacer className="lg:min-h-14" />
 
         {/* Figma "Actions" — one centred accent line, the whole width. */}
-        <div className={`flex w-full shrink-0 flex-col items-center px-6 py-2 lg:px-0 ${OFFLINE_COLUMN}`}>
+        <div
+          className={cn(
+            "flex w-full shrink-0 flex-col items-center px-6 py-2 lg:px-0",
+            READING_COLUMN,
+          )}
+        >
           <RetryLink className="w-full justify-center">{t("queueRetryAll")}</RetryLink>
         </div>
 

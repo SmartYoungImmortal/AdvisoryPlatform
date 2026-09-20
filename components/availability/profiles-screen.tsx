@@ -1,18 +1,22 @@
 import Link from "next/link";
-import { Globe, Info } from "lucide-react";
+import { CalendarClock, Globe, Info } from "lucide-react";
 import { useTranslations } from "next-intl";
 import type { ReactNode } from "react";
 
 import { DeleteProfileDialog } from "@/components/availability/delete-profile-dialog";
 import { WeekTable } from "@/components/availability/week-table";
 import { SiteFooter } from "@/components/marketing/site-footer";
+import { EmptyState } from "@/components/mobile/empty-state";
 import {
   MobileScreen,
   ScreenBody,
   ScreenTopBar,
 } from "@/components/mobile/screen";
+import { StatusPill } from "@/components/mobile/status-pill";
+import { Surface, surfaceClass } from "@/components/mobile/surface";
 import { ThaiText } from "@/components/mobile/thai-text";
 import { TopBar } from "@/components/topbar";
+import { READING_COLUMN, SPLIT_WITH_ASIDE } from "@/lib/layout";
 import { cn } from "@/lib/utils";
 import {
   AVAILABILITY_PROFILES,
@@ -23,11 +27,18 @@ import {
 /**
  * Figma "Back Bar" (1994:28375) and "Head Band" (1994:28378) — the 52px row
  * under the app's nav and the white band the heading sits in, both at the
- * measure the 800px content column sets.
+ * measure the 800px content column sets — which is `READING_COLUMN`, so it is
+ * imported rather than spelled out again.
  */
 const BACK_BAR = "lg:h-13 lg:bg-card lg:pt-0 lg:pb-0 lg:pl-10 xl:pl-30";
 const HEAD_BAND = "w-full shrink-0 lg:border-b lg:border-border lg:bg-card";
-const COLUMN = "lg:mx-auto lg:w-[800px] lg:px-0";
+const COLUMN = cn(READING_COLUMN, "lg:px-0");
+
+/** How many Services point at a profile at all — the sum the list itself states. */
+const SERVICES_ON_PROFILES = AVAILABILITY_PROFILES.reduce(
+  (total, profile) => total + profile.serviceCount,
+  0,
+);
 
 /** Figma "Note" — the tinted accent strip both states close on. */
 function Note({ children }: { readonly children: string }) {
@@ -43,11 +54,17 @@ function Note({ children }: { readonly children: string }) {
   );
 }
 
-/** Figma "Add profile" — a dashed, muted-ground button on its own row. */
+/**
+ * Figma "Add profile" — a dashed, muted-ground button on its own row.
+ *
+ * `hover:bg-muted/50` is the row hover everywhere else, but this row's rest state
+ * already *is* the muted ground, so it takes the accent tint instead: on a dashed
+ * "create" affordance the pointer should say accent, not grey.
+ */
 function AddProfileButton({ label }: { readonly label: ReactNode }) {
   return (
     <Link
-      className="flex w-full shrink-0 items-center justify-center gap-2 overflow-clip rounded-[12px] border border-dashed border-border bg-muted p-3.5 text-sm font-medium text-primary"
+      className="flex w-full shrink-0 items-center justify-center gap-2 overflow-clip rounded-card border border-dashed border-border bg-muted p-3.5 text-sm font-medium text-primary transition-colors hover:bg-accent-surface"
       href="/availability/profiles"
     >
       {label}
@@ -55,7 +72,17 @@ function AddProfileButton({ label }: { readonly label: ReactNode }) {
   );
 }
 
-/** Figma "Profile" — one 14px-radius card per Availability Profile. */
+/**
+ * Figma "Profile" — one card per Availability Profile, `raised`: it is an object
+ * on the page ground, not a block inside another card.
+ *
+ * At `lg` the card is 800 wide, and stacked it spent two of its five blocks on
+ * air — the timezone row held "Asia/Bangkok" across the full measure and the week
+ * put its day 800px from its window. The week moves into the 360px aside from
+ * `SPLIT_WITH_ASIDE` and the three text rows keep the main column; the placement
+ * is explicit so the phone's reading order (timezone, week, dates, services) is
+ * the DOM order at both widths.
+ */
 function ProfileCard({
   profile,
 }: {
@@ -64,18 +91,23 @@ function ProfileCard({
   const t = useTranslations("availability");
 
   return (
-    <article className="flex w-full shrink-0 flex-col items-start gap-2.5 overflow-clip rounded-xl border border-border bg-card p-3.5">
+    // `surfaceClass` rather than `<Surface>`: the card is an <article>, and the
+    // helper is exactly what the component wraps for that case.
+    <article
+      className={cn(
+        surfaceClass(),
+        "flex w-full shrink-0 flex-col items-start gap-2.5 overflow-clip p-3.5",
+      )}
+    >
       <div className="flex w-full shrink-0 items-center gap-2 overflow-clip">
         <h2 className="min-w-px flex-1 text-base font-medium text-foreground">
           {profile.name}
         </h2>
         {profile.isDefault ? (
-          <span className="flex shrink-0 items-start rounded-full bg-accent-surface px-[9px] py-[3px] text-xs font-normal whitespace-nowrap text-primary">
-            {t("defaultBadge")}
-          </span>
+          <StatusPill tone="accent">{t("defaultBadge")}</StatusPill>
         ) : null}
         <Link
-          className="shrink-0 text-sm font-medium whitespace-nowrap text-primary"
+          className="shrink-0 text-sm font-medium whitespace-nowrap text-primary transition-colors hover:underline"
           href="/availability/profiles"
         >
           {t("edit")}
@@ -89,7 +121,7 @@ function ProfileCard({
           </span>
         ) : (
           <Link
-            className="shrink-0 text-sm font-medium whitespace-nowrap text-destructive"
+            className="shrink-0 text-sm font-medium whitespace-nowrap text-destructive transition-colors hover:underline"
             href="/availability/profiles/delete"
           >
             {t("delete")}
@@ -97,24 +129,41 @@ function ProfileCard({
         )}
       </div>
 
-      <div className="flex w-full shrink-0 items-center gap-2 overflow-clip rounded-lg bg-muted px-3 py-2.5">
-        <Globe className="size-4 shrink-0 text-muted-foreground" />
-        <p className="min-w-px flex-1 font-latin text-sm font-normal text-foreground">
-          {profile.timezone}
+      {/* Three auto rows plus a filling one: the week spans them all, and without
+          the `1fr` the grid would share the week's extra height out between the
+          left column's rows and pull them apart. */}
+      <div
+        className={cn(
+          "flex w-full shrink-0 flex-col items-start gap-2.5",
+          SPLIT_WITH_ASIDE,
+          "lg:grid-rows-[auto_auto_1fr]",
+        )}
+      >
+        <Surface
+          className="flex w-full shrink-0 items-center gap-2 overflow-clip px-3 py-2.5 lg:col-start-1 lg:row-start-1"
+          tier="well"
+        >
+          <Globe className="size-4 shrink-0 text-muted-foreground" />
+          <p className="min-w-px flex-1 font-latin text-sm font-normal text-foreground">
+            {profile.timezone}
+          </p>
+        </Surface>
+
+        <WeekTable
+          className="lg:col-start-2 lg:row-start-1 lg:row-end-4"
+          windows={profile.windows}
+        />
+
+        <Link
+          className="w-full text-sm font-medium text-primary transition-colors hover:underline lg:col-start-1 lg:row-start-2"
+          href="/availability/profiles"
+        >
+          {t("addSpecificDate")}
+        </Link>
+        <p className="w-full text-xs font-normal text-muted-foreground lg:col-start-1 lg:row-start-3">
+          {t("usedByServices", { count: profile.serviceCount })}
         </p>
       </div>
-
-      <WeekTable windows={profile.windows} />
-
-      <Link
-        className="w-full text-sm font-medium text-primary"
-        href="/availability/profiles"
-      >
-        {t("addSpecificDate")}
-      </Link>
-      <p className="w-full text-xs font-normal text-muted-foreground">
-        {t("usedByServices", { count: profile.serviceCount })}
-      </p>
     </article>
   );
 }
@@ -156,20 +205,33 @@ export function ProfilesScreen({
             <p className="text-sm font-normal text-muted-foreground">
               <ThaiText>{t("profilesSubtitle")}</ThaiText>
             </p>
+            {/* What the list adds up to, stated once. The band at 1440 was a
+                full-width white slab holding two lines of text; the figures are
+                already in the fixture and every card below repeats a piece of
+                them. `lg:` only — the phone's heading is unchanged. */}
+            {isEmpty ? null : (
+              <p className="hidden font-latin text-sm font-normal text-muted-foreground lg:block">
+                {t("profilesMeta", {
+                  profiles: AVAILABILITY_PROFILES.length,
+                  services: SERVICES_ON_PROFILES,
+                })}
+              </p>
+            )}
           </div>
         </div>
 
         <div className={cn("flex w-full shrink-0 flex-col items-start gap-2.5 overflow-clip px-6", COLUMN, "lg:pt-12")}>
           {isEmpty ? (
-            /* Figma "Empty" — a single card carrying the centred explanation. */
-            <div className="flex w-full shrink-0 flex-col items-center gap-1.5 overflow-clip rounded-xl border border-border bg-card px-3.5 py-5 text-center">
-              <p className="w-full text-base font-medium text-foreground">
-                {t("emptyTitle")}
-              </p>
-              <p className="w-full text-xs font-normal text-muted-foreground">
-                <ThaiText>{t("emptyBody")}</ThaiText>
-              </p>
-            </div>
+            /* Figma "Empty" — a single card carrying the centred explanation, now
+               the app's one `EmptyState`: same two lines, with the mark and the
+               18px title an empty screen is supposed to lead with. */
+            <Surface className="w-full shrink-0 overflow-clip">
+              <EmptyState
+                body={<ThaiText>{t("emptyBody")}</ThaiText>}
+                icon={CalendarClock}
+                title={t("emptyTitle")}
+              />
+            </Surface>
           ) : (
             AVAILABILITY_PROFILES.map((profile) => (
               <ProfileCard key={profile.id} profile={profile} />

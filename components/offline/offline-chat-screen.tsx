@@ -1,12 +1,13 @@
 import { useTranslations } from "next-intl";
 
 import { deskPhoto as desk, documentPreview as doc } from "@/lib/assets/r2";
-import { ChatFooter, ChatHeader } from "@/components/chat/chat-chrome";
+import { CHAT_PANE, ChatFooter, ChatHeader } from "@/components/chat/chat-chrome";
 import { ChatList } from "@/components/chat/chat-inbox-screen";
 import { ImageBody, MyMessage, PartnerMessage } from "@/components/chat/messages";
 import { MobileScreen, ScreenBody } from "@/components/mobile/screen";
 import { OfflineStrip, QueuedMessage } from "@/components/offline/parts";
 import { TopBar } from "@/components/topbar";
+import { cn } from "@/lib/utils";
 
 /**
  * Figma "ออฟไลน์ - ข้อความรอส่ง" (1952:36034) — the chat thread as it looks
@@ -38,7 +39,7 @@ export function OfflineChatScreen({
         <TopBar unreadNotifications />
       </div>
 
-      <div className="flex w-full min-h-0 flex-1 flex-col lg:mx-auto lg:w-full lg:max-w-[1440px] lg:flex-row lg:overflow-clip lg:rounded-xl lg:border lg:border-border lg:bg-card">
+      <div className={cn("flex w-full min-h-0 flex-1 flex-col", CHAT_PANE)}>
         <ChatList
           activeId={threadId}
           className="hidden lg:flex lg:h-full lg:w-80 lg:shrink-0 lg:border-e lg:border-border lg:pt-4"
@@ -46,24 +47,24 @@ export function OfflineChatScreen({
 
         <div className="flex w-full min-h-0 flex-1 flex-col">
           <ChatHeader threadId={threadId} />
-          {/* Figma "Container": 16px side padding, 12px between messages. */}
-          <ScreenBody className="items-start gap-3 px-4 lg:px-6 lg:py-4">
-            <PartnerMessage
-              bubbleClassName="h-[213px] w-[184px] items-start gap-2.5"
-              time="00.06"
-            >
+          {/* Figma "Container": 16px side padding, 12px between messages. The
+              ground is stated so the desktop pane's card surface does not reach
+              under the bubbles — see `ChatThreadScreen`. */}
+          <ScreenBody className="items-start gap-3 bg-background px-4 py-3 lg:px-6 lg:py-4">
+            <PartnerMessage bubbleClassName="h-[213px] w-46 p-0" time="00.06">
               <ImageBody src={doc} />
             </PartnerMessage>
-            <MyMessage
-              bubbleClassName="h-[149px] w-[255px] gap-2.5 bg-brand-image"
-              time="00.07"
-            >
+            <MyMessage bubbleClassName="h-[149px] w-[255px] bg-brand-image p-0" time="00.07">
               <ImageBody src={desk} />
             </MyMessage>
             <QueuedMessage meta={t("chatQueuedMeta")} text={t("chatQueuedText")} />
           </ScreenBody>
           <OfflineStrip>{t("chatStrip")}</OfflineStrip>
-          <ChatFooter sendVariant="muted" />
+          {/* No `roomId`: this frame is offline by definition, so the compose row
+              has nowhere to put an attachment either. `sendVariant` is gone —
+              `ChatFooter`'s send is muted in every state now, because the API has
+              no route to send a message on. See `ChatFooter`. */}
+          <ChatFooter />
         </div>
       </div>
     </MobileScreen>

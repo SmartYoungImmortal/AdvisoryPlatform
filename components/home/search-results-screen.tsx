@@ -1,20 +1,24 @@
 import Image from "next/image";
 import Link from "next/link";
-import { ChevronDown, ChevronLeft, ChevronUp, Search } from "lucide-react";
+import { ChevronDown, ChevronLeft, ChevronUp } from "lucide-react";
 import { useTranslations } from "next-intl";
 import type { ReactNode } from "react";
 
+// `services` is gone from this file: the browse list reads the API now. The two
+// helpers stay because the search-results screen above still renders fixtures.
 import {
   getAdvisor,
   getService,
-  services,
   type Service,
 } from "@/lib/catalogue/services";
+import { BrowseList } from "@/components/home/browse-list";
+import { errorSearch } from "@/lib/assets/r2";
 import { Button } from "@/components/ui/button";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Switch } from "@/components/ui/switch";
 import { ChatAvatar } from "@/components/chat/chat-avatar";
 import {
+  AvailabilityPill,
   FilterButton,
   FilterChip,
   SearchField,
@@ -22,15 +26,20 @@ import {
   ServiceProof,
   VerifiedTick,
 } from "@/components/home/parts";
+import { NeutralButton, PrimaryButton } from "@/components/mobile/buttons";
+import { EmptyState } from "@/components/mobile/empty-state";
 import {
   MobileScreen,
   ScreenBody,
   ScreenHeading,
   ScreenTopBar,
 } from "@/components/mobile/screen";
+import { Surface, surfaceClass } from "@/components/mobile/surface";
 import { ThaiText } from "@/components/mobile/thai-text";
 import { BottomBar } from "@/components/bottombar";
 import { TopBar } from "@/components/topbar";
+import { PAGE } from "@/lib/layout";
+import { cn } from "@/lib/utils";
 
 /**
  * Figma "Result Card" — an 88px square cover beside the title, advisor and meta.
@@ -49,16 +58,28 @@ function ResultCard({ service }: { readonly service: Service }) {
     // The frame also stamps an advisor level on the cover; the catalogue has no
     // level to read, so that badge is left off rather than invented.
     <Link
-      className="flex w-full shrink-0 items-start gap-3 overflow-clip rounded-xl border bg-card p-2 lg:flex-col lg:gap-0 lg:p-0"
+      className={cn(
+        surfaceClass({ interactive: true }),
+        "flex w-full shrink-0 items-start gap-3 overflow-clip p-2 lg:flex-col lg:gap-0 lg:p-0",
+      )}
       href={`/service/${service.id}`}
     >
-      <Image
-        alt=""
-        className="size-22 shrink-0 rounded-xl object-cover lg:h-35 lg:w-full lg:rounded-none"
-        src={service.cover}
-      />
+      <span className="relative shrink-0 lg:w-full">
+        <Image
+          alt=""
+          className="size-22 rounded-card object-cover lg:h-35 lg:w-full lg:rounded-none"
+          src={service.cover}
+        />
+        {/* Held to the cover's foot on the desktop card, where there is room for
+            it; the 88px phone thumbnail is too small to carry a pill, so it
+            rides in the body there instead. */}
+        <AvailabilityPill
+          className="absolute bottom-2 left-2 hidden bg-card/95 shadow-card lg:inline-flex"
+          slots={service.slots}
+        />
+      </span>
       <span className="flex min-w-px flex-1 flex-col items-start gap-1 overflow-clip lg:w-full lg:flex-none lg:gap-1.5 lg:p-3.5">
-        <span className="w-full text-sm font-semibold text-foreground">
+        <span className="w-full text-base font-semibold text-foreground">
           <ThaiText>{service.title}</ThaiText>
         </span>
         <span className="flex w-full shrink-0 items-center gap-1 overflow-clip">
@@ -76,6 +97,7 @@ function ResultCard({ service }: { readonly service: Service }) {
           reviews={advisor.reviews}
           starClassName="size-3"
         />
+        <AvailabilityPill className="lg:hidden" slots={service.slots} />
         <ServicePrice minutes={service.minutes} price={service.price} />
       </span>
     </Link>
@@ -127,9 +149,15 @@ function FilterRail() {
   const h = useTranslations("home");
 
   return (
-    <aside className="hidden shrink-0 lg:block lg:w-70 lg:self-start lg:rounded-xl lg:border lg:border-border lg:bg-card lg:p-4.5">
+    <aside
+      className={cn(
+        "hidden shrink-0 lg:block lg:w-70 lg:self-start lg:p-4.5",
+        // The rail is a card like any other from `lg`; below it does not exist.
+        "lg:rounded-card lg:border lg:border-border lg:bg-card lg:shadow-card",
+      )}
+    >
       <div className="flex items-center justify-between pb-4">
-        <p className="text-lg leading-7 font-semibold text-foreground">
+        <p className="text-lg font-semibold text-foreground">
           {t("filtersTitle")}
         </p>
         <Button
@@ -153,7 +181,7 @@ function FilterRail() {
         <RailGroup hint={t("priceHint")} title={t("priceTitle")}>
           {/* The frame's slider, at rest: a full track with no handle drawn. */}
           <div aria-hidden className="h-1 w-full rounded-full bg-primary/25" />
-          <div className="flex items-center justify-between pt-2 font-latin text-xs text-muted-foreground">
+          <div className="flex items-center justify-between pt-2 font-latin text-xs tabular-nums text-muted-foreground">
             <span>{t("priceMin")}</span>
             <span>{t("priceMax")}</span>
           </div>
@@ -244,7 +272,7 @@ function ResultsHead({ label }: { readonly label: string }) {
       <p className="min-w-px flex-1 text-sm font-normal text-muted-foreground lg:text-2xl lg:font-semibold lg:text-foreground">
         {label}
       </p>
-      <div className="flex shrink-0 items-center gap-1 overflow-clip lg:h-9.5 lg:gap-2 lg:rounded-lg lg:border lg:border-border lg:bg-card lg:px-3.5">
+      <div className="flex shrink-0 items-center gap-1 overflow-clip transition-colors lg:h-9.5 lg:gap-2 lg:rounded-lg lg:border lg:border-border lg:bg-card lg:px-3.5 lg:shadow-card lg:hover:border-accented">
         <p className="text-sm font-medium whitespace-nowrap text-foreground lg:font-normal">
           {t("sort")}
         </p>
@@ -257,8 +285,13 @@ function ResultsHead({ label }: { readonly label: string }) {
 
 /**
  * Figma "Empty State" (1615:34331 / 1615:34263) — the card that stands where the
- * results list would be: a circled glyph, what was not found, what to do about
- * it, and the way out.
+ * results list would be: what was not found, what to do about it, and the way
+ * out.
+ *
+ * The frame draws a circled magnifier. `lib/assets/r2` has shipped `errorSearch`
+ * since the error screens landed and two screens use the six illustrations
+ * between them, so the one state in the app that is literally "we searched and
+ * found nothing" gets the drawing rather than a grey glyph.
  *
  * The phone frame offers one way out ("clear the filters") because the terms and
  * categories under the card are the rest of the offer; the 1440 frame has no
@@ -268,30 +301,24 @@ function NoResults({ query }: { readonly query: string }) {
   const t = useTranslations("search");
 
   return (
-    <div className="flex w-full shrink-0 flex-col items-center justify-center gap-2 overflow-clip rounded-xl border border-border bg-card px-5 py-8 lg:gap-2.5 lg:px-8 lg:py-14">
-      <span className="flex size-14 shrink-0 items-center justify-center rounded-full bg-muted lg:size-18">
-        <Search className="size-6 text-muted-foreground lg:size-7.5" />
-      </span>
-      <p className="w-full text-center text-base font-medium text-foreground lg:text-2xl lg:font-semibold">
-        {t("emptyTitle", { query })}
-      </p>
-      <p className="w-full text-center text-xs font-normal text-muted-foreground lg:text-base">
-        {t("emptyBody")}
-      </p>
-      <div className="flex shrink-0 items-start justify-center gap-2.5 overflow-clip pt-1.5">
-        <Button className="h-10 rounded-lg px-4 shadow-none lg:h-10.5 lg:px-4.5">
-          {t("clearFilters")}
-        </Button>
-        <Button
-          className="hidden h-10.5 rounded-lg bg-card px-4.5 shadow-none lg:inline-flex"
-          nativeButton={false}
-          render={<Link href="/search/browse" />}
-          variant="outline"
-        >
-          {t("browseAll")}
-        </Button>
-      </div>
-    </div>
+    <Surface className="w-full shrink-0 overflow-clip">
+      <EmptyState
+        action={
+          // A row of two, so neither takes `block` — and the second only exists
+          // at `lg`, where the suggestion chips below are gone.
+          <div className="flex shrink-0 items-start justify-center gap-2.5">
+            <PrimaryButton size="lg">{t("clearFilters")}</PrimaryButton>
+            <NeutralButton className="hidden lg:inline-flex" href="/search/browse" size="lg">
+              {t("browseAll")}
+            </NeutralButton>
+          </div>
+        }
+        body={t("emptyBody")}
+        className="lg:py-14"
+        illustration={errorSearch}
+        title={t("emptyTitle", { query })}
+      />
+    </Surface>
   );
 }
 
@@ -313,7 +340,7 @@ function Suggestions() {
       <div className="flex w-full flex-wrap items-start gap-2">
         {SUGGESTED_TERMS.map((key) => (
           <Link
-            className="flex h-8.5 shrink-0 items-center justify-center rounded-full border border-border bg-card px-3.5 text-sm font-normal whitespace-nowrap text-primary lg:h-9"
+            className="flex h-8.5 shrink-0 items-center justify-center rounded-full border border-border bg-card px-3.5 text-sm font-normal whitespace-nowrap text-primary shadow-card transition-[box-shadow,border-color] hover:border-primary/40 hover:shadow-card-hover lg:h-9"
             href="/search"
             key={key}
           >
@@ -329,7 +356,7 @@ function Suggestions() {
       <div className="flex w-full flex-wrap items-start gap-2 lg:hidden">
         {CATEGORY_KEYS.map((key) => (
           <Link
-            className="flex h-9.5 shrink-0 items-center rounded-lg bg-muted px-3.5 text-sm font-normal whitespace-nowrap text-foreground"
+            className="flex h-9.5 shrink-0 items-center rounded-lg bg-muted px-3.5 text-sm font-normal whitespace-nowrap text-foreground transition-colors hover:bg-accent-surface hover:text-primary"
             href="/search"
             key={key}
           >
@@ -393,9 +420,14 @@ export function SearchResultsScreen({
         <SearchField
           aria-label={c("search")}
           defaultValue={query}
+          groupClassName="shadow-card"
           iconClassName="size-4"
         />
-        <FilterButton iconClassName="size-4" label={c("filters")} />
+        <FilterButton
+          className="shadow-card"
+          iconClassName="size-4"
+          label={c("filters")}
+        />
       </div>
 
       <ScreenBody className="pb-18 lg:items-stretch lg:pb-0">
@@ -407,11 +439,11 @@ export function SearchResultsScreen({
         {/* Figma "Search Header" (1564:25276) — a 640px field on the page inset
             with the query spelled back under it. */}
         <div className="hidden w-full border-b border-border bg-card lg:block">
-          <div className="mx-auto w-full max-w-[1440px] px-30 py-7">
+          <div className={cn("w-full py-7", PAGE)}>
             <SearchField
               aria-label={c("search")}
               defaultValue={query}
-              groupClassName="h-14 max-w-160 rounded-xl px-4"
+              groupClassName="h-14 max-w-160 rounded-card px-4 shadow-card"
               iconClassName="size-4.5"
               inputClassName="text-base"
               trailing={
@@ -429,7 +461,12 @@ export function SearchResultsScreen({
         {/* Figma "Page Content" — 24px side padding, 16px between blocks. The
             desktop frame splits the same content into a 280px filter rail and
             an 896px results column. */}
-        <div className="flex w-full shrink-0 flex-col items-center gap-4 px-6 pt-2 pb-6 lg:mx-auto lg:max-w-[1440px] lg:flex-row lg:items-start lg:gap-6 lg:px-10 xl:px-30 lg:pt-6 lg:pb-14">
+        <div
+          className={cn(
+            "flex w-full shrink-0 flex-col items-center gap-4 px-6 pt-2 pb-6 lg:flex-row lg:items-start lg:gap-6 lg:pt-6 lg:pb-14",
+            PAGE,
+          )}
+        >
           <FilterRail />
 
           <div className="flex w-full min-w-px flex-col items-center gap-4 lg:gap-6">
@@ -505,7 +542,7 @@ export function BrowseAllScreen() {
             a 640px field, on the card surface behind a hairline. The phone has
             no frame of its own here, so it keeps the heading it would have. */}
         <div className="w-full shrink-0 lg:border-b lg:border-border lg:bg-card">
-          <div className="w-full lg:mx-auto lg:max-w-[1440px] lg:px-10 lg:pt-8 lg:pb-6 xl:px-30">
+          <div className={cn("w-full lg:pt-8 lg:pb-6", PAGE)}>
             <ScreenHeading
               className="lg:px-0 lg:pt-0 lg:pb-0"
               subtitle={t("browseSubtitle")}
@@ -514,7 +551,7 @@ export function BrowseAllScreen() {
             <div className="flex w-full items-start px-6 pt-4 lg:px-0">
               <SearchField
                 aria-label={c("search")}
-                groupClassName="lg:h-14 lg:max-w-160 lg:rounded-xl lg:px-4"
+                groupClassName="shadow-card lg:h-14 lg:max-w-160 lg:rounded-card lg:px-4"
                 iconClassName="size-4.5"
                 inputClassName="lg:text-base"
                 placeholder={t("browsePlaceholder")}
@@ -531,14 +568,19 @@ export function BrowseAllScreen() {
         {/* Figma "Categories" (1564:25696) — a band of the six the rail filters
             by, on the page ground. Figma tallies each one; the catalogue has no
             such count, so the chip is the label alone. */}
-        <div className="flex w-full shrink-0 flex-col items-start gap-2.5 px-6 pt-5 lg:mx-auto lg:max-w-[1440px] lg:px-10 xl:px-30">
-          <p className="w-full text-sm font-medium text-foreground">
+        <div
+          className={cn(
+            "flex w-full shrink-0 flex-col items-start gap-2.5 px-6 pt-5",
+            PAGE,
+          )}
+        >
+          <p className="w-full text-sm font-medium text-foreground lg:text-base">
             {t("popularCategories")}
           </p>
           <div className="flex w-full items-start gap-2.5 overflow-x-auto">
             {CATEGORY_KEYS.map((key) => (
               <Link
-                className="flex h-9.5 shrink-0 items-center rounded-lg bg-muted px-3.5 text-sm font-normal whitespace-nowrap text-foreground lg:h-11 lg:px-4.5"
+                className="flex h-9.5 shrink-0 items-center rounded-lg bg-muted px-3.5 text-sm font-normal whitespace-nowrap text-foreground transition-colors hover:bg-accent-surface hover:text-primary lg:h-11 lg:px-4.5"
                 href="/search"
                 key={key}
               >
@@ -550,21 +592,23 @@ export function BrowseAllScreen() {
 
         {/* Figma "Body" — the same 280px rail and 896px column as the search
             frame, on the same page inset. */}
-        <div className="flex w-full shrink-0 flex-col items-center gap-4 px-6 pt-4 pb-6 lg:mx-auto lg:max-w-[1440px] lg:flex-row lg:items-start lg:gap-6 lg:px-10 lg:pt-6 lg:pb-12 xl:px-30">
+        <div
+          className={cn(
+            "flex w-full shrink-0 flex-col items-center gap-4 px-6 pt-4 pb-6 lg:flex-row lg:items-start lg:gap-6 lg:pt-6 lg:pb-12",
+            PAGE,
+          )}
+        >
           <FilterRail />
 
+          {/* Read from the API, not from `lib/catalogue/services`. This is the
+              first screen in the app that talks to it, and `BrowseList` carries
+              its own loading, error and empty states because a client-side fetch
+              under a static export has all three. The count in the head comes off
+              the catalogue still: the API's `total` is inside the response, so a
+              heading above the list cannot know it until the list has answered. */}
           <div className="flex w-full min-w-px flex-col items-center gap-4 lg:gap-6">
-            <ResultsHead label={t("browseCount", { count: services.length })} />
-
-            <div className="flex w-full shrink-0 flex-col items-start gap-3 lg:grid lg:grid-cols-3 lg:gap-6">
-              {services.map((service) => (
-                <ResultCard key={service.id} service={service} />
-              ))}
-            </div>
-
-            <p className="w-full pt-2 text-center text-xs font-normal text-muted-foreground lg:pt-4">
-              {t("browseShowing", { count: services.length })}
-            </p>
+            <ResultsHead label={t("browseTitle")} />
+            <BrowseList />
           </div>
         </div>
       </ScreenBody>

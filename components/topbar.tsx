@@ -12,7 +12,14 @@ import { Bell, ChevronLeft, LogIn } from "lucide-react";
 import { logo } from "@/lib/assets/r2";
 import { avatarImage, initials } from "@/lib/mock-db/avatars";
 import { useSession } from "@/lib/session";
+import { NeutralButton, PrimaryButton } from "@/components/mobile/buttons";
 import { Button } from "@/components/ui/button";
+import {
+  Sheet,
+  SheetContent,
+  SheetTitle,
+  SheetTrigger,
+} from "@/components/ui/sheet";
 import { cn } from "@/lib/utils";
 
 gsap.registerPlugin(useGSAP);
@@ -208,7 +215,9 @@ function NavAvatar() {
   return (
     <Link
       aria-label={t("profile")}
-      className="hidden shrink-0 lg:block"
+      // A ring that appears on hover, so the portrait is visibly a control. It
+      // was the one item in the desktop bar with no state at all.
+      className="hidden shrink-0 rounded-full ring-2 ring-transparent transition-[box-shadow,--tw-ring-color] duration-150 hover:ring-border motion-reduce:transition-none lg:block"
       href="/profile"
     >
       {image ? (
@@ -248,8 +257,14 @@ export function TopBar({
 }: {
   readonly unreadNotifications?: boolean;
   /**
-   * Puts a sign-in link in the trailing slot instead of the notification bell.
-   * For the pre-auth landing frame — every signed-in screen keeps the bell.
+   * This page is reachable by a guest, so the trailing slot falls back to a
+   * sign-in link **when there is no session**.
+   *
+   * It is not "always show sign in". It used to be, and because `NavAvatar`
+   * renders on its own whenever a session exists, a signed-in reader on one of
+   * these pages got a sign-in link and their own portrait side by side — two
+   * controls stating the opposite thing. A signed-in reader now gets the bell and
+   * the portrait here exactly as they do everywhere else.
    */
   readonly login?: boolean;
   /** Swaps the leading menu glyph for a back chevron pointing here. */
@@ -263,16 +278,50 @@ export function TopBar({
 }) {
   const t = useTranslations("common");
   const nav = useTranslations("navigation");
+  // The site-wide link labels live in `landing`, beside the footer that also uses
+  // them — the two should never disagree about what a destination is called.
+  const l = useTranslations("landing");
   const pathname = usePathname();
   const [frosted, setFrosted] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
   const sentinelRef = useRef<HTMLDivElement>(null);
+  // Read here as well as in `NavAvatar`, so the two halves of the trailing slot
+  // agree about whether anyone is signed in. `useSession` is a subscription to
+  // the same store, not a second source of truth.
+  // Three states, not two. Reading the session is a round trip now that it comes
+  // from `/api/v1/users/me`, so `status` is `loading` for the first render of
+  // every page view. Collapsing that to "not signed in" made a signed-in reader
+  // see the sign-in link and no portrait, then watch both swap — so `loading`
+  // renders neither rather than guessing wrong for a whole request.
+  const sessionStatus = useSession().status;
+  const signedIn = sessionStatus === "authenticated";
+  const sessionKnown = sessionStatus !== "loading";
 
   // Figma's desktop nav carries four: find an advisor, bookings, chat, about.
+  /**
+   * The bar carried four. The footer carries eleven, so the nav was the narrowest
+   * view of the site anywhere in it — and two of its four were `bookings` and
+   * `chat`, which are signed-in destinations sitting in a bar a guest also sees.
+   *
+   * Seven now, in the order a reader meets them: find, browse, how it works, then
+   * their own two, then the two the site wants to sell. Every label is a key that
+   * already existed; nothing here is new copy.
+   *
+   * The last two are `xl`-only. At 1024 seven Thai labels at 18px plus the lockup
+   * and the actions do not leave a single line, and a nav that wraps is broken —
+   * so the tablet keeps five and the desktop takes all seven.
+   */
   const links = [
     { label: t("findAdvisor"), href: "/search" },
+    // The Thai `footerLink*` set, not the English uppercase `footer*` set — the
+    // latter is the phone footer's English link list and would drop ENGLISH CAPS
+    // into a Thai nav.
+    { label: l("footerLinkCategories"), href: "/search/browse" },
+    { label: l("footerLinkHowItWorks"), href: "/landing#how-it-works" },
     { label: nav("bookings"), href: "/bookings" },
     { label: nav("chat"), href: "/chat" },
-    { label: t("about"), href: "/landing#about" },
+    { label: l("footerLinkAbout"), href: "/landing#about", wide: true },
+    { label: l("footerLinkBecomeAdvisor"), href: "/advisor/apply", wide: true },
   ];
 
   useEffect(() => {
@@ -291,8 +340,17 @@ export function TopBar({
   const onMedia = overlay && !frosted;
   // This is a touch UI — the ghost variant's hover tint only ever fires as a
   // stuck highlight after a tap, so the bar opts out of it entirely.
-  const trigger =
-    "relative flex size-6 shrink-0 items-center justify-center hover:bg-transparent before:absolute before:-inset-2 before:content-['']";
+  // The opt-out is now scoped to the phone. A pointer has no reason to lose
+  // hover feedback, and the desktop bar had none at all: every control on it
+  // answered a click with nothing, which is most of why it read as unfinished
+  // beside the phone bar. From `lg` each glyph gets a real 36px target with a
+  // hover ground, and `before:inset-0` retires the phone's invisible 40px
+  // padded hit area, which would otherwise make the new grounds overlap.
+  const trigger = cn(
+    "relative flex size-6 shrink-0 items-center justify-center before:absolute before:-inset-2 before:content-['']",
+    "max-lg:hover:bg-transparent",
+    "lg:size-9 lg:rounded-lg lg:transition-colors lg:duration-150 lg:before:inset-0 lg:hover:bg-accent motion-reduce:lg:transition-none",
+  );
   const ink = onMedia
     ? "text-on-media hover:text-on-media"
     : "text-foreground hover:text-foreground";
@@ -315,7 +373,20 @@ export function TopBar({
             // Figma "Top Nav" (1564:24844): 68px on the card surface behind a
             // real border, not the phone bar's glass. The wash is an inline
             // gradient, which a class cannot outrank, hence the `!` pair.
-            "lg:h-17 lg:border-border lg:bg-card! lg:bg-none! lg:px-0 lg:py-4 lg:backdrop-blur-none",
+            // A hairline alone left the bar floating on a ground that is now a
+            // real step darker; the resting elevation is what seats it.
+            // The glass is kept at every width. This used to read
+            // `lg:bg-card! lg:bg-none! lg:backdrop-blur-none`, which threw the
+            // frosted treatment away and put a flat card band in its place — the
+            // same mistake the footer was making, and the reason the phone bar
+            // looked considered while the desktop one looked like a placeholder.
+            // What changes with the width is the height and the layout, not the
+            // material.
+            //
+            // 72px, not 68: the desktop bar was *shorter* than the phone's 80,
+            // which is backwards, since the wider viewport is where a bar has
+            // room to be a band rather than a strip.
+            "lg:h-18 lg:px-0 lg:py-4",
             className,
           )}
           style={frosted ? { background: FROSTED } : undefined}
@@ -329,7 +400,16 @@ export function TopBar({
               the 120px page inset, the links follow it, and the actions hold the
               right edge — so the row becomes logo, nav, actions inside a 1440
               container. */}
-          <div className="flex w-full items-center justify-between lg:mx-auto lg:max-w-[1440px] lg:justify-start lg:px-10 xl:px-30">
+          {/* From `xl` the links sit in the true centre of the bar, with the
+              lockup hard left and the actions hard right — the shape
+              mochiice-fe's header uses (`absolute left-1/2 -translate-x-1/2` on
+              the nav, `flex-1` groups either side). Two equal flex-1 groups are
+              what make the centre optical rather than "after the logo".
+
+              Gated at `xl`, not `lg`: mochiice gates its own at 1512 for the same
+              reason — at 1024 four links plus a lockup plus the actions have no
+              room to leave a centre, so there the nav stays inline. */}
+          <div className="relative flex w-full items-center justify-between lg:mx-auto lg:max-w-[1440px] lg:justify-start lg:px-8 xl:justify-between xl:px-12">
             <div
               className={cn(
                 "flex flex-1 items-center justify-start",
@@ -348,14 +428,102 @@ export function TopBar({
                   <ChevronLeft className="size-6" />
                 </Button>
               ) : (
-                <Button
-                  aria-label={t("menu")}
-                  className={cn(trigger, ink, "size-9")}
-                  size="icon"
-                  variant="ghost"
-                >
-                  <MenuGlyph className="size-7" />
-                </Button>
+                /* It was a `<Button>` with no handler and no href: the one
+                   control on the phone bar, and pressing it did nothing. It opens
+                   the navigation now — the links the desktop bar shows inline,
+                   which the phone had no way to reach at all. */
+                <Sheet onOpenChange={setMenuOpen} open={menuOpen}>
+                  <SheetTrigger
+                    aria-label={t("menu")}
+                    className={cn(trigger, ink, "size-9")}
+                  >
+                    <MenuGlyph className="size-7" />
+                  </SheetTrigger>
+                  {/* A full-screen panel, not a narrow side drawer. On a 402px
+                      frame a 4/5-width sheet leaves a useless 80px sliver of the
+                      page behind it and forces the links into a column narrower
+                      than the screen; the reference header opens
+                      `inset-x-0 bottom-0 top-14` and sets its links large and
+                      centred, which is what a phone menu should be. The `!`s
+                      outrank `sheet`'s own `w-3/4` / `sm:max-w-sm` / `h-auto`
+                      side variants. */}
+                  <SheetContent
+                    className="h-dvh! w-full! max-w-none! gap-0 border-0 bg-background p-0"
+                    side="top"
+                  >
+                    <SheetTitle className="sr-only">{t("menu")}</SheetTitle>
+                    {/* A band the height of the bar it opened from, so the
+                        lockup does not jump when the panel appears. */}
+                    <div className="flex h-20 w-full shrink-0 items-center px-4">
+                      <Link
+                        className="shrink-0"
+                        href="/"
+                        onClick={() => setMenuOpen(false)}
+                      >
+                        <Lockup reversed={false} />
+                      </Link>
+                    </div>
+
+                    {/* Centred, at 24px, 24px apart, each a 44px target, with the
+                        current section stated in the accent and nothing else —
+                        the shape `everyday-cat-clinic-v2`'s drawer uses
+                        (`items-center gap-6`, `min-h-11`, `text-2xl`, colour for
+                        state). The first attempt here was a left-aligned list of
+                        20px rows with a tinted background behind the current one,
+                        which is a settings list, not a menu: four destinations on
+                        a phone want to be the only thing on the screen. */}
+                    <nav className="mx-auto flex min-h-0 w-full flex-1 flex-col items-center gap-6 overflow-y-auto overscroll-contain px-5 pt-10">
+                      {links.map(({ label, href }) => {
+                        const path = href.split("#")[0];
+                        const current =
+                          path === "/"
+                            ? pathname === "/"
+                            : pathname === path || pathname.startsWith(`${path}/`);
+                        return (
+                          <Link
+                            aria-current={current ? "page" : undefined}
+                            className={cn(
+                              "flex min-h-11 items-center rounded-md px-2 text-2xl leading-none transition-colors duration-150 motion-reduce:transition-none",
+                              current
+                                ? "font-semibold text-primary"
+                                : "font-medium text-foreground",
+                            )}
+                            href={href}
+                            key={href}
+                            onClick={() => setMenuOpen(false)}
+                          >
+                            {label}
+                          </Link>
+                        );
+                      })}
+                    </nav>
+
+                    {/* The way in or the way to your own account, at the thumb
+                        end of the panel. Without it the menu listed four
+                        marketing pages and nothing about the reader. */}
+                    <div className="mx-auto flex w-full max-w-80 shrink-0 flex-col items-stretch px-5 pt-8 pb-10">
+                      {signedIn ? (
+                        <NeutralButton
+                          block
+                          href="/profile"
+                          onClick={() => setMenuOpen(false)}
+                          size="lg"
+                        >
+                          {t("profile")}
+                        </NeutralButton>
+                      ) : (
+                        <PrimaryButton
+                          block
+                          href="/login"
+                          onClick={() => setMenuOpen(false)}
+                          size="lg"
+                        >
+                          {t("login")}
+                        </PrimaryButton>
+                      )}
+                    </div>
+                  </SheetContent>
+                </Sheet>
               )}
             </div>
 
@@ -369,8 +537,8 @@ export function TopBar({
             {/* Figma "Links" (1564:24858) — 48px after the lockup, 28px apart,
                 14/20 medium, the current section in full ink. No phone frame
                 draws them, so they start at `lg`. */}
-            <nav className="hidden lg:flex lg:min-w-px lg:flex-1 lg:items-center lg:gap-7 lg:pl-12">
-              {links.map(({ label, href }) => {
+            <nav className="hidden lg:flex lg:min-w-px lg:flex-1 lg:items-center lg:gap-10 lg:pl-12 xl:absolute xl:left-1/2 xl:flex-none xl:-translate-x-1/2 xl:pl-0">
+              {links.map(({ label, href, wide }) => {
                 const path = href.split("#")[0];
                 const current =
                   path === "/"
@@ -380,10 +548,24 @@ export function TopBar({
                   <Link
                     aria-current={current ? "page" : undefined}
                     className={cn(
-                      "text-sm leading-5 font-medium whitespace-nowrap transition-colors",
+                      // The last two appear only from `xl`: seven Thai labels at
+                      // 18px plus the lockup and the actions do not leave one line
+                      // at 1024, and a nav that wraps is broken. The tablet keeps
+                      // five.
+                      wide && "hidden xl:flex",
+                      // 18/28 and 40px apart, which is what the reference header
+                      // sets its nav at. This nav only exists from `lg` and was
+                      // at 14px, 28 apart — the phone's smallest body size, on
+                      // the widest viewport, reading like a footnote.
+                      "relative text-lg leading-7 font-medium whitespace-nowrap transition-colors duration-150 motion-reduce:transition-none",
+                      // The section the reader is in was stated by ink alone, at
+                      // 14px, against a colour one step away. It now carries
+                      // weight and a 2px rule under it, so the bar says where you
+                      // are without being read word by word.
+                      "after:absolute after:-bottom-1.5 after:left-0 after:h-0.5 after:w-full after:rounded-full after:transition-colors after:content-['']",
                       current
-                        ? "text-foreground"
-                        : "text-muted-foreground hover:text-foreground",
+                        ? "font-semibold text-foreground after:bg-primary"
+                        : "text-muted-foreground after:bg-transparent hover:text-foreground hover:after:bg-border",
                     )}
                     href={href}
                     key={href}
@@ -394,8 +576,16 @@ export function TopBar({
               })}
             </nav>
 
-            <div className="flex flex-1 items-center justify-end lg:flex-none lg:gap-4">
-              {login ? (
+            {/* `xl:flex-1` again, to balance the lockup's side: two equal groups
+                are what let the absolutely-centred nav land on the bar's centre
+                rather than the centre of what is left over. */}
+            <div className="flex flex-1 items-center justify-end lg:flex-none lg:gap-4 xl:flex-1">
+              {/* `sessionKnown` gates the whole either/or: until the session has
+                  answered, neither the sign-in link nor the bell is drawn, so the
+                  slot is empty for one request rather than showing the wrong one.
+                  The bar's height does not depend on what is in it, so nothing
+                  moves when the answer lands. */}
+              {!sessionKnown && login ? null : login && !signedIn ? (
                 <Link
                   className={cn(
                     "flex shrink-0 items-center gap-1.5 text-sm font-semibold whitespace-nowrap",

@@ -1,6 +1,5 @@
-import { WifiOff } from "lucide-react";
+import { CircleCheck, WifiOff } from "lucide-react";
 import { useTranslations } from "next-intl";
-import { Fragment } from "react";
 
 import { NeutralButton } from "@/components/mobile/buttons";
 import { SiteFooter } from "@/components/marketing/site-footer";
@@ -11,14 +10,23 @@ import {
   ScreenSpacer,
   ScreenTopBar,
 } from "@/components/mobile/screen";
-import { CaptionedCard, LabelValueRow, OfflineDivider } from "@/components/offline/parts";
+import { StatusPill } from "@/components/mobile/status-pill";
+import { CaptionedCard, LabelValueRow } from "@/components/offline/parts";
 import { RetryAction } from "@/components/offline/retry";
 import { TopBar } from "@/components/topbar";
+import { NARROW_COLUMN } from "@/lib/layout";
+import { cn } from "@/lib/utils";
 
 type OfflineStateKind = "page-not-saved" | "payment";
 
-/** The copy column the outcome frames hold at 1440 — the width the error frames use. */
-const COPY_COLUMN = "lg:mx-auto lg:w-full lg:max-w-140";
+/** "ดูได้" — what a cached section can still do, said in green. */
+function Available({ children }: { readonly children: string }) {
+  return (
+    <StatusPill icon={CircleCheck} tone="success">
+      {children}
+    </StatusPill>
+  );
+}
 
 /**
  * Figma "ออฟไลน์ - หน้ายังไม่ได้บันทึก" (1952:35956) and "ออฟไลน์ - ชำระเงินไม่ได้"
@@ -61,10 +69,13 @@ export function OfflineStateScreen({ kind }: { readonly kind: OfflineStateKind }
         title: t("notSavedTitle"),
         body: t("notSavedBody"),
         caption: t("notSavedCaption"),
+        // "ดูได้" is an outcome, not a value: three rows of it in the same
+        // semibold as an amount told a reader nothing at a glance. As pills they
+        // read as a list of what still works while the network is gone.
         rows: [
-          { label: t("notSavedChats"), value: t("notSavedAvailable") },
-          { label: t("notSavedBookings"), value: t("notSavedAvailable") },
-          { label: t("notSavedProfile"), value: t("notSavedAvailable") },
+          { label: t("notSavedChats"), value: <Available>{t("notSavedAvailable")}</Available> },
+          { label: t("notSavedBookings"), value: <Available>{t("notSavedAvailable")}</Available> },
+          { label: t("notSavedProfile"), value: <Available>{t("notSavedAvailable")}</Available> },
         ],
         primary: t("notSavedPrimary"),
         secondary: t("notSavedSecondary"),
@@ -92,7 +103,12 @@ export function OfflineStateScreen({ kind }: { readonly kind: OfflineStateKind }
           <span className="flex size-22 shrink-0 items-center justify-center overflow-clip rounded-full bg-muted lg:size-28">
             <WifiOff className="size-9.5 text-muted-foreground lg:size-12" />
           </span>
-          <div className={`flex w-full shrink-0 flex-col items-center gap-2 text-center ${COPY_COLUMN}`}>
+          <div
+            className={cn(
+              "flex w-full shrink-0 flex-col items-center gap-2 text-center",
+              NARROW_COLUMN,
+            )}
+          >
             <h1 className="w-full text-heading font-semibold text-foreground lg:text-heading-lg">
               {spec.title}
             </h1>
@@ -106,13 +122,10 @@ export function OfflineStateScreen({ kind }: { readonly kind: OfflineStateKind }
             card is the only thing on these frames that is not centred text, so
             on the desktop page it keeps the same 560px column rather than
             stretching to the width the canvas now allows. */}
-        <div className={`w-full shrink-0 px-6 pt-6 lg:px-0 ${COPY_COLUMN}`}>
-          <CaptionedCard caption={spec.caption} cardClassName="border border-border px-4 py-1">
-            {spec.rows.map((row, i) => (
-              <Fragment key={row.label}>
-                {i > 0 ? <OfflineDivider className="bg-border" /> : null}
-                <LabelValueRow label={row.label} value={row.value} />
-              </Fragment>
+        <div className={cn("w-full shrink-0 px-6 pt-6 lg:px-0", NARROW_COLUMN)}>
+          <CaptionedCard caption={spec.caption} cardClassName="px-4">
+            {spec.rows.map((row) => (
+              <LabelValueRow key={row.label} label={row.label} value={row.value} />
             ))}
           </CaptionedCard>
         </div>

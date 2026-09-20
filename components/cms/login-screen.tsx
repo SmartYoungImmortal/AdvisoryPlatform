@@ -24,6 +24,7 @@ type FieldErrors = { email?: string; password?: string };
  */
 export function CmsLoginScreen({ preset = "default" }: { readonly preset?: "default" | "error" }) {
   const t = useTranslations("cms.login");
+  const s = useTranslations("errorStates");
   const router = useRouter();
   const session = useSession();
   const { toast } = useCmsFeedback();
@@ -50,7 +51,7 @@ export function CmsLoginScreen({ preset = "default" }: { readonly preset?: "defa
     toast({ color: "error", title: t("invalidTitle"), description: t("invalidBody") });
   }, [preset, t, toast]);
 
-  function submit(event: FormEvent<HTMLFormElement>) {
+  async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (loading) return;
     const next: FieldErrors = {};
@@ -60,18 +61,26 @@ export function CmsLoginScreen({ preset = "default" }: { readonly preset?: "defa
     if (next.email || next.password) return;
 
     setLoading(true);
-    const result = signIn(email, password, { allow: ["admin"] });
-    setLoading(false);
+    const result = await signIn(email, password, { allow: ["admin"] });
     if (result.ok) {
+      // Left loading: the redirect is in flight and the session already exists.
       const redirect = safeNext(new URLSearchParams(window.location.search).get("next"));
       router.replace(redirect?.startsWith("/admin") ? redirect : "/admin/dashboard");
       return;
     }
+    setLoading(false);
+    // `failed` and `unreachable` are new reasons the mock database had no way to
+    // produce. They take the shared `errorStates` pair rather than the console's
+    // own copy: a 500 and a build with no API to talk to are neither of them a
+    // wrong password, and `forbidden` — a real password at the admin door — is
+    // still the one that has to be said plainly.
     const copy = {
       invalid: { title: t("invalidTitle"), description: t("invalidBody") },
       locked: { title: t("lockedTitle"), description: t("lockedBody") },
       suspended: { title: t("suspendedTitle"), description: t("suspendedBody") },
       forbidden: { title: t("forbiddenTitle"), description: t("forbiddenBody") },
+      failed: { title: s("serverTitle"), description: result.message ?? s("serverBody") },
+      unreachable: { title: s("offlineTitle"), description: s("offlineBody") },
     }[result.reason];
     toast({ color: "error", ...copy });
   }
@@ -81,7 +90,11 @@ export function CmsLoginScreen({ preset = "default" }: { readonly preset?: "defa
       <div className="w-full max-w-md">
         <div className="relative flex rounded-lg bg-card shadow-xl ring-1 ring-border">
           <div className="flex flex-1 flex-col gap-y-4 p-4 sm:p-6">
-            <form className="w-full space-y-6" noValidate onSubmit={submit}>
+            <form
+              className="w-full space-y-6"
+              noValidate
+              onSubmit={(event) => void submit(event)}
+            >
               <div className="flex flex-col text-center">
                 <div className="mb-2">
                   <Image

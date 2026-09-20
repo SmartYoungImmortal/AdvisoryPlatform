@@ -130,7 +130,7 @@ function MatchCard({
   readonly rating: string;
 }) {
   return (
-    <div className="flex w-full shrink-0 items-start gap-3 overflow-clip rounded-xl bg-card p-3.5">
+    <div className="flex w-full shrink-0 items-start gap-3 overflow-clip rounded-card bg-card p-3.5">
       <Image
         alt=""
         className="size-12 shrink-0 rounded-full object-cover"

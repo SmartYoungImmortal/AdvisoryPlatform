@@ -43,7 +43,7 @@ const SECTIONS: ReadonlyArray<{
       { href: "/register/validation-errors", label: "Register – Validation errors" },
       { href: "/forgot-password", label: "Forgot password" },
       { href: "/reset-sent", label: "Reset link sent" },
-      { href: "/pdpa", label: "PDPA consent" },
+      { href: "/pdpa", label: "PDPA privacy policy" },
       { href: "/terms", label: "Terms of Service" },
     ],
   },
