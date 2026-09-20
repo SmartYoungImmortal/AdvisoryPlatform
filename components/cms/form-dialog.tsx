@@ -21,6 +21,7 @@ export function CmsFormDialog({
   title,
   description,
   submitLabel,
+  submitting = false,
   onSubmit,
   onClose,
   children,
@@ -29,6 +30,8 @@ export function CmsFormDialog({
   readonly title: string;
   readonly description?: string;
   readonly submitLabel: string;
+  /** A save that has gone to the API and not answered yet. */
+  readonly submitting?: boolean;
   readonly onSubmit: () => void;
   readonly onClose: () => void;
   readonly children: ReactNode;
@@ -57,10 +60,16 @@ export function CmsFormDialog({
           </div>
           <div className="flex flex-col gap-4 border-y border-border p-4 sm:p-6">{children}</div>
           <div className="flex items-center justify-end gap-1.5 p-4 sm:px-6">
-            <CmsButton color="neutral" onClick={onClose} type="button" variant="outline">
+            <CmsButton
+              color="neutral"
+              disabled={submitting}
+              onClick={onClose}
+              type="button"
+              variant="outline"
+            >
               {t("cancel")}
             </CmsButton>
-            <CmsButton color="action" type="submit">
+            <CmsButton color="action" loading={submitting} type="submit">
               {submitLabel}
             </CmsButton>
           </div>

@@ -60,7 +60,11 @@ export function OfflineChatScreen({
             <QueuedMessage meta={t("chatQueuedMeta")} text={t("chatQueuedText")} />
           </ScreenBody>
           <OfflineStrip>{t("chatStrip")}</OfflineStrip>
-          <ChatFooter sendVariant="muted" />
+          {/* No `roomId`: this frame is offline by definition, so the compose row
+              has nowhere to put an attachment either. `sendVariant` is gone —
+              `ChatFooter`'s send is muted in every state now, because the API has
+              no route to send a message on. See `ChatFooter`. */}
+          <ChatFooter />
         </div>
       </div>
     </MobileScreen>

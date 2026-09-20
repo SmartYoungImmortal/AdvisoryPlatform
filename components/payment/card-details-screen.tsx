@@ -1,3 +1,5 @@
+"use client";
+
 import { CreditCard, Lock } from "lucide-react";
 import { useTranslations } from "next-intl";
 
@@ -19,6 +21,8 @@ import {
   ScreenTopBar,
 } from "@/components/mobile/screen";
 import { Surface } from "@/components/mobile/surface";
+import { asUuid, useQueryValue } from "@/components/bookings/booking-flow";
+import { LiveCheckoutScreen } from "@/components/payment/checkout-live";
 import { BODY_GRID, PAGE_HEAD_BAND } from "@/components/payment/invoice-screens";
 import { FootNote } from "@/components/screening/parts";
 import { TopBar } from "@/components/topbar";
@@ -120,6 +124,12 @@ export function CardDetailsScreen({
   const c = useTranslations("common");
   const err = state === "errors";
   const saved = state === "saved";
+  // A booking that `POST /bookings` has already held — the slot chips on
+  // `/service/…` send the reader here with its id. Without one this is the
+  // fixture screen it has always been.
+  const booking = asUuid(useQueryValue("bookingId"));
+
+  if (booking) return <LiveCheckoutScreen bookingId={booking} />;
 
   return (
     <MobileScreen wide>

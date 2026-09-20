@@ -15,7 +15,26 @@ import {
 import { Surface } from "@/components/mobile/surface";
 import { cn } from "@/lib/utils";
 
-/** Figma "Forgot password (Light)" — 995:4148. */
+/**
+ * Figma "Forgot password (Light)" — 995:4148.
+ *
+ * ## Still a drawing, on purpose: the API has no reset flow to call
+ *
+ * Checked against the running API rather than assumed. `POST /api/auth/forget-password`
+ * answers **404**, byte for byte what a route that does not exist answers —
+ * `auth.config.ts` builds with `betterAuth` from `better-auth/minimal` and sets
+ * `emailAndPassword: { enabled: true }` with no `sendResetPassword`, so the route
+ * is never mounted. `POST /api/auth/reset-password` *is* mounted (it answers
+ * `400 "Invalid token"`), but the only thing that can mint one of its tokens is
+ * the endpoint that is missing, and nothing on the API sends mail.
+ *
+ * So this screen stays as the frame draws it and its button stays a link to
+ * `/reset-sent`. Wiring the field to a fetch would give it a spinner, a success
+ * state and no email — a flow that looks finished and does nothing, which is
+ * worse than a screen that is visibly still a prototype. It needs
+ * `sendResetPassword` and a mail transport on the API first; the screen is then
+ * two calls away.
+ */
 export function ForgotPasswordScreen() {
   const t = useTranslations("forgotPassword");
   const c = useTranslations("common");

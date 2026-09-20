@@ -134,3 +134,117 @@ export interface ApiNamedRecord {
   readonly id: string;
   readonly name: string;
 }
+
+/* ----------------------------------------------------------------- bookings */
+
+/**
+ * `appointment_state` — database/schema/booking.ts:15, and the whole lifecycle a
+ * booking has.
+ *
+ * `PENDING_PAYMENT` is where `POST /bookings` leaves every row: the time is held
+ * and nothing has been charged. The advisee's own transitions are the two the
+ * bookings controller exposes — cancel, which writes `CANCELLED`, and reschedule.
+ * `IN_PROGRESS`, `COMPLETED` and `NO_SHOW` are written by the advisor's side, so
+ * a screen reads them and never sends them.
+ */
+export type ApiBookingState =
+  | "PENDING_PAYMENT"
+  | "BOOKED"
+  | "IN_PROGRESS"
+  | "COMPLETED"
+  | "CANCELLED"
+  | "NO_SHOW";
+
+/**
+ * `BookingResponseDto` — bookings/dtos/booking-response.dto.ts
+ *
+ * It is the appointment row and nothing more: no service name, no advisor name,
+ * no amount. A list of these is unreadable on its own, so a screen showing them
+ * joins `listServices` and `listAdvisors` by `serviceId` / `advisorId` — the same
+ * trade `components/home/browse-list.tsx` makes for one card's advisor name.
+ *
+ * `unavailableUntil` is the end of the range this booking blocks, which is
+ * `endTime` plus the advisor's buffer, and `blocksAvailability` goes false once a
+ * cancellation gave the range back — see `reopensAvailability` in the API.
+ */
+export interface ApiBooking {
+  readonly id: string;
+  readonly serviceId: string;
+  readonly advisorId: string;
+  readonly adviseeId: string;
+  readonly startTime: string;
+  readonly endTime: string;
+  readonly unavailableUntil: string;
+  readonly state: ApiBookingState;
+  readonly blocksAvailability: boolean;
+  readonly cancelledAt: string | null;
+  readonly cancelledByUserId: string | null;
+  readonly createdAt: string;
+}
+
+/** `OffsetPaginationDto` — the page/limit pair every paginated route accepts. */
+export interface ApiPageQuery {
+  readonly page?: number;
+  /** 1 to 100; the API rejects more. */
+  readonly limit?: number;
+}
+
+/** `CreateBookingDto` — bookings/dtos/create-booking.dto.ts */
+export interface ApiBookingInput {
+  readonly serviceId: string;
+  /** ISO 8601, and the exact `startTime` of a slot the slots route returned. */
+  readonly startTime: string;
+}
+
+/* ------------------------------------------------------------- own reviews */
+
+/** `CreateReviewDto` — reviews/dtos/create-review.dto.ts. The comment is optional. */
+export interface ApiReviewInput {
+  /** 1 to 5, integer. */
+  readonly stars: number;
+  readonly comment?: string;
+}
+
+/* ------------------------------------------------------------------ refunds */
+
+/** `refund_case_status` — database/schema/payment.ts:35 */
+export type ApiRefundCaseStatus = "OPEN" | "APPROVED" | "REJECTED";
+
+/**
+ * `RefundCaseResponseDto` — refunds/dtos/refund-case-response.dto.ts
+ *
+ * The requester's own view, which deliberately omits the admin who ruled on it.
+ * It names an `invoiceId` and no amount, and there is no advisee-facing invoice
+ * route to resolve that id against — see `openRefundCase`.
+ */
+export interface ApiRefundCase {
+  readonly id: string;
+  readonly invoiceId: string;
+  readonly reason: string;
+  readonly status: ApiRefundCaseStatus;
+  readonly createdAt: string;
+  readonly resolvedAt: string | null;
+}
+
+/** `CreateRefundCaseDto` — refunds/dtos/create-refund-case.dto.ts */
+export interface ApiRefundCaseInput {
+  readonly invoiceId: string;
+  /** 1 to `REFUND_REASON_MAX_LENGTH` characters; the API trims it first. */
+  readonly reason: string;
+}
+
+/* ------------------------------------------------------------------ payment */
+
+/**
+ * `CheckoutDto` — payment/dto/checkout.dto.ts
+ *
+ * `cardToken` is an Omise token (`tokn_…`), minted in the browser by Omise's own
+ * script against the publishable key. Nothing in this app loads that script, so
+ * there is no way to produce this value here yet — see `startCheckout`.
+ */
+export interface ApiCheckoutInput {
+  readonly serviceId: string;
+  /** One or more slot starts, ISO 8601. */
+  readonly startTimes: readonly string[];
+  readonly cardToken: string;
+}

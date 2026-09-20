@@ -2,58 +2,106 @@
 
 import { BadgeCheck } from "lucide-react";
 import { useTranslations } from "next-intl";
-import { useMemo } from "react";
+import { useCallback, useMemo } from "react";
 
+import { CmsApiError, CmsTableSkeleton, useRuling } from "@/components/cms/api";
 import { CmsPerson } from "@/components/cms/avatar";
 import { CmsButton } from "@/components/cms/button";
 import { useCmsFeedback } from "@/components/cms/feedback";
-import { useAccountLookup, useActorId } from "@/components/cms/hooks";
+import { useAccountLookup } from "@/components/cms/hooks";
 import { CmsPage } from "@/components/cms/layout";
 import { CmsQueryTabs, useQueryTab } from "@/components/cms/query-tabs";
-import { CmsStatus, useStatusOptions } from "@/components/cms/status";
+import { CmsApiStatus, CmsStatus, useStatusOptions } from "@/components/cms/status";
 import { CmsFilterMenu, CmsTable, type CmsColumn } from "@/components/cms/table";
 import { useCmsList } from "@/components/cms/use-cms-list";
-import { markPayoutFailed, markPayoutsPaid } from "@/lib/mock-db/actions";
+import {
+  ADMIN_MAX_LIMIT,
+  listPayouts,
+  markPayoutFailed,
+  markPayoutPaid,
+  type AdminPayout,
+  type AdminPayoutStatus,
+} from "@/lib/api/admin";
+import type { Paginated } from "@/lib/api/client";
+import { useResource } from "@/lib/api/use-resource";
 import { formatBaht, formatDateTime, timeValue } from "@/lib/mock-db/format";
 import { useDatabase } from "@/lib/mock-db/store";
-import type { Payout, PayoutStatus, Transaction } from "@/lib/mock-db/types";
+import type { Transaction } from "@/lib/mock-db/types";
 
-type PayoutTab = PayoutStatus | "all";
+type PayoutTab = "pending" | "failed" | "paid" | "all";
+
+const TAB_STATUS: Record<Exclude<PayoutTab, "all">, AdminPayoutStatus> = {
+  pending: "PENDING",
+  failed: "FAILED",
+  paid: "PAID",
+};
+
+const PAYOUTS_KEY = "admin/payouts";
 
 /**
- * Payouts are manual in this phase (ER.README): an admin transfers the money,
- * then marks the batch paid — or failed, with the bank's reason, which the
- * advisor sees on their payout detail.
+ * Payouts, from `GET /api/v1/admin/payouts`.
+ *
+ * `payouts` has no rows yet, so this queue is legitimately empty.
+ *
+ * Payouts are manual in this phase (ER.README): an admin transfers the money, then
+ * marks the row paid — or failed.
+ *
+ * ## Three things that are not on the API
+ *
+ * `AdminPayoutResponseDto` names the advisor and carries the amounts. It has **no
+ * bank name and no account number**, so the second line under the advisor is gone,
+ * and **no invoice count** on the list row (the detail route has the invoices, one
+ * request per payout, which a table will not do).
+ *
+ * `POST .../mark-failed` takes **no body at all** — `payouts` has no failure-reason
+ * column — so the bank's reason cannot be recorded and is not asked for. It used to
+ * be, and the answer went nowhere.
+ *
+ * `POST .../mark-paid` takes an optional `providerTransferId`. It is not asked for
+ * either, for a smaller reason: `cms.payouts` has no label for it. See the report.
  */
 export function PayoutsScreen() {
   const t = useTranslations("cms.payouts");
-  const actorId = useActorId();
-  const person = useAccountLookup();
-  const { confirm, prompt, toast } = useCmsFeedback();
-  const payouts = useDatabase((db) => db.payouts);
+  const { confirm } = useCmsFeedback();
+  const rule = useRuling();
+
+  const fetcher = useCallback(
+    (signal: AbortSignal) => listPayouts({ limit: ADMIN_MAX_LIMIT }, signal),
+    [],
+  );
+  const payouts = useResource<Paginated<AdminPayout>>(
+    `${PAYOUTS_KEY}?limit=${ADMIN_MAX_LIMIT}`,
+    fetcher,
+  );
+  const items = useMemo(() => payouts.data?.items ?? [], [payouts.data]);
 
   const tabs = (["pending", "failed", "paid", "all"] as const).map((value) => ({
     value,
     label: t(`tab.${value}`),
-    count: value === "pending" || value === "failed"
-      ? payouts.filter((p) => p.status === value).length
-      : undefined,
+    count:
+      value === "pending" || value === "failed"
+        ? items.filter((p) => p.status === TAB_STATUS[value]).length
+        : undefined,
     alert: true,
   }));
   const tab = useQueryTab<PayoutTab>(tabs);
   const rows = useMemo(
-    () => (tab === "all" ? payouts : payouts.filter((p) => p.status === tab)),
-    [payouts, tab],
+    () => (tab === "all" ? items : items.filter((p) => p.status === TAB_STATUS[tab])),
+    [items, tab],
   );
-  const due = rows.filter((p) => p.status !== "paid").reduce((sum, p) => sum + p.amountSatang, 0);
+  const due = rows
+    .filter((p) => p.status !== "PAID")
+    .reduce((sum, p) => sum + p.amountSatang, 0);
 
   const list = useCmsList(rows, {
-    searchText: (p) => `${p.id} ${p.bank} ${person(p.advisorId)?.name ?? ""}`,
-    sortValue: (p, id) => (id === "amount" ? p.amountSatang : timeValue(p.requestedAt)),
+    searchText: (p) => `${p.id} ${p.advisorDisplayName} ${p.providerTransferId ?? ""}`,
+    sortValue: (p, id) => (id === "amount" ? p.amountSatang : timeValue(p.createdAt)),
   });
 
   async function pay(ids: readonly string[]) {
-    const total = payouts.filter((p) => ids.includes(p.id)).reduce((sum, p) => sum + p.amountSatang, 0);
+    const total = items
+      .filter((p) => ids.includes(p.id))
+      .reduce((sum, p) => sum + p.amountSatang, 0);
     const ok = await confirm({
       type: "success",
       title: t("payTitle", { count: ids.length }),
@@ -61,50 +109,68 @@ export function PayoutsScreen() {
       confirmLabel: t("markPaid"),
     });
     if (!ok) return;
-    markPayoutsPaid(ids, actorId);
-    list.clearSelection();
-    toast({ title: t("paid", { count: ids.length }) });
+    await rule({
+      keyPrefix: PAYOUTS_KEY,
+      onDone: list.clearSelection,
+      run: ids.map((id) => () => markPayoutPaid(id)),
+      success: t("paid", { count: ids.length }),
+    });
   }
 
-  async function fail(payout: Payout) {
-    const reason = await prompt({
+  async function fail(payout: AdminPayout) {
+    const short = payout.id.slice(0, 8);
+    // A confirmation, not a prompt: the route takes no body, so a typed reason
+    // would be collected and thrown away.
+    const ok = await confirm({
       type: "danger",
-      title: t("failTitle", { id: payout.id }),
-      inputLabel: t("failReason"),
-      placeholder: t("failPlaceholder"),
+      title: t("failTitle", { id: short }),
       confirmLabel: t("markFailed"),
     });
-    if (reason === null) return;
-    markPayoutFailed(payout.id, reason, actorId);
-    toast({ color: "warning", title: t("failed", { id: payout.id }) });
+    if (!ok) return;
+    await rule({
+      keyPrefix: PAYOUTS_KEY,
+      run: [() => markPayoutFailed(payout.id)],
+      success: t("failed", { id: short }),
+      successColor: "warning",
+    });
   }
 
-  const columns: ReadonlyArray<CmsColumn<Payout>> = [
+  const columns: ReadonlyArray<CmsColumn<AdminPayout>> = [
     {
       id: "id",
       header: t("col.id"),
-      render: (p) => <span className="font-latin font-medium text-highlighted">{p.id}</span>,
+      render: (p) => (
+        <span className="font-latin font-medium text-highlighted">{p.id.slice(0, 8)}</span>
+      ),
     },
     {
       id: "advisor",
       header: t("col.advisor"),
-      render: (p) => <CmsPerson account={person(p.advisorId)} detail={`${p.bank} ···${p.accountLast4}`} />,
+      render: (p) => (
+        <CmsPerson
+          account={{ name: p.advisorDisplayName }}
+          detail={p.providerTransferId ?? undefined}
+        />
+      ),
     },
-    { id: "amount", header: t("col.amount"), sortable: true, className: "font-latin", render: (p) => formatBaht(p.amountSatang) },
-    { id: "invoices", header: t("col.invoices"), className: "font-latin", render: (p) => p.invoiceCount },
-    { id: "requestedAt", header: t("col.requestedAt"), sortable: true, render: (p) => formatDateTime(p.requestedAt) },
+    {
+      id: "amount",
+      header: t("col.amount"),
+      sortable: true,
+      className: "font-latin",
+      render: (p) => formatBaht(p.amountSatang),
+    },
+    {
+      id: "requestedAt",
+      header: t("col.requestedAt"),
+      sortable: true,
+      render: (p) => formatDateTime(p.createdAt),
+    },
     {
       id: "status",
       header: t("col.status"),
       align: "center",
-      render: (p) => (
-        <span className="flex flex-col items-center gap-1">
-          <CmsStatus group="payout" value={p.status} />
-          {p.failureReason ? (
-            <span className="max-w-48 truncate text-xs text-destructive">{p.failureReason}</span>
-          ) : null}
-        </span>
-      ),
+      render: (p) => <CmsApiStatus group="payout" value={p.status} />,
     },
     {
       id: "actions",
@@ -112,14 +178,14 @@ export function PayoutsScreen() {
       align: "end",
       interactive: true,
       render: (p) =>
-        p.status === "paid" ? (
+        p.status === "PAID" ? (
           <span className="text-xs">{formatDateTime(p.paidAt)}</span>
         ) : (
           <span className="inline-flex gap-1">
             <CmsButton color="success" onClick={() => pay([p.id])} size="sm" variant="soft">
               {t("markPaid")}
             </CmsButton>
-            {p.status === "pending" ? (
+            {p.status === "PENDING" ? (
               <CmsButton color="error" onClick={() => fail(p)} size="sm" variant="soft">
                 {t("markFailed")}
               </CmsButton>
@@ -128,6 +194,22 @@ export function PayoutsScreen() {
         ),
     },
   ];
+
+  if (payouts.loading) {
+    return (
+      <CmsPage title={t("title")}>
+        <CmsTableSkeleton columns={columns.length} />
+      </CmsPage>
+    );
+  }
+
+  if (payouts.error) {
+    return (
+      <CmsPage title={t("title")}>
+        <CmsApiError error={payouts.error} onRetry={payouts.reload} />
+      </CmsPage>
+    );
+  }
 
   return (
     <CmsPage
@@ -143,7 +225,9 @@ export function PayoutsScreen() {
       <CmsQueryTabs items={tabs} />
       <CmsTable
         bulkActions={(ids) => {
-          const payable = ids.filter((id) => payouts.find((p) => p.id === id)?.status !== "paid");
+          const payable = ids.filter(
+            (id) => items.find((p) => p.id === id)?.status !== "PAID",
+          );
           return payable.length > 0 ? (
             <CmsButton color="success" icon={BadgeCheck} onClick={() => pay(payable)}>
               {t("markPaidSelected", { count: payable.length })}
@@ -158,7 +242,15 @@ export function PayoutsScreen() {
   );
 }
 
-/** Every payment the platform took — read-only, for reconciliation. */
+/**
+ * Every payment the platform took — read-only, for reconciliation.
+ *
+ * **Still on `lib/mock-db`.** There is no transactions route on the API: nothing
+ * lists invoices or payments for an admin, and the four totals on this page (GMV,
+ * platform fee, refunded, failed) have no aggregate endpoint behind them either.
+ * Wiring it needs `GET /api/v1/admin/invoices` or similar; until then this screen
+ * is a fixture, and it is the only finance screen that is.
+ */
 export function TransactionsScreen() {
   const t = useTranslations("cms.transactions");
   const person = useAccountLookup();

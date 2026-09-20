@@ -1,4 +1,3 @@
-import Image, { type StaticImageData } from "next/image";
 import { MessageSquareReply, Star } from "lucide-react";
 import { useTranslations } from "next-intl";
 import type { ReactNode } from "react";
@@ -6,16 +5,20 @@ import type { ReactNode } from "react";
 import { NeutralButton, PrimaryButton } from "@/components/mobile/buttons";
 import { StatusPill } from "@/components/mobile/status-pill";
 import { Surface } from "@/components/mobile/surface";
+import { REVIEW_TEXT_MAX_LENGTH } from "@/components/reviews/reviews-data";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
 
 /**
- * The reply length the composer counts against. Figma draws no counter, so the
- * ceiling is the one the app already uses for its other free-text field (the
- * chat report's details box) rather than a second number.
+ * The reply length the composer counts against.
+ *
+ * Figma draws no counter, and this used to be 500 borrowed from the chat report's
+ * details box. The API has an actual bound — `REVIEW_TEXT_MAX_LENGTH`, 4,000, in
+ * `reviews.constants.ts` — and a field that stops a reader at 500 when the server
+ * would have taken 4,000 is the counter lying about the limit.
  */
-export const REPLY_MAX = 500;
+export const REPLY_MAX = REVIEW_TEXT_MAX_LENGTH;
 
 /** Figma star rows — filled stars use the accent, empty ones the border tint. */
 export function Stars({
@@ -50,12 +53,37 @@ export function Stars({
 }
 
 /**
+ * The reviewer's portrait slot with nothing to put in it.
+ *
+ * `ReviewResponseDto` carries `reviewerDisplayName` and `reviewerAvatarKey`, and
+ * an avatar key is a storage key, not a URL. The only route that presigns one is
+ * `GET /users/me/avatar` — your own. There is nothing that turns *another*
+ * person's key into a picture, so a real review has no photograph available to it
+ * and this is their initial on the muted step instead.
+ */
+export function ReviewerMark({ name }: { readonly name: string }) {
+  return (
+    <span
+      aria-hidden
+      className="mt-0.5 flex size-9 shrink-0 items-center justify-center rounded-full bg-muted text-sm font-medium text-muted-foreground"
+    >
+      {name.trim().slice(0, 1)}
+    </span>
+  );
+}
+
+/**
  * Figma "Review Card" — surface, 14px radius: a 32px avatar row with a date, a 13px
  * star row, the review body, then either the advisor's reply or a reply affordance.
  *
  * `children` is the third of those endings: the frames that open a composer
  * (995:8857) put it exactly where the reply block and the reply link go, so the
  * card takes it as a slot rather than growing a second copy of the composer.
+ *
+ * `stars` and `avatar` are what connecting this to the API needed. The star row
+ * was hard-coded to five, so a three-star review drew five filled stars; and the
+ * portrait took a bundled `StaticImageData`, which a review row can never supply
+ * — see `ReviewerMark`.
  */
 export function ReviewCard({
   avatar,
@@ -63,17 +91,20 @@ export function ReviewCard({
   meta,
   date,
   body,
+  stars = 5,
   replyLabel,
   reply,
   replyAction,
   onReply,
   children,
 }: {
-  readonly avatar: StaticImageData;
+  readonly avatar: ReactNode;
   readonly name: string;
-  readonly meta: string;
+  readonly meta: ReactNode;
   readonly date: string;
-  readonly body: string;
+  readonly body: ReactNode;
+  /** 1 to 5, as the API stores it. */
+  readonly stars?: number;
   readonly replyLabel?: string;
   readonly reply?: string;
   readonly replyAction?: string;
@@ -83,13 +114,7 @@ export function ReviewCard({
   return (
     <Surface className="flex w-full shrink-0 flex-col items-start p-3.5">
       <div className="flex w-full shrink-0 items-start gap-2.5 overflow-clip">
-        <Image
-          alt=""
-          className="mt-0.5 size-9 shrink-0 rounded-full object-cover"
-          height={36}
-          src={avatar}
-          width={36}
-        />
+        {avatar}
         <div className="flex min-w-px flex-1 flex-col items-start gap-0.5 overflow-clip">
           <p className="w-full text-sm font-semibold text-foreground">
             {name}
@@ -103,11 +128,16 @@ export function ReviewCard({
         </span>
       </div>
 
-      <Stars className="mt-2.5" gap={3} size={14} />
+      <Stars className="mt-2.5" filled={stars} gap={3} size={14} />
 
-      <p className="mt-2 w-full text-sm font-normal text-foreground">
-        {body}
-      </p>
+      {/* A review's comment is optional in the API — the stars stand on their
+          own — so a rating with nothing written leaves this out rather than
+          drawing an empty line. */}
+      {body ? (
+        <p className="mt-2 w-full text-sm font-normal text-foreground">
+          {body}
+        </p>
+      ) : null}
 
       {reply ? (
         /* The advisor's reply belongs under the review it answers — the `well`

@@ -2,12 +2,13 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Lock, Mail } from "lucide-react";
+import { Lock, Mail, TriangleAlert, WifiOff } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { useState, type FormEvent } from "react";
 
 import { Checkbox } from "@/components/ui/checkbox";
 import { AUTH_CARD, AuthFooter, AuthTopNav } from "@/components/auth/auth-chrome";
+import { AlertBanner } from "@/components/mobile/banner";
 import { NeutralButton, PrimaryButton } from "@/components/mobile/buttons";
 import { Field, RevealPasswordButton } from "@/components/mobile/field";
 import {
@@ -30,9 +31,19 @@ type Errors = Partial<
  * Figma "Register (Light)" (995:4344) plus the email-in-use (995:4383) and
  * validation-error (995:4424) states.
  *
- * Submitting creates an advisee in the mock database, signs them in and moves on
- * to the PDPA step. `state` prefills a frame's values and errors so its route
- * still opens on the drawing.
+ * Submitting creates the account through the API, which signs it in on the same
+ * call, and lands it on the advisee's home. `state` prefills a frame's values and
+ * errors so its route still opens on the drawing.
+ *
+ * ## What the API validates that this form cannot
+ *
+ * The rule list under the password is still checked here, because a form should
+ * not need a round trip to say "add a digit". better-auth checks again and has
+ * rules of its own, so a refusal it makes that this form did not predict — a
+ * password it reads as too short, a required field the plugin wants — surfaces as
+ * a banner carrying **its** sentence rather than as an invented field error. The
+ * one refusal the frame already draws is the taken email (a 422), which stays on
+ * the email field where it was designed.
  */
 export function RegisterScreen({
   state = "default",
@@ -40,6 +51,7 @@ export function RegisterScreen({
   readonly state?: "default" | "email-in-use" | "validation-errors";
 }) {
   const t = useTranslations("register");
+  const s = useTranslations("errorStates");
   const c = useTranslations("common");
   const router = useRouter();
   const inUsePreset = state === "email-in-use";
@@ -47,7 +59,7 @@ export function RegisterScreen({
 
   const [displayName, setDisplayName] = useState("");
   const [fullName, setFullName] = useState("");
-  const [email, setEmail] = useState(inUsePreset ? "araya.s@kmitl.ac.th" : "");
+  const [email, setEmail] = useState(inUsePreset ? "araya.s@advisory.demo" : "");
   const [password, setPassword] = useState(invalidPreset ? "abcd" : "");
   const [confirm, setConfirm] = useState(invalidPreset ? "abcdefgh" : "");
   const [consent, setConsent] = useState(false);
@@ -64,13 +76,20 @@ export function RegisterScreen({
     return {};
   });
   const inUse = errors.email === t("emailInUse");
+  /** A refusal that belongs to no single field: the API's own, or no API at all. */
+  const [trouble, setTrouble] = useState<
+    { readonly kind: "rejected" | "unreachable"; readonly detail: string | null } | null
+  >(null);
+  const [busy, setBusy] = useState(false);
 
   function clear(key: keyof Errors) {
     setErrors((current) => ({ ...current, [key]: undefined }));
+    setTrouble(null);
   }
 
-  function submit(event: FormEvent<HTMLFormElement>) {
+  async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (busy) return;
     const problems = passwordProblems(password);
     const next: Errors = {};
     if (!displayName.trim()) next.displayName = t("requiredError");
@@ -82,9 +101,11 @@ export function RegisterScreen({
     if (confirm !== password) next.confirm = t("confirmError");
     if (!consent) next.consent = t("consentError");
     setErrors(next);
+    setTrouble(null);
     if (Object.keys(next).length > 0) return;
 
-    const result = register({
+    setBusy(true);
+    const result = await register({
       name: displayName,
       fullName,
       email,
@@ -92,13 +113,21 @@ export function RegisterScreen({
       password,
     });
     if (!result.ok) {
-      setErrors({ email: t("emailInUse") });
+      setBusy(false);
+      if (result.reason === "email-in-use") {
+        setErrors({ email: t("emailInUse") });
+        return;
+      }
+      setTrouble({ kind: result.reason, detail: result.message ?? null });
       return;
     }
     // Into the app, not onto the privacy policy. The consent this form needs is
     // the checkbox above, which already blocks submission until it is ticked;
     // routing a new account to a document to press "accept" a second time
     // recorded nothing and read as a step that could be failed.
+    //
+    // Still busy on the way out: the account exists and the session is live, so
+    // re-enabling the form would only offer to create it a second time.
     router.push(roleHome(result.account.role));
   }
 
@@ -120,7 +149,7 @@ export function RegisterScreen({
         <form
           className={cn("flex w-full flex-1 flex-col items-center lg:mx-auto", AUTH_CARD)}
           noValidate
-          onSubmit={submit}
+          onSubmit={(event) => void submit(event)}
         >
           {/* Figma "Heading": 16px top / 8px bottom padding, 10px gap. */}
           <ScreenHeading
@@ -128,6 +157,20 @@ export function RegisterScreen({
             subtitle={t("subtitle")}
             title={t("title")}
           />
+
+          {/* The frame draws no banner here, because the only failure it knew
+              about was the taken email and that one lives on the field. A refusal
+              that belongs to no field needs somewhere to be said. */}
+          {trouble?.kind === "rejected" ? (
+            <AlertBanner
+              body={trouble.detail ?? s("serverBody")}
+              icon={TriangleAlert}
+              title={s("serverTitle")}
+            />
+          ) : null}
+          {trouble?.kind === "unreachable" ? (
+            <AlertBanner body={s("offlineBody")} icon={WifiOff} title={s("offlineTitle")} />
+          ) : null}
 
           {/* Figma "Form Fields": 16px top padding, 16px between fields. */}
           <div className="flex w-full shrink-0 flex-col items-start gap-4 overflow-clip px-6 pt-4">
@@ -271,7 +314,15 @@ export function RegisterScreen({
           {/* Figma "Actions": 8px padding, 14px gap above the sign-in link. The
               448 card keeps the column at every width — see `LoginScreen`. */}
           <ScreenActions className="gap-3.5" stacked>
-            <PrimaryButton block type="submit">
+            {/* Busy is the frame's own label at 40%: there is no "creating…"
+                string to swap in, and `aria-busy` states it without one. */}
+            <PrimaryButton
+              aria-busy={busy || undefined}
+              block
+              className="disabled:opacity-40"
+              disabled={busy}
+              type="submit"
+            >
               {t("submit")}
             </PrimaryButton>
             {inUse ? (

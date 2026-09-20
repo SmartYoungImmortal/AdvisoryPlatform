@@ -20,7 +20,6 @@ import {
   type ReactNode,
 } from "react";
 
-import { CmsBadge } from "@/components/cms/badge";
 import { CmsButton } from "@/components/cms/button";
 import { useCmsFeedback } from "@/components/cms/feedback";
 import { CmsAvatar } from "@/components/cms/avatar";
@@ -41,7 +40,7 @@ import {
 import { Separator } from "@/components/ui/separator";
 import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
 import { logo } from "@/lib/assets/r2";
-import { resetDatabase, useDatabase } from "@/lib/mock-db/store";
+import { resetDatabase } from "@/lib/mock-db/store";
 import { cmsNav, isCmsNavActive, type CmsNavItem } from "@/lib/navigation/cms";
 import { signOut, useSession } from "@/lib/session";
 import { cn } from "@/lib/utils";
@@ -154,7 +153,6 @@ function NavEntry({
   const t = useTranslations("cms.nav");
   const { setOpen } = useContext(SidebarContext);
   const active = isCmsNavActive(item, pathname);
-  const pending = useDatabase((db) => (item.pending ? item.pending(db) : 0));
   const Icon = item.icon;
   const icon = (
     <Icon
@@ -208,11 +206,12 @@ function NavEntry({
       >
         {icon}
         <span className="truncate">{t(item.key)}</span>
-        {pending > 0 ? (
-          <CmsBadge className="ms-auto font-latin" color="error">
-            {pending}
-          </CmsBadge>
-        ) : null}
+        {/* No waiting badge. `CmsNavItem.pending` counts rows of `lib/mock-db`,
+            and the queues it counted — verification, refunds, reports,
+            off-platform, payouts — now read the API, where all five are empty. A
+            red 3 beside a queue the API says is empty is a lie the sidebar tells
+            on every page. Restoring it means deriving the counts from the API in
+            `lib/navigation/cms`, which is not this change's to edit. */}
       </Link>
     </li>
   );

@@ -1,3 +1,5 @@
+"use client";
+
 import Image from "next/image";
 import {
   CalendarDays,
@@ -10,8 +12,13 @@ import {
   UserRound,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
-import { useTranslations } from "next-intl";
+import { useFormatter, useTranslations } from "next-intl";
 
+import {
+  asUuid,
+  liveServiceHref,
+  useQueryValue,
+} from "@/components/bookings/booking-flow";
 import { walletFailed, walletSuccess } from "@/lib/assets/r2";
 import { SiteFooter } from "@/components/marketing/site-footer";
 import { NeutralButton, PrimaryButton } from "@/components/mobile/buttons";
@@ -144,9 +151,69 @@ function useResultCopy(state: Result) {
  */
 export function PaymentResultScreen({ state }: { readonly state: Result }) {
   const t = useTranslations("payment");
-  const copy = useResultCopy(state);
+  const format = useFormatter();
+  const fixture = useResultCopy(state);
   const success = state === "success";
   const slotTaken = state === "slot-taken";
+
+  /**
+   * `slot-taken` is the one outcome in this file the app actually reaches:
+   * `POST /bookings` answers 409 when another advisee took the time first, and
+   * the slot chips on `/service/…` send the reader here with the time they tried
+   * for and the service they tried it on.
+   *
+   * So those two facts stop being fixtures. The masked-card row goes with them —
+   * nothing was charged and no card was involved, which is what
+   * "เรียกเก็บ ฿0" already says — and both actions point back at the slot rail
+   * that can still be picked from, instead of at `/matching/results`.
+   */
+  const attempted = useQueryValue("startTime");
+  const attemptedService = asUuid(useQueryValue("serviceId"));
+  const attemptedAt =
+    attempted && !Number.isNaN(Date.parse(attempted))
+      ? new Date(attempted)
+      : undefined;
+
+  const copy =
+    slotTaken && (attemptedAt || attemptedService)
+      ? {
+          ...fixture,
+          rows: [
+            {
+              icon: CalendarDays,
+              label: t("slotLabel"),
+              value: attemptedAt
+                ? format.dateTime(attemptedAt, {
+                    weekday: "short",
+                    day: "numeric",
+                    month: "short",
+                    hour: "2-digit",
+                    minute: "2-digit",
+                  })
+                : t("slotValue"),
+              latin: true,
+            },
+            {
+              icon: CreditCard,
+              label: t("chargedLabel"),
+              value: t("chargedValue"),
+              latin: true,
+            },
+          ] as const,
+          primary: {
+            label: fixture.primary.label,
+            href: attemptedService
+              ? `${liveServiceHref(attemptedService)}#slots`
+              : fixture.primary.href,
+          },
+          secondary: {
+            label: fixture.secondary.label,
+            href: attemptedService
+              ? liveServiceHref(attemptedService)
+              : fixture.secondary.href,
+          },
+        }
+      : fixture;
 
   return (
     <MobileScreen className="pt-6 lg:pt-0" wide>

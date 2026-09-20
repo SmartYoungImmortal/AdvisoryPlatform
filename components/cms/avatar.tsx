@@ -1,8 +1,22 @@
 import Image from "next/image";
 
 import { avatarImage, initials } from "@/lib/mock-db/avatars";
-import type { Account } from "@/lib/mock-db/types";
+import type { AvatarKey } from "@/lib/mock-db/types";
 import { cn } from "@/lib/utils";
+
+/**
+ * Enough of a person to draw one.
+ *
+ * `avatar` is optional rather than required because the admin API's rows carry an
+ * `avatarKey` — a storage key with no route that presigns it for an admin — and
+ * not one of the fixture portrait keys. An API-backed table therefore passes a
+ * name and nothing else and gets initials, which is the truth: the console has no
+ * photograph for that person.
+ */
+export type CmsPersonLike = {
+  readonly name: string;
+  readonly avatar?: AvatarKey | null;
+};
 
 const SIZE = {
   sm: { box: "size-6 text-xs", px: 24 },
@@ -17,11 +31,11 @@ export function CmsAvatar({
   size = "md",
   className,
 }: {
-  readonly account: Pick<Account, "name" | "avatar">;
+  readonly account: CmsPersonLike;
   readonly size?: keyof typeof SIZE;
   readonly className?: string;
 }) {
-  const image = avatarImage(account.avatar);
+  const image = avatarImage(account.avatar ?? null);
   const { box, px } = SIZE[size];
   return image ? (
     <Image
@@ -50,7 +64,7 @@ export function CmsPerson({
   account,
   detail,
 }: {
-  readonly account: Pick<Account, "name" | "avatar"> | undefined;
+  readonly account: CmsPersonLike | undefined;
   readonly detail?: string;
 }) {
   if (!account) return <span className="text-dimmed">—</span>;

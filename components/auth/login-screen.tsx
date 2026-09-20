@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Ban, Lock, Mail, TriangleAlert } from "lucide-react";
+import { Ban, Lock, Mail, TriangleAlert, WifiOff } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { useState, type FormEvent } from "react";
 
@@ -23,14 +23,27 @@ import { DemoAccounts } from "@/components/session/demo-accounts";
 import { roleHome, safeNext, signIn } from "@/lib/session";
 import { cn } from "@/lib/utils";
 
-type Failure = "locked" | "invalid" | "suspended" | "required";
+type Failure = "locked" | "invalid" | "suspended" | "required" | "failed" | "unreachable";
 
 /**
  * Figma "Login (Light)" (995:4174) plus the account-locked (995:4207) and
  * wrong-password (995:4246) states, which slot an alert banner under the heading.
  *
- * The form signs in against the mock database. `state` only seeds the banner so
- * the two state routes still open on their frames; typing clears it.
+ * The form signs in against the real API. `state` only seeds the banner so the
+ * two state routes still open on their frames; typing clears it.
+ *
+ * ## What the failure banner says now, and why it stopped counting
+ *
+ * The wrong-password banner used to be able to say "two tries left": the mock
+ * database owned the counter that locked an account on the fifth miss.
+ * better-auth has no lockout and publishes no attempts figure, so that sentence
+ * cannot be told truthfully any more — `loginErrors.wrongRemaining` is no longer
+ * used by anything. In its place the banner carries **the API's own sentence** as
+ * its body, and the title follows what the API actually said: a 401 keeps the
+ * frame's "wrong email or password", a 403 is a suspension, and anything else is
+ * the generic `errorStates` pair rather than a claim about the password. A
+ * request that never arrived says so outright — the alternative sends someone to
+ * reset a password that was never the problem.
  */
 export function LoginScreen({
   state = "default",
@@ -39,11 +52,12 @@ export function LoginScreen({
 }) {
   const t = useTranslations("login");
   const e = useTranslations("loginErrors");
+  const s = useTranslations("errorStates");
   const c = useTranslations("common");
   const router = useRouter();
   const preset = state !== "default";
 
-  const [email, setEmail] = useState(preset ? "araya.s@kmitl.ac.th" : "");
+  const [email, setEmail] = useState(preset ? "araya.s@advisory.demo" : "");
   const [password, setPassword] = useState(preset ? "password" : "");
   const [revealed, setRevealed] = useState(false);
   const [failure, setFailure] = useState<Failure | null>(() => {
@@ -51,30 +65,47 @@ export function LoginScreen({
     if (state === "wrong-password") return "invalid";
     return null;
   });
-  const [remaining, setRemaining] = useState<number | null>(null);
+  /** The API's own words, when it gave any. Shown as the banner's body. */
+  const [detail, setDetail] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
 
   function clearFailure() {
     setFailure(null);
-    setRemaining(null);
+    setDetail(null);
   }
 
-  function submit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    if (!email.trim() || !password) {
+  /**
+   * Also the demo list's handler, which is why the credentials are arguments
+   * rather than read from state: `setEmail` has not landed yet at the moment a
+   * tap on a seeded account wants to submit it.
+   */
+  async function attempt(withEmail: string, withPassword: string) {
+    if (busy) return;
+    if (!withEmail.trim() || !withPassword) {
       setFailure("required");
       return;
     }
-    const result = signIn(email, password);
+    setBusy(true);
+    const result = await signIn(withEmail, withPassword);
     if (result.ok) {
       // Read at submit time rather than through `useSearchParams`, which would
       // need a Suspense boundary and leave the exported HTML empty.
       const next = new URLSearchParams(window.location.search).get("next");
       router.replace(safeNext(next) ?? roleHome(result.account.role));
+      // Deliberately still busy: the redirect is in flight and re-enabling the
+      // form would invite a second sign-in against a session that now exists.
       return;
     }
-    // A signed-in-elsewhere role mismatch cannot happen here: this door takes all.
+    setBusy(false);
+    // A role mismatch cannot happen here — this door takes every role — so
+    // `forbidden` falls back to the credentials banner rather than inventing copy.
     setFailure(result.reason === "forbidden" ? "invalid" : result.reason);
-    setRemaining(result.remaining ?? null);
+    setDetail(result.message ?? null);
+  }
+
+  function submit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    void attempt(email, password);
   }
 
   const locked = failure === "locked";
@@ -109,17 +140,27 @@ export function LoginScreen({
           ) : null}
           {failure === "invalid" ? (
             <AlertBanner
-              body={
-                remaining === null
-                  ? e("wrongBody")
-                  : e("wrongRemaining", { count: remaining })
-              }
+              body={detail ?? e("wrongBody")}
               icon={TriangleAlert}
               title={e("wrongTitle")}
             />
           ) : null}
           {failure === "suspended" ? (
-            <AlertBanner body={e("suspendedBody")} icon={Ban} title={e("suspendedTitle")} />
+            <AlertBanner
+              body={detail ?? e("suspendedBody")}
+              icon={Ban}
+              title={e("suspendedTitle")}
+            />
+          ) : null}
+          {failure === "failed" ? (
+            <AlertBanner
+              body={detail ?? s("serverBody")}
+              icon={TriangleAlert}
+              title={s("serverTitle")}
+            />
+          ) : null}
+          {failure === "unreachable" ? (
+            <AlertBanner body={s("offlineBody")} icon={WifiOff} title={s("offlineTitle")} />
           ) : null}
           {failure === "required" ? (
             <AlertBanner
@@ -186,7 +227,17 @@ export function LoginScreen({
               column the frame draws, rather than becoming the right-aligned row
               `ScreenActions` gives a full-width page. */}
           <ScreenActions className="pt-6 pb-8" stacked>
-            <PrimaryButton block className="disabled:opacity-40" disabled={locked} type="submit">
+            {/* Translucent while the round trip is out, which is the whole of
+                the busy state: the label is the one the frame draws and there is
+                no "signing in…" string to swap it for. `aria-busy` is what says
+                so to a reader who is not looking at the opacity. */}
+            <PrimaryButton
+              aria-busy={busy || undefined}
+              block
+              className="disabled:opacity-40"
+              disabled={locked || busy}
+              type="submit"
+            >
               {t("signIn")}
             </PrimaryButton>
             <NeutralButton block href="/register">
@@ -198,6 +249,9 @@ export function LoginScreen({
                 setEmail(account.email);
                 setPassword(account.password);
                 clearFailure();
+                // One tap, all the way through: the credentials are passed as
+                // arguments because the two setters above have not landed yet.
+                void attempt(account.email, account.password);
               }}
             />
           </ScreenActions>

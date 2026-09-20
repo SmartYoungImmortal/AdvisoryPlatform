@@ -2,7 +2,7 @@ import Image, { type StaticImageData } from "next/image";
 import { FileText, TriangleAlert } from "lucide-react";
 import type { ReactNode } from "react";
 
-import { ChatAvatar } from "@/components/chat/chat-avatar";
+import { ChatMark } from "@/components/chat/chat-avatar";
 import { StatusPill } from "@/components/mobile/status-pill";
 import { cn } from "@/lib/utils";
 
@@ -58,6 +58,10 @@ function Stamp({ children, className }: { readonly children: ReactNode; readonly
  * grey page — the "mush" the owner means. It sits on the card surface with the
  * hairline and the resting elevation instead: a white object on the thread's
  * ground, against the accent block the reader's own messages are.
+ *
+ * The portrait is `ChatMark`, not a photograph. `ChatMessageResponseDto` carries
+ * a `senderUserId` and nothing else about the author, and no route presigns
+ * another user's avatar, so there is no face to put here — see `ChatMark`.
  */
 export function PartnerMessage({
   time,
@@ -72,7 +76,7 @@ export function PartnerMessage({
     <div className="flex w-full shrink-0 flex-col items-start">
       <div className="flex max-w-[320px] shrink-0 flex-col items-start justify-end gap-1">
         <div className="flex shrink-0 items-end gap-2">
-          <ChatAvatar className="self-start" size={32} />
+          <ChatMark className="self-start" size={32} />
           <div className="flex max-w-[276px] shrink-0 flex-col items-start gap-3">
             <div
               className={cn(

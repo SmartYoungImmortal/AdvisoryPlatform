@@ -1,3 +1,5 @@
+"use client";
+
 import Image from "next/image";
 import Link from "next/link";
 import { BadgeCheck, MessageSquare, ShieldCheck, Star } from "lucide-react";
@@ -38,22 +40,18 @@ import {
 import { StatusPill } from "@/components/mobile/status-pill";
 import { Surface, surfaceClass } from "@/components/mobile/surface";
 import { ThaiText } from "@/components/mobile/thai-text";
+import {
+  DistributionRow,
+  SECTION_HEAD,
+  StepList,
+  TopicChip,
+} from "@/components/service/parts";
+import { LiveServiceDetailScreen } from "@/components/service/service-detail-live";
 import { ServiceGallery } from "@/components/service/service-gallery";
+import { asUuid, useQueryValue } from "@/components/bookings/booking-flow";
 import { TopBar } from "@/components/topbar";
 import { PAGE, PAGE_INSET_BLOCKS, SPLIT_WITH_ASIDE } from "@/lib/layout";
 import { cn } from "@/lib/utils";
-
-/** The heads inside the page: a step above their card titles once there is room. */
-const SECTION_HEAD = "w-full text-base font-semibold text-foreground lg:text-lg";
-
-/** Figma "Topic Chip" — a muted pill, 12/18, that says what fits in the hour. */
-function TopicChip({ label }: { readonly label: string }) {
-  return (
-    <span className="flex shrink-0 items-start rounded-full bg-muted px-2.5 py-1 text-xs font-normal whitespace-nowrap text-muted-foreground">
-      {label}
-    </span>
-  );
-}
 
 /**
  * Figma "Stat" — a value over its label, each third of the advisor card's row.
@@ -75,30 +73,6 @@ function AdvisorStat({
         {value}
       </p>
       <p className="w-full text-xs font-normal text-muted-foreground">{label}</p>
-    </div>
-  );
-}
-
-/**
- * Figma "Dist Row" — a 6px track whose fill is the share of ratings at that star.
- * The five rows together are the shape of the score, which a bare "4.9" hides:
- * an average sits in the same place whether the tail is empty or full of ones.
- */
-function DistributionRow({
-  label,
-  fill,
-}: {
-  readonly label: string;
-  readonly fill: number;
-}) {
-  return (
-    <div className="flex w-full shrink-0 items-center gap-2 overflow-clip">
-      <span className="font-latin shrink-0 text-xs font-normal tabular-nums whitespace-nowrap text-muted-foreground">
-        {label}
-      </span>
-      <div className="h-1.5 min-w-px flex-1 overflow-clip rounded-full bg-muted">
-        <div className="h-full rounded-full bg-primary" style={{ width: `${fill}%` }} />
-      </div>
     </div>
   );
 }
@@ -242,41 +216,6 @@ function PackageCard({ pack }: { readonly pack: ServicePackage }) {
   );
 }
 
-/**
- * The four steps between opening this page and the money reaching the advisor.
- * The copy is the landing page's, verbatim: a reader who arrives here from a
- * search has never seen it, and it is the answer to "how does paying work".
- */
-function StepList() {
-  const t = useTranslations("landing");
-  const steps = [1, 2, 3, 4] as const;
-
-  return (
-    <ol
-      className={cn(
-        surfaceClass(),
-        "flex w-full shrink-0 flex-col items-start gap-3 overflow-clip p-4",
-      )}
-    >
-      {steps.map((n) => (
-        <li className="flex w-full shrink-0 items-start gap-3 overflow-clip" key={n}>
-          <span className="font-latin flex size-6 shrink-0 items-center justify-center rounded-full bg-accent-surface text-xs font-semibold tabular-nums text-primary">
-            {n}
-          </span>
-          <div className="flex min-w-px flex-1 flex-col items-start gap-0.5 overflow-clip">
-            <p className="w-full text-sm font-semibold text-foreground">
-              {t(`step${n}Title`)}
-            </p>
-            <p className="w-full text-xs font-normal text-muted-foreground">
-              <ThaiText>{t(`step${n}Body`)}</ThaiText>
-            </p>
-          </div>
-        </li>
-      ))}
-    </ol>
-  );
-}
-
 /** A sibling consultation, as a card in the rail at the foot of the page. */
 function RelatedCard({ service }: { readonly service: Service }) {
   const format = useFormatter();
@@ -325,8 +264,17 @@ export function ServiceDetailScreen({ serviceId }: { readonly serviceId: string 
   const c = useTranslations("common");
   const format = useFormatter();
 
+  // The API keys services on uuid and this route prerenders slugs, so the uuid
+  // arrives as `?serviceId=` on one of those slugs — see
+  // `components/bookings/booking-flow.ts`. A uuid in the path is honoured too,
+  // for the day `generateStaticParams` can produce them. Without one the screen
+  // is exactly what it was: the fixture for this slug.
+  const live = asUuid(useQueryValue("serviceId")) ?? asUuid(serviceId);
+
   const service = getService(serviceId);
   const advisor = service ? getAdvisor(service.advisorId) : undefined;
+
+  if (live) return <LiveServiceDetailScreen serviceId={live} />;
 
   // A prerendered route can only be reached for an id in `generateStaticParams`,
   // so this is a type guard rather than a state the reader meets. It still gets

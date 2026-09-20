@@ -1,3 +1,5 @@
+"use client";
+
 import {
   Bell,
   Briefcase,
@@ -23,6 +25,7 @@ import {
   SettingsSection,
 } from "@/components/mobile/settings-list";
 import { IdentityCard } from "@/components/profile/identity-card";
+import { OwnAvatar, hasRole, useOwnProfile } from "@/components/profile/profile-data";
 import { AccountName, AccountStat } from "@/components/session/account-bits";
 import { QuickActions } from "@/components/profile/quick-actions";
 import { BottomBar } from "@/components/bottombar";
@@ -39,6 +42,21 @@ import { TopBar } from "@/components/topbar";
  * splits into a 384px aside beside a 787px settings column on the 1200 grid,
  * the tab bar goes — the desktop nav already carries those destinations — and
  * the page closes on the site footer.
+ *
+ * ## What the API fills, and what it does not
+ *
+ * `GET /users/me` gives the display name, the roles and the avatar key, so the
+ * identity card's name, its subtitle and its portrait are real. The subtitle
+ * reads `roles` case-insensitively: this route answers `["ADVISEE"]` in upper
+ * case while better-auth answers `role: "advisee"` in lower, and a `===` would be
+ * right on one and wrong on the other.
+ *
+ * **The three stats are not real, and there is no route that would make them so.**
+ * Nothing in the API counts an account's sessions, bookings or reviews.
+ * `GET /bookings/me` would give a page of bookings to count, and `total` on it is
+ * a number this card could show — but the advisee bookings surface is owned
+ * elsewhere, so they stay on the session fixture they were already reading rather
+ * than being invented a second time here. Naming the gap is the point.
  */
 export function ProfileScreen({
   variant = "view",
@@ -49,10 +67,12 @@ export function ProfileScreen({
 }) {
   const t = useTranslations("profile");
   const isView = variant === "view";
+  const profile = useOwnProfile();
   // The settings column runs flush with the top of the aside, so only the
   // sections after the first keep Figma's 32px rhythm between them.
   const section = "lg:px-0 lg:pt-8";
   const firstSection = "lg:px-0 lg:pt-0";
+  const offersAdvisor = isView && !hasRole(profile.data, "advisor");
 
   return (
     <MobileScreen className="pb-0" wide>
@@ -66,9 +86,12 @@ export function ProfileScreen({
           <div className="flex w-full shrink-0 flex-col items-start">
             <div className="flex w-full shrink-0 flex-col items-start overflow-clip px-6 pt-4 lg:px-0 lg:pt-0">
               <IdentityCard
+                avatar={<OwnAvatar className="size-14" size={56} />}
                 editHref="/profile/edit"
                 editLabel={t("editProfileAction")}
-                name={<AccountName fallback={t("name")} />}
+                /* The API's display name once it lands; until then the session's,
+                   and the frame's fixture for a visitor with neither. */
+                name={profile.data?.displayName ?? <AccountName fallback={t("name")} />}
                 stats={[
                   {
                     value: <AccountStat fallback="12" stat="sessions" />,
@@ -110,7 +133,11 @@ export function ProfileScreen({
           {/* The settings column. On the phone these rows follow the tiles; at
               1440 they hold the right-hand 787 of the grid. */}
           <div className="flex w-full shrink-0 flex-col items-start">
-            {isView ? (
+            {/* This row offers the advisor *application*, which is the wrong
+                offer for somebody already through it. `roles` says which, so once
+                it has landed an account holding ADVISOR does not see it. Before
+                it lands the frame's own answer stands. */}
+            {offersAdvisor ? (
               <SettingsSection className={firstSection}>
                 <SettingsCard>
                   <SettingsRow
@@ -124,7 +151,7 @@ export function ProfileScreen({
             ) : null}
 
             <SettingsSection
-              className={isView ? section : firstSection}
+              className={offersAdvisor ? section : firstSection}
               label={t("accountLabel")}
             >
               <SettingsCard>

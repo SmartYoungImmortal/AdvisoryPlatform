@@ -1,3 +1,5 @@
+"use client";
+
 import Image from "next/image";
 import Link from "next/link";
 import {
@@ -10,7 +12,9 @@ import { useTranslations } from "next-intl";
 import { notFound } from "next/navigation";
 import { Fragment, type ReactNode } from "react";
 
+import { LiveAdvisorProfileScreen } from "@/components/advisor-public/advisor-public-live";
 import { LevelBadge } from "@/components/advisor-public/level-badge";
+import { asUuid, useQueryValue } from "@/components/bookings/booking-flow";
 import { ChatAvatar } from "@/components/chat/chat-avatar";
 import { NeutralButton, PrimaryButton } from "@/components/mobile/buttons";
 import { EmptyState } from "@/components/mobile/empty-state";
@@ -481,7 +485,12 @@ export function AdvisorPublicProfileScreen({
 }) {
   const t = useTranslations("advisorProfile");
   const c = useTranslations("common");
+  // `?advisorId=<uuid>` on a prerendered slug is how the API-backed profile is
+  // reached under `output: "export"` — see `components/bookings/booking-flow.ts`.
+  const live = asUuid(useQueryValue("advisorId")) ?? asUuid(advisorId);
   const profile = publicProfile(advisorId);
+
+  if (live) return <LiveAdvisorProfileScreen advisorId={live} tab={tab} />;
 
   if (!profile) notFound();
 

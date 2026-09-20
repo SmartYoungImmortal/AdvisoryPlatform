@@ -45,6 +45,15 @@ export function ServiceEditScreen() {
  * A listing seen from the console: its catalogue fields, and a status select
  * in the options column the way Nexus's edit pages carry Draft/Published.
  * Hiding asks for the reason the advisor will be shown.
+ *
+ * **Still on `lib/mock-db`, and no longer linked to.** `AdminServicesController` is
+ * a single `GET /admin/services`: there is no route that edits a service, publishes
+ * one or hides one, so nothing on this page can be saved against the API. The
+ * services queue therefore no longer opens it — a row that led to an editor whose
+ * Save button cannot work is worse than a table that does not pretend to be one —
+ * and this screen is reachable only by typing its URL, where it will show a fixture
+ * whose id came from the fixture. Wiring it needs
+ * `PATCH /api/v1/admin/services/:serviceId` on the API.
  */
 function ServiceEditor({ service }: { readonly service: MarketService }) {
   const t = useTranslations("cms.serviceEdit");

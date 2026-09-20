@@ -1,7 +1,44 @@
 import Image, { type StaticImageData } from "next/image";
+import { MessageSquare } from "lucide-react";
 
 import { sarahJenskins as sarah } from "@/lib/assets/r2";
 import { cn } from "@/lib/utils";
+
+/**
+ * The portrait slot with nothing to put in it.
+ *
+ * The chat surface reads real rooms and real messages now, and neither knows a
+ * face. `ChatRoomResponseDto` names no member; `ChatMessageResponseDto` carries a
+ * `senderUserId` and no display name or avatar key; and no route presigns another
+ * user's avatar the way `GET /users/me/avatar` does for your own. So there is no
+ * photograph to be had, and `ChatAvatar`'s default — a stock portrait of a person
+ * called Sarah Jenskins — would be a claim about the data rather than a
+ * placeholder for it.
+ *
+ * A glyph on the muted step says "a conversation" without saying who with. It is
+ * what the header, the inbox row and the partner's bubble all use; `ChatAvatar`
+ * stays exactly as it was for the screens that still render fixtures.
+ */
+export function ChatMark({
+  size,
+  className,
+}: {
+  readonly size: number;
+  readonly className?: string;
+}) {
+  return (
+    <span
+      aria-hidden
+      className={cn(
+        "flex shrink-0 items-center justify-center rounded-full bg-muted text-muted-foreground",
+        className,
+      )}
+      style={{ width: size, height: size }}
+    >
+      <MessageSquare style={{ width: size * 0.45, height: size * 0.45 }} />
+    </span>
+  );
+}
 
 /**
  * Figma "Skeleton / Placeholder Avatar" — a round box with the source photo scaled

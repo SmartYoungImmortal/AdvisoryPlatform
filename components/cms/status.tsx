@@ -122,3 +122,116 @@ export function useStatusOptions<G extends keyof StatusMaps>(
   const labels = useStatusLabels()[group] as Record<string, string>;
   return Object.entries(labels).map(([value, label]) => ({ value, label }));
 }
+
+/* ------------------------------------------------- the API's own vocabularies */
+
+/**
+ * The same badges, for the API's enum literals.
+ *
+ * The maps above are the fixture vocabulary (`"active"`, `"pending"`); the admin
+ * API answers in its own (`"ACTIVE"`, `"OPEN"`, `"PENDING_REVIEW"`). Rather than
+ * lowercase a literal and hope it lands on a label — `OPEN` on a refund is
+ * `refund.pending`, and `PENDING_REVIEW` on a flag is `report.open`, so it would
+ * not — every literal is mapped here explicitly, once.
+ *
+ * Two literals have no label of their own in `cms.status.*`: a report's `ACTIONED`
+ * and a flag's `CONFIRMED`. Rather than invent copy, both borrow
+ * `cms.cases.tab.closed` ("ดำเนินการแล้ว"), which is the console's own words for
+ * the same fact. `cms.status.report.actioned`, `cms.status.flag.confirmed` and
+ * `cms.status.account.deleted` are the keys this would rather have; until they
+ * exist an unmapped literal is printed verbatim in a neutral badge, because a
+ * wrong Thai label is worse than a right English one.
+ */
+type ApiBadge = { readonly label: string; readonly color: CmsBadgeColor };
+
+type ApiStatusMaps = {
+  readonly accountStatus: Record<string, ApiBadge>;
+  readonly role: Record<string, ApiBadge>;
+  readonly identity: Record<string, ApiBadge>;
+  readonly proof: Record<string, ApiBadge>;
+  readonly refund: Record<string, ApiBadge>;
+  readonly payout: Record<string, ApiBadge>;
+  readonly report: Record<string, ApiBadge>;
+  readonly flag: Record<string, ApiBadge>;
+};
+
+function useApiStatusMaps(): ApiStatusMaps {
+  const labels = useStatusLabels();
+  const closed = useTranslations("cms.cases")("tab.closed");
+
+  return {
+    accountStatus: {
+      ACTIVE: { label: labels.account.active, color: "success" },
+      SUSPENDED: { label: labels.account.suspended, color: "error" },
+    },
+    role: {
+      admin: { label: labels.role.admin, color: "primary" },
+      advisor: { label: labels.role.advisor, color: "action" },
+      advisee: { label: labels.role.advisee, color: "neutral" },
+    },
+    identity: {
+      NONE: { label: labels.identity.none, color: "neutral" },
+      SUBMITTED: { label: labels.identity.submitted, color: "warning" },
+      VERIFIED: { label: labels.identity.verified, color: "success" },
+      REJECTED: { label: labels.identity.rejected, color: "error" },
+    },
+    proof: {
+      PENDING: { label: labels.proof.pending, color: "warning" },
+      APPROVED: { label: labels.proof.approved, color: "success" },
+      REJECTED: { label: labels.proof.rejected, color: "error" },
+    },
+    refund: {
+      // `OPEN`, not `PENDING` — the same state under the API's name for it.
+      OPEN: { label: labels.refund.pending, color: "warning" },
+      APPROVED: { label: labels.refund.approved, color: "success" },
+      REJECTED: { label: labels.refund.rejected, color: "error" },
+    },
+    payout: {
+      PENDING: { label: labels.payout.pending, color: "warning" },
+      PAID: { label: labels.payout.paid, color: "success" },
+      FAILED: { label: labels.payout.failed, color: "error" },
+    },
+    report: {
+      OPEN: { label: labels.report.open, color: "warning" },
+      ACTIONED: { label: closed, color: "info" },
+      DISMISSED: { label: labels.report.dismissed, color: "neutral" },
+    },
+    flag: {
+      PENDING_REVIEW: { label: labels.report.open, color: "warning" },
+      CONFIRMED: { label: closed, color: "error" },
+      DISMISSED: { label: labels.report.dismissed, color: "neutral" },
+    },
+  };
+}
+
+/** One API enum literal as a badge. An unmapped literal prints as itself. */
+export function CmsApiStatus({
+  group,
+  value,
+}: {
+  readonly group: keyof ApiStatusMaps;
+  readonly value: string | null;
+}) {
+  const maps = useApiStatusMaps();
+  const badge = value === null ? undefined : maps[group][value];
+  if (!badge) {
+    return (
+      <CmsBadge color="neutral">
+        <span className="font-latin">{value ?? "—"}</span>
+      </CmsBadge>
+    );
+  }
+  return <CmsBadge color={badge.color}>{badge.label}</CmsBadge>;
+}
+
+/** Filter options over an API vocabulary, in the order given. */
+export function useApiStatusOptions(
+  group: keyof ApiStatusMaps,
+  values: readonly string[],
+): ReadonlyArray<{ readonly value: string; readonly label: string }> {
+  const maps = useApiStatusMaps();
+  return values.map((value) => ({
+    value,
+    label: maps[group][value]?.label ?? value,
+  }));
+}

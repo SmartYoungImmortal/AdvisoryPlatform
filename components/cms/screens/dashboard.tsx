@@ -50,8 +50,20 @@ function revenueByMonth(db: Database) {
 
 /**
  * The console's landing desk: what is waiting, what the platform earned, and
- * the latest cases. Every number is a live count over the mock database, so a
- * decision made on another desk moves it.
+ * the latest cases.
+ *
+ * **Still on `lib/mock-db`, and the only console screen whose numbers are
+ * fixtures.** Every tile here is an aggregate, and the admin API has no aggregate:
+ * no statistics route, no revenue series, no audit log, and no transactions route
+ * for the fee chart to sum. The counts could be rebuilt by fetching all seven
+ * queues and counting the rows — five of them are empty, so five tiles would read
+ * zero — but the fee chart and the recent-activity list have nothing behind them at
+ * all, and half a live dashboard beside half a fixture one is harder to read than
+ * one that says plainly what it is.
+ *
+ * Wiring it needs `GET /api/v1/admin/stats` (or equivalent) and an audit log on the
+ * API. Until then, note that the queue counts here will disagree with the queues
+ * themselves, which now read the API.
  */
 export function DashboardScreen() {
   const t = useTranslations("cms.dashboard");
