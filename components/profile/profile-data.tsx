@@ -2,9 +2,9 @@
 
 import { useCallback } from "react";
 
-import { api, ApiError } from "@/lib/api/client";
-import { getOwnAvatarUrl, getOwnProfile } from "@/lib/api/resources";
-import type { ApiAvatarUrl, ApiOwnProfile } from "@/lib/api/types";
+import { api, ApiError, type Paginated } from "@/lib/api/client";
+import { getOwnAvatarUrl, getOwnProfile, listMyBookings } from "@/lib/api/resources";
+import type { ApiAvatarUrl, ApiBooking, ApiOwnProfile } from "@/lib/api/types";
 import { useResource, type Resource } from "@/lib/api/use-resource";
 import { cn } from "@/lib/utils";
 
@@ -79,6 +79,27 @@ export function useOwnAvatarUrl(): Resource<ApiAvatarUrl | null> {
     }
   }, []);
   return useResource<ApiAvatarUrl | null>("users/me/avatar", fetcher);
+}
+
+/**
+ * How many bookings this account has, from `GET /bookings/me`.
+ *
+ * The one real figure of the profile card's three. The API counts nothing about an
+ * account — there is no sessions total and no reviews total anywhere in it — but a
+ * paginated body carries `total`, so asking for a single row answers the count
+ * without fetching the list. `limit: 1` is the whole point: this is a counter, and
+ * the page of bookings belongs to `/bookings`.
+ *
+ * `undefined` while it loads or if it fails, so a caller falls back to the frame's
+ * fixture rather than showing a confident zero for a number it does not have.
+ */
+export function useOwnBookingCount(): number | undefined {
+  const fetcher = useCallback(
+    (signal: AbortSignal) => listMyBookings({ limit: 1 }, signal),
+    [],
+  );
+  const bookings = useResource<Paginated<ApiBooking>>("bookings/me?limit=1", fetcher);
+  return bookings.data?.total;
 }
 
 /** The first letter of the display name, which is all an initial can honestly be. */
