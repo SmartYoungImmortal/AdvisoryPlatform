@@ -97,7 +97,10 @@ export function CmsLoginScreen({ preset = "default" }: { readonly preset?: "defa
     // muted slate over white lands on the same near-white.
     <div className="flex min-h-dvh items-center justify-center bg-muted/50 px-4 py-12 sm:px-6 md:px-8">
       <div className="w-full max-w-md">
-        <div className="relative flex rounded-lg bg-card shadow-xl ring-1 ring-border">
+        {/* The card is all English, so it sets in the Latin face: Nexus's Outfit
+            is not loaded here, and Geist's strokes sit at Outfit's weight where
+            Noto Sans Thai's Latin reads a step heavier at the same numbers. */}
+        <div className="relative flex rounded-lg bg-card font-latin shadow-xl ring-1 ring-border">
           <div className="flex flex-1 flex-col gap-y-4 p-4 sm:p-6">
             <form
               className="w-full space-y-6"
@@ -105,7 +108,7 @@ export function CmsLoginScreen({ preset = "default" }: { readonly preset?: "defa
               onSubmit={(event) => void submit(event)}
             >
               <div className="flex flex-col text-center">
-                <div className="mb-2">
+                <div className="mt-2 mb-6">
                   <Image
                     alt="Advisory Platform"
                     className="mx-auto block h-9 w-auto"
@@ -180,10 +183,6 @@ export function CmsLoginScreen({ preset = "default" }: { readonly preset?: "defa
                 </CmsButton>
               </div>
             </form>
-            {/* UAuthForm's footer slot, as Nexus fills it: the maker's credit. */}
-            <p className="mt-4 text-center text-sm font-medium text-muted-foreground">
-              {t("credit")}
-            </p>
           </div>
         </div>
       </div>
