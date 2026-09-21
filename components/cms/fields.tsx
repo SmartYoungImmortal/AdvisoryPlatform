@@ -170,6 +170,9 @@ export function CmsSelect<Value extends string>({
           className,
         )}
         id={id}
+        // `sm` is the primitive's 32px — `USelect` at md. The default size pins
+        // 36px through a data attribute that outranks `controlClass`'s `h-8`.
+        size="sm"
       >
         {SelectedIcon ? <SelectedIcon aria-hidden className="size-4 text-dimmed" /> : null}
         <SelectValue placeholder={placeholder}>{selected?.label ?? placeholder}</SelectValue>

@@ -5,8 +5,7 @@ import { useCallback, useMemo } from "react";
 
 import { CmsApiError, CmsTableSkeleton } from "@/components/cms/api";
 import { CmsPage } from "@/components/cms/layout";
-import { CmsQueryTabs, useQueryTab } from "@/components/cms/query-tabs";
-import { CmsStatus } from "@/components/cms/status";
+import { CmsStatus, useStatusOptions } from "@/components/cms/status";
 import { CmsFilterMenu, CmsTable, type CmsColumn } from "@/components/cms/table";
 import { useCmsList } from "@/components/cms/use-cms-list";
 import {
@@ -20,8 +19,6 @@ import {
 import type { Paginated } from "@/lib/api/client";
 import { useResource } from "@/lib/api/use-resource";
 import { formatBaht, formatDate, timeValue } from "@/lib/mock-db/format";
-
-type Tab = "all" | "published" | "hidden";
 
 const SERVICES_KEY = ADMIN_KEYS.services;
 
@@ -83,31 +80,22 @@ export function ServicesScreen() {
     [categoryItems],
   );
 
-  const tabs = (["all", "published", "hidden"] as const).map((value) => ({
-    value,
-    label: t(`tab.${value}`),
-    count:
-      value === "all"
-        ? items.length
-        : items.filter((s) => s.isPublished === (value === "published")).length,
-  }));
-  const tab = useQueryTab<Tab>(tabs);
-  const rows = useMemo(
-    () =>
-      tab === "all"
-        ? items
-        : items.filter((s) => s.isPublished === (tab === "published")),
-    [items, tab],
-  );
+  const statusOptions = useStatusOptions("publish");
 
-  const list = useCmsList(rows, {
+  const list = useCmsList(items, {
     searchText: (s) => `${s.name} ${categoryName.get(s.categoryId) ?? ""}`,
     sortValue: (s, id) => {
       if (id === "price") return s.priceSatang;
       if (id === "title") return s.name;
       return timeValue(s.modifiedAt);
     },
-    filters: [{ key: "category", test: (s, values) => values.includes(s.categoryId) }],
+    filters: [
+      {
+        key: "status",
+        test: (s, values) => values.includes(s.isPublished ? "published" : "hidden"),
+      },
+      { key: "category", test: (s, values) => values.includes(s.categoryId) },
+    ],
   });
 
   const columns: ReadonlyArray<CmsColumn<AdminService>> = [
@@ -169,16 +157,25 @@ export function ServicesScreen() {
 
   return (
     <CmsPage title={t("title")}>
-      <CmsQueryTabs items={tabs} />
       <CmsTable
         columns={columns}
         filters={
-          <CmsFilterMenu
-            label={t("allCategories")}
-            onChange={(values) => list.setFilter("category", values)}
-            options={categoryItems.map((c) => ({ value: c.id, label: c.name }))}
-            values={list.filterValues.category ?? []}
-          />
+          <>
+            <CmsFilterMenu
+              label={t("allStatuses")}
+              onChange={(values) => list.setFilter("status", values)}
+              options={statusOptions}
+              values={list.filterValues.status ?? []}
+            />
+            {/* Nexus's blog list gives its category filter `w-56`. */}
+            <CmsFilterMenu
+              className="w-56"
+              label={t("allCategories")}
+              onChange={(values) => list.setFilter("category", values)}
+              options={categoryItems.map((c) => ({ value: c.id, label: c.name }))}
+              values={list.filterValues.category ?? []}
+            />
+          </>
         }
         list={list}
         searchPlaceholder={t("search")}

@@ -593,9 +593,11 @@
       "user": "User",
       "users": "ค้นหาผู้ใช้",
       "verification": "ยืนยันตัวตน",
+      "skillProofs": "เอกสารทักษะ",
       "marketplace": "Marketplace",
       "services": "บริการ",
-      "catalog": "จัดการระบบ",
+      "catalog": "หมวดหมู่บริการ",
+      "skills": "ทักษะ",
       "refunds": "คืนเงิน",
       "reports": "รายงาน",
       "offPlatform": "ตรวจจับนอกแพลตฟอร์ม",
@@ -755,6 +757,7 @@
         "status": "สถานะ"
       },
       "allStatuses": "ทุกสถานะ",
+      "allRoles": "ทุกบทบาท",
       "search": "ค้นหาชื่อ อีเมล หรือเบอร์โทร",
       "suspendTitle": "ระงับบัญชี {count} บัญชี?",
       "suspendBody": "ผู้ใช้จะเข้าสู่ระบบไม่ได้จนกว่าจะยกเลิกการระงับ",
@@ -893,6 +896,7 @@
         "status": "สถานะ"
       },
       "minutes": "{count} นาที",
+      "allStatuses": "ทุกสถานะ",
       "allCategories": "ทุกหมวดหมู่",
       "search": "ค้นหาบริการ ที่ปรึกษา หรือหมวดหมู่",
       "hide": "ซ่อนบริการ",
@@ -974,6 +978,7 @@
     },
     "refunds": {
       "title": "คืนเงิน",
+      "allStatuses": "ทุกสถานะ",
       "tab": {
         "pending": "รอดำเนินการ",
         "approved": "อนุมัติแล้ว",
@@ -1114,6 +1119,7 @@
     },
     "payouts": {
       "title": "การโอนเงิน",
+      "allStatuses": "ทุกสถานะ",
       "tab": {
         "pending": "รอโอน",
         "failed": "โอนไม่สำเร็จ",

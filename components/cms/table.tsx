@@ -5,7 +5,6 @@ import {
   ArrowUpDown,
   ArrowUpNarrowWide,
   ChevronDown,
-  Inbox,
   Search,
   X,
 } from "lucide-react";
@@ -95,8 +94,8 @@ export function CmsTable<Row extends { readonly id: string }>({
   const end = Math.min(list.page * list.perPage, list.total);
 
   return (
-    <div className="overflow-hidden rounded-lg border border-border bg-card">
-      <div className="flex flex-col items-center justify-between gap-4 border-b border-border p-4 sm:flex-row">
+    <div className="overflow-hidden rounded-lg border border-table-rule bg-card">
+      <div className="flex flex-col items-center justify-between gap-4 border-b border-table-rule p-4 sm:flex-row">
         <div className="flex w-full items-center gap-4 sm:max-w-md">
           <CmsInput
             aria-label={searchPlaceholder ?? t("search")}
@@ -126,8 +125,8 @@ export function CmsTable<Row extends { readonly id: string }>({
       </div>
 
       <Table className="min-w-full">
-        <TableHeader className="[&_tr]:border-b-0">
-          <TableRow className="border-b border-border hover:bg-transparent">
+        <TableHeader className="relative [&_tr]:border-b-0">
+          <TableRow className="hover:bg-transparent">
             {selectable ? (
               <TableHead className="w-5 px-4 py-4 pe-0">
                 <Checkbox
@@ -141,7 +140,7 @@ export function CmsTable<Row extends { readonly id: string }>({
             {columns.map((column) => (
               <TableHead
                 className={cn(
-                  "h-auto px-4 py-4 text-sm font-semibold whitespace-nowrap text-highlighted",
+                  "h-auto px-4 py-4 text-sm font-semibold whitespace-nowrap text-table-head",
                   ALIGN[column.align ?? "start"],
                   column.className,
                 )}
@@ -155,20 +154,19 @@ export function CmsTable<Row extends { readonly id: string }>({
               </TableHead>
             ))}
           </TableRow>
+          {/* `UTable`'s separator: a 1px accented rule laid over the top of the
+              first row, so it adds no height to the head. */}
+          <tr aria-hidden className="absolute start-0 z-1 h-px w-full bg-accented" />
         </TableHeader>
-        <TableBody className="divide-y divide-border">
+        <TableBody className="divide-y divide-table-rule">
           {rows.length === 0 ? (
             <TableRow className="hover:bg-transparent">
+              {/* `UTable`'s empty slot: one centred line at py-6, no artwork. */}
               <TableCell
-                className="py-10 text-center text-sm text-muted-foreground"
+                className="py-6 text-center text-sm text-muted-foreground"
                 colSpan={columns.length + (selectable ? 1 : 0)}
               >
-                {empty ?? (
-                  <span className="flex flex-col items-center gap-2">
-                    <Inbox aria-hidden className="size-8 text-dimmed" />
-                    {list.search ? t("noResults", { query: list.search }) : t("empty")}
-                  </span>
-                )}
+                {empty ?? (list.search ? t("noResults", { query: list.search }) : t("empty"))}
               </TableCell>
             </TableRow>
           ) : (
@@ -197,7 +195,7 @@ export function CmsTable<Row extends { readonly id: string }>({
                 {columns.map((column) => (
                   <TableCell
                     className={cn(
-                      "px-4 py-5 text-sm whitespace-nowrap text-muted-foreground",
+                      "px-4 py-5 text-sm whitespace-nowrap text-table-cell",
                       ALIGN[column.align ?? "start"],
                       column.className,
                     )}
@@ -213,8 +211,8 @@ export function CmsTable<Row extends { readonly id: string }>({
         </TableBody>
       </Table>
 
-      <div className="flex flex-col items-center justify-between gap-4 border-t border-border p-4 sm:flex-row">
-        <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-muted-foreground">
+      <div className="flex flex-col items-center justify-between gap-4 border-t border-table-rule p-4 sm:flex-row">
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-table-cell">
           <div className="flex items-center gap-2">
             <span>{t("perPage")}</span>
             <CmsSelect
@@ -253,8 +251,11 @@ function SortButton<Row extends { readonly id: string }>({
   const Icon =
     state === "asc" ? ArrowUpNarrowWide : state === "desc" ? ArrowDownWideNarrow : ArrowUpDown;
   return (
+    // A plain neutral ghost `UButton`, as Nexus builds it: its own `font-medium`
+    // and `text-default` beat the head's semibold gray, so sortable heads read a
+    // step lighter than the fixed ones beside them.
     <CmsButton
-      className={cn("-mx-2.5 font-semibold text-highlighted", column.align === "center" && "mx-auto")}
+      className={cn("-mx-2.5", column.align === "center" && "mx-auto")}
       color="neutral"
       icon={Icon}
       onClick={() => {
@@ -296,7 +297,8 @@ export function CmsFilterMenu({
         : t("picked", { count: values.length });
 
   return (
-    <div className={cn("relative w-40", className)}>
+    // `w-36` is Nexus's status filter; the users and category filters widen it.
+    <div className={cn("relative w-36", className)}>
       <DropdownMenu>
         <DropdownMenuTrigger
           render={

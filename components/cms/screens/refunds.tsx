@@ -10,9 +10,8 @@ import { CmsPerson } from "@/components/cms/avatar";
 import { CmsButton } from "@/components/cms/button";
 import { useCmsFeedback } from "@/components/cms/feedback";
 import { CmsPage } from "@/components/cms/layout";
-import { CmsQueryTabs, useQueryTab } from "@/components/cms/query-tabs";
-import { CmsApiStatus } from "@/components/cms/status";
-import { CmsTable, type CmsColumn } from "@/components/cms/table";
+import { CmsApiStatus, useApiStatusOptions } from "@/components/cms/status";
+import { CmsFilterMenu, CmsTable, type CmsColumn } from "@/components/cms/table";
 import { useCmsList } from "@/components/cms/use-cms-list";
 import {
   ADMIN_MAX_LIMIT,
@@ -23,15 +22,6 @@ import {
 import type { Paginated } from "@/lib/api/client";
 import { useResource } from "@/lib/api/use-resource";
 import { formatBaht, formatDateTime, timeValue } from "@/lib/mock-db/format";
-
-/** `OPEN` is the API's name for what the tab strip calls "รอดำเนินการ". */
-type Tab = "pending" | "approved" | "rejected" | "all";
-
-const TAB_STATUS = {
-  pending: "OPEN",
-  approved: "APPROVED",
-  rejected: "REJECTED",
-} as const;
 
 export const REFUNDS_KEY = "admin/refunds";
 
@@ -69,24 +59,13 @@ export function RefundsScreen() {
     fetcher,
   );
   const items = useMemo(() => refunds.data?.items ?? [], [refunds.data]);
+  const statusOptions = useApiStatusOptions("refund", ["OPEN", "APPROVED", "REJECTED"]);
 
-  const tabs = (["pending", "approved", "rejected", "all"] as const).map((value) => ({
-    value,
-    label: t(`tab.${value}`),
-    count:
-      value === "pending" ? items.filter((r) => r.status === "OPEN").length : undefined,
-    alert: true,
-  }));
-  const tab = useQueryTab<Tab>(tabs);
-  const rows = useMemo(
-    () => (tab === "all" ? items : items.filter((r) => r.status === TAB_STATUS[tab])),
-    [items, tab],
-  );
-
-  const list = useCmsList(rows, {
+  const list = useCmsList(items, {
     searchText: (r) => `${r.id} ${r.reason} ${r.requesterDisplayName}`,
     sortValue: (r, id) =>
       id === "amount" ? r.invoiceAmountSatang : timeValue(r.createdAt),
+    filters: [{ key: "status", test: (r, values) => values.includes(r.status) }],
   });
 
   const columns: ReadonlyArray<CmsColumn<AdminRefundCase>> = [
@@ -151,7 +130,6 @@ export function RefundsScreen() {
 
   return (
     <CmsPage title={t("title")}>
-      <CmsQueryTabs items={tabs} />
       <CmsTable
         bulkActions={(ids) => {
           const open = ids.filter(
@@ -185,6 +163,14 @@ export function RefundsScreen() {
           );
         }}
         columns={columns}
+        filters={
+          <CmsFilterMenu
+            label={t("allStatuses")}
+            onChange={(values) => list.setFilter("status", values)}
+            options={statusOptions}
+            values={list.filterValues.status ?? []}
+          />
+        }
         list={list}
         onRowClick={(r) => router.push(`/admin/refunds/review?id=${r.id}`)}
         searchPlaceholder={t("search")}

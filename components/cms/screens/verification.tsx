@@ -10,7 +10,6 @@ import { CmsPerson } from "@/components/cms/avatar";
 import { CmsButton } from "@/components/cms/button";
 import { useCmsFeedback } from "@/components/cms/feedback";
 import { CmsPage } from "@/components/cms/layout";
-import { CmsQueryTabs, useQueryTab } from "@/components/cms/query-tabs";
 import { CmsApiStatus, useApiStatusOptions } from "@/components/cms/status";
 import { CmsFilterMenu, CmsTable, type CmsColumn } from "@/components/cms/table";
 import { useCmsList } from "@/components/cms/use-cms-list";
@@ -27,8 +26,6 @@ import {
 import type { Paginated } from "@/lib/api/client";
 import { useResource } from "@/lib/api/use-resource";
 import { formatDateTime, timeValue } from "@/lib/mock-db/format";
-
-type Kind = "identity" | "skills";
 
 const IDENTITY_KEY = ADMIN_KEYS.identity;
 const PROOFS_KEY = ADMIN_KEYS.skillProofs;
@@ -57,61 +54,56 @@ function queueOrder<T>(
  * honest state — an empty list here is not an error, and the table says "ยังไม่มี
  * รายการ" rather than pretending something went wrong.
  *
- * Both tabs are fetched on mount because both tabs carry a waiting count in the tab
- * strip, and a count cannot come from a page that has not been read.
+ * The two queues are two collections, so they are two pages — `/admin/verification`
+ * and `/admin/skill-proofs`, each its own sidebar entry — the way Nexus gives
+ * Blogs and Blog Categories one entry apiece rather than tabs on one screen.
  */
 export function VerificationScreen() {
   const t = useTranslations("cms.verification");
-
-  const identityFetcher = useCallback(
+  const fetcher = useCallback(
     (signal: AbortSignal) => listIdentityVerifications({ limit: ADMIN_MAX_LIMIT }, signal),
     [],
   );
-  const proofsFetcher = useCallback(
-    (signal: AbortSignal) => listSkillProofs({ limit: ADMIN_MAX_LIMIT }, signal),
-    [],
-  );
-
   const identity = useResource<Paginated<IdentityVerification>>(
     `${IDENTITY_KEY}?limit=${ADMIN_MAX_LIMIT}`,
-    identityFetcher,
+    fetcher,
   );
-  const proofs = useResource<Paginated<SkillProof>>(
-    `${PROOFS_KEY}?limit=${ADMIN_MAX_LIMIT}`,
-    proofsFetcher,
-  );
-
   const requests = useMemo(() => identity.data?.items ?? [], [identity.data]);
-  const proofItems = useMemo(() => proofs.data?.items ?? [], [proofs.data]);
-
-  const tabs = [
-    {
-      value: "identity" as const,
-      label: t("tab.identity"),
-      count: requests.filter((r) => r.verificationStatus === "SUBMITTED").length,
-      alert: true,
-    },
-    {
-      value: "skills" as const,
-      label: t("tab.skills"),
-      count: proofItems.filter((p) => p.reviewStatus === "PENDING").length,
-      alert: true,
-    },
-  ];
-  const kind = useQueryTab<Kind>(tabs);
-  const active = kind === "identity" ? identity : proofs;
 
   return (
     <CmsPage title={t("title")}>
-      <CmsQueryTabs items={tabs} />
-      {active.loading ? (
-        <CmsTableSkeleton columns={kind === "identity" ? 3 : 5} />
-      ) : active.error ? (
-        <CmsApiError error={active.error} onRetry={active.reload} />
-      ) : kind === "identity" ? (
-        <IdentityTable requests={requests} />
+      {identity.loading ? (
+        <CmsTableSkeleton columns={3} />
+      ) : identity.error ? (
+        <CmsApiError error={identity.error} onRetry={identity.reload} />
       ) : (
-        <ProofTable proofs={proofItems} />
+        <IdentityTable requests={requests} />
+      )}
+    </CmsPage>
+  );
+}
+
+/** Skill proofs — the second verification queue, on its own page. */
+export function SkillProofsScreen() {
+  const t = useTranslations("cms.verification");
+  const fetcher = useCallback(
+    (signal: AbortSignal) => listSkillProofs({ limit: ADMIN_MAX_LIMIT }, signal),
+    [],
+  );
+  const proofs = useResource<Paginated<SkillProof>>(
+    `${PROOFS_KEY}?limit=${ADMIN_MAX_LIMIT}`,
+    fetcher,
+  );
+  const items = useMemo(() => proofs.data?.items ?? [], [proofs.data]);
+
+  return (
+    <CmsPage title={t("tab.skills")}>
+      {proofs.loading ? (
+        <CmsTableSkeleton columns={5} />
+      ) : proofs.error ? (
+        <CmsApiError error={proofs.error} onRetry={proofs.reload} />
+      ) : (
+        <ProofTable proofs={items} />
       )}
     </CmsPage>
   );

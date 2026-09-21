@@ -10,7 +10,6 @@ import { CmsPerson } from "@/components/cms/avatar";
 import { CmsButton } from "@/components/cms/button";
 import { useCmsFeedback } from "@/components/cms/feedback";
 import { CmsPage } from "@/components/cms/layout";
-import { CmsQueryTabs, useQueryTab } from "@/components/cms/query-tabs";
 import { CmsApiStatus, useApiStatusOptions } from "@/components/cms/status";
 import { CmsFilterMenu, CmsTable, type CmsColumn } from "@/components/cms/table";
 import { useCmsList } from "@/components/cms/use-cms-list";
@@ -31,36 +30,6 @@ import { formatDateTime, timeValue } from "@/lib/mock-db/format";
 
 export const REPORTS_KEY = "admin/reports";
 export const FLAGS_KEY = "admin/off-platform-flags";
-
-type CaseTab = "open" | "closed" | "all";
-
-/**
- * Tabs over one waiting state, kept in the query string.
- *
- * `waiting` differs per queue — a report waits at `OPEN`, a flag at
- * `PENDING_REVIEW` — so it is a parameter rather than a shared literal.
- */
-function useCaseTabs<T extends { readonly status: string }>(
-  rows: readonly T[],
-  waiting: string,
-) {
-  const t = useTranslations("cms.cases");
-  const tabs = (["open", "closed", "all"] as const).map((value) => ({
-    value,
-    label: t(`tab.${value}`),
-    count: value === "open" ? rows.filter((r) => r.status === waiting).length : undefined,
-    alert: true,
-  }));
-  const tab = useQueryTab<CaseTab>(tabs);
-  const filtered = useMemo(
-    () =>
-      tab === "all"
-        ? rows
-        : rows.filter((r) => (tab === "open" ? r.status === waiting : r.status !== waiting)),
-    [rows, tab, waiting],
-  );
-  return { tabs, rows: filtered };
-}
 
 /**
  * The copy for the two outcomes both queues share.
@@ -125,9 +94,8 @@ export function ReportsScreen() {
     fetcher,
   );
   const items = useMemo(() => reports.data?.items ?? [], [reports.data]);
-  const { tabs, rows } = useCaseTabs(items, "OPEN");
 
-  const list = useCmsList(rows, {
+  const list = useCmsList(items, {
     searchText: (r) => `${r.reason} ${r.reportedDisplayName} ${r.reporterDisplayName}`,
     sortValue: (r) => timeValue(r.createdAt),
     filters: [{ key: "status", test: (r, values) => values.includes(r.status) }],
@@ -199,7 +167,6 @@ export function ReportsScreen() {
 
   return (
     <CmsPage title={t("reportsTitle")}>
-      <CmsQueryTabs items={tabs} />
       <CmsTable
         bulkActions={(ids) => (
           <>
@@ -278,9 +245,8 @@ export function OffPlatformScreen() {
     fetcher,
   );
   const items = useMemo(() => flags.data?.items ?? [], [flags.data]);
-  const { tabs, rows } = useCaseTabs(items, "PENDING_REVIEW");
 
-  const list = useCmsList(rows, {
+  const list = useCmsList(items, {
     searchText: (f) => `${f.matchedPattern} ${f.messageId}`,
     sortValue: (f) => timeValue(f.createdAt),
     filters: [{ key: "status", test: (f, values) => values.includes(f.status) }],
@@ -358,7 +324,6 @@ export function OffPlatformScreen() {
 
   return (
     <CmsPage title={t("flagsTitle")}>
-      <CmsQueryTabs items={tabs} />
       <CmsTable
         bulkActions={(ids) => (
           <>

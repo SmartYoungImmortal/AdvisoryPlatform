@@ -10,7 +10,6 @@ import { useCmsFeedback } from "@/components/cms/feedback";
 import { CmsFormDialog } from "@/components/cms/form-dialog";
 import { CmsTextField } from "@/components/cms/fields";
 import { CmsPage } from "@/components/cms/layout";
-import { CmsQueryTabs, useQueryTab } from "@/components/cms/query-tabs";
 import { CmsTable, type CmsColumn } from "@/components/cms/table";
 import { useCmsList } from "@/components/cms/use-cms-list";
 import {
@@ -40,6 +39,9 @@ const SKILLS_KEY = ADMIN_KEYS.skills;
 /**
  * "จัดการระบบ" — the taxonomy, against `/service-categories` and `/skills`.
  *
+ * Two collections, two pages: `/admin/manage` for categories and `/admin/skills`
+ * for skills, each its own sidebar entry, as Nexus lists one collection per page.
+ *
  * The one part of the admin surface that is genuinely complete: both resources have
  * `GET`, `POST`, `PATCH` and `DELETE`, and the console uses all four.
  *
@@ -65,7 +67,7 @@ const SKILLS_KEY = ADMIN_KEYS.skills;
  * also what the delete confirmation warns on: the API does not guarantee a refusal,
  * and a category with listings behind it should not be deleted by accident.
  */
-export function CatalogScreen() {
+export function CatalogScreen({ kind: tab = "categories" }: { readonly kind?: Tab }) {
   const t = useTranslations("cms.catalog");
   const [editingCategory, setEditingCategory] = useState<TaxonomyRecord | "new" | null>(
     null,
@@ -109,11 +111,6 @@ export function CatalogScreen() {
     return counts;
   }, [services.data]);
 
-  const tabs = [
-    { value: "categories" as const, label: t("tab.categories"), count: categoryItems.length },
-    { value: "skills" as const, label: t("tab.skills"), count: skillItems.length },
-  ];
-  const tab = useQueryTab<Tab>(tabs);
   const active = tab === "categories" ? categories : skills;
 
   return (
@@ -129,9 +126,8 @@ export function CatalogScreen() {
           {tab === "categories" ? t("newCategory") : t("newSkill")}
         </CmsButton>
       }
-      title={t("title")}
+      title={t(`tab.${tab}`)}
     >
-      <CmsQueryTabs items={tabs} />
       {active.loading ? (
         <CmsTableSkeleton columns={tab === "categories" ? 4 : 2} />
       ) : active.error ? (

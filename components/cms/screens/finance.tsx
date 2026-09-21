@@ -10,8 +10,12 @@ import { CmsButton } from "@/components/cms/button";
 import { useCmsFeedback } from "@/components/cms/feedback";
 import { useAccountLookup } from "@/components/cms/hooks";
 import { CmsPage } from "@/components/cms/layout";
-import { CmsQueryTabs, useQueryTab } from "@/components/cms/query-tabs";
-import { CmsApiStatus, CmsStatus, useStatusOptions } from "@/components/cms/status";
+import {
+  CmsApiStatus,
+  CmsStatus,
+  useApiStatusOptions,
+  useStatusOptions,
+} from "@/components/cms/status";
 import { CmsFilterMenu, CmsTable, type CmsColumn } from "@/components/cms/table";
 import { useCmsList } from "@/components/cms/use-cms-list";
 import {
@@ -20,21 +24,12 @@ import {
   markPayoutFailed,
   markPayoutPaid,
   type AdminPayout,
-  type AdminPayoutStatus,
 } from "@/lib/api/admin";
 import type { Paginated } from "@/lib/api/client";
 import { useResource } from "@/lib/api/use-resource";
 import { formatBaht, formatDateTime, timeValue } from "@/lib/mock-db/format";
 import { useDatabase } from "@/lib/mock-db/store";
 import type { Transaction } from "@/lib/mock-db/types";
-
-type PayoutTab = "pending" | "failed" | "paid" | "all";
-
-const TAB_STATUS: Record<Exclude<PayoutTab, "all">, AdminPayoutStatus> = {
-  pending: "PENDING",
-  failed: "FAILED",
-  paid: "PAID",
-};
 
 const PAYOUTS_KEY = "admin/payouts";
 
@@ -74,28 +69,15 @@ export function PayoutsScreen() {
     fetcher,
   );
   const items = useMemo(() => payouts.data?.items ?? [], [payouts.data]);
-
-  const tabs = (["pending", "failed", "paid", "all"] as const).map((value) => ({
-    value,
-    label: t(`tab.${value}`),
-    count:
-      value === "pending" || value === "failed"
-        ? items.filter((p) => p.status === TAB_STATUS[value]).length
-        : undefined,
-    alert: true,
-  }));
-  const tab = useQueryTab<PayoutTab>(tabs);
-  const rows = useMemo(
-    () => (tab === "all" ? items : items.filter((p) => p.status === TAB_STATUS[tab])),
-    [items, tab],
-  );
-  const due = rows
+  const statusOptions = useApiStatusOptions("payout", ["PENDING", "FAILED", "PAID"]);
+  const due = items
     .filter((p) => p.status !== "PAID")
     .reduce((sum, p) => sum + p.amountSatang, 0);
 
-  const list = useCmsList(rows, {
+  const list = useCmsList(items, {
     searchText: (p) => `${p.id} ${p.advisorDisplayName} ${p.providerTransferId ?? ""}`,
     sortValue: (p, id) => (id === "amount" ? p.amountSatang : timeValue(p.createdAt)),
+    filters: [{ key: "status", test: (p, values) => values.includes(p.status) }],
   });
 
   async function pay(ids: readonly string[]) {
@@ -222,7 +204,6 @@ export function PayoutsScreen() {
       }
       title={t("title")}
     >
-      <CmsQueryTabs items={tabs} />
       <CmsTable
         bulkActions={(ids) => {
           const payable = ids.filter(
@@ -235,6 +216,14 @@ export function PayoutsScreen() {
           ) : null;
         }}
         columns={columns}
+        filters={
+          <CmsFilterMenu
+            label={t("allStatuses")}
+            onChange={(values) => list.setFilter("status", values)}
+            options={statusOptions}
+            values={list.filterValues.status ?? []}
+          />
+        }
         list={list}
         searchPlaceholder={t("search")}
       />

@@ -44,6 +44,9 @@
      scale because the line has to breathe across a 720px column. */
   --text-display: 2.5rem;
   --text-display--line-height: 3.75rem;
+  /* Nuxt UI's `sm` badge — 10/12. The console's tab counts are that badge. */
+  --text-2xs: 0.625rem;
+  --text-2xs--line-height: 0.75rem;
 
   --color-success: var(--success);
   --color-success-foreground: var(--success-foreground);
@@ -60,6 +63,11 @@
      its own token because shadcn's `secondary` already means the neutral fill. */
   --color-action: var(--action);
   --color-action-foreground: var(--action-foreground);
+  /* Nexus's `CmsTable` is drawn in Tailwind's gray, not the slate the rest of
+     the console runs on: its card, bands and row rules, its heads, its cells. */
+  --color-table-rule: var(--table-rule);
+  --color-table-head: var(--table-head);
+  --color-table-cell: var(--table-cell);
   --color-accent-surface: var(--accent-surface);
   --color-brand-image: var(--brand-image);
   /* A `background-image`, not a colour: it paints on its own decorative band in
@@ -276,13 +284,35 @@
   --ring: #000000;
   --destructive: #ef4444;
   --destructive-foreground: #ffffff;
-  --success: #22c55e;
+  /* Nuxt UI's own green / yellow / blue at 500, which Nexus leaves alone — the
+     Tailwind v4 values, a shade apart from the v3 hex they replaced. Only
+     `--ui-error` and `--ui-secondary` are pinned to v3 hex by Nexus itself. */
+  --success: oklch(72.3% 0.219 149.579);
   --success-foreground: #ffffff;
-  --warning: #eab308;
-  --info: #3b82f6;
+  --warning: oklch(79.5% 0.184 86.047);
+  --info: oklch(62.3% 0.214 259.815);
   --action: #3b82f6;
   --action-foreground: #ffffff;
+  /* Tailwind v4's gray-200 / gray-900 / gray-500, as Nexus's CmsTable names them. */
+  --table-rule: oklch(92.8% 0.006 264.531);
+  --table-head: oklch(21% 0.034 264.665);
+  --table-cell: oklch(55.1% 0.027 264.364);
   --radius: 0.5rem;
+}
+
+/* Nexus sets its console in Tailwind's Latin line heights — 12/16, 20/28, 24/32
+   — where the consumer app gives Thai copy more leading. The scale is `@theme
+   inline`, so the value is baked into each utility; restating it under the
+   scope is the only way to reach it. `--tw-leading` first, so an explicit
+   `leading-*` still wins. */
+.cms-admin .text-xs {
+  line-height: var(--tw-leading, 1rem);
+}
+.cms-admin .text-xl {
+  line-height: var(--tw-leading, 1.75rem);
+}
+.cms-admin .text-2xl {
+  line-height: var(--tw-leading, 2rem);
 }
 
 .dark {

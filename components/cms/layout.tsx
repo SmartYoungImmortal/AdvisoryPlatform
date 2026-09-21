@@ -352,7 +352,7 @@ export function CmsPage({
               variant="ghost"
             />
           ) : null}
-          <h1 className="truncate font-semibold text-highlighted xl:text-2xl">{title}</h1>
+          <h1 className="truncate font-semibold text-highlighted xl:text-2xl xl:leading-8">{title}</h1>
           {badge}
         </div>
         {actions ? <div className="flex shrink-0 items-center gap-1.5">{actions}</div> : null}
