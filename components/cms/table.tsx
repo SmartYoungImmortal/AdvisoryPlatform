@@ -5,7 +5,6 @@ import {
   ArrowUpDown,
   ArrowUpNarrowWide,
   ChevronDown,
-  Inbox,
   Search,
   X,
 } from "lucide-react";
@@ -19,6 +18,7 @@ import {
   PER_PAGE_OPTIONS,
   type CmsListState,
 } from "@/components/cms/use-cms-list";
+import { formatStamp } from "@/lib/mock-db/format";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
   DropdownMenu,
@@ -49,6 +49,82 @@ export type CmsColumn<Row> = {
 };
 
 const ALIGN = { start: "text-start", center: "text-center", end: "text-end" } as const;
+
+/**
+ * Nexus's first column on every list — `dateCreated`: sortable, centred, 15% of
+ * the row, printed `18/08/26 | 08:24`. Screens sort it under the id `createdAt`.
+ */
+export function createdColumn<Row>(
+  header: string,
+  read: (row: Row) => string | null,
+): CmsColumn<Row> {
+  return {
+    id: "createdAt",
+    header,
+    sortable: true,
+    align: "center",
+    className: "w-[15%] font-latin",
+    render: (row) => formatStamp(read(row)),
+  };
+}
+
+/**
+ * Nexus's last two columns, `createdBy` and `updatedBy` — `text-center w-40`.
+ *
+ * The schema has no audit columns, so each screen says who from what the row
+ * does carry: the requester, reporter or owner for "created", the admin who
+ * ruled for "updated". A row with no such fact prints a dash rather than a
+ * guess.
+ */
+export function auditColumns<Row>(
+  headers: { readonly createdBy: string; readonly updatedBy: string },
+  createdBy: (row: Row) => string | null | undefined,
+  updatedBy: (row: Row) => string | null | undefined,
+): ReadonlyArray<CmsColumn<Row>> {
+  return [
+    {
+      id: "createdBy",
+      header: headers.createdBy,
+      align: "center",
+      className: "w-40",
+      render: (row) => createdBy(row) || "-",
+    },
+    {
+      id: "updatedBy",
+      header: headers.updatedBy,
+      align: "center",
+      className: "w-40",
+      render: (row) => updatedBy(row) || "-",
+    },
+  ];
+}
+
+/**
+ * "Updated at", held to the same 15% as Date Created. Left to size itself it
+ * soaked up every spare pixel on a short table, and the name column — the one
+ * that should take the slack — stayed narrow.
+ */
+export function updatedColumn<Row>(
+  header: string,
+  read: (row: Row) => string | null,
+): CmsColumn<Row> {
+  return {
+    id: "updatedAt",
+    header,
+    sortable: true,
+    align: "center",
+    className: "w-[15%] font-latin",
+    render: (row) => formatStamp(read(row)),
+  };
+}
+
+/** Nexus's second column — the status badge: sortable, centred, 10% wide. */
+export function statusColumn<Row>(
+  header: string,
+  render: (row: Row) => ReactNode,
+): CmsColumn<Row> {
+  return { id: "status", header, sortable: true, align: "center", className: "w-[10%]", render };
+}
 
 /**
  * Nexus's `CmsTable`: a white card with a toolbar band (search on the left,
@@ -95,8 +171,8 @@ export function CmsTable<Row extends { readonly id: string }>({
   const end = Math.min(list.page * list.perPage, list.total);
 
   return (
-    <div className="overflow-hidden rounded-lg border border-border bg-card">
-      <div className="flex flex-col items-center justify-between gap-4 border-b border-border p-4 sm:flex-row">
+    <div className="overflow-hidden rounded-lg border border-table-rule bg-card">
+      <div className="flex flex-col items-center justify-between gap-4 border-b border-table-rule p-4 sm:flex-row">
         <div className="flex w-full items-center gap-4 sm:max-w-md">
           <CmsInput
             aria-label={searchPlaceholder ?? t("search")}
@@ -126,8 +202,8 @@ export function CmsTable<Row extends { readonly id: string }>({
       </div>
 
       <Table className="min-w-full">
-        <TableHeader className="[&_tr]:border-b-0">
-          <TableRow className="border-b border-border hover:bg-transparent">
+        <TableHeader className="relative [&_tr]:border-b-0">
+          <TableRow className="hover:bg-transparent">
             {selectable ? (
               <TableHead className="w-5 px-4 py-4 pe-0">
                 <Checkbox
@@ -141,7 +217,7 @@ export function CmsTable<Row extends { readonly id: string }>({
             {columns.map((column) => (
               <TableHead
                 className={cn(
-                  "h-auto px-4 py-4 text-sm font-semibold whitespace-nowrap text-highlighted",
+                  "h-auto px-4 py-4 text-sm font-semibold whitespace-nowrap text-table-head",
                   ALIGN[column.align ?? "start"],
                   column.className,
                 )}
@@ -155,20 +231,19 @@ export function CmsTable<Row extends { readonly id: string }>({
               </TableHead>
             ))}
           </TableRow>
+          {/* `UTable`'s separator: a 1px accented rule laid over the top of the
+              first row, so it adds no height to the head. */}
+          <tr aria-hidden className="absolute start-0 z-1 h-px w-full bg-accented" />
         </TableHeader>
-        <TableBody className="divide-y divide-border">
+        <TableBody className="divide-y divide-table-rule">
           {rows.length === 0 ? (
             <TableRow className="hover:bg-transparent">
+              {/* `UTable`'s empty slot: one centred line at py-6, no artwork. */}
               <TableCell
-                className="py-10 text-center text-sm text-muted-foreground"
+                className="py-6 text-center text-sm text-muted-foreground"
                 colSpan={columns.length + (selectable ? 1 : 0)}
               >
-                {empty ?? (
-                  <span className="flex flex-col items-center gap-2">
-                    <Inbox aria-hidden className="size-8 text-dimmed" />
-                    {list.search ? t("noResults", { query: list.search }) : t("empty")}
-                  </span>
-                )}
+                {empty ?? (list.search ? t("noResults", { query: list.search }) : t("empty"))}
               </TableCell>
             </TableRow>
           ) : (
@@ -197,7 +272,7 @@ export function CmsTable<Row extends { readonly id: string }>({
                 {columns.map((column) => (
                   <TableCell
                     className={cn(
-                      "px-4 py-5 text-sm whitespace-nowrap text-muted-foreground",
+                      "px-4 py-5 text-sm whitespace-nowrap text-table-cell",
                       ALIGN[column.align ?? "start"],
                       column.className,
                     )}
@@ -213,8 +288,8 @@ export function CmsTable<Row extends { readonly id: string }>({
         </TableBody>
       </Table>
 
-      <div className="flex flex-col items-center justify-between gap-4 border-t border-border p-4 sm:flex-row">
-        <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-muted-foreground">
+      <div className="flex flex-col items-center justify-between gap-4 border-t border-table-rule p-4 sm:flex-row">
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-table-cell">
           <div className="flex items-center gap-2">
             <span>{t("perPage")}</span>
             <CmsSelect
@@ -253,8 +328,11 @@ function SortButton<Row extends { readonly id: string }>({
   const Icon =
     state === "asc" ? ArrowUpNarrowWide : state === "desc" ? ArrowDownWideNarrow : ArrowUpDown;
   return (
+    // A plain neutral ghost `UButton`, as Nexus builds it: its own `font-medium`
+    // and `text-default` beat the head's semibold gray, so sortable heads read a
+    // step lighter than the fixed ones beside them.
     <CmsButton
-      className={cn("-mx-2.5 font-semibold text-highlighted", column.align === "center" && "mx-auto")}
+      className={cn("-mx-2.5", column.align === "center" && "mx-auto")}
       color="neutral"
       icon={Icon}
       onClick={() => {
@@ -296,7 +374,8 @@ export function CmsFilterMenu({
         : t("picked", { count: values.length });
 
   return (
-    <div className={cn("relative w-40", className)}>
+    // `w-36` is Nexus's status filter; the users and category filters widen it.
+    <div className={cn("relative w-36", className)}>
       <DropdownMenu>
         <DropdownMenuTrigger
           render={

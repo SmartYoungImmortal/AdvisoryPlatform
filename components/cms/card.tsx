@@ -51,3 +51,23 @@ export function CmsCard({
     </section>
   );
 }
+
+/**
+ * phonerefun's total card (`cntCustStatsCard`): 330 x 112, label over one bold
+ * figure, both centred — the single summary a list page may carry above its
+ * table.
+ */
+export function CmsTotalCard({
+  label,
+  value,
+}: {
+  readonly label: string;
+  readonly value: ReactNode;
+}) {
+  return (
+    <div className="flex h-28 w-[330px] max-w-full shrink-0 flex-col items-center justify-center gap-3 rounded-lg border border-border bg-card px-6 py-4.5">
+      <span className="text-sm font-medium text-highlighted">{label}</span>
+      <span className="text-2xl font-bold text-primary tabular-nums">{value}</span>
+    </div>
+  );
+}

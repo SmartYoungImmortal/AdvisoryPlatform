@@ -6,14 +6,22 @@ import { useTranslations } from "next-intl";
 import { useCallback, useMemo } from "react";
 
 import { CmsApiError, CmsTableSkeleton, useRuling } from "@/components/cms/api";
-import { CmsPerson } from "@/components/cms/avatar";
+import { CmsAvatar } from "@/components/cms/avatar";
 import { CmsButton } from "@/components/cms/button";
 import { useCmsFeedback } from "@/components/cms/feedback";
 import { useAdminUserId } from "@/components/cms/hooks";
 import { CmsPage } from "@/components/cms/layout";
-import { CmsQueryTabs, useQueryTab } from "@/components/cms/query-tabs";
 import { CmsApiStatus, useApiStatusOptions } from "@/components/cms/status";
-import { CmsFilterMenu, CmsTable, type CmsColumn } from "@/components/cms/table";
+import { useAuditHeaders } from "@/components/cms/people";
+import {
+  auditColumns,
+  CmsFilterMenu,
+  CmsTable,
+  createdColumn,
+  statusColumn,
+  updatedColumn,
+  type CmsColumn,
+} from "@/components/cms/table";
 import { useCmsList } from "@/components/cms/use-cms-list";
 import {
   ADMIN_KEYS,
@@ -25,11 +33,9 @@ import {
 } from "@/lib/api/admin";
 import type { Paginated } from "@/lib/api/client";
 import { useResource } from "@/lib/api/use-resource";
-import { formatDate, formatDateTime, timeValue } from "@/lib/mock-db/format";
+import { timeValue } from "@/lib/mock-db/format";
 
-type RoleTab = "all" | AdminAccountRole;
-
-const ROLE_TABS = ["all", "advisee", "advisor", "admin"] as const;
+const ROLES: readonly AdminAccountRole[] = ["advisee", "advisor", "admin"];
 
 /** The `useResource` key every read of this queue shares, so a ruling can drop it. */
 const ACCOUNTS_KEY = ADMIN_KEYS.accounts;
@@ -40,12 +46,11 @@ const ACCOUNTS_KEY = ADMIN_KEYS.accounts;
  * ## One request, filtered here
  *
  * The API filters by `status`, `role` and `q` server-side, and the console's own
- * `useCmsList` filters, sorts and pages in memory. Both would work; one request is
- * used because the tabs carry counts, and counts for four tabs are four more
- * requests the moment filtering moves to the server. `limit` is the API's own
- * ceiling (100), and when the account table outgrows that the page title says so
- * rather than quietly showing the first hundred as though they were all of them —
- * at which point this should move to server-side `q`/`role` and lose the counts.
+ * `useCmsList` filters, sorts and pages in memory. Both would work; one request
+ * keeps the role and status dropdowns instant. `limit` is the API's own ceiling
+ * (100), and when the account table outgrows that the page title says so rather
+ * than quietly showing the first hundred as though they were all of them — at
+ * which point this should move to server-side `q`/`role`/`status`.
  *
  * ## What the API does not carry, so this does not show
  *
@@ -53,8 +58,8 @@ const ACCOUNTS_KEY = ADMIN_KEYS.accounts;
  * the two columns that showed them are gone rather than showing an em dash
  * forever. `role` is better-auth's coarse role: in the seeded database every
  * advisor's row still reads `advisee`, and whether someone is really an advisor is
- * `hasAdvisorProfile` on the detail route — so the advisor tab can be empty while
- * advisors exist.
+ * `hasAdvisorProfile` on the detail route — so filtering to advisors can come up
+ * empty while advisors exist.
  */
 export function UsersScreen() {
   const t = useTranslations("cms.users");
@@ -62,6 +67,7 @@ export function UsersScreen() {
   // "แก้ไขล่าสุด" is the same words for the same field.
   const tEdit = useTranslations("cms.userEdit");
   const tTable = useTranslations("cms.table");
+  const audit = useAuditHeaders();
   const router = useRouter();
   const { prompt } = useCmsFeedback();
   const rule = useRuling();
@@ -78,65 +84,65 @@ export function UsersScreen() {
   );
   const items = useMemo(() => accounts.data?.items ?? [], [accounts.data]);
 
-  const tabs = useMemo(
-    () =>
-      ROLE_TABS.map((value) => ({
-        value,
-        label: t(`tab.${value}`),
-        count:
-          value === "all"
-            ? items.length
-            : items.filter((a) => a.role === value).length,
-      })),
-    [items, t],
-  );
-  const tab = useQueryTab<RoleTab>(tabs);
-  const rows = useMemo(
-    () => (tab === "all" ? items : items.filter((a) => a.role === tab)),
-    [items, tab],
+  // Nexus filters a list from the toolbar, not from tabs above it: the role is a
+  // dropdown beside the status one.
+  const roleOptions = useMemo(
+    () => ROLES.map((value) => ({ value, label: t(`tab.${value}`) })),
+    [t],
   );
 
-  const list = useCmsList(rows, {
+  const list = useCmsList(items, {
     searchText: (a) => `${a.displayName} ${a.fullName} ${a.email}`,
     sortValue: (a, id) => {
-      if (id === "name") return a.displayName;
+      if (id === "name") return a.fullName || a.displayName;
+      if (id === "status") return a.status;
       if (id === "updatedAt") return timeValue(a.updatedAt);
       return timeValue(a.createdAt);
     },
-    filters: [{ key: "status", test: (a, values) => values.includes(a.status) }],
+    filters: [
+      { key: "role", test: (a, values) => values.includes(a.role ?? "") },
+      { key: "status", test: (a, values) => values.includes(a.status) },
+    ],
   });
 
+  // Nexus's column order: date created, status, then the record's own fields
+  // as plain single-line text — no avatars, no second line.
   const columns: ReadonlyArray<CmsColumn<AdminAccount>> = [
+    createdColumn(tTable("createdAt"), (a) => a.createdAt),
+    statusColumn(t("col.status"), (a) => (
+      <CmsApiStatus group="accountStatus" value={a.status} />
+    )),
+    {
+      // Nexus's image column, centred with a hairline ring — round, because it
+      // is a person, and 32px so a row stays the height of its text.
+      id: "image",
+      header: t("col.image"),
+      align: "center",
+      render: (a) => (
+        <span className="flex justify-center">
+          <CmsAvatar
+            account={{ name: a.displayName, imageUrl: a.image }}
+            className="ring-1 ring-border"
+            size="md"
+          />
+        </span>
+      ),
+    },
     {
       id: "name",
       header: t("col.name"),
       sortable: true,
-      render: (a) => <CmsPerson account={{ name: a.displayName }} detail={a.email} />,
+      render: (a) => a.fullName || a.displayName,
     },
+    { id: "email", header: t("col.email"), className: "font-latin", render: (a) => a.email },
     {
       id: "role",
       header: t("col.role"),
-      render: (a) => <CmsApiStatus group="role" value={a.role} />,
+      render: (a) => roleOptions.find((o) => o.value === a.role)?.label ?? a.role ?? "-",
     },
-    {
-      id: "createdAt",
-      header: t("col.createdAt"),
-      sortable: true,
-      render: (a) => formatDate(a.createdAt),
-    },
-    {
-      id: "updatedAt",
-      header: tEdit("updated"),
-      sortable: true,
-      render: (a) => formatDateTime(a.updatedAt),
-    },
-    {
-      id: "status",
-      header: t("col.status"),
-      align: "center",
-      className: "w-[10%]",
-      render: (a) => <CmsApiStatus group="accountStatus" value={a.status} />,
-    },
+    updatedColumn(tEdit("updated"), (a) => a.updatedAt),
+    // An account signs itself up; nothing records who last changed it.
+    ...auditColumns<AdminAccount>(audit, (a) => a.fullName || a.displayName, () => null),
   ];
 
   if (accounts.loading) {
@@ -169,7 +175,6 @@ export function UsersScreen() {
       }
       title={t("title")}
     >
-      <CmsQueryTabs items={tabs} />
       <CmsTable
         bulkActions={(ids) => {
           // The API refuses suspending your own account with a 400 of its own;
@@ -206,12 +211,21 @@ export function UsersScreen() {
         }}
         columns={columns}
         filters={
-          <CmsFilterMenu
-            label={t("allStatuses")}
-            onChange={(values) => list.setFilter("status", values)}
-            options={statusOptions}
-            values={list.filterValues.status ?? []}
-          />
+          <>
+            <CmsFilterMenu
+              label={t("allStatuses")}
+              onChange={(values) => list.setFilter("status", values)}
+              options={statusOptions}
+              values={list.filterValues.status ?? []}
+            />
+            <CmsFilterMenu
+              className="w-44"
+              label={t("allRoles")}
+              onChange={(values) => list.setFilter("role", values)}
+              options={roleOptions}
+              values={list.filterValues.role ?? []}
+            />
+          </>
         }
         list={list}
         onRowClick={(a) => router.push(`/admin/users/edit?id=${a.id}`)}

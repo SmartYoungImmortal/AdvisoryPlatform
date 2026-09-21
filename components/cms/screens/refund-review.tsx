@@ -1,17 +1,19 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { Check, FileText, X } from "lucide-react";
+import { Check, X } from "lucide-react";
 import { useTranslations } from "next-intl";
-import { useCallback } from "react";
+import { useCallback, useId, useState } from "react";
 
 import { CmsApiError, CmsCardSkeleton, useRuling } from "@/components/cms/api";
-import { CmsPerson } from "@/components/cms/avatar";
 import { CmsButton } from "@/components/cms/button";
 import { CmsCard } from "@/components/cms/card";
+import { CmsDocumentGrid } from "@/components/cms/document";
 import { useCmsFeedback } from "@/components/cms/feedback";
+import { CmsFormField, CmsTextarea } from "@/components/cms/fields";
 import { useRecordId } from "@/components/cms/hooks";
 import { CmsPage } from "@/components/cms/layout";
+import { useAccountName } from "@/components/cms/people";
 import { REFUNDS_KEY } from "@/components/cms/screens/refunds";
 import {
   CmsDataRow,
@@ -19,11 +21,15 @@ import {
   CmsSidebarOptions,
 } from "@/components/cms/sidebar-options";
 import { CmsApiStatus } from "@/components/cms/status";
+import { CaseEvidence } from "@/components/cms/case-evidence";
 import {
   approveRefundCase,
+  documentUrl,
   getRefundCase,
+  getRefundContext,
   rejectRefundCase,
   type AdminRefundCaseDetail,
+  type CaseContext,
 } from "@/lib/api/admin";
 import { useResource } from "@/lib/api/use-resource";
 import { formatBaht } from "@/lib/mock-db/format";
@@ -38,13 +44,13 @@ import { formatBaht } from "@/lib/mock-db/format";
  * field it revealed cannot be sent anywhere. Restoring them needs an amount on the
  * approve DTO and a column to hold it.
  *
- * ## Evidence is named, not shown
+ * ## Evidence
  *
  * The detail route carries `evidence` as object keys, original file names and MIME
- * types. There is no admin route that presigns a key, so there is no URL to put in
- * an `<img>` and the lightbox is gone with it — the files are listed by name. A
- * grid of the same stock document thumbnail, four times, claimed to be this
- * requester's evidence, which it never was.
+ * types. A file whose key opens (`documentUrl` — the demo seed's specimens under
+ * `public/demo-docs/`) is a thumbnail that opens it in a new tab. A real upload's
+ * key has no admin route that presigns it, so that tile names the file and shows
+ * no picture: a stock thumbnail would claim to be this requester's evidence.
  */
 export function RefundReviewScreen() {
   const t = useTranslations("cms.refunds");
@@ -84,13 +90,28 @@ export function RefundReviewScreen() {
   return <Review key={refund.data.id} refund={refund.data} />;
 }
 
+/**
+ * Nexus's edit-page shape: one form card on the left, `CmsSidebarOptions` on the
+ * right. No record id is printed anywhere — a UUID means nothing to the person
+ * reading this — and the rejection reason is a field on the card, not a prompt.
+ */
 function Review({ refund }: { readonly refund: AdminRefundCaseDetail }) {
   const t = useTranslations("cms.refunds");
   const router = useRouter();
-  const { confirm, prompt } = useCmsFeedback();
+  const { confirm } = useCmsFeedback();
   const rule = useRuling();
+  const accountName = useAccountName();
+  const reasonId = useId();
+  // The consultation this refund claims against, and its conversation.
+  const evidenceFetcher = useCallback(
+    (signal: AbortSignal) => getRefundContext(refund.id, signal),
+    [refund.id],
+  );
+  const evidence = useResource<CaseContext>(`${REFUNDS_KEY}/${refund.id}/context`, evidenceFetcher);
   const open = refund.status === "OPEN";
   const amount = formatBaht(refund.invoiceAmountSatang);
+  const [rejection, setRejection] = useState("");
+  const [rejectionError, setRejectionError] = useState<string | undefined>();
 
   async function approve() {
     const ok = await confirm({
@@ -109,14 +130,11 @@ function Review({ refund }: { readonly refund: AdminRefundCaseDetail }) {
   }
 
   async function reject() {
-    const reason = await prompt({
-      type: "danger",
-      title: t("rejectTitle", { count: 1 }),
-      inputLabel: t("reason"),
-      placeholder: t("rejectPlaceholder"),
-      confirmLabel: t("reject"),
-    });
-    if (reason === null) return;
+    const reason = rejection.trim();
+    if (!reason) {
+      setRejectionError(t("reasonRequired"));
+      return;
+    }
     const result = await rule({
       keyPrefix: REFUNDS_KEY,
       run: [() => rejectRefundCase(refund.id, reason)],
@@ -143,75 +161,83 @@ function Review({ refund }: { readonly refund: AdminRefundCaseDetail }) {
             ) : null
           }
           info={[
-            { label: t("requestedAt"), at: refund.createdAt },
+            {
+              label: t("requestedAt"),
+              by: accountName(refund.requestedByUserId) ?? refund.requesterDisplayName,
+              at: refund.createdAt,
+            },
             ...(refund.resolvedAt
-              ? [{ label: t("decidedAt"), at: refund.resolvedAt }]
+              ? [
+                  {
+                    label: t("decidedAt"),
+                    by: accountName(refund.reviewedByAdminId) ?? undefined,
+                    at: refund.resolvedAt,
+                  },
+                ]
               : []),
           ]}
         >
-          <dl className="space-y-3">
-            <CmsDataRow label={t("col.status")}>
+          <CmsFormField label={t("col.status")}>
+            <div>
               <CmsApiStatus group="refund" value={refund.status} />
-            </CmsDataRow>
-            <CmsDataRow label={t("col.amount")}>
-              {/* The whole invoice: the approve route takes no amount. */}
-              <span className="font-latin">{amount}</span>
-            </CmsDataRow>
-          </dl>
+            </div>
+          </CmsFormField>
         </CmsSidebarOptions>
       }
       backHref="/admin/refunds"
-      badge={<CmsApiStatus group="refund" value={refund.status} />}
-      title={t("reviewHeading", { id: refund.id.slice(0, 8) })}
+      title={t("reviewTitle")}
     >
-      <CmsCard title={t("caseTitle")}>
-        <dl className="space-y-3">
+      <CmsCard>
+        <dl className="space-y-4">
+          <CmsDataRow label={t("col.requester")}>
+            {accountName(refund.requestedByUserId) ?? refund.requesterDisplayName}
+          </CmsDataRow>
+          {/* The whole invoice: the approve route takes no amount. */}
+          <CmsDataRow label={t("col.amount")}>
+            <span className="font-latin">{amount}</span>
+          </CmsDataRow>
           <CmsDataRow label={t("col.reason")}>
             <span className="font-normal text-foreground">{refund.reason}</span>
           </CmsDataRow>
-          <CmsDataRow label={t("booking")}>
-            <span className="font-latin break-all">{refund.invoiceId}</span>
-          </CmsDataRow>
-          <CmsDataRow label={t("paid")}>
-            <span className="font-latin">{amount}</span>
-          </CmsDataRow>
         </dl>
-      </CmsCard>
-
-      <CmsCard
-        bodyClassName="p-0 sm:p-0"
-        title={t("evidence", { count: refund.evidence.length })}
-      >
-        <ul className="divide-y divide-border">
+        <section className="mt-6 border-t border-border pt-6">
+          <h2 className="mb-4 text-sm font-semibold text-highlighted">
+            {t("evidence", { count: refund.evidence.length })}
+          </h2>
           {refund.evidence.length === 0 ? (
-            <li className="p-4 text-sm text-muted-foreground sm:px-6">
-              {t("evidence", { count: 0 })}
-            </li>
+            <p className="text-sm text-muted-foreground">-</p>
           ) : (
-            refund.evidence.map((file) => (
-              <li
-                className="flex items-center gap-3 p-4 text-sm sm:px-6"
-                key={file.objectKey}
-              >
-                <FileText aria-hidden className="size-5 shrink-0 text-dimmed" />
-                <span className="min-w-0 flex-1 truncate font-latin text-highlighted">
-                  {file.originalFileName}
-                </span>
-                <span className="shrink-0 font-latin text-xs text-muted-foreground">
-                  {file.mimeType}
-                </span>
-              </li>
-            ))
+            <CmsDocumentGrid
+              files={refund.evidence.map((file) => ({
+                key: file.objectKey,
+                url: documentUrl(file.objectKey),
+                name: file.originalFileName,
+                mimeType: file.mimeType,
+              }))}
+            />
           )}
-        </ul>
-      </CmsCard>
-
-      <CmsCard title={t("people")}>
-        <dl className="space-y-4">
-          <CmsDataRow label={t("col.requester")}>
-            <CmsPerson account={{ name: refund.requesterDisplayName }} />
-          </CmsDataRow>
-        </dl>
+        </section>
+        <CaseEvidence context={evidence.data} loading={evidence.loading} />
+        {open ? (
+          <div className="mt-6 border-t border-border pt-6">
+            <CmsFormField
+              error={rejectionError}
+              htmlFor={reasonId}
+              label={t("reason")}
+            >
+              <CmsTextarea
+                id={reasonId}
+                invalid={Boolean(rejectionError)}
+                onChange={(event) => {
+                  setRejection(event.target.value);
+                  setRejectionError(undefined);
+                }}
+                placeholder={t("rejectPlaceholder")}
+                value={rejection}
+              />
+            </CmsFormField>
+          </div>
+        ) : null}
       </CmsCard>
     </CmsPage>
   );

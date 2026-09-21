@@ -6,13 +6,19 @@ import { useTranslations } from "next-intl";
 import { useCallback, useMemo } from "react";
 
 import { CmsApiError, CmsTableSkeleton, useRuling } from "@/components/cms/api";
-import { CmsPerson } from "@/components/cms/avatar";
 import { CmsButton } from "@/components/cms/button";
 import { useCmsFeedback } from "@/components/cms/feedback";
 import { CmsPage } from "@/components/cms/layout";
-import { CmsQueryTabs, useQueryTab } from "@/components/cms/query-tabs";
 import { CmsApiStatus, useApiStatusOptions } from "@/components/cms/status";
-import { CmsFilterMenu, CmsTable, type CmsColumn } from "@/components/cms/table";
+import { useAccountName, useAuditHeaders } from "@/components/cms/people";
+import {
+  auditColumns,
+  CmsFilterMenu,
+  CmsTable,
+  createdColumn,
+  statusColumn,
+  type CmsColumn,
+} from "@/components/cms/table";
 import { useCmsList } from "@/components/cms/use-cms-list";
 import {
   ADMIN_MAX_LIMIT,
@@ -27,40 +33,10 @@ import {
 } from "@/lib/api/admin";
 import type { Paginated } from "@/lib/api/client";
 import { useResource } from "@/lib/api/use-resource";
-import { formatDateTime, timeValue } from "@/lib/mock-db/format";
+import { timeValue } from "@/lib/mock-db/format";
 
 export const REPORTS_KEY = "admin/reports";
 export const FLAGS_KEY = "admin/off-platform-flags";
-
-type CaseTab = "open" | "closed" | "all";
-
-/**
- * Tabs over one waiting state, kept in the query string.
- *
- * `waiting` differs per queue — a report waits at `OPEN`, a flag at
- * `PENDING_REVIEW` — so it is a parameter rather than a shared literal.
- */
-function useCaseTabs<T extends { readonly status: string }>(
-  rows: readonly T[],
-  waiting: string,
-) {
-  const t = useTranslations("cms.cases");
-  const tabs = (["open", "closed", "all"] as const).map((value) => ({
-    value,
-    label: t(`tab.${value}`),
-    count: value === "open" ? rows.filter((r) => r.status === waiting).length : undefined,
-    alert: true,
-  }));
-  const tab = useQueryTab<CaseTab>(tabs);
-  const filtered = useMemo(
-    () =>
-      tab === "all"
-        ? rows
-        : rows.filter((r) => (tab === "open" ? r.status === waiting : r.status !== waiting)),
-    [rows, tab, waiting],
-  );
-  return { tabs, rows: filtered };
-}
 
 /**
  * The copy for the two outcomes both queues share.
@@ -110,6 +86,9 @@ function useOutcomeCopy() {
  */
 export function ReportsScreen() {
   const t = useTranslations("cms.cases");
+  const tTable = useTranslations("cms.table");
+  const audit = useAuditHeaders();
+  const accountName = useAccountName();
   const router = useRouter();
   const { confirm } = useCmsFeedback();
   const rule = useRuling();
@@ -125,11 +104,10 @@ export function ReportsScreen() {
     fetcher,
   );
   const items = useMemo(() => reports.data?.items ?? [], [reports.data]);
-  const { tabs, rows } = useCaseTabs(items, "OPEN");
 
-  const list = useCmsList(rows, {
+  const list = useCmsList(items, {
     searchText: (r) => `${r.reason} ${r.reportedDisplayName} ${r.reporterDisplayName}`,
-    sortValue: (r) => timeValue(r.createdAt),
+    sortValue: (r, id) => (id === "status" ? r.status : timeValue(r.createdAt)),
     filters: [{ key: "status", test: (r, values) => values.includes(r.status) }],
   });
 
@@ -152,33 +130,28 @@ export function ReportsScreen() {
   }
 
   const columns: ReadonlyArray<CmsColumn<AdminReport>> = [
+    createdColumn(tTable("createdAt"), (r) => r.createdAt),
+    statusColumn(t("col.status"), (r) => <CmsApiStatus group="report" value={r.status} />),
     {
       id: "reported",
       header: t("col.reported"),
-      render: (r) => <CmsPerson account={{ name: r.reportedDisplayName }} />,
+      render: (r) => accountName(r.reportedUserId) ?? r.reportedDisplayName,
     },
     {
       id: "detail",
       header: t("col.detail"),
-      render: (r) => <span className="block max-w-72 truncate">{r.reason}</span>,
+      render: (r) => <span className="block max-w-80 truncate">{r.reason}</span>,
     },
     {
       id: "reporter",
       header: t("col.reporter"),
-      render: (r) => r.reporterDisplayName,
+      render: (r) => accountName(r.reporterUserId) ?? r.reporterDisplayName,
     },
-    {
-      id: "createdAt",
-      header: t("col.createdAt"),
-      sortable: true,
-      render: (r) => formatDateTime(r.createdAt),
-    },
-    {
-      id: "status",
-      header: t("col.status"),
-      align: "center",
-      render: (r) => <CmsApiStatus group="report" value={r.status} />,
-    },
+    ...auditColumns<AdminReport>(
+      audit,
+      (r) => accountName(r.reporterUserId) ?? r.reporterDisplayName,
+      (r) => accountName(r.reviewedByAdminId),
+    ),
   ];
 
   if (reports.loading) {
@@ -199,7 +172,6 @@ export function ReportsScreen() {
 
   return (
     <CmsPage title={t("reportsTitle")}>
-      <CmsQueryTabs items={tabs} />
       <CmsTable
         bulkActions={(ids) => (
           <>
@@ -259,6 +231,9 @@ export function ReportsScreen() {
  */
 export function OffPlatformScreen() {
   const t = useTranslations("cms.cases");
+  const tTable = useTranslations("cms.table");
+  const audit = useAuditHeaders();
+  const accountName = useAccountName();
   const router = useRouter();
   const { confirm } = useCmsFeedback();
   const rule = useRuling();
@@ -278,11 +253,10 @@ export function OffPlatformScreen() {
     fetcher,
   );
   const items = useMemo(() => flags.data?.items ?? [], [flags.data]);
-  const { tabs, rows } = useCaseTabs(items, "PENDING_REVIEW");
 
-  const list = useCmsList(rows, {
+  const list = useCmsList(items, {
     searchText: (f) => `${f.matchedPattern} ${f.messageId}`,
-    sortValue: (f) => timeValue(f.createdAt),
+    sortValue: (f, id) => (id === "status" ? f.status : timeValue(f.createdAt)),
     filters: [{ key: "status", test: (f, values) => values.includes(f.status) }],
   });
 
@@ -305,39 +279,27 @@ export function OffPlatformScreen() {
   }
 
   const columns: ReadonlyArray<CmsColumn<OffPlatformFlag>> = [
+    createdColumn(tTable("createdAt"), (f) => f.createdAt),
+    statusColumn(t("col.status"), (f) => <CmsApiStatus group="flag" value={f.status} />),
     {
       id: "signals",
       header: t("col.signals"),
-      render: (f) => (
-        <span className="font-latin font-medium text-highlighted">{f.matchedPattern}</span>
-      ),
+      className: "font-latin",
+      render: (f) => f.matchedPattern,
     },
     {
-      id: "message",
-      header: t("col.message"),
-      render: (f) => <span className="font-latin">{f.messageId.slice(0, 8)}</span>,
-    },
-    {
-      id: "detectedAt",
-      header: t("col.detectedAt"),
-      sortable: true,
-      render: (f) => formatDateTime(f.createdAt),
-    },
-    {
-      id: "status",
-      header: t("col.status"),
+      id: "penalty",
+      header: t("col.penalty"),
       align: "center",
-      render: (f) => (
-        <span className="flex flex-col items-center gap-1">
-          <CmsApiStatus group="flag" value={f.status} />
-          {f.penaltyPointsApplied > 0 ? (
-            <span className="font-latin text-xs text-destructive">
-              +{f.penaltyPointsApplied}
-            </span>
-          ) : null}
-        </span>
-      ),
+      className: "font-latin",
+      render: (f) => f.penaltyPointsApplied,
     },
+    // The scanner raises a flag; an admin rules on it.
+    ...auditColumns<OffPlatformFlag>(
+      audit,
+      () => audit.system,
+      (f) => accountName(f.reviewedByAdminId),
+    ),
   ];
 
   if (flags.loading) {
@@ -358,7 +320,6 @@ export function OffPlatformScreen() {
 
   return (
     <CmsPage title={t("flagsTitle")}>
-      <CmsQueryTabs items={tabs} />
       <CmsTable
         bulkActions={(ids) => (
           <>

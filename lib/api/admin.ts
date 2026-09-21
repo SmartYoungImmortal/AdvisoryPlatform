@@ -48,7 +48,8 @@
  *   detail route**, only the list.
  * - **Documents are storage keys, not URLs.** `documentObjectKey`, a skill proof's
  *   `objectKey` and refund evidence keys are SeaweedFS keys; there is no admin
- *   presign route, so nothing here can render the document.
+ *   presign route, so a real upload cannot be rendered. The demo seed's keys are
+ *   paths under `public/demo-docs/`, which `documentUrl` opens.
  *
  * ## Rulings, and the two failures that are not bugs
  *
@@ -146,6 +147,8 @@ export interface AdminAccount {
   readonly fullName: string;
   /** A storage key, not a URL, and there is no admin route that presigns it. */
   readonly avatarKey: string | null;
+  /** better-auth's profile-picture URL — drawable as-is, which `avatarKey` is not. */
+  readonly image: string | null;
   readonly timezone: string;
   readonly status: AdminAccountStatus;
   readonly role: AdminAccountRole | null;
@@ -281,6 +284,16 @@ export function rejectIdentityVerification(
     body: { reason },
     signal,
   });
+}
+
+/**
+ * A document key the console can open as it is: a URL, or a demo specimen the
+ * console serves itself from `public/demo-docs/`. Real uploads store a SeaweedFS
+ * key no admin route presigns, so those return `null` and the page names the
+ * file instead.
+ */
+export function documentUrl(key: string | null | undefined): string | null {
+  return key && (/^https?:\/\//.test(key) || key.startsWith("/demo-docs/")) ? key : null;
 }
 
 /* ------------------------------------------------------------- skill proofs */
@@ -540,6 +553,72 @@ export function getReport(reportId: string, signal?: AbortSignal): Promise<Admin
   return api.get(`admin/reports/${reportId}`, { signal });
 }
 
+/* ---------------------------------------------------------- case evidence */
+
+/** `CaseMessageDto` — one line of the conversation a case came from. */
+export interface CaseMessage {
+  readonly id: string;
+  readonly senderUserId: string;
+  readonly senderDisplayName: string;
+  readonly senderFullName: string;
+  readonly message: string;
+  readonly createdAt: string;
+}
+
+/** `CaseAppointmentDto` — the consultation that conversation belongs to. */
+export interface CaseAppointment {
+  readonly id: string;
+  readonly serviceId: string;
+  readonly serviceName: string;
+  readonly advisorId: string;
+  readonly adviseeId: string;
+  readonly type: "CONSULTATION" | "TRIAL";
+  readonly state:
+    | "PENDING_PAYMENT"
+    | "BOOKED"
+    | "IN_PROGRESS"
+    | "COMPLETED"
+    | "CANCELLED"
+    | "NO_SHOW";
+  readonly startTime: string;
+  readonly endTime: string;
+  readonly cancelledAt: string | null;
+  readonly cancelledByUserId: string | null;
+  /** The video room the session ran in; there is no recording, only the room. */
+  readonly jitsiRoomName: string | null;
+  readonly invoiceAmountSatang: number | null;
+  readonly invoiceStatus:
+    | "PENDING"
+    | "HELD_IN_ESCROW"
+    | "RELEASED"
+    | "REFUNDED"
+    | "FAILED"
+    | null;
+}
+
+/** `CaseContextResponseDto`. Empty when the case names no room. */
+export interface CaseContext {
+  /** For a flag, the line the detector matched. */
+  readonly flaggedMessageId: string | null;
+  readonly conversation: readonly CaseMessage[];
+  readonly appointment: CaseAppointment | null;
+}
+
+/** `GET /admin/reports/:reportId/context`. */
+export function getReportContext(reportId: string, signal?: AbortSignal): Promise<CaseContext> {
+  return api.get(`admin/reports/${reportId}/context`, { signal });
+}
+
+/** `GET /admin/refunds/:refundCaseId/context` — refund → invoice → appointment. */
+export function getRefundContext(refundCaseId: string, signal?: AbortSignal): Promise<CaseContext> {
+  return api.get(`admin/refunds/${refundCaseId}/context`, { signal });
+}
+
+/** `GET /admin/off-platform-flags/:flagId/context`. */
+export function getFlagContext(flagId: string, signal?: AbortSignal): Promise<CaseContext> {
+  return api.get(`admin/off-platform-flags/${flagId}/context`, { signal });
+}
+
 /**
  * `POST /admin/reports/:reportId/resolve`.
  *
@@ -671,6 +750,10 @@ export interface TaxonomyRecord {
   readonly id: string;
   readonly name: string;
   readonly description: string | null;
+  /** The admin who created it; null only for rows older than the column. */
+  readonly createdByUserId: string | null;
+  /** The admin who last changed it. */
+  readonly updatedByUserId: string | null;
   readonly createdAt: string;
   readonly modifiedAt: string;
 }

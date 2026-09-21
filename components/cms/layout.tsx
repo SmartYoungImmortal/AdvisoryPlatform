@@ -16,7 +16,11 @@ import {
   createContext,
   useContext,
   useEffect,
+  useRef,
   useState,
+  type CSSProperties,
+  type KeyboardEvent,
+  type PointerEvent,
   type ReactNode,
 } from "react";
 
@@ -39,7 +43,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Separator } from "@/components/ui/separator";
 import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
-import { logo } from "@/lib/assets/r2";
+import { consoleLogo } from "@/lib/assets/r2";
 import { resetDatabase } from "@/lib/mock-db/store";
 import { cmsNav, isCmsNavActive, type CmsNavItem } from "@/lib/navigation/cms";
 import { signOut, useSession } from "@/lib/session";
@@ -47,10 +51,55 @@ import { cn } from "@/lib/utils";
 
 /**
  * Nexus's `cms-flex` layout on Nuxt UI's dashboard components: a fixed-height
- * group, a 220px sidebar (brand row, navigation, user menu) and a panel whose
+ * group, a resizable sidebar (brand row, navigation, user menu) and a panel whose
  * navbar carries the page title. Below `lg` the sidebar moves into a sheet the
  * navbar's menu button opens, as `UDashboardSidebar` does.
  */
+
+/**
+ * Nexus's `UDashboardSidebar` is `resizable`, 180–360px from a 220 default. 220
+ * cuts "ตรวจจับนอกแพลตฟอร์ม" — a nested label that needs 138px where 220 leaves
+ * 115 — and the console was asked for a roomier rail, so this one opens at 300
+ * and stretches to 400. A double-click on the edge returns to 300, as Nuxt UI's
+ * handle returns to its default.
+ */
+const SIDEBAR = { min: 180, max: 400, initial: 300 } as const;
+const SIDEBAR_STORAGE_KEY = "cms-sidebar-width";
+
+function clampSidebar(width: number): number {
+  return Math.round(Math.min(SIDEBAR.max, Math.max(SIDEBAR.min, width)));
+}
+
+/**
+ * The width the viewer last dragged to, remembered per browser. Storage can be
+ * blocked or empty; the sidebar then simply opens at its default.
+ */
+function useSidebarWidth() {
+  const [width, setWidth] = useState<number>(SIDEBAR.initial);
+
+  useEffect(() => {
+    try {
+      const saved = Number(window.localStorage.getItem(SIDEBAR_STORAGE_KEY));
+      // Read after mount: the static render has no storage to read from.
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- one read of a per-viewer preference.
+      if (saved) setWidth(clampSidebar(saved));
+    } catch {
+      // Blocked storage: keep the default.
+    }
+  }, []);
+
+  function commit(next: number) {
+    const value = clampSidebar(next);
+    setWidth(value);
+    try {
+      window.localStorage.setItem(SIDEBAR_STORAGE_KEY, String(value));
+    } catch {
+      // Blocked storage: the width holds for this visit only.
+    }
+  }
+
+  return [width, commit] as const;
+}
 const SidebarContext = createContext<{
   readonly open: boolean;
   readonly setOpen: (open: boolean) => void;
@@ -75,13 +124,66 @@ export function CmsThemeScope({ children }: { readonly children: ReactNode }) {
 export function CmsDashboard({ children }: { readonly children: ReactNode }) {
   const t = useTranslations("cms.nav");
   const [open, setOpen] = useState(false);
+  const [width, setWidth] = useSidebarWidth();
+  const [dragging, setDragging] = useState(false);
+  const drag = useRef<{ x: number; width: number } | null>(null);
+
+  function onPointerDown(event: PointerEvent<HTMLDivElement>) {
+    event.currentTarget.setPointerCapture(event.pointerId);
+    drag.current = { x: event.clientX, width };
+    setDragging(true);
+  }
+
+  function onPointerMove(event: PointerEvent<HTMLDivElement>) {
+    if (!drag.current) return;
+    setWidth(drag.current.width + event.clientX - drag.current.x);
+  }
+
+  function onPointerUp() {
+    drag.current = null;
+    setDragging(false);
+  }
+
+  function onKeyDown(event: KeyboardEvent<HTMLDivElement>) {
+    const step = event.shiftKey ? 40 : 10;
+    if (event.key === "ArrowLeft") setWidth(width - step);
+    else if (event.key === "ArrowRight") setWidth(width + step);
+    else if (event.key === "Home") setWidth(SIDEBAR.min);
+    else if (event.key === "End") setWidth(SIDEBAR.max);
+    else return;
+    event.preventDefault();
+  }
 
   return (
     <SidebarContext.Provider value={{ open, setOpen }}>
-      <div className="fixed inset-0 flex overflow-hidden">
-        <aside className="relative hidden min-h-svh w-[220px] min-w-16 shrink-0 flex-col border-e border-border lg:flex">
+      <div className={cn("fixed inset-0 flex overflow-hidden", dragging && "cursor-ew-resize select-none")}>
+        <aside
+          className="relative hidden min-h-svh w-(--width) min-w-16 shrink-0 flex-col border-e border-border lg:flex"
+          id="cms-sidebar"
+          style={{ "--width": `${width}px` } as CSSProperties}
+        >
           <SidebarBody />
         </aside>
+        {/* `UDashboardResizeHandle`: no width of its own, a 12px grab area
+            straddling the sidebar's border. */}
+        <div
+          aria-controls="cms-sidebar"
+          aria-label={t("resize")}
+          aria-orientation="vertical"
+          aria-valuemax={SIDEBAR.max}
+          aria-valuemin={SIDEBAR.min}
+          aria-valuenow={width}
+          className="relative hidden cursor-ew-resize touch-none select-none before:absolute before:inset-y-0 before:-right-1.5 before:-left-1.5 before:z-1 focus-visible:outline-none focus-visible:before:bg-primary/25 lg:block"
+          data-cms-resize=""
+          onDoubleClick={() => setWidth(SIDEBAR.initial)}
+          onKeyDown={onKeyDown}
+          onLostPointerCapture={onPointerUp}
+          onPointerDown={onPointerDown}
+          onPointerMove={onPointerMove}
+          onPointerUp={onPointerUp}
+          role="separator"
+          tabIndex={0}
+        />
         <Sheet onOpenChange={setOpen} open={open}>
           <SheetContent
             className="cms-admin w-[272px] gap-0 bg-background p-0 lg:hidden"
@@ -110,7 +212,7 @@ function SidebarBody() {
             alt="Advisory Platform"
             className="h-8 w-auto max-w-40 object-contain"
             priority
-            src={logo}
+            src={consoleLogo}
           />
         </Link>
       </div>
@@ -168,7 +270,9 @@ function NavEntry({
     return (
       <li className="min-w-0">
         <Collapsible defaultOpen={active || !nested}>
-          <CollapsibleTrigger className={cn(linkBase, linkState(active))}>
+          {/* Nexus hands every group its `cmsNavGroupHeaderClass`, which
+              defaults to `font-semibold` — the headers outweigh their links. */}
+          <CollapsibleTrigger className={cn(linkBase, linkState(active), "font-semibold")}>
             {icon}
             <span className="truncate">{t(item.key)}</span>
             <ChevronDown
@@ -350,7 +454,7 @@ export function CmsPage({
               variant="ghost"
             />
           ) : null}
-          <h1 className="truncate font-semibold text-highlighted xl:text-2xl">{title}</h1>
+          <h1 className="truncate font-semibold text-highlighted xl:text-2xl xl:leading-8">{title}</h1>
           {badge}
         </div>
         {actions ? <div className="flex shrink-0 items-center gap-1.5">{actions}</div> : null}

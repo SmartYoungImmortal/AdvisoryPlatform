@@ -6,13 +6,19 @@ import { useTranslations } from "next-intl";
 import { useCallback, useMemo } from "react";
 
 import { CmsApiError, CmsTableSkeleton, useRuling } from "@/components/cms/api";
-import { CmsPerson } from "@/components/cms/avatar";
 import { CmsButton } from "@/components/cms/button";
 import { useCmsFeedback } from "@/components/cms/feedback";
 import { CmsPage } from "@/components/cms/layout";
-import { CmsQueryTabs, useQueryTab } from "@/components/cms/query-tabs";
-import { CmsApiStatus } from "@/components/cms/status";
-import { CmsTable, type CmsColumn } from "@/components/cms/table";
+import { CmsApiStatus, useApiStatusOptions } from "@/components/cms/status";
+import { useAccountName, useAuditHeaders } from "@/components/cms/people";
+import {
+  auditColumns,
+  CmsFilterMenu,
+  CmsTable,
+  createdColumn,
+  statusColumn,
+  type CmsColumn,
+} from "@/components/cms/table";
 import { useCmsList } from "@/components/cms/use-cms-list";
 import {
   ADMIN_MAX_LIMIT,
@@ -22,16 +28,7 @@ import {
 } from "@/lib/api/admin";
 import type { Paginated } from "@/lib/api/client";
 import { useResource } from "@/lib/api/use-resource";
-import { formatBaht, formatDateTime, timeValue } from "@/lib/mock-db/format";
-
-/** `OPEN` is the API's name for what the tab strip calls "รอดำเนินการ". */
-type Tab = "pending" | "approved" | "rejected" | "all";
-
-const TAB_STATUS = {
-  pending: "OPEN",
-  approved: "APPROVED",
-  rejected: "REJECTED",
-} as const;
+import { formatBaht, timeValue } from "@/lib/mock-db/format";
 
 export const REFUNDS_KEY = "admin/refunds";
 
@@ -56,6 +53,9 @@ export const REFUNDS_KEY = "admin/refunds";
  */
 export function RefundsScreen() {
   const t = useTranslations("cms.refunds");
+  const tTable = useTranslations("cms.table");
+  const audit = useAuditHeaders();
+  const accountName = useAccountName();
   const router = useRouter();
   const { prompt } = useCmsFeedback();
   const rule = useRuling();
@@ -69,48 +69,30 @@ export function RefundsScreen() {
     fetcher,
   );
   const items = useMemo(() => refunds.data?.items ?? [], [refunds.data]);
+  const statusOptions = useApiStatusOptions("refund", ["OPEN", "APPROVED", "REJECTED"]);
 
-  const tabs = (["pending", "approved", "rejected", "all"] as const).map((value) => ({
-    value,
-    label: t(`tab.${value}`),
-    count:
-      value === "pending" ? items.filter((r) => r.status === "OPEN").length : undefined,
-    alert: true,
-  }));
-  const tab = useQueryTab<Tab>(tabs);
-  const rows = useMemo(
-    () => (tab === "all" ? items : items.filter((r) => r.status === TAB_STATUS[tab])),
-    [items, tab],
-  );
-
-  const list = useCmsList(rows, {
+  const list = useCmsList(items, {
     searchText: (r) => `${r.id} ${r.reason} ${r.requesterDisplayName}`,
-    sortValue: (r, id) =>
-      id === "amount" ? r.invoiceAmountSatang : timeValue(r.createdAt),
+    sortValue: (r, id) => {
+      if (id === "amount") return r.invoiceAmountSatang;
+      if (id === "status") return r.status;
+      return timeValue(r.createdAt);
+    },
+    filters: [{ key: "status", test: (r, values) => values.includes(r.status) }],
   });
 
   const columns: ReadonlyArray<CmsColumn<AdminRefundCase>> = [
-    {
-      id: "request",
-      header: t("col.request"),
-      render: (r) => (
-        <span className="flex flex-col">
-          <span className="font-latin font-medium text-highlighted">
-            {r.id.slice(0, 8)}
-          </span>
-          <span className="font-latin text-xs">{r.invoiceId.slice(0, 8)}</span>
-        </span>
-      ),
-    },
+    createdColumn(tTable("createdAt"), (r) => r.createdAt),
+    statusColumn(t("col.status"), (r) => <CmsApiStatus group="refund" value={r.status} />),
     {
       id: "requester",
       header: t("col.requester"),
-      render: (r) => <CmsPerson account={{ name: r.requesterDisplayName }} />,
+      render: (r) => accountName(r.requestedByUserId) ?? r.requesterDisplayName,
     },
     {
       id: "reason",
       header: t("col.reason"),
-      render: (r) => <span className="block max-w-64 truncate">{r.reason}</span>,
+      render: (r) => <span className="block max-w-72 truncate">{r.reason}</span>,
     },
     {
       id: "amount",
@@ -119,18 +101,11 @@ export function RefundsScreen() {
       className: "font-latin",
       render: (r) => formatBaht(r.invoiceAmountSatang),
     },
-    {
-      id: "requestedAt",
-      header: t("col.requestedAt"),
-      sortable: true,
-      render: (r) => formatDateTime(r.createdAt),
-    },
-    {
-      id: "status",
-      header: t("col.status"),
-      align: "center",
-      render: (r) => <CmsApiStatus group="refund" value={r.status} />,
-    },
+    ...auditColumns<AdminRefundCase>(
+      audit,
+      (r) => accountName(r.requestedByUserId) ?? r.requesterDisplayName,
+      (r) => accountName(r.reviewedByAdminId),
+    ),
   ];
 
   if (refunds.loading) {
@@ -151,7 +126,6 @@ export function RefundsScreen() {
 
   return (
     <CmsPage title={t("title")}>
-      <CmsQueryTabs items={tabs} />
       <CmsTable
         bulkActions={(ids) => {
           const open = ids.filter(
@@ -185,6 +159,14 @@ export function RefundsScreen() {
           );
         }}
         columns={columns}
+        filters={
+          <CmsFilterMenu
+            label={t("allStatuses")}
+            onChange={(values) => list.setFilter("status", values)}
+            options={statusOptions}
+            values={list.filterValues.status ?? []}
+          />
+        }
         list={list}
         onRowClick={(r) => router.push(`/admin/refunds/review?id=${r.id}`)}
         searchPlaceholder={t("search")}

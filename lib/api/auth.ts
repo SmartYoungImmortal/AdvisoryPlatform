@@ -31,6 +31,18 @@
 import { api } from "@/lib/api/client";
 
 /**
+ * better-auth's mount point, spelled out on every call.
+ *
+ * `unprefixed: true` only removes the client's `/api/v1`; it does not add anything
+ * in its place. These paths were written as bare `sign-in/email`, which resolved to
+ * `<host>/sign-in/email` and answered "Cannot POST /sign-in/email" from Nest's
+ * router — every sign-in, from both doors, failed before better-auth saw it. The
+ * curl tests that proved the flow typed the full path by hand, so they never went
+ * through this file.
+ */
+const AUTH = "api/auth";
+
+/**
  * The user as better-auth returns it.
  *
  * `name` rather than `displayName`: better-auth's TypeScript surface always calls
@@ -77,7 +89,7 @@ export function signIn(
   credentials: { readonly email: string; readonly password: string },
   signal?: AbortSignal,
 ): Promise<SignInResponse> {
-  return api.post("sign-in/email", {
+  return api.post(`${AUTH}/sign-in/email`, {
     body: credentials,
     signal,
     unprefixed: true,
@@ -102,7 +114,7 @@ export function signUp(
   },
   signal?: AbortSignal,
 ): Promise<SignInResponse> {
-  return api.post("sign-up/email", {
+  return api.post(`${AUTH}/sign-up/email`, {
     body: { timezone: "Asia/Bangkok", ...input },
     signal,
     unprefixed: true,
@@ -110,7 +122,7 @@ export function signUp(
 }
 
 export function signOut(signal?: AbortSignal): Promise<unknown> {
-  return api.post("sign-out", { signal, unprefixed: true });
+  return api.post(`${AUTH}/sign-out`, { signal, unprefixed: true });
 }
 
 /**
@@ -121,7 +133,7 @@ export function signOut(signal?: AbortSignal): Promise<unknown> {
  * `AuthSession | null` instead of throwing.
  */
 export function getSession(signal?: AbortSignal): Promise<AuthSession | null> {
-  return api.get("get-session", { signal, unprefixed: true });
+  return api.get(`${AUTH}/get-session`, { signal, unprefixed: true });
 }
 
 /**
@@ -132,7 +144,7 @@ export function getSession(signal?: AbortSignal): Promise<AuthSession | null> {
  * `getHealth` in `./resources`, which takes a connection and runs a statement.
  */
 export function authOk(signal?: AbortSignal): Promise<unknown> {
-  return api.get("ok", { signal, unprefixed: true });
+  return api.get(`${AUTH}/ok`, { signal, unprefixed: true });
 }
 
 /** Whether a better-auth role string names an admin, either spelling. */

@@ -4,15 +4,17 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Check, FileText, X } from "lucide-react";
 import { useTranslations } from "next-intl";
-import { useCallback, useMemo } from "react";
+import { useCallback, useId, useMemo, useState } from "react";
 
 import { CmsApiError, CmsCardSkeleton, useRuling } from "@/components/cms/api";
-import { CmsAvatar } from "@/components/cms/avatar";
 import { CmsButton } from "@/components/cms/button";
 import { CmsCard } from "@/components/cms/card";
+import { CmsDocument } from "@/components/cms/document";
 import { useCmsFeedback } from "@/components/cms/feedback";
+import { CmsFormField, CmsTextarea } from "@/components/cms/fields";
 import { useRecordId } from "@/components/cms/hooks";
 import { CmsPage } from "@/components/cms/layout";
+import { useAccountName } from "@/components/cms/people";
 import {
   CmsDataRow,
   CmsMissing,
@@ -23,6 +25,7 @@ import {
   ADMIN_KEYS,
   ADMIN_MAX_LIMIT,
   approveIdentityVerification,
+  documentUrl,
   getIdentityVerification,
   listIdentityVerifications,
   listSkillProofs,
@@ -32,8 +35,6 @@ import {
 } from "@/lib/api/admin";
 import type { Paginated } from "@/lib/api/client";
 import { useResource } from "@/lib/api/use-resource";
-import { formatDateTime } from "@/lib/mock-db/format";
-import { cn } from "@/lib/utils";
 
 /** The cache prefix both this detail view and its queue read under. */
 const IDENTITY_KEY = ADMIN_KEYS.identity;
@@ -48,12 +49,12 @@ const IDENTITY_KEY = ADMIN_KEYS.identity;
  * choice from Figma 1952:36339 cannot be honoured: approving verifies the identity
  * and nothing else. Restoring it needs the level on the approve DTO.
  *
- * ## The document is named, not shown
+ * ## The document
  *
- * `documentObjectKey` is a SeaweedFS object key. No admin route presigns it, so
- * there is no URL to put in an `<img>`, and the card states the key rather than
- * rendering a stock national-id picture that is not this applicant's document. The
- * same is true of every skill proof's `objectKey`.
+ * `documentObjectKey` is a SeaweedFS object key for a real upload, and no admin
+ * route presigns it, so that card says no document can be shown rather than
+ * drawing a stock picture that is not this applicant's. The demo seed's keys are
+ * specimen cards under `public/demo-docs/`, which `documentUrl` opens.
  *
  * Also absent from the DTO, so absent here: full name, birth date, national id,
  * credential and field. The applicant is a display name and an email.
@@ -101,10 +102,17 @@ export function VerificationReviewScreen() {
 
 function Review({ request }: { readonly request: IdentityVerification }) {
   const t = useTranslations("cms.verification");
+  const tUsers = useTranslations("cms.users");
   const tStatus = useTranslations("cms.status");
   const router = useRouter();
-  const { confirm, prompt } = useCmsFeedback();
+  const { confirm } = useCmsFeedback();
   const rule = useRuling();
+  const accountName = useAccountName();
+  const reasonId = useId();
+  const [reason, setReason] = useState("");
+  const [reasonError, setReasonError] = useState<string | undefined>();
+  const name = accountName(request.advisorId) ?? request.displayName;
+  const document = documentUrl(request.documentObjectKey);
 
   const queueFetcher = useCallback(
     (signal: AbortSignal) =>
@@ -159,24 +167,22 @@ function Review({ request }: { readonly request: IdentityVerification }) {
   }
 
   async function reject() {
-    const note = await prompt({
-      type: "danger",
-      title: t("rejectTitle", { name: request.displayName }),
-      description: t("rejectBody"),
-      inputLabel: t("reason"),
-      placeholder: t("rejectPlaceholder"),
-      confirmLabel: t("reject"),
-    });
-    if (note === null) return;
+    const note = reason.trim();
+    if (!note) {
+      setReasonError(t("reasonRequired"));
+      return;
+    }
     const result = await rule({
       keyPrefix: IDENTITY_KEY,
       run: [() => rejectIdentityVerification(request.advisorId, note)],
-      success: t("rejected", { name: request.displayName }),
+      success: t("rejected", { name }),
       successColor: "warning",
     });
     if (result.ok) advance();
   }
 
+  // Nexus's record page: one card of facts and evidence, the status, audit and
+  // ruling in the options panel. The rejection reason is a field on the card.
   return (
     <CmsPage
       aside={
@@ -184,7 +190,7 @@ function Review({ request }: { readonly request: IdentityVerification }) {
           actions={
             pending ? (
               <>
-                <CmsButton block color="action" icon={Check} onClick={approve} size="lg">
+                <CmsButton block color="success" icon={Check} onClick={approve} size="lg">
                   {t("approve")}
                 </CmsButton>
                 <CmsButton block color="error" icon={X} onClick={reject} size="lg">
@@ -194,100 +200,104 @@ function Review({ request }: { readonly request: IdentityVerification }) {
             ) : null
           }
           info={[
-            { label: t("submittedAt"), at: request.submittedAt },
+            { label: t("submittedAt"), by: name, at: request.submittedAt },
             ...(request.verifiedAt
-              ? [{ label: t("decidedAt"), at: request.verifiedAt }]
+              ? [
+                  {
+                    label: t("decidedAt"),
+                    by: accountName(request.verifiedByAdminId) ?? undefined,
+                    at: request.verifiedAt,
+                  },
+                ]
               : []),
           ]}
         >
-          <div className="flex items-center justify-between text-sm">
-            <span className="font-semibold text-highlighted">{t("queueTitle")}</span>
-            <span className="font-latin text-muted-foreground">{waiting.length}</span>
-          </div>
-          <ul className="-mx-2 flex flex-col">
-            {waiting.length === 0 ? (
-              <li className="px-2 text-sm text-muted-foreground">{t("queueEmpty")}</li>
-            ) : (
-              waiting.slice(0, 8).map((item) => (
-                <li key={item.advisorId}>
-                  <Link
-                    aria-current={item.advisorId === request.advisorId ? "page" : undefined}
-                    className={cn(
-                      "flex items-center gap-2 rounded-md px-2 py-2 text-sm transition-colors hover:bg-muted/50",
-                      item.advisorId === request.advisorId && "bg-muted text-highlighted",
-                    )}
-                    href={`/admin/verification/review?id=${item.advisorId}`}
-                  >
-                    <CmsAvatar account={{ name: item.displayName }} size="sm" />
-                    <span className="truncate">{item.displayName}</span>
-                  </Link>
-                </li>
-              ))
-            )}
-          </ul>
+          <CmsFormField label={t("col.status")}>
+            <div>
+              <CmsApiStatus group="identity" value={request.verificationStatus} />
+            </div>
+          </CmsFormField>
         </CmsSidebarOptions>
       }
       backHref="/admin/verification"
-      badge={<CmsApiStatus group="identity" value={request.verificationStatus} />}
       title={t("reviewTitle")}
     >
-      <CmsCard title={t("details")}>
-        <dl className="space-y-3">
-          <CmsDataRow label={t("account")}>
+      <CmsCard>
+        <dl className="space-y-4">
+          <CmsDataRow label={t("col.applicant")}>
             <Link
-              className="text-action hover:text-action/75"
+              className="text-action transition-colors hover:text-action/75"
               href={`/admin/users/edit?id=${request.advisorId}`}
             >
-              {request.displayName} · <span className="font-latin">{request.email}</span>
+              {name}
             </Link>
           </CmsDataRow>
+          <CmsDataRow label={tUsers("col.email")}>
+            <span className="font-latin">{request.email}</span>
+          </CmsDataRow>
           {request.rejectionReason ? (
-            <CmsDataRow label={t("decisionNote")}>{request.rejectionReason}</CmsDataRow>
+            <CmsDataRow label={t("reason")}>
+              <span className="font-normal text-foreground">{request.rejectionReason}</span>
+            </CmsDataRow>
           ) : null}
         </dl>
-      </CmsCard>
 
-      <CmsCard title={t("documents")}>
-        {/* A storage key, not a URL. Nothing here can open it, so it is stated. */}
-        {request.documentObjectKey ? (
-          <p className="flex items-center gap-2 text-sm text-muted-foreground">
-            <FileText aria-hidden className="size-4 shrink-0 text-dimmed" />
-            <span className="font-latin break-all">{request.documentObjectKey}</span>
-          </p>
-        ) : (
-          <p className="text-sm text-muted-foreground">{t("fromDocument")}</p>
-        )}
-      </CmsCard>
-
-      <CmsCard
-        actions={
-          <span className="text-sm text-muted-foreground">
-            {t("skillCount", { count: proofItems.length })}
-          </span>
-        }
-        bodyClassName="p-0 sm:p-0"
-        title={t("skills")}
-      >
-        <ul className="divide-y divide-border">
-          {proofItems.length === 0 ? (
-            <li className="p-4 text-sm text-muted-foreground sm:px-6">{t("noSkills")}</li>
+        <section className="mt-6 border-t border-border pt-6">
+          <h2 className="mb-4 text-sm font-semibold text-highlighted">{t("idCard")}</h2>
+          {document ? (
+            <CmsDocument className="max-w-lg" name={t("idCard")} url={document} />
           ) : (
-            proofItems.map((proof) => (
-              <li className="flex items-center gap-4 p-4 sm:px-6" key={proof.id}>
-                <FileText aria-hidden className="size-5 shrink-0 text-dimmed" />
-                <div className="flex min-w-0 flex-1 flex-col">
-                  <span className="truncate text-sm font-medium text-highlighted">
-                    {proof.skillName}
-                  </span>
-                  <span className="truncate font-latin text-xs text-muted-foreground">
-                    {proof.originalFileName} · {formatDateTime(proof.createdAt)}
-                  </span>
-                </div>
-                <CmsApiStatus group="proof" value={proof.reviewStatus} />
-              </li>
-            ))
+            <p className="text-sm text-muted-foreground">{t("noDocument")}</p>
           )}
-        </ul>
+        </section>
+
+        <section className="mt-6 border-t border-border pt-6">
+          <h2 className="mb-4 text-sm font-semibold text-highlighted">
+            {t("skillCount", { count: proofItems.length })}
+          </h2>
+          {proofItems.length === 0 ? (
+            <p className="text-sm text-muted-foreground">{t("noSkills")}</p>
+          ) : (
+            <ul className="divide-y divide-border rounded-md ring-1 ring-border">
+              {proofItems.map((proof) => (
+                <li key={proof.id}>
+                  <Link
+                    className="flex items-center gap-3 px-4 py-3 transition-colors hover:bg-muted/50"
+                    href={`/admin/skill-proofs/review?id=${proof.id}`}
+                  >
+                    <FileText aria-hidden className="size-5 shrink-0 text-dimmed" />
+                    <span className="flex min-w-0 flex-1 flex-col">
+                      <span className="truncate text-sm font-medium text-highlighted">
+                        {proof.skillName}
+                      </span>
+                      <span className="truncate font-latin text-xs text-muted-foreground">
+                        {proof.originalFileName}
+                      </span>
+                    </span>
+                    <CmsApiStatus group="proof" value={proof.reviewStatus} />
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          )}
+        </section>
+
+        {pending ? (
+          <div className="mt-6 border-t border-border pt-6">
+            <CmsFormField error={reasonError} htmlFor={reasonId} label={t("reason")}>
+              <CmsTextarea
+                id={reasonId}
+                invalid={Boolean(reasonError)}
+                onChange={(event) => {
+                  setReason(event.target.value);
+                  setReasonError(undefined);
+                }}
+                placeholder={t("rejectPlaceholder")}
+                value={reason}
+              />
+            </CmsFormField>
+          </div>
+        ) : null}
       </CmsCard>
     </CmsPage>
   );

@@ -7,12 +7,13 @@ import { useTranslations } from "next-intl";
 import { useCallback, useMemo, type ReactNode } from "react";
 
 import { CmsApiError, CmsCardSkeleton, useRuling } from "@/components/cms/api";
-import { CmsPerson } from "@/components/cms/avatar";
 import { CmsButton } from "@/components/cms/button";
 import { CmsCard } from "@/components/cms/card";
 import { useCmsFeedback } from "@/components/cms/feedback";
+import { CmsFormField } from "@/components/cms/fields";
 import { useRecordId } from "@/components/cms/hooks";
 import { CmsPage } from "@/components/cms/layout";
+import { useAccountName } from "@/components/cms/people";
 import { FLAGS_KEY, REPORTS_KEY } from "@/components/cms/screens/cases";
 import {
   CmsDataRow,
@@ -20,20 +21,23 @@ import {
   CmsSidebarOptions,
 } from "@/components/cms/sidebar-options";
 import { CmsApiStatus } from "@/components/cms/status";
+import { CaseEvidence } from "@/components/cms/case-evidence";
 import {
   ADMIN_MAX_LIMIT,
+  getFlagContext,
   getReport,
+  getReportContext,
   listOffPlatformFlags,
   resolveOffPlatformFlag,
   resolveReport,
   type AdminReport,
+  type CaseContext,
   type OffPlatformFlag,
   type OffPlatformFlagOutcome,
   type ReportOutcome,
 } from "@/lib/api/admin";
 import type { Paginated } from "@/lib/api/client";
 import { useResource } from "@/lib/api/use-resource";
-import { formatDateTime } from "@/lib/mock-db/format";
 
 /**
  * The decision column both case pages share.
@@ -145,7 +149,13 @@ export function ReportReviewScreen() {
 
 function ReportRecord({ report }: { readonly report: AdminReport }) {
   const t = useTranslations("cms.cases");
+  const accountName = useAccountName();
   const router = useRouter();
+  const evidenceFetcher = useCallback(
+    (signal: AbortSignal) => getReportContext(report.id, signal),
+    [report.id],
+  );
+  const evidence = useResource<CaseContext>(`${REPORTS_KEY}/${report.id}/context`, evidenceFetcher);
   const { confirm } = useCmsFeedback();
   const rule = useRuling();
   const acted = t("tab.closed");
@@ -174,67 +184,68 @@ function ReportRecord({ report }: { readonly report: AdminReport }) {
         <CaseDecision
           acted={{ label: acted, danger: false }}
           info={[
-            { label: t("reportedAt"), by: report.reporterDisplayName, at: report.createdAt },
+            {
+              label: t("reportedAt"),
+              by: accountName(report.reporterUserId) ?? report.reporterDisplayName,
+              at: report.createdAt,
+            },
             ...(report.resolvedAt
-              ? [{ label: t("decidedAt"), at: report.resolvedAt }]
+              ? [
+                  {
+                    label: t("decidedAt"),
+                    by: accountName(report.reviewedByAdminId) ?? undefined,
+                    at: report.resolvedAt,
+                  },
+                ]
               : []),
           ]}
           onResolve={decide}
           open={report.status === "OPEN"}
         >
-          <dl className="space-y-3">
-            <CmsDataRow label={t("col.status")}>
+          <CmsFormField label={t("col.status")}>
+            <div>
               <CmsApiStatus group="report" value={report.status} />
-            </CmsDataRow>
-          </dl>
+            </div>
+          </CmsFormField>
         </CaseDecision>
       }
       backHref="/admin/reports"
-      badge={<CmsApiStatus group="report" value={report.status} />}
-      title={t("reportHeading", { id: report.id.slice(0, 8) })}
+      title={t("reportTitle")}
     >
-      <CmsCard title={t("caseTitle")}>
-        <dl className="space-y-3">
+      {/* One card, as Nexus's edit page has one form card: the two people link
+          through to their accounts, and no id is printed. */}
+      <CmsCard>
+        <dl className="space-y-4">
+          <CmsDataRow label={t("col.reported")}>
+            <PersonLink
+              id={report.reportedUserId}
+              name={accountName(report.reportedUserId) ?? report.reportedDisplayName}
+            />
+          </CmsDataRow>
+          <CmsDataRow label={t("col.reporter")}>
+            <PersonLink
+              id={report.reporterUserId}
+              name={accountName(report.reporterUserId) ?? report.reporterDisplayName}
+            />
+          </CmsDataRow>
           <CmsDataRow label={t("col.detail")}>
             <span className="font-normal text-foreground">{report.reason}</span>
           </CmsDataRow>
-          <CmsDataRow label={t("col.createdAt")}>
-            {formatDateTime(report.createdAt)}
-          </CmsDataRow>
-          {report.chatRoomId ? (
-            <CmsDataRow label={t("conversation")}>
-              <span className="font-latin break-all">{report.chatRoomId}</span>
-            </CmsDataRow>
-          ) : null}
         </dl>
-      </CmsCard>
-
-      <CmsCard title={t("reportedAccount")}>
-        <dl className="space-y-3">
-          <CmsDataRow label={t("account")}>
-            <Link
-              className="inline-block"
-              href={`/admin/users/edit?id=${report.reportedUserId}`}
-            >
-              <CmsPerson account={{ name: report.reportedDisplayName }} />
-            </Link>
-          </CmsDataRow>
-        </dl>
-      </CmsCard>
-
-      <CmsCard title={t("reporterAccount")}>
-        <dl className="space-y-3">
-          <CmsDataRow label={t("account")}>
-            <Link
-              className="inline-block"
-              href={`/admin/users/edit?id=${report.reporterUserId}`}
-            >
-              <CmsPerson account={{ name: report.reporterDisplayName }} />
-            </Link>
-          </CmsDataRow>
-        </dl>
+        <CaseEvidence context={evidence.data} loading={evidence.loading} />
       </CmsCard>
     </CmsPage>
+  );
+}
+
+function PersonLink({ id, name }: { readonly id: string; readonly name: string }) {
+  return (
+    <Link
+      className="text-action transition-colors hover:text-action/75"
+      href={`/admin/users/edit?id=${id}`}
+    >
+      {name}
+    </Link>
   );
 }
 
@@ -302,6 +313,11 @@ export function FlagReviewScreen() {
 function FlagRecord({ flag }: { readonly flag: OffPlatformFlag }) {
   const t = useTranslations("cms.cases");
   const router = useRouter();
+  const evidenceFetcher = useCallback(
+    (signal: AbortSignal) => getFlagContext(flag.id, signal),
+    [flag.id],
+  );
+  const evidence = useResource<CaseContext>(`${FLAGS_KEY}/${flag.id}/context`, evidenceFetcher);
   const { confirm } = useCmsFeedback();
   const rule = useRuling();
   const acted = t("tab.closed");
@@ -339,31 +355,28 @@ function FlagRecord({ flag }: { readonly flag: OffPlatformFlag }) {
           onResolve={decide}
           open={flag.status === "PENDING_REVIEW"}
         >
-          <dl className="space-y-3">
-            <CmsDataRow label={t("col.status")}>
+          <CmsFormField label={t("col.status")}>
+            <div>
               <CmsApiStatus group="flag" value={flag.status} />
-            </CmsDataRow>
-          </dl>
+            </div>
+          </CmsFormField>
         </CaseDecision>
       }
       backHref="/admin/off-platform"
-      badge={<CmsApiStatus group="flag" value={flag.status} />}
-      title={t("flagHeading", { id: flag.id.slice(0, 8) })}
+      title={t("flagTitle")}
     >
-      <CmsCard title={t("flaggedMessage")}>
-        <dl className="space-y-3">
+      <CmsCard>
+        <dl className="space-y-4">
           <CmsDataRow label={t("col.signals")}>
             {/* The pattern the scanner matched. The message it matched in is not
                 on the flag, so there is nothing to highlight it inside. */}
-            <span className="font-latin break-all">{flag.matchedPattern}</span>
+            <span className="font-latin">{flag.matchedPattern}</span>
           </CmsDataRow>
-          <CmsDataRow label={t("col.message")}>
-            <span className="font-latin break-all">{flag.messageId}</span>
-          </CmsDataRow>
-          <CmsDataRow label={t("col.detectedAt")}>
-            {formatDateTime(flag.createdAt)}
+          <CmsDataRow label={t("col.penalty")}>
+            <span className="font-latin">{flag.penaltyPointsApplied}</span>
           </CmsDataRow>
         </dl>
+        <CaseEvidence context={evidence.data} loading={evidence.loading} />
       </CmsCard>
     </CmsPage>
   );

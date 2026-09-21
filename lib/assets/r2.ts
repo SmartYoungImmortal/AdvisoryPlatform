@@ -106,6 +106,17 @@ export const logo: StaticImageData = {
   height: 61,
 };
 
+/**
+ * The admin console's wordmark — mark plus "Advisory", 1700x416. Uploaded by
+ * the team under a fixed key rather than a content hash, so replacing the file
+ * at that key changes it everywhere; it is served without `immutable`.
+ */
+export const consoleLogo: StaticImageData = {
+  src: `${R2_BASE}/Logo/Advisory.png`,
+  width: 1700,
+  height: 416,
+};
+
 /** `assets/illustrations/messages-empty` — 218x186. */
 export const messagesEmpty: StaticImageData = {
   src: `${R2_BASE}/illustrations/messages-empty.b7444e25.svg`,

@@ -5,7 +5,7 @@ import { useTranslations } from "next-intl";
 import type { ReactNode } from "react";
 
 import { CmsCard } from "@/components/cms/card";
-import { formatDateTime } from "@/lib/mock-db/format";
+import { formatStamp } from "@/lib/mock-db/format";
 
 /**
  * Nexus's `CmsSidebarOptions`, the right-hand column of every edit page: a card
@@ -38,7 +38,7 @@ export function CmsSidebarOptions({
                 <span className="block font-medium text-foreground">{row.label}</span>
                 <div className="flex justify-between gap-2 text-xs text-muted-foreground">
                   <span className="truncate">{row.by ?? ""}</span>
-                  <span className="shrink-0">{formatDateTime(row.at)}</span>
+                  <span className="shrink-0 font-latin">{formatStamp(row.at)}</span>
                 </div>
               </div>
             ))}

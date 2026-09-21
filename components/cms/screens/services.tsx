@@ -1,13 +1,22 @@
 "use client";
 
+import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { useCallback, useMemo } from "react";
 
 import { CmsApiError, CmsTableSkeleton } from "@/components/cms/api";
 import { CmsPage } from "@/components/cms/layout";
-import { CmsQueryTabs, useQueryTab } from "@/components/cms/query-tabs";
-import { CmsStatus } from "@/components/cms/status";
-import { CmsFilterMenu, CmsTable, type CmsColumn } from "@/components/cms/table";
+import { CmsStatus, useStatusOptions } from "@/components/cms/status";
+import { useAccountName, useAuditHeaders } from "@/components/cms/people";
+import {
+  auditColumns,
+  CmsFilterMenu,
+  CmsTable,
+  createdColumn,
+  statusColumn,
+  updatedColumn,
+  type CmsColumn,
+} from "@/components/cms/table";
 import { useCmsList } from "@/components/cms/use-cms-list";
 import {
   ADMIN_KEYS,
@@ -19,9 +28,7 @@ import {
 } from "@/lib/api/admin";
 import type { Paginated } from "@/lib/api/client";
 import { useResource } from "@/lib/api/use-resource";
-import { formatBaht, formatDate, timeValue } from "@/lib/mock-db/format";
-
-type Tab = "all" | "published" | "hidden";
+import { formatBaht, timeValue } from "@/lib/mock-db/format";
 
 const SERVICES_KEY = ADMIN_KEYS.services;
 
@@ -55,6 +62,10 @@ const SERVICES_KEY = ADMIN_KEYS.services;
  */
 export function ServicesScreen() {
   const t = useTranslations("cms.services");
+  const tTable = useTranslations("cms.table");
+  const router = useRouter();
+  const audit = useAuditHeaders();
+  const accountName = useAccountName();
 
   const servicesFetcher = useCallback(
     (signal: AbortSignal) => listAdminServices({ limit: ADMIN_MAX_LIMIT }, signal),
@@ -83,49 +94,41 @@ export function ServicesScreen() {
     [categoryItems],
   );
 
-  const tabs = (["all", "published", "hidden"] as const).map((value) => ({
-    value,
-    label: t(`tab.${value}`),
-    count:
-      value === "all"
-        ? items.length
-        : items.filter((s) => s.isPublished === (value === "published")).length,
-  }));
-  const tab = useQueryTab<Tab>(tabs);
-  const rows = useMemo(
-    () =>
-      tab === "all"
-        ? items
-        : items.filter((s) => s.isPublished === (tab === "published")),
-    [items, tab],
-  );
+  const statusOptions = useStatusOptions("publish");
 
-  const list = useCmsList(rows, {
+  const list = useCmsList(items, {
     searchText: (s) => `${s.name} ${categoryName.get(s.categoryId) ?? ""}`,
     sortValue: (s, id) => {
       if (id === "price") return s.priceSatang;
       if (id === "title") return s.name;
+      if (id === "status") return s.isPublished ? 1 : 0;
+      if (id === "createdAt") return timeValue(s.createdAt);
       return timeValue(s.modifiedAt);
     },
-    filters: [{ key: "category", test: (s, values) => values.includes(s.categoryId) }],
+    filters: [
+      {
+        key: "status",
+        test: (s, values) => values.includes(s.isPublished ? "published" : "hidden"),
+      },
+      { key: "category", test: (s, values) => values.includes(s.categoryId) },
+    ],
   });
 
   const columns: ReadonlyArray<CmsColumn<AdminService>> = [
+    createdColumn(tTable("createdAt"), (s) => s.createdAt),
+    statusColumn(t("col.status"), (s) => (
+      <CmsStatus group="publish" value={s.isPublished ? "published" : "hidden"} />
+    )),
     {
       id: "title",
       header: t("col.title"),
       sortable: true,
-      render: (s) => (
-        <span className="flex max-w-96 min-w-0 flex-col">
-          <span className="truncate font-medium text-highlighted">{s.name}</span>
-          {s.description ? <span className="truncate text-xs">{s.description}</span> : null}
-        </span>
-      ),
+      render: (s) => <span className="block max-w-80 truncate">{s.name}</span>,
     },
     {
       id: "category",
       header: t("col.category"),
-      render: (s) => categoryName.get(s.categoryId) ?? "—",
+      render: (s) => categoryName.get(s.categoryId) ?? "-",
     },
     {
       id: "price",
@@ -135,20 +138,14 @@ export function ServicesScreen() {
       render: (s) =>
         `${formatBaht(s.priceSatang)} / ${t("minutes", { count: s.durationMinutes })}`,
     },
-    {
-      id: "updatedAt",
-      header: t("col.updatedAt"),
-      sortable: true,
-      render: (s) => formatDate(s.modifiedAt),
-    },
-    {
-      id: "status",
-      header: t("col.status"),
-      align: "center",
-      render: (s) => (
-        <CmsStatus group="publish" value={s.isPublished ? "published" : "hidden"} />
-      ),
-    },
+    updatedColumn(t("col.updatedAt"), (s) => s.modifiedAt),
+    // Only the owning advisor can create or edit a service; the admin API has
+    // no write route for one.
+    ...auditColumns<AdminService>(
+      audit,
+      (s) => accountName(s.advisorId),
+      (s) => accountName(s.advisorId),
+    ),
   ];
 
   if (services.loading) {
@@ -169,18 +166,28 @@ export function ServicesScreen() {
 
   return (
     <CmsPage title={t("title")}>
-      <CmsQueryTabs items={tabs} />
       <CmsTable
         columns={columns}
         filters={
-          <CmsFilterMenu
-            label={t("allCategories")}
-            onChange={(values) => list.setFilter("category", values)}
-            options={categoryItems.map((c) => ({ value: c.id, label: c.name }))}
-            values={list.filterValues.category ?? []}
-          />
+          <>
+            <CmsFilterMenu
+              label={t("allStatuses")}
+              onChange={(values) => list.setFilter("status", values)}
+              options={statusOptions}
+              values={list.filterValues.status ?? []}
+            />
+            {/* Nexus's blog list gives its category filter `w-56`. */}
+            <CmsFilterMenu
+              className="w-56"
+              label={t("allCategories")}
+              onChange={(values) => list.setFilter("category", values)}
+              options={categoryItems.map((c) => ({ value: c.id, label: c.name }))}
+              values={list.filterValues.category ?? []}
+            />
+          </>
         }
         list={list}
+        onRowClick={(s) => router.push(`/admin/services/edit?id=${s.id}`)}
         searchPlaceholder={t("search")}
         selectable={false}
       />

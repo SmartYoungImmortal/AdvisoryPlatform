@@ -5,14 +5,26 @@ import { useTranslations } from "next-intl";
 import { useCallback, useMemo } from "react";
 
 import { CmsApiError, CmsTableSkeleton, useRuling } from "@/components/cms/api";
-import { CmsPerson } from "@/components/cms/avatar";
 import { CmsButton } from "@/components/cms/button";
+import { CmsTotalCard } from "@/components/cms/card";
 import { useCmsFeedback } from "@/components/cms/feedback";
 import { useAccountLookup } from "@/components/cms/hooks";
 import { CmsPage } from "@/components/cms/layout";
-import { CmsQueryTabs, useQueryTab } from "@/components/cms/query-tabs";
-import { CmsApiStatus, CmsStatus, useStatusOptions } from "@/components/cms/status";
-import { CmsFilterMenu, CmsTable, type CmsColumn } from "@/components/cms/table";
+import {
+  CmsApiStatus,
+  CmsStatus,
+  useApiStatusOptions,
+  useStatusOptions,
+} from "@/components/cms/status";
+import { useAccountName, useAuditHeaders } from "@/components/cms/people";
+import {
+  auditColumns,
+  CmsFilterMenu,
+  CmsTable,
+  createdColumn,
+  statusColumn,
+  type CmsColumn,
+} from "@/components/cms/table";
 import { useCmsList } from "@/components/cms/use-cms-list";
 import {
   ADMIN_MAX_LIMIT,
@@ -20,21 +32,12 @@ import {
   markPayoutFailed,
   markPayoutPaid,
   type AdminPayout,
-  type AdminPayoutStatus,
 } from "@/lib/api/admin";
 import type { Paginated } from "@/lib/api/client";
 import { useResource } from "@/lib/api/use-resource";
-import { formatBaht, formatDateTime, timeValue } from "@/lib/mock-db/format";
+import { formatBaht, formatStamp, timeValue } from "@/lib/mock-db/format";
 import { useDatabase } from "@/lib/mock-db/store";
 import type { Transaction } from "@/lib/mock-db/types";
-
-type PayoutTab = "pending" | "failed" | "paid" | "all";
-
-const TAB_STATUS: Record<Exclude<PayoutTab, "all">, AdminPayoutStatus> = {
-  pending: "PENDING",
-  failed: "FAILED",
-  paid: "PAID",
-};
 
 const PAYOUTS_KEY = "admin/payouts";
 
@@ -62,6 +65,9 @@ const PAYOUTS_KEY = "admin/payouts";
  */
 export function PayoutsScreen() {
   const t = useTranslations("cms.payouts");
+  const tTable = useTranslations("cms.table");
+  const audit = useAuditHeaders();
+  const accountName = useAccountName();
   const { confirm } = useCmsFeedback();
   const rule = useRuling();
 
@@ -74,28 +80,19 @@ export function PayoutsScreen() {
     fetcher,
   );
   const items = useMemo(() => payouts.data?.items ?? [], [payouts.data]);
-
-  const tabs = (["pending", "failed", "paid", "all"] as const).map((value) => ({
-    value,
-    label: t(`tab.${value}`),
-    count:
-      value === "pending" || value === "failed"
-        ? items.filter((p) => p.status === TAB_STATUS[value]).length
-        : undefined,
-    alert: true,
-  }));
-  const tab = useQueryTab<PayoutTab>(tabs);
-  const rows = useMemo(
-    () => (tab === "all" ? items : items.filter((p) => p.status === TAB_STATUS[tab])),
-    [items, tab],
-  );
-  const due = rows
+  const statusOptions = useApiStatusOptions("payout", ["PENDING", "FAILED", "PAID"]);
+  const due = items
     .filter((p) => p.status !== "PAID")
     .reduce((sum, p) => sum + p.amountSatang, 0);
 
-  const list = useCmsList(rows, {
+  const list = useCmsList(items, {
     searchText: (p) => `${p.id} ${p.advisorDisplayName} ${p.providerTransferId ?? ""}`,
-    sortValue: (p, id) => (id === "amount" ? p.amountSatang : timeValue(p.createdAt)),
+    sortValue: (p, id) => {
+      if (id === "amount") return p.amountSatang;
+      if (id === "status") return p.status;
+      return timeValue(p.createdAt);
+    },
+    filters: [{ key: "status", test: (p, values) => values.includes(p.status) }],
   });
 
   async function pay(ids: readonly string[]) {
@@ -118,40 +115,30 @@ export function PayoutsScreen() {
   }
 
   async function fail(payout: AdminPayout) {
-    const short = payout.id.slice(0, 8);
+    const name = payout.advisorDisplayName;
     // A confirmation, not a prompt: the route takes no body, so a typed reason
     // would be collected and thrown away.
     const ok = await confirm({
       type: "danger",
-      title: t("failTitle", { id: short }),
+      title: t("failTitle", { name }),
       confirmLabel: t("markFailed"),
     });
     if (!ok) return;
     await rule({
       keyPrefix: PAYOUTS_KEY,
       run: [() => markPayoutFailed(payout.id)],
-      success: t("failed", { id: short }),
+      success: t("failed", { name }),
       successColor: "warning",
     });
   }
 
   const columns: ReadonlyArray<CmsColumn<AdminPayout>> = [
-    {
-      id: "id",
-      header: t("col.id"),
-      render: (p) => (
-        <span className="font-latin font-medium text-highlighted">{p.id.slice(0, 8)}</span>
-      ),
-    },
+    createdColumn(tTable("createdAt"), (p) => p.createdAt),
+    statusColumn(t("col.status"), (p) => <CmsApiStatus group="payout" value={p.status} />),
     {
       id: "advisor",
       header: t("col.advisor"),
-      render: (p) => (
-        <CmsPerson
-          account={{ name: p.advisorDisplayName }}
-          detail={p.providerTransferId ?? undefined}
-        />
-      ),
+      render: (p) => accountName(p.advisorId) ?? p.advisorDisplayName,
     },
     {
       id: "amount",
@@ -160,18 +147,8 @@ export function PayoutsScreen() {
       className: "font-latin",
       render: (p) => formatBaht(p.amountSatang),
     },
-    {
-      id: "requestedAt",
-      header: t("col.requestedAt"),
-      sortable: true,
-      render: (p) => formatDateTime(p.createdAt),
-    },
-    {
-      id: "status",
-      header: t("col.status"),
-      align: "center",
-      render: (p) => <CmsApiStatus group="payout" value={p.status} />,
-    },
+    // A payout run creates the row; the payout carries no reviewer.
+    ...auditColumns<AdminPayout>(audit, () => audit.system, () => null),
     {
       id: "actions",
       header: "",
@@ -179,7 +156,7 @@ export function PayoutsScreen() {
       interactive: true,
       render: (p) =>
         p.status === "PAID" ? (
-          <span className="text-xs">{formatDateTime(p.paidAt)}</span>
+          <span className="font-latin text-xs">{formatStamp(p.paidAt)}</span>
         ) : (
           <span className="inline-flex gap-1">
             <CmsButton color="success" onClick={() => pay([p.id])} size="sm" variant="soft">
@@ -222,7 +199,6 @@ export function PayoutsScreen() {
       }
       title={t("title")}
     >
-      <CmsQueryTabs items={tabs} />
       <CmsTable
         bulkActions={(ids) => {
           const payable = ids.filter(
@@ -235,6 +211,14 @@ export function PayoutsScreen() {
           ) : null;
         }}
         columns={columns}
+        filters={
+          <CmsFilterMenu
+            label={t("allStatuses")}
+            onChange={(values) => list.setFilter("status", values)}
+            options={statusOptions}
+            values={list.filterValues.status ?? []}
+          />
+        }
         list={list}
         searchPlaceholder={t("search")}
       />
@@ -253,26 +237,29 @@ export function PayoutsScreen() {
  */
 export function TransactionsScreen() {
   const t = useTranslations("cms.transactions");
+  const tTable = useTranslations("cms.table");
+  const audit = useAuditHeaders();
   const person = useAccountLookup();
   const transactions = useDatabase((db) => db.transactions);
   const statusOptions = useStatusOptions("transaction");
 
-  const totals = useMemo(() => {
-    const paid = transactions.filter((tx) => tx.status === "paid");
-    return {
-      gmv: paid.reduce((sum, tx) => sum + tx.amountSatang, 0),
-      fee: paid.reduce((sum, tx) => sum + tx.feeSatang, 0),
-      refunded: transactions
-        .filter((tx) => tx.status === "refunded")
+  // One total, the way phonerefun's finance pages carry one: what was paid.
+  const paidTotal = useMemo(
+    () =>
+      transactions
+        .filter((tx) => tx.status === "paid")
         .reduce((sum, tx) => sum + tx.amountSatang, 0),
-      failed: transactions.filter((tx) => tx.status === "failed").length,
-    };
-  }, [transactions]);
+    [transactions],
+  );
 
   const list = useCmsList(transactions, {
     searchText: (tx) =>
-      `${tx.id} ${tx.bookingRef} ${tx.serviceTitle} ${person(tx.payerId)?.name ?? ""} ${person(tx.advisorId)?.name ?? ""}`,
-    sortValue: (tx, id) => (id === "amount" ? tx.amountSatang : timeValue(tx.createdAt)),
+      `${tx.bookingRef} ${tx.serviceTitle} ${person(tx.payerId)?.name ?? ""} ${person(tx.advisorId)?.name ?? ""}`,
+    sortValue: (tx, id) => {
+      if (id === "amount") return tx.amountSatang;
+      if (id === "status") return tx.status;
+      return timeValue(tx.createdAt);
+    },
     filters: [
       { key: "status", test: (tx, values) => values.includes(tx.status) },
       { key: "method", test: (tx, values) => values.includes(tx.method) },
@@ -280,58 +267,28 @@ export function TransactionsScreen() {
   });
 
   const columns: ReadonlyArray<CmsColumn<Transaction>> = [
-    {
-      id: "id",
-      header: t("col.id"),
-      render: (tx) => (
-        <span className="flex flex-col">
-          <span className="font-latin font-medium text-highlighted">{tx.id}</span>
-          <span className="font-latin text-xs">{tx.bookingRef}</span>
-        </span>
-      ),
-    },
-    {
-      id: "payer",
-      header: t("col.payer"),
-      render: (tx) => <CmsPerson account={person(tx.payerId)} />,
-    },
+    createdColumn(tTable("createdAt"), (tx) => tx.createdAt),
+    statusColumn(t("col.status"), (tx) => <CmsStatus group="transaction" value={tx.status} />),
+    { id: "booking", header: t("col.booking"), className: "font-latin", render: (tx) => tx.bookingRef },
+    { id: "payer", header: t("col.payer"), render: (tx) => person(tx.payerId)?.name ?? "-" },
     {
       id: "service",
       header: t("col.service"),
-      render: (tx) => (
-        <span className="flex max-w-56 flex-col">
-          <span className="truncate text-highlighted">{tx.serviceTitle}</span>
-          <span className="truncate text-xs">{person(tx.advisorId)?.name ?? "—"}</span>
-        </span>
-      ),
+      render: (tx) => <span className="block max-w-64 truncate">{tx.serviceTitle}</span>,
     },
     { id: "amount", header: t("col.amount"), sortable: true, className: "font-latin", render: (tx) => formatBaht(tx.amountSatang) },
     { id: "fee", header: t("col.fee"), className: "font-latin", render: (tx) => formatBaht(tx.feeSatang) },
     { id: "method", header: t("col.method"), render: (tx) => t(`method.${tx.method}`) },
-    { id: "createdAt", header: t("col.createdAt"), sortable: true, render: (tx) => formatDateTime(tx.createdAt) },
-    {
-      id: "status",
-      header: t("col.status"),
-      align: "center",
-      render: (tx) => <CmsStatus group="transaction" value={tx.status} />,
-    },
+    ...auditColumns<Transaction>(
+      audit,
+      (tx) => person(tx.payerId)?.name,
+      () => audit.system,
+    ),
   ];
 
   return (
     <CmsPage title={t("title")}>
-      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        {[
-          { label: t("gmv"), value: formatBaht(totals.gmv) },
-          { label: t("fee"), value: formatBaht(totals.fee) },
-          { label: t("refunded"), value: formatBaht(totals.refunded) },
-          { label: t("failedCount"), value: String(totals.failed) },
-        ].map((stat) => (
-          <div className="flex flex-col gap-1 rounded-lg bg-card p-4 ring-1 ring-border" key={stat.label}>
-            <span className="text-sm text-muted-foreground">{stat.label}</span>
-            <span className="font-latin text-2xl font-semibold text-highlighted">{stat.value}</span>
-          </div>
-        ))}
-      </div>
+      <CmsTotalCard label={t("gmv")} value={formatBaht(paidTotal)} />
       <CmsTable
         columns={columns}
         filters={

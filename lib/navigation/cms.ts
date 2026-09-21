@@ -1,6 +1,7 @@
 import {
   ArrowLeftRight,
   Banknote,
+  FileBadge,
   Flag,
   LayoutDashboard,
   Radar,
@@ -8,6 +9,7 @@ import {
   Search,
   Settings2,
   ShieldCheck,
+  Sparkles,
   Store,
   Tags,
   Users,
@@ -28,9 +30,11 @@ export type CmsNavKey =
   | "user"
   | "users"
   | "verification"
+  | "skillProofs"
   | "marketplace"
   | "services"
   | "catalog"
+  | "skills"
   | "refunds"
   | "reports"
   | "offPlatform"
@@ -58,9 +62,13 @@ export const cmsNav: ReadonlyArray<CmsNavItem> = [
         key: "verification",
         href: "/admin/verification",
         icon: ShieldCheck,
-        pending: (db) =>
-          db.identityRequests.filter((r) => r.status === "submitted").length +
-          db.skillProofs.filter((p) => p.status === "pending").length,
+        pending: (db) => db.identityRequests.filter((r) => r.status === "submitted").length,
+      },
+      {
+        key: "skillProofs",
+        href: "/admin/skill-proofs",
+        icon: FileBadge,
+        pending: (db) => db.skillProofs.filter((p) => p.status === "pending").length,
       },
     ],
   },
@@ -70,6 +78,7 @@ export const cmsNav: ReadonlyArray<CmsNavItem> = [
     children: [
       { key: "services", href: "/admin/services", icon: Store },
       { key: "catalog", href: "/admin/manage", icon: Tags },
+      { key: "skills", href: "/admin/skills", icon: Sparkles },
       {
         key: "refunds",
         href: "/admin/refunds",
