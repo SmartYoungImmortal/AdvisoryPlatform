@@ -7,26 +7,22 @@ import {
   Radar,
   Receipt,
   ShieldCheck,
+  Store,
   Users,
   type LucideIcon,
 } from "lucide-react";
 import { useTranslations } from "next-intl";
-import { useMemo } from "react";
+import { useMemo, type ReactNode } from "react";
 
-import { CmsPerson } from "@/components/cms/avatar";
-import { CmsCard } from "@/components/cms/card";
 import { useDashboardCounts } from "@/components/cms/dashboard-data";
-import { CmsLinkButton } from "@/components/cms/fields";
-import { useAccountLookup } from "@/components/cms/hooks";
 import { CmsPage } from "@/components/cms/layout";
-import { CmsStatus } from "@/components/cms/status";
-import { formatBaht, formatDateTime } from "@/lib/mock-db/format";
+import { formatBaht } from "@/lib/mock-db/format";
 import { useDatabase } from "@/lib/mock-db/store";
 import type { Database } from "@/lib/mock-db/types";
 
 const MONTHS = 6;
 
-/** Platform fee and GMV per month over the last six, from paid transactions. */
+/** Platform fee per month over the last six, from paid transactions. */
 function revenueByMonth(db: Database) {
   const now = new Date();
   const buckets = Array.from({ length: MONTHS }, (_, i) => {
@@ -35,218 +31,137 @@ function revenueByMonth(db: Database) {
       key: `${date.getFullYear()}-${date.getMonth()}`,
       label: new Intl.DateTimeFormat("th-TH", { month: "short" }).format(date),
       fee: 0,
-      gmv: 0,
     };
   });
   for (const tx of db.transactions) {
     if (tx.status !== "paid") continue;
     const date = new Date(tx.createdAt);
     const bucket = buckets.find((b) => b.key === `${date.getFullYear()}-${date.getMonth()}`);
-    if (!bucket) continue;
-    bucket.fee += tx.feeSatang;
-    bucket.gmv += tx.amountSatang;
+    if (bucket) bucket.fee += tx.feeSatang;
   }
   return buckets;
 }
 
 /**
- * The console's landing desk: what is waiting, what the platform earned, and
- * the latest cases.
+ * The console's landing page, in phonerefun's dashboard anatomy — Nexus has
+ * none: a row of stat cards (label top-left, the figure bottom-left, a large
+ * standalone icon top-right, 155px tall), two chart cards, and a second row of
+ * stat cards. No "latest" lists; neither reference console has them.
  *
- * **Still on `lib/mock-db`, and the only console screen whose numbers are
- * fixtures.** Every tile here is an aggregate, and the admin API has no aggregate:
- * no statistics route, no revenue series, no audit log, and no transactions route
- * for the fee chart to sum. The counts could be rebuilt by fetching all seven
- * queues and counting the rows — five of them are empty, so five tiles would read
- * zero — but the fee chart and the recent-activity list have nothing behind them at
- * all, and half a live dashboard beside half a fixture one is harder to read than
- * one that says plainly what it is.
- *
- * Wiring it needs `GET /api/v1/admin/stats` (or equivalent) and an audit log on the
- * API. Until then, note that the queue counts here will disagree with the queues
- * themselves, which now read the API.
+ * Every figure is the API's, read as `?limit=1` totals (and the payouts page for
+ * the amount owed), except the fee chart: the API has no route that lists
+ * invoices, so that one chart still sums `lib/mock-db` transactions and says so
+ * under its title.
  */
 export function DashboardScreen() {
   const t = useTranslations("cms.dashboard");
-  const db = useDatabase((d) => d);
-  const person = useAccountLookup();
-
-  /**
-   * The five queue counters and the account total come from the API — one
-   * `?limit=1` request each, reading `total` off the paginated body, because there
-   * is no aggregate endpoint and a counter has no business fetching a queue.
-   * `undefined` until each answers, so `Stat` shows a dash rather than a zero it
-   * has not earned.
-   *
-   * `payoutsDue` stays on the fixture, and it is the only figure here that does:
-   * summing outstanding payouts needs their amounts, `GET /admin/payouts` returns a
-   * page rather than a sum, and adding one page of amounts would understate the
-   * total the moment there are more payouts than a page.
-   */
   const live = useDashboardCounts();
-  const stats = useMemo(
-    () => ({
-      payoutsDue: db.payouts
-        .filter((p) => p.status !== "paid")
-        .reduce((sum, p) => sum + p.amountSatang, 0),
-    }),
-    [db],
-  );
+  const db = useDatabase((d) => d);
   const revenue = useMemo(() => revenueByMonth(db), [db]);
   const peak = Math.max(1, ...revenue.map((m) => m.fee));
   const totalFee = revenue.reduce((sum, m) => sum + m.fee, 0);
 
-  const pendingIdentity = db.identityRequests.filter((r) => r.status === "submitted").slice(0, 5);
-  const openCases = [
-    ...db.reports
-      .filter((r) => r.status === "open")
-      .map((r) => ({ id: r.id, kind: "report" as const, at: r.createdAt, accountId: r.reportedId, text: r.detail })),
-    ...db.offPlatformFlags
-      .filter((f) => f.status === "open")
-      .map((f) => ({ id: f.id, kind: "flag" as const, at: f.detectedAt, accountId: f.senderId, text: f.message })),
-  ]
-    .sort((a, b) => b.at.localeCompare(a.at))
-    .slice(0, 5);
+  const queues = [
+    { label: t("identity"), value: live.identity, href: "/admin/verification" },
+    { label: t("proofs"), value: live.proofs, href: "/admin/skill-proofs" },
+    { label: t("refunds"), value: live.refunds, href: "/admin/refunds" },
+    { label: t("reports"), value: live.reports, href: "/admin/reports" },
+    { label: t("flags"), value: live.flags, href: "/admin/off-platform" },
+  ];
+  const queuePeak = Math.max(1, ...queues.map((q) => q.value ?? 0));
+  const waiting = queues.reduce((sum, q) => sum + (q.value ?? 0), 0);
 
   return (
     <CmsPage title={t("title")}>
-      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-6">
-        <Stat href="/admin/verification" icon={ShieldCheck} label={t("verifications")} value={live.verification} />
-        <Stat href="/admin/refunds" icon={Receipt} label={t("refunds")} value={live.refunds} />
-        <Stat href="/admin/reports" icon={Flag} label={t("reports")} value={live.reports} />
-        <Stat href="/admin/off-platform" icon={Radar} label={t("flags")} value={live.flags} />
-        <Stat href="/admin/payouts" icon={Banknote} label={t("payoutsDue")} value={formatBaht(stats.payoutsDue)} />
-        <Stat href="/admin/users" icon={Users} label={t("users")} value={live.users} />
+      <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 xl:grid-cols-4">
+        <StatCard href="/admin/users" icon={Users} label={t("users")} value={live.users} />
+        <StatCard
+          href="/admin/verification"
+          icon={ShieldCheck}
+          label={t("verifications")}
+          value={live.verification}
+        />
+        <StatCard href="/admin/refunds" icon={Receipt} label={t("refunds")} value={live.refunds} />
+        <StatCard href="/admin/reports" icon={Flag} label={t("reports")} value={live.reports} />
       </div>
 
-      <CmsCard
-        actions={
-          <div className="text-end">
-            <p className="text-xs text-muted-foreground">{t("feeTotal", { months: MONTHS })}</p>
-            <p className="font-latin text-xl font-semibold text-highlighted">{formatBaht(totalFee)}</p>
-          </div>
-        }
-        description={t("revenueHint")}
-        title={t("revenueTitle")}
-      >
-        <div className="flex h-56 items-end gap-3 sm:gap-6" role="list">
-          {revenue.map((month) => (
-            <div
-              aria-label={`${month.label} ${formatBaht(month.fee)}`}
-              className="flex h-full min-w-0 flex-1 flex-col items-center justify-end gap-2"
-              key={month.key}
-              role="listitem"
-            >
-              <span className="font-latin text-xs font-medium text-highlighted">
-                {formatBaht(month.fee)}
-              </span>
-              <span
-                className="w-full max-w-14 rounded-t-md bg-action"
-                style={{ height: `${Math.max(2, (month.fee / peak) * 100)}%` }}
-              />
-              <span className="text-xs text-muted-foreground">{month.label}</span>
-            </div>
-          ))}
-        </div>
-      </CmsCard>
-
-      <div className="grid gap-4 sm:gap-6 xl:grid-cols-2">
-        <CmsCard
-          actions={
-            <CmsLinkButton color="action" href="/admin/verification" size="sm" variant="link">
-              {t("seeAll")}
-            </CmsLinkButton>
-          }
-          bodyClassName="p-0 sm:p-0"
-          title={t("latestVerifications")}
+      <div className="grid grid-cols-1 gap-6 xl:grid-cols-2">
+        <ChartCard
+          subtitle={t("revenueHint")}
+          title={t("revenueTitle")}
+          value={formatBaht(totalFee)}
         >
-          <ul className="divide-y divide-border">
-            {pendingIdentity.length === 0 ? (
-              <li className="p-4 text-sm text-muted-foreground sm:px-6">{t("nothingWaiting")}</li>
-            ) : (
-              pendingIdentity.map((request) => (
-                <li key={request.id}>
-                  <Link
-                    className="flex items-center justify-between gap-3 p-4 transition-colors hover:bg-muted/50 sm:px-6"
-                    href={`/admin/verification/review?id=${request.id}`}
-                  >
-                    <CmsPerson
-                      account={person(request.accountId)}
-                      detail={`${request.credential} · ${formatDateTime(request.submittedAt)}`}
-                    />
-                    <CmsStatus group="identity" value={request.status} />
-                  </Link>
-                </li>
-              ))
-            )}
-          </ul>
-        </CmsCard>
-
-        <CmsCard
-          actions={
-            <CmsLinkButton color="action" href="/admin/reports" size="sm" variant="link">
-              {t("seeAll")}
-            </CmsLinkButton>
-          }
-          bodyClassName="p-0 sm:p-0"
-          title={t("latestCases")}
-        >
-          <ul className="divide-y divide-border">
-            {openCases.length === 0 ? (
-              <li className="p-4 text-sm text-muted-foreground sm:px-6">{t("nothingWaiting")}</li>
-            ) : (
-              openCases.map((item) => (
-                <li key={item.id}>
-                  <Link
-                    className="flex flex-col gap-1 p-4 transition-colors hover:bg-muted/50 sm:px-6"
-                    href={
-                      item.kind === "report"
-                        ? `/admin/reports/review?id=${item.id}`
-                        : `/admin/off-platform/review?id=${item.id}`
-                    }
-                  >
-                    <span className="flex items-center justify-between gap-3">
-                      <span className="text-sm font-medium text-highlighted">
-                        {item.kind === "report" ? t("caseReport") : t("caseFlag")} ·{" "}
-                        {person(item.accountId)?.name ?? "-"}
-                      </span>
-                      <span className="shrink-0 text-xs text-muted-foreground">
-                        {formatDateTime(item.at)}
-                      </span>
-                    </span>
-                    <span className="truncate text-sm text-muted-foreground">{item.text}</span>
-                  </Link>
-                </li>
-              ))
-            )}
-          </ul>
-        </CmsCard>
-      </div>
-
-      <CmsCard bodyClassName="p-0 sm:p-0" title={t("activity")}>
-        <ul className="divide-y divide-border">
-          {db.audit.length === 0 ? (
-            <li className="p-4 text-sm text-muted-foreground sm:px-6">{t("noActivity")}</li>
-          ) : (
-            db.audit.slice(0, 8).map((entry) => (
-              <li className="flex items-center justify-between gap-3 p-4 text-sm sm:px-6" key={entry.id}>
-                <span className="min-w-0 truncate">
-                  <span className="font-medium text-highlighted">{person(entry.actorId)?.name ?? entry.actorId}</span>{" "}
-                  <span className="font-latin text-muted-foreground">{entry.action}</span>{" "}
-                  <span className="font-latin text-muted-foreground">{entry.targetId}</span>
-                  {entry.summary ? <span className="text-muted-foreground">: {entry.summary}</span> : null}
+          <div className="flex h-full items-end gap-4 sm:gap-6" role="list">
+            {revenue.map((month) => (
+              <div
+                aria-label={`${month.label} ${formatBaht(month.fee)}`}
+                className="flex h-full min-w-0 flex-1 flex-col items-center justify-end gap-2"
+                key={month.key}
+                role="listitem"
+              >
+                <span className="font-latin text-xs font-medium text-muted-foreground">
+                  {formatBaht(month.fee)}
                 </span>
-                <span className="shrink-0 text-xs text-muted-foreground">{formatDateTime(entry.at)}</span>
+                <span
+                  className="w-full max-w-12 rounded-t-md bg-action"
+                  style={{ height: `${Math.max(2, (month.fee / peak) * 100)}%` }}
+                />
+                <span className="text-xs text-muted-foreground">{month.label}</span>
+              </div>
+            ))}
+          </div>
+        </ChartCard>
+
+        <ChartCard subtitle={t("queuesHint")} title={t("queuesTitle")} value={String(waiting)}>
+          <ul className="flex h-full flex-col justify-center gap-5">
+            {queues.map((queue) => (
+              <li key={queue.href}>
+                <Link className="group flex flex-col gap-2" href={queue.href}>
+                  <span className="flex items-center justify-between text-sm">
+                    <span className="text-foreground group-hover:text-highlighted">{queue.label}</span>
+                    <span className="font-latin font-semibold text-highlighted">
+                      {queue.value ?? "-"}
+                    </span>
+                  </span>
+                  <span className="h-2 w-full overflow-hidden rounded-full bg-muted">
+                    <span
+                      className="block h-full rounded-full bg-action transition-[width]"
+                      style={{ width: `${((queue.value ?? 0) / queuePeak) * 100}%` }}
+                    />
+                  </span>
+                </Link>
               </li>
-            ))
-          )}
-        </ul>
-      </CmsCard>
+            ))}
+          </ul>
+        </ChartCard>
+      </div>
+
+      <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 xl:grid-cols-4">
+        <StatCard
+          href="/admin/payouts"
+          icon={Banknote}
+          label={t("payoutsDue")}
+          value={live.payoutsDue === undefined ? undefined : formatBaht(live.payoutsDue)}
+        />
+        <StatCard href="/admin/off-platform" icon={Radar} label={t("flags")} value={live.flags} />
+        <StatCard href="/admin/services" icon={Store} label={t("services")} value={live.services} />
+        <StatCard
+          href="/admin/skill-proofs"
+          icon={ShieldCheck}
+          label={t("proofs")}
+          value={live.proofs}
+        />
+      </div>
     </CmsPage>
   );
 }
 
-function Stat({
+/**
+ * phonerefun's `StatCard`: white, 8px corners, a slate hairline, 24px padding,
+ * 155px tall; the label top-left, the figure bottom-left at 32px bold, and a
+ * 56px icon standing on its own top-right — no chip behind it.
+ */
+function StatCard({
   href,
   icon: Icon,
   label,
@@ -255,26 +170,49 @@ function Stat({
   readonly href: string;
   readonly icon: LucideIcon;
   readonly label: string;
-  /** `undefined` while the count is in flight, or if the read failed. */
+  /** `undefined` while it loads or if the read failed: a dash, never a false zero. */
   readonly value: number | string | undefined;
 }) {
   return (
     <Link
-      className="flex items-center gap-4 rounded-lg bg-card p-4 ring-1 ring-border transition-colors hover:bg-muted/50"
+      className="flex h-[155px] items-stretch justify-between rounded-lg border border-border bg-card p-6 transition-colors hover:border-accented"
       href={href}
     >
-      <span className="flex size-10 shrink-0 items-center justify-center rounded-md bg-muted">
-        <Icon aria-hidden className="size-5 text-highlighted" />
-      </span>
-      <span className="flex min-w-0 flex-col">
-        <span className="truncate text-sm text-muted-foreground">{label}</span>
-        {/* A dash while the count is unknown, not a zero: a queue
-            reading 0 when it has not been counted is the one wrong answer that
-            looks like a right one. */}
-        <span className="font-latin text-2xl font-semibold tabular-nums text-highlighted">
-          {value ?? <span className="text-muted-foreground">-</span>}
+      <span className="flex h-full min-w-0 flex-col justify-between">
+        <span className="truncate text-sm font-medium text-muted-foreground">{label}</span>
+        {/* Size and colour on separate elements: tailwind-merge reads the custom
+            `text-heading-lg` as a colour and would drop it beside `text-highlighted`. */}
+        <span className="font-latin text-heading-lg leading-none font-bold tracking-tight">
+          <span className={value === undefined ? "text-dimmed" : "text-highlighted"}>
+            {value ?? "-"}
+          </span>
         </span>
       </span>
+      <Icon aria-hidden className="size-14 shrink-0 text-accented" strokeWidth={1.5} />
     </Link>
+  );
+}
+
+/** phonerefun's chart card: title and total on one line, a muted subtitle, the chart. */
+function ChartCard({
+  title,
+  subtitle,
+  value,
+  children,
+}: {
+  readonly title: string;
+  readonly subtitle: string;
+  readonly value: string;
+  readonly children: ReactNode;
+}) {
+  return (
+    <section className="rounded-lg border border-border bg-card p-6">
+      <div className="mb-2 flex items-start justify-between gap-4">
+        <h2 className="font-bold text-highlighted">{title}</h2>
+        <span className="font-latin text-lg font-bold text-highlighted">{value}</span>
+      </div>
+      <p className="mb-4 text-xs text-dimmed">{subtitle}</p>
+      <div className="h-[280px]">{children}</div>
+    </section>
   );
 }

@@ -1,12 +1,17 @@
 "use client";
 
 import {
+  ADMIN_KEYS,
+  ADMIN_MAX_LIMIT,
   listAdminAccounts,
+  listAdminServices,
   listIdentityVerifications,
   listOffPlatformFlags,
+  listPayouts,
   listRefundCases,
   listReports,
   listSkillProofs,
+  type AdminPayout,
 } from "@/lib/api/admin";
 import type { Paginated } from "@/lib/api/client";
 import { useResource } from "@/lib/api/use-resource";
@@ -53,10 +58,15 @@ function useCount(
 export interface DashboardCounts {
   /** Identity submissions plus skill proofs — one queue to the reader. */
   readonly verification: Count;
+  readonly identity: Count;
+  readonly proofs: Count;
   readonly refunds: Count;
   readonly reports: Count;
   readonly flags: Count;
   readonly users: Count;
+  readonly services: Count;
+  /** Satang still owed to advisors: every payout not yet PAID. */
+  readonly payoutsDue: Count;
 }
 
 /**
@@ -91,13 +101,29 @@ export function useDashboardCounts(): DashboardCounts {
   const users = useCount("admin/accounts?limit=1", (signal) =>
     listAdminAccounts({ limit: 1 }, signal),
   );
+  const services = useCount("admin/services?limit=1", (signal) =>
+    listAdminServices({ limit: 1 }, signal),
+  );
+  // A sum needs the amounts, so this one reads the page the payouts screen
+  // reads (same key, shared cache) rather than a count.
+  const payouts = useResource<Paginated<AdminPayout>>(
+    `${ADMIN_KEYS.payouts}?limit=${ADMIN_MAX_LIMIT}`,
+    (signal) => listPayouts({ limit: ADMIN_MAX_LIMIT }, signal),
+  ).data;
+  const payoutsDue = payouts?.items
+    .filter((p) => p.status !== "PAID")
+    .reduce((sum, p) => sum + p.amountSatang, 0);
 
   return {
     verification:
       identity === undefined || proofs === undefined ? undefined : identity + proofs,
+    identity,
+    proofs,
     refunds,
     reports,
     flags,
     users,
+    services,
+    payoutsDue,
   };
 }
