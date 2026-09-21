@@ -551,6 +551,67 @@ export function getReport(reportId: string, signal?: AbortSignal): Promise<Admin
   return api.get(`admin/reports/${reportId}`, { signal });
 }
 
+/* ---------------------------------------------------------- case evidence */
+
+/** `CaseMessageDto` — one line of the conversation a case came from. */
+export interface CaseMessage {
+  readonly id: string;
+  readonly senderUserId: string;
+  readonly senderDisplayName: string;
+  readonly senderFullName: string;
+  readonly message: string;
+  readonly createdAt: string;
+}
+
+/** `CaseAppointmentDto` — the consultation that conversation belongs to. */
+export interface CaseAppointment {
+  readonly id: string;
+  readonly serviceId: string;
+  readonly serviceName: string;
+  readonly advisorId: string;
+  readonly adviseeId: string;
+  readonly type: "CONSULTATION" | "TRIAL";
+  readonly state:
+    | "PENDING_PAYMENT"
+    | "BOOKED"
+    | "IN_PROGRESS"
+    | "COMPLETED"
+    | "CANCELLED"
+    | "NO_SHOW";
+  readonly startTime: string;
+  readonly endTime: string;
+  readonly cancelledAt: string | null;
+  readonly cancelledByUserId: string | null;
+  /** The video room the session ran in; there is no recording, only the room. */
+  readonly jitsiRoomName: string | null;
+  readonly invoiceAmountSatang: number | null;
+  readonly invoiceStatus:
+    | "PENDING"
+    | "HELD_IN_ESCROW"
+    | "RELEASED"
+    | "REFUNDED"
+    | "FAILED"
+    | null;
+}
+
+/** `CaseContextResponseDto`. Empty when the case names no room. */
+export interface CaseContext {
+  /** For a flag, the line the detector matched. */
+  readonly flaggedMessageId: string | null;
+  readonly conversation: readonly CaseMessage[];
+  readonly appointment: CaseAppointment | null;
+}
+
+/** `GET /admin/reports/:reportId/context`. */
+export function getReportContext(reportId: string, signal?: AbortSignal): Promise<CaseContext> {
+  return api.get(`admin/reports/${reportId}/context`, { signal });
+}
+
+/** `GET /admin/off-platform-flags/:flagId/context`. */
+export function getFlagContext(flagId: string, signal?: AbortSignal): Promise<CaseContext> {
+  return api.get(`admin/off-platform-flags/${flagId}/context`, { signal });
+}
+
 /**
  * `POST /admin/reports/:reportId/resolve`.
  *

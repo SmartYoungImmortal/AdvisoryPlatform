@@ -21,13 +21,17 @@ import {
   CmsSidebarOptions,
 } from "@/components/cms/sidebar-options";
 import { CmsApiStatus } from "@/components/cms/status";
+import { CaseEvidence } from "@/components/cms/case-evidence";
 import {
   ADMIN_MAX_LIMIT,
+  getFlagContext,
   getReport,
+  getReportContext,
   listOffPlatformFlags,
   resolveOffPlatformFlag,
   resolveReport,
   type AdminReport,
+  type CaseContext,
   type OffPlatformFlag,
   type OffPlatformFlagOutcome,
   type ReportOutcome,
@@ -147,6 +151,11 @@ function ReportRecord({ report }: { readonly report: AdminReport }) {
   const t = useTranslations("cms.cases");
   const accountName = useAccountName();
   const router = useRouter();
+  const evidenceFetcher = useCallback(
+    (signal: AbortSignal) => getReportContext(report.id, signal),
+    [report.id],
+  );
+  const evidence = useResource<CaseContext>(`${REPORTS_KEY}/${report.id}/context`, evidenceFetcher);
   const { confirm } = useCmsFeedback();
   const rule = useRuling();
   const acted = t("tab.closed");
@@ -175,9 +184,19 @@ function ReportRecord({ report }: { readonly report: AdminReport }) {
         <CaseDecision
           acted={{ label: acted, danger: false }}
           info={[
-            { label: t("reportedAt"), by: report.reporterDisplayName, at: report.createdAt },
+            {
+              label: t("reportedAt"),
+              by: accountName(report.reporterUserId) ?? report.reporterDisplayName,
+              at: report.createdAt,
+            },
             ...(report.resolvedAt
-              ? [{ label: t("decidedAt"), at: report.resolvedAt }]
+              ? [
+                  {
+                    label: t("decidedAt"),
+                    by: accountName(report.reviewedByAdminId) ?? undefined,
+                    at: report.resolvedAt,
+                  },
+                ]
               : []),
           ]}
           onResolve={decide}
@@ -213,6 +232,7 @@ function ReportRecord({ report }: { readonly report: AdminReport }) {
             <span className="font-normal text-foreground">{report.reason}</span>
           </CmsDataRow>
         </dl>
+        <CaseEvidence context={evidence.data} loading={evidence.loading} />
       </CmsCard>
     </CmsPage>
   );
@@ -293,6 +313,11 @@ export function FlagReviewScreen() {
 function FlagRecord({ flag }: { readonly flag: OffPlatformFlag }) {
   const t = useTranslations("cms.cases");
   const router = useRouter();
+  const evidenceFetcher = useCallback(
+    (signal: AbortSignal) => getFlagContext(flag.id, signal),
+    [flag.id],
+  );
+  const evidence = useResource<CaseContext>(`${FLAGS_KEY}/${flag.id}/context`, evidenceFetcher);
   const { confirm } = useCmsFeedback();
   const rule = useRuling();
   const acted = t("tab.closed");
@@ -351,6 +376,7 @@ function FlagRecord({ flag }: { readonly flag: OffPlatformFlag }) {
             <span className="font-latin">{flag.penaltyPointsApplied}</span>
           </CmsDataRow>
         </dl>
+        <CaseEvidence context={evidence.data} loading={evidence.loading} />
       </CmsCard>
     </CmsPage>
   );

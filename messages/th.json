@@ -1136,7 +1136,42 @@
       "otherFlags": "สัญญาณอื่นของผู้ส่ง",
       "senderAccount": "ผู้ส่ง",
       "historyTitle": "ประวัติสัญญาณของผู้ส่ง",
-      "noHistory": "ไม่มีสัญญาณอื่นจากผู้ส่งนี้"
+      "noHistory": "ไม่มีสัญญาณอื่นจากผู้ส่งนี้",
+      "evidence": {
+        "consultation": "Consultation",
+        "noConsultation": "No consultation is linked to this case.",
+        "service": "Service",
+        "session": "Session",
+        "type": "Session type",
+        "bookingStatus": "Booking status",
+        "cancelledAt": "Cancelled at",
+        "videoRoom": "Video room",
+        "payment": "Payment",
+        "conversation": "Conversation ({count})",
+        "noConversation": "This case names no conversation.",
+        "flagged": "Flagged line",
+        "advisor": "Advisor",
+        "advisee": "Advisee",
+        "sessionType": {
+          "CONSULTATION": "Consultation",
+          "TRIAL": "Free trial"
+        },
+        "state": {
+          "PENDING_PAYMENT": "Pending payment",
+          "BOOKED": "Booked",
+          "IN_PROGRESS": "In progress",
+          "COMPLETED": "Completed",
+          "CANCELLED": "Cancelled",
+          "NO_SHOW": "No-show"
+        },
+        "invoice": {
+          "PENDING": "Pending",
+          "HELD_IN_ESCROW": "Held in escrow",
+          "RELEASED": "Released",
+          "REFUNDED": "Refunded",
+          "FAILED": "Failed"
+        }
+      }
     },
     "payouts": {
       "title": "การโอนเงิน",
