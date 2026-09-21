@@ -9,7 +9,7 @@ import { CmsApiError, CmsTableSkeleton, useRuling } from "@/components/cms/api";
 import { CmsButton } from "@/components/cms/button";
 import { useCmsFeedback } from "@/components/cms/feedback";
 import { CmsPage } from "@/components/cms/layout";
-import { useAuditHeaders } from "@/components/cms/people";
+import { useAccountName, useAuditHeaders } from "@/components/cms/people";
 import {
   auditColumns,
   CmsTable,
@@ -155,6 +155,7 @@ function CategoryTable({
   const t = useTranslations("cms.catalog");
   const tTable = useTranslations("cms.table");
   const audit = useAuditHeaders();
+  const accountName = useAccountName();
   const { confirm } = useCmsFeedback();
   const rule = useRuling();
 
@@ -204,8 +205,11 @@ function CategoryTable({
       render: (c) => usage.get(c.id) ?? 0,
     },
     updatedColumn(t("col.updatedAt"), (c) => c.modifiedAt),
-    // `service_categories` records no author; a dash, not a guess.
-    ...auditColumns<TaxonomyRecord>(audit, () => null, () => null),
+    ...auditColumns<TaxonomyRecord>(
+      audit,
+      (c) => accountName(c.createdByUserId),
+      (c) => accountName(c.updatedByUserId),
+    ),
   ];
 
   return (
@@ -233,6 +237,7 @@ function SkillTable({
   const t = useTranslations("cms.catalog");
   const tTable = useTranslations("cms.table");
   const audit = useAuditHeaders();
+  const accountName = useAccountName();
   const { confirm } = useCmsFeedback();
   const rule = useRuling();
 
@@ -250,7 +255,11 @@ function SkillTable({
     createdColumn(tTable("createdAt"), (s) => s.createdAt),
     { id: "name", header: t("col.name"), sortable: true, render: (s) => s.name },
     updatedColumn(t("col.updatedAt"), (s) => s.modifiedAt),
-    ...auditColumns<TaxonomyRecord>(audit, () => null, () => null),
+    ...auditColumns<TaxonomyRecord>(
+      audit,
+      (s) => accountName(s.createdByUserId),
+      (s) => accountName(s.updatedByUserId),
+    ),
   ];
 
   return (

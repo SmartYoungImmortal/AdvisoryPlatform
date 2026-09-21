@@ -1,21 +1,21 @@
 "use client";
 
+import Link from "next/link";
 import { ExternalLink } from "lucide-react";
 import { useTranslations } from "next-intl";
-import { useCallback, useId } from "react";
+import { useCallback } from "react";
 
 import { CmsApiError, CmsCardSkeleton } from "@/components/cms/api";
 import { CmsCard } from "@/components/cms/card";
-import {
-  CmsFormField,
-  CmsInput,
-  CmsLinkButton,
-  CmsTextarea,
-} from "@/components/cms/fields";
+import { CmsFormField, CmsLinkButton } from "@/components/cms/fields";
 import { useRecordId } from "@/components/cms/hooks";
 import { CmsPage } from "@/components/cms/layout";
 import { useAccountName } from "@/components/cms/people";
-import { CmsMissing, CmsSidebarOptions } from "@/components/cms/sidebar-options";
+import {
+  CmsDataRow,
+  CmsMissing,
+  CmsSidebarOptions,
+} from "@/components/cms/sidebar-options";
 import { CmsStatus } from "@/components/cms/status";
 import {
   ADMIN_KEYS,
@@ -27,6 +27,7 @@ import {
 } from "@/lib/api/admin";
 import type { Paginated } from "@/lib/api/client";
 import { useResource } from "@/lib/api/use-resource";
+import { formatBaht } from "@/lib/mock-db/format";
 
 /**
  * One listing, from the admin services list — Nexus's record page (`[id].vue`):
@@ -86,7 +87,6 @@ export function ServiceEditScreen() {
 function ServiceRecord({ service }: { readonly service: AdminService }) {
   const t = useTranslations("cms.serviceEdit");
   const accountName = useAccountName();
-  const descriptionId = useId();
   const owner = accountName(service.advisorId);
 
   const categoriesFetcher = useCallback(
@@ -107,44 +107,41 @@ function ServiceRecord({ service }: { readonly service: AdminService }) {
       <section className="p-4">
         <div className="grid grid-cols-1 gap-8 md:grid-cols-4">
           <div className="md:col-span-3">
+            {/* Plain label/value rows, not disabled inputs: nothing here can be
+                changed by an admin, and a field that looks typeable but is not
+                reads as broken. */}
             <CmsCard>
-              <div className="grid gap-4 sm:grid-cols-2">
-                <ReadOnly className="sm:col-span-2" label={t("fieldTitle")} value={service.name} />
-                <ReadOnly label={t("category")} value={category} />
-                <ReadOnly label={t("advisor")} value={owner ?? "-"} />
-                <ReadOnly
-                  label={t("price")}
-                  value={(service.priceSatang / 100).toLocaleString("en-US")}
-                />
-                <ReadOnly
-                  label={t("minutes")}
-                  value={t("minutesValue", { count: service.durationMinutes })}
-                />
-                <ReadOnly
-                  label={t("screening")}
-                  value={service.screeningRequired ? t("yes") : t("no")}
-                />
-                <ReadOnly
-                  label={t("trial")}
-                  value={
-                    service.trialEnabled && service.trialDurationMinutes
-                      ? t("minutesValue", { count: service.trialDurationMinutes })
-                      : t("no")
-                  }
-                />
-                <CmsFormField
-                  className="sm:col-span-2"
-                  htmlFor={descriptionId}
-                  label={t("description")}
-                >
-                  <CmsTextarea
-                    disabled
-                    id={descriptionId}
-                    readOnly
-                    value={service.description ?? ""}
-                  />
-                </CmsFormField>
-              </div>
+              <dl className="space-y-4">
+                <CmsDataRow label={t("fieldTitle")}>{service.name}</CmsDataRow>
+                <CmsDataRow label={t("category")}>{category}</CmsDataRow>
+                <CmsDataRow label={t("advisor")}>
+                  <Link
+                    className="text-action transition-colors hover:text-action/75"
+                    href={`/admin/users/edit?id=${service.advisorId}`}
+                  >
+                    {owner ?? "-"}
+                  </Link>
+                </CmsDataRow>
+                <CmsDataRow label={t("price")}>
+                  <span className="font-latin">{formatBaht(service.priceSatang)}</span>
+                </CmsDataRow>
+                <CmsDataRow label={t("minutes")}>
+                  {t("minutesValue", { count: service.durationMinutes })}
+                </CmsDataRow>
+                <CmsDataRow label={t("screening")}>
+                  {service.screeningRequired ? t("yes") : t("no")}
+                </CmsDataRow>
+                <CmsDataRow label={t("trial")}>
+                  {service.trialEnabled && service.trialDurationMinutes
+                    ? t("minutesValue", { count: service.trialDurationMinutes })
+                    : t("no")}
+                </CmsDataRow>
+                <CmsDataRow label={t("description")}>
+                  <span className="font-normal whitespace-pre-line text-foreground">
+                    {service.description || "-"}
+                  </span>
+                </CmsDataRow>
+              </dl>
             </CmsCard>
           </div>
 
@@ -181,20 +178,3 @@ function ServiceRecord({ service }: { readonly service: AdminService }) {
   );
 }
 
-/** A disabled input: how a Nexus form shows a field the admin cannot change. */
-function ReadOnly({
-  label,
-  value,
-  className,
-}: {
-  readonly label: string;
-  readonly value: string;
-  readonly className?: string;
-}) {
-  const id = useId();
-  return (
-    <CmsFormField className={className} htmlFor={id} label={label}>
-      <CmsInput disabled id={id} readOnly value={value} />
-    </CmsFormField>
-  );
-}

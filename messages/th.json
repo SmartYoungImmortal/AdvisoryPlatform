@@ -929,7 +929,7 @@
       "category": "Category",
       "minutes": "Duration",
       "minutesValue": "{count} นาที",
-      "price": "Price (THB)",
+      "price": "Price",
       "priceInvalid": "ราคาต้องมากกว่า 0",
       "status": "Status",
       "description": "Description",

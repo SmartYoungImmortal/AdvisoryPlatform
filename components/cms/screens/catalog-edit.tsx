@@ -12,6 +12,7 @@ import { useCmsFeedback } from "@/components/cms/feedback";
 import { CmsFormField, CmsTextarea, CmsTextField } from "@/components/cms/fields";
 import { useRecordId } from "@/components/cms/hooks";
 import { CmsPage } from "@/components/cms/layout";
+import { useAccountName } from "@/components/cms/people";
 import { CmsMissing, CmsSidebarOptions } from "@/components/cms/sidebar-options";
 import {
   ADMIN_KEYS,
@@ -124,6 +125,7 @@ function TaxonomyForm({
   const router = useRouter();
   const { confirm } = useCmsFeedback();
   const rule = useRuling();
+  const accountName = useAccountName();
   const descriptionId = useId();
   const spec = KIND[kind];
   const [name, setName] = useState(record?.name ?? "");
@@ -232,8 +234,16 @@ function TaxonomyForm({
             info={
               record
                 ? [
-                    { label: t("createdAt"), at: record.createdAt },
-                    { label: t("updatedAt"), at: record.modifiedAt },
+                    {
+                      label: t("createdAt"),
+                      by: accountName(record.createdByUserId) ?? undefined,
+                      at: record.createdAt,
+                    },
+                    {
+                      label: t("updatedAt"),
+                      by: accountName(record.updatedByUserId) ?? undefined,
+                      at: record.modifiedAt,
+                    },
                   ]
                 : undefined
             }

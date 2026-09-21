@@ -20,11 +20,14 @@ import {
   CmsSidebarOptions,
 } from "@/components/cms/sidebar-options";
 import { CmsApiStatus } from "@/components/cms/status";
+import { CaseEvidence } from "@/components/cms/case-evidence";
 import {
   approveRefundCase,
   getRefundCase,
+  getRefundContext,
   rejectRefundCase,
   type AdminRefundCaseDetail,
+  type CaseContext,
 } from "@/lib/api/admin";
 import { useResource } from "@/lib/api/use-resource";
 import { formatBaht } from "@/lib/mock-db/format";
@@ -97,6 +100,12 @@ function Review({ refund }: { readonly refund: AdminRefundCaseDetail }) {
   const rule = useRuling();
   const accountName = useAccountName();
   const reasonId = useId();
+  // The consultation this refund claims against, and its conversation.
+  const evidenceFetcher = useCallback(
+    (signal: AbortSignal) => getRefundContext(refund.id, signal),
+    [refund.id],
+  );
+  const evidence = useResource<CaseContext>(`${REFUNDS_KEY}/${refund.id}/context`, evidenceFetcher);
   const open = refund.status === "OPEN";
   const amount = formatBaht(refund.invoiceAmountSatang);
   const [rejection, setRejection] = useState("");
@@ -150,9 +159,19 @@ function Review({ refund }: { readonly refund: AdminRefundCaseDetail }) {
             ) : null
           }
           info={[
-            { label: t("requestedAt"), at: refund.createdAt },
+            {
+              label: t("requestedAt"),
+              by: accountName(refund.requestedByUserId) ?? refund.requesterDisplayName,
+              at: refund.createdAt,
+            },
             ...(refund.resolvedAt
-              ? [{ label: t("decidedAt"), at: refund.resolvedAt }]
+              ? [
+                  {
+                    label: t("decidedAt"),
+                    by: accountName(refund.reviewedByAdminId) ?? undefined,
+                    at: refund.resolvedAt,
+                  },
+                ]
               : []),
           ]}
         >
@@ -195,6 +214,7 @@ function Review({ refund }: { readonly refund: AdminRefundCaseDetail }) {
             )}
           </CmsDataRow>
         </dl>
+        <CaseEvidence context={evidence.data} loading={evidence.loading} />
         {open ? (
           <div className="mt-6 border-t border-border pt-6">
             <CmsFormField

@@ -607,6 +607,11 @@ export function getReportContext(reportId: string, signal?: AbortSignal): Promis
   return api.get(`admin/reports/${reportId}/context`, { signal });
 }
 
+/** `GET /admin/refunds/:refundCaseId/context` — refund → invoice → appointment. */
+export function getRefundContext(refundCaseId: string, signal?: AbortSignal): Promise<CaseContext> {
+  return api.get(`admin/refunds/${refundCaseId}/context`, { signal });
+}
+
 /** `GET /admin/off-platform-flags/:flagId/context`. */
 export function getFlagContext(flagId: string, signal?: AbortSignal): Promise<CaseContext> {
   return api.get(`admin/off-platform-flags/${flagId}/context`, { signal });
@@ -743,6 +748,10 @@ export interface TaxonomyRecord {
   readonly id: string;
   readonly name: string;
   readonly description: string | null;
+  /** The admin who created it; null only for rows older than the column. */
+  readonly createdByUserId: string | null;
+  /** The admin who last changed it. */
+  readonly updatedByUserId: string | null;
   readonly createdAt: string;
   readonly modifiedAt: string;
 }
