@@ -6,7 +6,13 @@ import { useCallback, useMemo } from "react";
 import { CmsApiError, CmsTableSkeleton } from "@/components/cms/api";
 import { CmsPage } from "@/components/cms/layout";
 import { CmsStatus, useStatusOptions } from "@/components/cms/status";
-import { CmsFilterMenu, CmsTable, type CmsColumn } from "@/components/cms/table";
+import {
+  CmsFilterMenu,
+  CmsTable,
+  createdColumn,
+  statusColumn,
+  type CmsColumn,
+} from "@/components/cms/table";
 import { useCmsList } from "@/components/cms/use-cms-list";
 import {
   ADMIN_KEYS,
@@ -18,7 +24,7 @@ import {
 } from "@/lib/api/admin";
 import type { Paginated } from "@/lib/api/client";
 import { useResource } from "@/lib/api/use-resource";
-import { formatBaht, formatDate, timeValue } from "@/lib/mock-db/format";
+import { formatBaht, formatStamp, timeValue } from "@/lib/mock-db/format";
 
 const SERVICES_KEY = ADMIN_KEYS.services;
 
@@ -52,6 +58,7 @@ const SERVICES_KEY = ADMIN_KEYS.services;
  */
 export function ServicesScreen() {
   const t = useTranslations("cms.services");
+  const tTable = useTranslations("cms.table");
 
   const servicesFetcher = useCallback(
     (signal: AbortSignal) => listAdminServices({ limit: ADMIN_MAX_LIMIT }, signal),
@@ -87,6 +94,8 @@ export function ServicesScreen() {
     sortValue: (s, id) => {
       if (id === "price") return s.priceSatang;
       if (id === "title") return s.name;
+      if (id === "status") return s.isPublished ? 1 : 0;
+      if (id === "createdAt") return timeValue(s.createdAt);
       return timeValue(s.modifiedAt);
     },
     filters: [
@@ -99,16 +108,15 @@ export function ServicesScreen() {
   });
 
   const columns: ReadonlyArray<CmsColumn<AdminService>> = [
+    createdColumn(tTable("createdAt"), (s) => s.createdAt),
+    statusColumn(t("col.status"), (s) => (
+      <CmsStatus group="publish" value={s.isPublished ? "published" : "hidden"} />
+    )),
     {
       id: "title",
       header: t("col.title"),
       sortable: true,
-      render: (s) => (
-        <span className="flex max-w-96 min-w-0 flex-col">
-          <span className="truncate font-medium text-highlighted">{s.name}</span>
-          {s.description ? <span className="truncate text-xs">{s.description}</span> : null}
-        </span>
-      ),
+      render: (s) => <span className="block max-w-80 truncate">{s.name}</span>,
     },
     {
       id: "category",
@@ -127,15 +135,8 @@ export function ServicesScreen() {
       id: "updatedAt",
       header: t("col.updatedAt"),
       sortable: true,
-      render: (s) => formatDate(s.modifiedAt),
-    },
-    {
-      id: "status",
-      header: t("col.status"),
-      align: "center",
-      render: (s) => (
-        <CmsStatus group="publish" value={s.isPublished ? "published" : "hidden"} />
-      ),
+      className: "font-latin",
+      render: (s) => formatStamp(s.modifiedAt),
     },
   ];
 

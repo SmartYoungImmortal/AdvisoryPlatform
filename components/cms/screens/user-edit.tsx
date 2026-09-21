@@ -196,14 +196,18 @@ function UserRecord({ account }: { readonly account: AdminAccountDetail }) {
     >
       <CmsCard>
         <div className="mb-6 flex items-center gap-4">
-          {/* No portrait: `avatarKey` is a storage key and no admin route
-              presigns it, so this is initials rather than a broken image. */}
-          <CmsAvatar account={{ name: account.displayName }} size="xl" />
+          {/* `image` is the drawable URL; `avatarKey` is a storage key no admin
+              route presigns. Initials only when there is neither. No id under
+              the name — a UUID tells the reader nothing. */}
+          <CmsAvatar
+            account={{ name: account.displayName, imageUrl: account.image }}
+            size="xl"
+          />
           <div className="min-w-0">
             <p className="truncate text-lg font-semibold text-highlighted">
               {account.displayName}
             </p>
-            <p className="truncate font-latin text-sm text-muted-foreground">{account.id}</p>
+            <p className="truncate font-latin text-sm text-muted-foreground">{account.email}</p>
           </div>
         </div>
         <dl className="space-y-3">

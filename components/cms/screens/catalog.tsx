@@ -1,35 +1,30 @@
 "use client";
 
+import { useRouter } from "next/navigation";
 import { Trash2 } from "lucide-react";
 import { useTranslations } from "next-intl";
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useMemo } from "react";
 
 import { CmsApiError, CmsTableSkeleton, useRuling } from "@/components/cms/api";
 import { CmsButton } from "@/components/cms/button";
 import { useCmsFeedback } from "@/components/cms/feedback";
-import { CmsFormDialog } from "@/components/cms/form-dialog";
-import { CmsTextField } from "@/components/cms/fields";
 import { CmsPage } from "@/components/cms/layout";
-import { CmsTable, type CmsColumn } from "@/components/cms/table";
+import { CmsTable, createdColumn, type CmsColumn } from "@/components/cms/table";
 import { useCmsList } from "@/components/cms/use-cms-list";
 import {
   ADMIN_KEYS,
   ADMIN_MAX_LIMIT,
-  createCategory,
-  createSkill,
   deleteCategory,
   deleteSkill,
   listAdminServices,
   listAdminSkills,
   listCategories,
-  updateCategory,
-  updateSkill,
   type AdminService,
   type TaxonomyRecord,
 } from "@/lib/api/admin";
 import type { Paginated } from "@/lib/api/client";
 import { useResource } from "@/lib/api/use-resource";
-import { formatDate, timeValue } from "@/lib/mock-db/format";
+import { formatStamp, timeValue } from "@/lib/mock-db/format";
 
 type Tab = "categories" | "skills";
 
@@ -55,10 +50,8 @@ const SKILLS_KEY = ADMIN_KEYS.skills;
  * would need a column on `service_categories`; a skill's category would need a
  * foreign key on `skills`.
  *
- * `description` is shown under the name because the API carries it, but is not
- * editable here — a field needs a label, and `cms.catalog` has none for it. `PATCH`
- * is partial, so saving a name leaves any existing description alone rather than
- * clearing it. The report names the copy key that would let this edit it.
+ * Creating and editing happen on `…/edit?id=`, in `catalog-edit.tsx` — a page with
+ * the name and description fields, the way Nexus edits a record — never a dialog.
  *
  * ## The service count is real
  *
@@ -69,10 +62,10 @@ const SKILLS_KEY = ADMIN_KEYS.skills;
  */
 export function CatalogScreen({ kind: tab = "categories" }: { readonly kind?: Tab }) {
   const t = useTranslations("cms.catalog");
-  const [editingCategory, setEditingCategory] = useState<TaxonomyRecord | "new" | null>(
-    null,
-  );
-  const [editingSkill, setEditingSkill] = useState<TaxonomyRecord | "new" | null>(null);
+  const router = useRouter();
+  // Creating and editing are pages, as they are in Nexus — never a dialog.
+  const editHref = (id: string) =>
+    `${tab === "categories" ? "/admin/manage" : "/admin/skills"}/edit?id=${id}`;
 
   const categoriesFetcher = useCallback(
     (signal: AbortSignal) => listCategories({ limit: ADMIN_MAX_LIMIT }, signal),
@@ -119,9 +112,7 @@ export function CatalogScreen({ kind: tab = "categories" }: { readonly kind?: Ta
         <CmsButton
           className="h-9 px-4"
           color="action"
-          onClick={() =>
-            tab === "categories" ? setEditingCategory("new") : setEditingSkill("new")
-          }
+          onClick={() => router.push(editHref("new"))}
         >
           {tab === "categories" ? t("newCategory") : t("newSkill")}
         </CmsButton>
@@ -129,54 +120,19 @@ export function CatalogScreen({ kind: tab = "categories" }: { readonly kind?: Ta
       title={t(`tab.${tab}`)}
     >
       {active.loading ? (
-        <CmsTableSkeleton columns={tab === "categories" ? 4 : 2} />
+        <CmsTableSkeleton columns={tab === "categories" ? 4 : 3} />
       ) : active.error ? (
         <CmsApiError error={active.error} onRetry={active.reload} />
       ) : tab === "categories" ? (
         <CategoryTable
           categories={categoryItems}
-          onEdit={setEditingCategory}
+          onEdit={(c) => router.push(editHref(c.id))}
           usage={usage}
         />
       ) : (
-        <SkillTable onEdit={setEditingSkill} skills={skillItems} />
+        <SkillTable onEdit={(s) => router.push(editHref(s.id))} skills={skillItems} />
       )}
-      {editingCategory ? (
-        <TaxonomyDialog
-          keyPrefix={CATEGORIES_KEY}
-          onClose={() => setEditingCategory(null)}
-          onCreate={(input) => createCategory(input)}
-          onUpdate={(id, input) => updateCategory(id, input)}
-          record={editingCategory}
-          successCreated={t("createdCategory")}
-          successUpdated={t("updatedCategory")}
-          title={editingCategory === "new" ? t("newCategory") : t("editCategory")}
-        />
-      ) : null}
-      {editingSkill ? (
-        <TaxonomyDialog
-          keyPrefix={SKILLS_KEY}
-          onClose={() => setEditingSkill(null)}
-          onCreate={(input) => createSkill(input)}
-          onUpdate={(id, input) => updateSkill(id, input)}
-          record={editingSkill}
-          successCreated={t("createdSkill")}
-          successUpdated={t("updatedSkill")}
-          title={editingSkill === "new" ? t("newSkill") : t("editSkill")}
-        />
-      ) : null}
     </CmsPage>
-  );
-}
-
-function NameCell({ record }: { readonly record: TaxonomyRecord }) {
-  return (
-    <span className="flex max-w-96 min-w-0 flex-col">
-      <span className="truncate font-medium text-highlighted">{record.name}</span>
-      {record.description ? (
-        <span className="truncate text-xs">{record.description}</span>
-      ) : null}
-    </span>
   );
 }
 
@@ -190,6 +146,7 @@ function CategoryTable({
   readonly onEdit: (category: TaxonomyRecord) => void;
 }) {
   const t = useTranslations("cms.catalog");
+  const tTable = useTranslations("cms.table");
   const { confirm } = useCmsFeedback();
   const rule = useRuling();
 
@@ -199,6 +156,7 @@ function CategoryTable({
     sortValue: (c, id) => {
       if (id === "services") return usage.get(c.id) ?? 0;
       if (id === "updatedAt") return timeValue(c.modifiedAt);
+      if (id === "createdAt") return timeValue(c.createdAt);
       return c.name;
     },
   });
@@ -228,12 +186,8 @@ function CategoryTable({
   }
 
   const columns: ReadonlyArray<CmsColumn<TaxonomyRecord>> = [
-    {
-      id: "name",
-      header: t("col.name"),
-      sortable: true,
-      render: (c) => <NameCell record={c} />,
-    },
+    createdColumn(tTable("createdAt"), (c) => c.createdAt),
+    { id: "name", header: t("col.name"), sortable: true, render: (c) => c.name },
     {
       id: "services",
       header: t("col.services"),
@@ -245,7 +199,8 @@ function CategoryTable({
       id: "updatedAt",
       header: t("col.updatedAt"),
       sortable: true,
-      render: (c) => formatDate(c.modifiedAt),
+      className: "font-latin",
+      render: (c) => formatStamp(c.modifiedAt),
     },
   ];
 
@@ -272,27 +227,29 @@ function SkillTable({
   readonly onEdit: (skill: TaxonomyRecord) => void;
 }) {
   const t = useTranslations("cms.catalog");
+  const tTable = useTranslations("cms.table");
   const { confirm } = useCmsFeedback();
   const rule = useRuling();
 
   const list = useCmsList(skills, {
     prefix: "k_",
     searchText: (s) => `${s.name} ${s.description ?? ""}`,
-    sortValue: (s, id) => (id === "updatedAt" ? timeValue(s.modifiedAt) : s.name),
+    sortValue: (s, id) => {
+      if (id === "updatedAt") return timeValue(s.modifiedAt);
+      if (id === "createdAt") return timeValue(s.createdAt);
+      return s.name;
+    },
   });
 
   const columns: ReadonlyArray<CmsColumn<TaxonomyRecord>> = [
-    {
-      id: "name",
-      header: t("col.name"),
-      sortable: true,
-      render: (s) => <NameCell record={s} />,
-    },
+    createdColumn(tTable("createdAt"), (s) => s.createdAt),
+    { id: "name", header: t("col.name"), sortable: true, render: (s) => s.name },
     {
       id: "updatedAt",
       header: t("col.updatedAt"),
       sortable: true,
-      render: (s) => formatDate(s.modifiedAt),
+      className: "font-latin",
+      render: (s) => formatStamp(s.modifiedAt),
     },
   ];
 
@@ -329,82 +286,3 @@ function SkillTable({
   );
 }
 
-/**
- * One name, created or renamed.
- *
- * The same dialog for both resources because the two DTOs are identical, and
- * `name` is the only field either one accepts that the console has copy for. The
- * API caps it at 100 characters and rejects an empty one; the length is left to the
- * API so there is one rule rather than two that can drift.
- */
-function TaxonomyDialog({
-  record,
-  title,
-  keyPrefix,
-  successCreated,
-  successUpdated,
-  onCreate,
-  onUpdate,
-  onClose,
-}: {
-  readonly record: TaxonomyRecord | "new";
-  readonly title: string;
-  readonly keyPrefix: string;
-  readonly successCreated: string;
-  readonly successUpdated: string;
-  readonly onCreate: (input: { readonly name: string }) => Promise<unknown>;
-  readonly onUpdate: (id: string, input: { readonly name: string }) => Promise<unknown>;
-  readonly onClose: () => void;
-}) {
-  const t = useTranslations("cms.catalog");
-  const rule = useRuling();
-  const existing = record === "new" ? null : record;
-  const [name, setName] = useState(existing?.name ?? "");
-  const [error, setError] = useState<string | undefined>();
-  const [saving, setSaving] = useState(false);
-
-  async function submit() {
-    const trimmed = name.trim();
-    if (!trimmed) {
-      setError(t("nameRequired"));
-      return;
-    }
-    setSaving(true);
-    const result = await rule({
-      keyPrefix,
-      run: [
-        existing
-          ? () => onUpdate(existing.id, { name: trimmed })
-          : () => onCreate({ name: trimmed }),
-      ],
-      success: existing ? successUpdated : successCreated,
-    });
-    setSaving(false);
-    // A refusal keeps the dialog open with what was typed still in it; the reason
-    // is already in a toast.
-    if (result.ok) onClose();
-  }
-
-  return (
-    <CmsFormDialog
-      onClose={onClose}
-      onSubmit={submit}
-      open
-      submitLabel={existing ? t("save") : t("create")}
-      submitting={saving}
-      title={title}
-    >
-      <CmsTextField
-        autoFocus
-        error={error}
-        label={t("col.name")}
-        onChange={(event) => {
-          setName(event.target.value);
-          setError(undefined);
-        }}
-        required
-        value={name}
-      />
-    </CmsFormDialog>
-  );
-}

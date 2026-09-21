@@ -6,12 +6,17 @@ import { useTranslations } from "next-intl";
 import { useCallback, useMemo } from "react";
 
 import { CmsApiError, CmsTableSkeleton, useRuling } from "@/components/cms/api";
-import { CmsPerson } from "@/components/cms/avatar";
 import { CmsButton } from "@/components/cms/button";
 import { useCmsFeedback } from "@/components/cms/feedback";
 import { CmsPage } from "@/components/cms/layout";
 import { CmsApiStatus, useApiStatusOptions } from "@/components/cms/status";
-import { CmsFilterMenu, CmsTable, type CmsColumn } from "@/components/cms/table";
+import {
+  CmsFilterMenu,
+  CmsTable,
+  createdColumn,
+  statusColumn,
+  type CmsColumn,
+} from "@/components/cms/table";
 import { useCmsList } from "@/components/cms/use-cms-list";
 import {
   ADMIN_MAX_LIMIT,
@@ -26,7 +31,7 @@ import {
 } from "@/lib/api/admin";
 import type { Paginated } from "@/lib/api/client";
 import { useResource } from "@/lib/api/use-resource";
-import { formatDateTime, timeValue } from "@/lib/mock-db/format";
+import { timeValue } from "@/lib/mock-db/format";
 
 export const REPORTS_KEY = "admin/reports";
 export const FLAGS_KEY = "admin/off-platform-flags";
@@ -79,6 +84,7 @@ function useOutcomeCopy() {
  */
 export function ReportsScreen() {
   const t = useTranslations("cms.cases");
+  const tTable = useTranslations("cms.table");
   const router = useRouter();
   const { confirm } = useCmsFeedback();
   const rule = useRuling();
@@ -97,7 +103,7 @@ export function ReportsScreen() {
 
   const list = useCmsList(items, {
     searchText: (r) => `${r.reason} ${r.reportedDisplayName} ${r.reporterDisplayName}`,
-    sortValue: (r) => timeValue(r.createdAt),
+    sortValue: (r, id) => (id === "status" ? r.status : timeValue(r.createdAt)),
     filters: [{ key: "status", test: (r, values) => values.includes(r.status) }],
   });
 
@@ -120,33 +126,15 @@ export function ReportsScreen() {
   }
 
   const columns: ReadonlyArray<CmsColumn<AdminReport>> = [
-    {
-      id: "reported",
-      header: t("col.reported"),
-      render: (r) => <CmsPerson account={{ name: r.reportedDisplayName }} />,
-    },
+    createdColumn(tTable("createdAt"), (r) => r.createdAt),
+    statusColumn(t("col.status"), (r) => <CmsApiStatus group="report" value={r.status} />),
+    { id: "reported", header: t("col.reported"), render: (r) => r.reportedDisplayName },
     {
       id: "detail",
       header: t("col.detail"),
-      render: (r) => <span className="block max-w-72 truncate">{r.reason}</span>,
+      render: (r) => <span className="block max-w-80 truncate">{r.reason}</span>,
     },
-    {
-      id: "reporter",
-      header: t("col.reporter"),
-      render: (r) => r.reporterDisplayName,
-    },
-    {
-      id: "createdAt",
-      header: t("col.createdAt"),
-      sortable: true,
-      render: (r) => formatDateTime(r.createdAt),
-    },
-    {
-      id: "status",
-      header: t("col.status"),
-      align: "center",
-      render: (r) => <CmsApiStatus group="report" value={r.status} />,
-    },
+    { id: "reporter", header: t("col.reporter"), render: (r) => r.reporterDisplayName },
   ];
 
   if (reports.loading) {
@@ -226,6 +214,7 @@ export function ReportsScreen() {
  */
 export function OffPlatformScreen() {
   const t = useTranslations("cms.cases");
+  const tTable = useTranslations("cms.table");
   const router = useRouter();
   const { confirm } = useCmsFeedback();
   const rule = useRuling();
@@ -248,7 +237,7 @@ export function OffPlatformScreen() {
 
   const list = useCmsList(items, {
     searchText: (f) => `${f.matchedPattern} ${f.messageId}`,
-    sortValue: (f) => timeValue(f.createdAt),
+    sortValue: (f, id) => (id === "status" ? f.status : timeValue(f.createdAt)),
     filters: [{ key: "status", test: (f, values) => values.includes(f.status) }],
   });
 
@@ -271,38 +260,20 @@ export function OffPlatformScreen() {
   }
 
   const columns: ReadonlyArray<CmsColumn<OffPlatformFlag>> = [
+    createdColumn(tTable("createdAt"), (f) => f.createdAt),
+    statusColumn(t("col.status"), (f) => <CmsApiStatus group="flag" value={f.status} />),
     {
       id: "signals",
       header: t("col.signals"),
-      render: (f) => (
-        <span className="font-latin font-medium text-highlighted">{f.matchedPattern}</span>
-      ),
+      className: "font-latin",
+      render: (f) => f.matchedPattern,
     },
     {
-      id: "message",
-      header: t("col.message"),
-      render: (f) => <span className="font-latin">{f.messageId.slice(0, 8)}</span>,
-    },
-    {
-      id: "detectedAt",
-      header: t("col.detectedAt"),
-      sortable: true,
-      render: (f) => formatDateTime(f.createdAt),
-    },
-    {
-      id: "status",
-      header: t("col.status"),
+      id: "penalty",
+      header: t("col.penalty"),
       align: "center",
-      render: (f) => (
-        <span className="flex flex-col items-center gap-1">
-          <CmsApiStatus group="flag" value={f.status} />
-          {f.penaltyPointsApplied > 0 ? (
-            <span className="font-latin text-xs text-destructive">
-              +{f.penaltyPointsApplied}
-            </span>
-          ) : null}
-        </span>
-      ),
+      className: "font-latin",
+      render: (f) => f.penaltyPointsApplied,
     },
   ];
 

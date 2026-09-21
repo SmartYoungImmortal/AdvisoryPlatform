@@ -146,6 +146,8 @@ export interface AdminAccount {
   readonly fullName: string;
   /** A storage key, not a URL, and there is no admin route that presigns it. */
   readonly avatarKey: string | null;
+  /** better-auth's profile-picture URL — drawable as-is, which `avatarKey` is not. */
+  readonly image: string | null;
   readonly timezone: string;
   readonly status: AdminAccountStatus;
   readonly role: AdminAccountRole | null;

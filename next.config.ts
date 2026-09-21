@@ -22,6 +22,8 @@ const nextConfig: NextConfig = {
       // runtime: turning optimisation back on without this would break every
       // image on that page, and the failure would look like a bad URL.
       { protocol: "https", hostname: "picsum.photos" },
+      // Stock portraits the API seed writes to demo accounts' `image`.
+      { protocol: "https", hostname: "randomuser.me" },
     ],
   },
 };

@@ -18,6 +18,7 @@ import {
   PER_PAGE_OPTIONS,
   type CmsListState,
 } from "@/components/cms/use-cms-list";
+import { formatStamp } from "@/lib/mock-db/format";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
   DropdownMenu,
@@ -48,6 +49,32 @@ export type CmsColumn<Row> = {
 };
 
 const ALIGN = { start: "text-start", center: "text-center", end: "text-end" } as const;
+
+/**
+ * Nexus's first column on every list — `dateCreated`: sortable, centred, 15% of
+ * the row, printed `18/08/26 | 08:24`. Screens sort it under the id `createdAt`.
+ */
+export function createdColumn<Row>(
+  header: string,
+  read: (row: Row) => string | null,
+): CmsColumn<Row> {
+  return {
+    id: "createdAt",
+    header,
+    sortable: true,
+    align: "center",
+    className: "w-[15%] font-latin",
+    render: (row) => formatStamp(read(row)),
+  };
+}
+
+/** Nexus's second column — the status badge: sortable, centred, 10% wide. */
+export function statusColumn<Row>(
+  header: string,
+  render: (row: Row) => ReactNode,
+): CmsColumn<Row> {
+  return { id: "status", header, sortable: true, align: "center", className: "w-[10%]", render };
+}
 
 /**
  * Nexus's `CmsTable`: a white card with a toolbar band (search on the left,

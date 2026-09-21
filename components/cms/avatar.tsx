@@ -16,6 +16,8 @@ import { cn } from "@/lib/utils";
 export type CmsPersonLike = {
   readonly name: string;
   readonly avatar?: AvatarKey | null;
+  /** A drawable URL from the API (`AdminAccount.image`); wins over `avatar`. */
+  readonly imageUrl?: string | null;
 };
 
 const SIZE = {
@@ -35,7 +37,7 @@ export function CmsAvatar({
   readonly size?: keyof typeof SIZE;
   readonly className?: string;
 }) {
-  const image = avatarImage(account.avatar ?? null);
+  const image = account.imageUrl || avatarImage(account.avatar ?? null);
   const { box, px } = SIZE[size];
   return image ? (
     <Image

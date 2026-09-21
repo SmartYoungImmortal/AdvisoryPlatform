@@ -6,13 +6,19 @@ import { useTranslations } from "next-intl";
 import { useCallback, useMemo } from "react";
 
 import { CmsApiError, CmsTableSkeleton, useRuling } from "@/components/cms/api";
-import { CmsPerson } from "@/components/cms/avatar";
+import { CmsAvatar } from "@/components/cms/avatar";
 import { CmsButton } from "@/components/cms/button";
 import { useCmsFeedback } from "@/components/cms/feedback";
 import { useAdminUserId } from "@/components/cms/hooks";
 import { CmsPage } from "@/components/cms/layout";
 import { CmsApiStatus, useApiStatusOptions } from "@/components/cms/status";
-import { CmsFilterMenu, CmsTable, type CmsColumn } from "@/components/cms/table";
+import {
+  CmsFilterMenu,
+  CmsTable,
+  createdColumn,
+  statusColumn,
+  type CmsColumn,
+} from "@/components/cms/table";
 import { useCmsList } from "@/components/cms/use-cms-list";
 import {
   ADMIN_KEYS,
@@ -24,7 +30,7 @@ import {
 } from "@/lib/api/admin";
 import type { Paginated } from "@/lib/api/client";
 import { useResource } from "@/lib/api/use-resource";
-import { formatDate, formatDateTime, timeValue } from "@/lib/mock-db/format";
+import { formatStamp, timeValue } from "@/lib/mock-db/format";
 
 const ROLES: readonly AdminAccountRole[] = ["advisee", "advisor", "admin"];
 
@@ -85,6 +91,7 @@ export function UsersScreen() {
     searchText: (a) => `${a.displayName} ${a.fullName} ${a.email}`,
     sortValue: (a, id) => {
       if (id === "name") return a.displayName;
+      if (id === "status") return a.status;
       if (id === "updatedAt") return timeValue(a.updatedAt);
       return timeValue(a.createdAt);
     },
@@ -94,36 +101,42 @@ export function UsersScreen() {
     ],
   });
 
+  // Nexus's column order: date created, status, then the record's own fields
+  // as plain single-line text — no avatars, no second line.
   const columns: ReadonlyArray<CmsColumn<AdminAccount>> = [
+    createdColumn(tTable("createdAt"), (a) => a.createdAt),
+    statusColumn(t("col.status"), (a) => (
+      <CmsApiStatus group="accountStatus" value={a.status} />
+    )),
     {
-      id: "name",
-      header: t("col.name"),
-      sortable: true,
-      render: (a) => <CmsPerson account={{ name: a.displayName }} detail={a.email} />,
+      // Nexus's image column, 48px with a hairline ring and centred — round,
+      // because it is a person.
+      id: "image",
+      header: t("col.image"),
+      align: "center",
+      render: (a) => (
+        <span className="flex justify-center">
+          <CmsAvatar
+            account={{ name: a.displayName, imageUrl: a.image }}
+            className="ring-1 ring-border"
+            size="xl"
+          />
+        </span>
+      ),
     },
+    { id: "name", header: t("col.name"), sortable: true, render: (a) => a.displayName },
+    { id: "email", header: t("col.email"), className: "font-latin", render: (a) => a.email },
     {
       id: "role",
       header: t("col.role"),
-      render: (a) => <CmsApiStatus group="role" value={a.role} />,
-    },
-    {
-      id: "createdAt",
-      header: t("col.createdAt"),
-      sortable: true,
-      render: (a) => formatDate(a.createdAt),
+      render: (a) => roleOptions.find((o) => o.value === a.role)?.label ?? a.role ?? "-",
     },
     {
       id: "updatedAt",
       header: tEdit("updated"),
       sortable: true,
-      render: (a) => formatDateTime(a.updatedAt),
-    },
-    {
-      id: "status",
-      header: t("col.status"),
-      align: "center",
-      className: "w-[10%]",
-      render: (a) => <CmsApiStatus group="accountStatus" value={a.status} />,
+      className: "font-latin",
+      render: (a) => formatStamp(a.updatedAt),
     },
   ];
 

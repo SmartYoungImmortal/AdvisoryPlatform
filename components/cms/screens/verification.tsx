@@ -1,17 +1,22 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { Check, FileText, X } from "lucide-react";
+import { Check, X } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { useCallback, useMemo } from "react";
 
 import { CmsApiError, CmsTableSkeleton, useRuling } from "@/components/cms/api";
-import { CmsPerson } from "@/components/cms/avatar";
 import { CmsButton } from "@/components/cms/button";
 import { useCmsFeedback } from "@/components/cms/feedback";
 import { CmsPage } from "@/components/cms/layout";
 import { CmsApiStatus, useApiStatusOptions } from "@/components/cms/status";
-import { CmsFilterMenu, CmsTable, type CmsColumn } from "@/components/cms/table";
+import {
+  CmsFilterMenu,
+  CmsTable,
+  createdColumn,
+  statusColumn,
+  type CmsColumn,
+} from "@/components/cms/table";
 import { useCmsList } from "@/components/cms/use-cms-list";
 import {
   ADMIN_KEYS,
@@ -25,7 +30,7 @@ import {
 } from "@/lib/api/admin";
 import type { Paginated } from "@/lib/api/client";
 import { useResource } from "@/lib/api/use-resource";
-import { formatDateTime, timeValue } from "@/lib/mock-db/format";
+import { timeValue } from "@/lib/mock-db/format";
 
 const IDENTITY_KEY = ADMIN_KEYS.identity;
 const PROOFS_KEY = ADMIN_KEYS.skillProofs;
@@ -120,6 +125,8 @@ export function SkillProofsScreen() {
  */
 function IdentityTable({ requests }: { readonly requests: readonly IdentityVerification[] }) {
   const t = useTranslations("cms.verification");
+  const tUsers = useTranslations("cms.users");
+  const tTable = useTranslations("cms.table");
   const router = useRouter();
   const statusOptions = useApiStatusOptions("identity", [
     "SUBMITTED",
@@ -141,7 +148,11 @@ function IdentityTable({ requests }: { readonly requests: readonly IdentityVerif
   const list = useCmsList(keyed, {
     prefix: "i_",
     searchText: (r) => `${r.displayName} ${r.email}`,
-    sortValue: (r, id) => (id === "submittedAt" ? timeValue(r.submittedAt) : r.displayName),
+    sortValue: (r, id) => {
+      if (id === "createdAt") return timeValue(r.submittedAt);
+      if (id === "status") return r.verificationStatus;
+      return r.displayName;
+    },
     filters: [
       { key: "status", test: (r, values) => values.includes(r.verificationStatus) },
     ],
@@ -149,25 +160,19 @@ function IdentityTable({ requests }: { readonly requests: readonly IdentityVerif
 
   type Row = (typeof keyed)[number];
 
+  // A submission's "created" is when it was sent — the row has no other date.
   const columns: ReadonlyArray<CmsColumn<Row>> = [
+    createdColumn(tTable("createdAt"), (r) => r.submittedAt),
+    statusColumn(t("col.status"), (r) => (
+      <CmsApiStatus group="identity" value={r.verificationStatus} />
+    )),
     {
       id: "applicant",
       header: t("col.applicant"),
       sortable: true,
-      render: (r) => <CmsPerson account={{ name: r.displayName }} detail={r.email} />,
+      render: (r) => r.displayName,
     },
-    {
-      id: "submittedAt",
-      header: t("col.submittedAt"),
-      sortable: true,
-      render: (r) => formatDateTime(r.submittedAt),
-    },
-    {
-      id: "status",
-      header: t("col.status"),
-      align: "center",
-      render: (r) => <CmsApiStatus group="identity" value={r.verificationStatus} />,
-    },
+    { id: "email", header: tUsers("col.email"), className: "font-latin", render: (r) => r.email },
   ];
 
   return (
@@ -198,6 +203,7 @@ function IdentityTable({ requests }: { readonly requests: readonly IdentityVerif
  */
 function ProofTable({ proofs }: { readonly proofs: readonly SkillProof[] }) {
   const t = useTranslations("cms.verification");
+  const tTable = useTranslations("cms.table");
   const { confirm, prompt } = useCmsFeedback();
   const rule = useRuling();
   const statusOptions = useApiStatusOptions("proof", ["PENDING", "APPROVED", "REJECTED"]);
@@ -210,7 +216,11 @@ function ProofTable({ proofs }: { readonly proofs: readonly SkillProof[] }) {
     prefix: "s_",
     searchText: (p) =>
       `${p.skillName} ${p.originalFileName} ${p.advisorDisplayName}`,
-    sortValue: (p, id) => (id === "submittedAt" ? timeValue(p.createdAt) : p.skillName),
+    sortValue: (p, id) => {
+      if (id === "createdAt") return timeValue(p.createdAt);
+      if (id === "status") return p.reviewStatus;
+      return p.skillName;
+    },
     filters: [{ key: "status", test: (p, values) => values.includes(p.reviewStatus) }],
   });
 
@@ -248,36 +258,17 @@ function ProofTable({ proofs }: { readonly proofs: readonly SkillProof[] }) {
   }
 
   const columns: ReadonlyArray<CmsColumn<SkillProof>> = [
+    createdColumn(tTable("createdAt"), (p) => p.createdAt),
+    statusColumn(t("col.status"), (p) => (
+      <CmsApiStatus group="proof" value={p.reviewStatus} />
+    )),
+    { id: "advisor", header: t("col.advisor"), render: (p) => p.advisorDisplayName },
+    { id: "skill", header: t("col.skill"), sortable: true, render: (p) => p.skillName },
     {
-      id: "advisor",
-      header: t("col.advisor"),
-      render: (p) => <CmsPerson account={{ name: p.advisorDisplayName }} />,
-    },
-    {
-      id: "skill",
-      header: t("col.skill"),
-      sortable: true,
-      render: (p) => (
-        <span className="flex flex-col gap-0.5">
-          <span className="text-highlighted">{p.skillName}</span>
-          <span className="flex items-center gap-1 font-latin text-xs">
-            <FileText aria-hidden className="size-3.5" />
-            {p.originalFileName}
-          </span>
-        </span>
-      ),
-    },
-    {
-      id: "submittedAt",
-      header: t("col.submittedAt"),
-      sortable: true,
-      render: (p) => formatDateTime(p.createdAt),
-    },
-    {
-      id: "status",
-      header: t("col.status"),
-      align: "center",
-      render: (p) => <CmsApiStatus group="proof" value={p.reviewStatus} />,
+      id: "file",
+      header: t("col.file"),
+      className: "font-latin",
+      render: (p) => <span className="block max-w-64 truncate">{p.originalFileName}</span>,
     },
     {
       id: "actions",

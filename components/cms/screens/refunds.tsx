@@ -6,12 +6,17 @@ import { useTranslations } from "next-intl";
 import { useCallback, useMemo } from "react";
 
 import { CmsApiError, CmsTableSkeleton, useRuling } from "@/components/cms/api";
-import { CmsPerson } from "@/components/cms/avatar";
 import { CmsButton } from "@/components/cms/button";
 import { useCmsFeedback } from "@/components/cms/feedback";
 import { CmsPage } from "@/components/cms/layout";
 import { CmsApiStatus, useApiStatusOptions } from "@/components/cms/status";
-import { CmsFilterMenu, CmsTable, type CmsColumn } from "@/components/cms/table";
+import {
+  CmsFilterMenu,
+  CmsTable,
+  createdColumn,
+  statusColumn,
+  type CmsColumn,
+} from "@/components/cms/table";
 import { useCmsList } from "@/components/cms/use-cms-list";
 import {
   ADMIN_MAX_LIMIT,
@@ -21,7 +26,7 @@ import {
 } from "@/lib/api/admin";
 import type { Paginated } from "@/lib/api/client";
 import { useResource } from "@/lib/api/use-resource";
-import { formatBaht, formatDateTime, timeValue } from "@/lib/mock-db/format";
+import { formatBaht, timeValue } from "@/lib/mock-db/format";
 
 export const REFUNDS_KEY = "admin/refunds";
 
@@ -46,6 +51,7 @@ export const REFUNDS_KEY = "admin/refunds";
  */
 export function RefundsScreen() {
   const t = useTranslations("cms.refunds");
+  const tTable = useTranslations("cms.table");
   const router = useRouter();
   const { prompt } = useCmsFeedback();
   const rule = useRuling();
@@ -63,33 +69,22 @@ export function RefundsScreen() {
 
   const list = useCmsList(items, {
     searchText: (r) => `${r.id} ${r.reason} ${r.requesterDisplayName}`,
-    sortValue: (r, id) =>
-      id === "amount" ? r.invoiceAmountSatang : timeValue(r.createdAt),
+    sortValue: (r, id) => {
+      if (id === "amount") return r.invoiceAmountSatang;
+      if (id === "status") return r.status;
+      return timeValue(r.createdAt);
+    },
     filters: [{ key: "status", test: (r, values) => values.includes(r.status) }],
   });
 
   const columns: ReadonlyArray<CmsColumn<AdminRefundCase>> = [
-    {
-      id: "request",
-      header: t("col.request"),
-      render: (r) => (
-        <span className="flex flex-col">
-          <span className="font-latin font-medium text-highlighted">
-            {r.id.slice(0, 8)}
-          </span>
-          <span className="font-latin text-xs">{r.invoiceId.slice(0, 8)}</span>
-        </span>
-      ),
-    },
-    {
-      id: "requester",
-      header: t("col.requester"),
-      render: (r) => <CmsPerson account={{ name: r.requesterDisplayName }} />,
-    },
+    createdColumn(tTable("createdAt"), (r) => r.createdAt),
+    statusColumn(t("col.status"), (r) => <CmsApiStatus group="refund" value={r.status} />),
+    { id: "requester", header: t("col.requester"), render: (r) => r.requesterDisplayName },
     {
       id: "reason",
       header: t("col.reason"),
-      render: (r) => <span className="block max-w-64 truncate">{r.reason}</span>,
+      render: (r) => <span className="block max-w-72 truncate">{r.reason}</span>,
     },
     {
       id: "amount",
@@ -97,18 +92,6 @@ export function RefundsScreen() {
       sortable: true,
       className: "font-latin",
       render: (r) => formatBaht(r.invoiceAmountSatang),
-    },
-    {
-      id: "requestedAt",
-      header: t("col.requestedAt"),
-      sortable: true,
-      render: (r) => formatDateTime(r.createdAt),
-    },
-    {
-      id: "status",
-      header: t("col.status"),
-      align: "center",
-      render: (r) => <CmsApiStatus group="refund" value={r.status} />,
     },
   ];
 
