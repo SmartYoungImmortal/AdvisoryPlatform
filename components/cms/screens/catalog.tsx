@@ -10,7 +10,13 @@ import { CmsButton } from "@/components/cms/button";
 import { useCmsFeedback } from "@/components/cms/feedback";
 import { CmsPage } from "@/components/cms/layout";
 import { useAuditHeaders } from "@/components/cms/people";
-import { auditColumns, CmsTable, createdColumn, type CmsColumn } from "@/components/cms/table";
+import {
+  auditColumns,
+  CmsTable,
+  createdColumn,
+  updatedColumn,
+  type CmsColumn,
+} from "@/components/cms/table";
 import { useCmsList } from "@/components/cms/use-cms-list";
 import {
   ADMIN_KEYS,
@@ -25,7 +31,7 @@ import {
 } from "@/lib/api/admin";
 import type { Paginated } from "@/lib/api/client";
 import { useResource } from "@/lib/api/use-resource";
-import { formatStamp, timeValue } from "@/lib/mock-db/format";
+import { timeValue } from "@/lib/mock-db/format";
 
 type Tab = "categories" | "skills";
 
@@ -197,13 +203,7 @@ function CategoryTable({
       className: "font-latin",
       render: (c) => usage.get(c.id) ?? 0,
     },
-    {
-      id: "updatedAt",
-      header: t("col.updatedAt"),
-      sortable: true,
-      className: "font-latin",
-      render: (c) => formatStamp(c.modifiedAt),
-    },
+    updatedColumn(t("col.updatedAt"), (c) => c.modifiedAt),
     // `service_categories` records no author; a dash, not a guess.
     ...auditColumns<TaxonomyRecord>(audit, () => null, () => null),
   ];
@@ -249,13 +249,7 @@ function SkillTable({
   const columns: ReadonlyArray<CmsColumn<TaxonomyRecord>> = [
     createdColumn(tTable("createdAt"), (s) => s.createdAt),
     { id: "name", header: t("col.name"), sortable: true, render: (s) => s.name },
-    {
-      id: "updatedAt",
-      header: t("col.updatedAt"),
-      sortable: true,
-      className: "font-latin",
-      render: (s) => formatStamp(s.modifiedAt),
-    },
+    updatedColumn(t("col.updatedAt"), (s) => s.modifiedAt),
     ...auditColumns<TaxonomyRecord>(audit, () => null, () => null),
   ];
 

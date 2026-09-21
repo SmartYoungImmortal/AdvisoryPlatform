@@ -13,6 +13,7 @@ import {
   CmsTable,
   createdColumn,
   statusColumn,
+  updatedColumn,
   type CmsColumn,
 } from "@/components/cms/table";
 import { useCmsList } from "@/components/cms/use-cms-list";
@@ -26,7 +27,7 @@ import {
 } from "@/lib/api/admin";
 import type { Paginated } from "@/lib/api/client";
 import { useResource } from "@/lib/api/use-resource";
-import { formatBaht, formatStamp, timeValue } from "@/lib/mock-db/format";
+import { formatBaht, timeValue } from "@/lib/mock-db/format";
 
 const SERVICES_KEY = ADMIN_KEYS.services;
 
@@ -135,13 +136,7 @@ export function ServicesScreen() {
       render: (s) =>
         `${formatBaht(s.priceSatang)} / ${t("minutes", { count: s.durationMinutes })}`,
     },
-    {
-      id: "updatedAt",
-      header: t("col.updatedAt"),
-      sortable: true,
-      className: "font-latin",
-      render: (s) => formatStamp(s.modifiedAt),
-    },
+    updatedColumn(t("col.updatedAt"), (s) => s.modifiedAt),
     // Only the owning advisor can create or edit a service; the admin API has
     // no write route for one.
     ...auditColumns<AdminService>(

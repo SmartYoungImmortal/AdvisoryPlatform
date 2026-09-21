@@ -99,6 +99,25 @@ export function auditColumns<Row>(
   ];
 }
 
+/**
+ * "Updated at", held to the same 15% as Date Created. Left to size itself it
+ * soaked up every spare pixel on a short table, and the name column — the one
+ * that should take the slack — stayed narrow.
+ */
+export function updatedColumn<Row>(
+  header: string,
+  read: (row: Row) => string | null,
+): CmsColumn<Row> {
+  return {
+    id: "updatedAt",
+    header,
+    sortable: true,
+    align: "center",
+    className: "w-[15%] font-latin",
+    render: (row) => formatStamp(read(row)),
+  };
+}
+
 /** Nexus's second column — the status badge: sortable, centred, 10% wide. */
 export function statusColumn<Row>(
   header: string,

@@ -19,6 +19,7 @@ import {
   CmsTable,
   createdColumn,
   statusColumn,
+  updatedColumn,
   type CmsColumn,
 } from "@/components/cms/table";
 import { useCmsList } from "@/components/cms/use-cms-list";
@@ -32,7 +33,7 @@ import {
 } from "@/lib/api/admin";
 import type { Paginated } from "@/lib/api/client";
 import { useResource } from "@/lib/api/use-resource";
-import { formatStamp, timeValue } from "@/lib/mock-db/format";
+import { timeValue } from "@/lib/mock-db/format";
 
 const ROLES: readonly AdminAccountRole[] = ["advisee", "advisor", "admin"];
 
@@ -139,13 +140,7 @@ export function UsersScreen() {
       header: t("col.role"),
       render: (a) => roleOptions.find((o) => o.value === a.role)?.label ?? a.role ?? "-",
     },
-    {
-      id: "updatedAt",
-      header: tEdit("updated"),
-      sortable: true,
-      className: "font-latin",
-      render: (a) => formatStamp(a.updatedAt),
-    },
+    updatedColumn(tEdit("updated"), (a) => a.updatedAt),
     // An account signs itself up; nothing records who last changed it.
     ...auditColumns<AdminAccount>(audit, (a) => a.fullName || a.displayName, () => null),
   ];
