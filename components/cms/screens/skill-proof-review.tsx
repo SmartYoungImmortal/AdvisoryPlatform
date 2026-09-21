@@ -2,13 +2,14 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Check, ExternalLink, FileText, X } from "lucide-react";
+import { Check, FileText, X } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { useCallback, useId, useState } from "react";
 
 import { CmsApiError, CmsCardSkeleton, useRuling } from "@/components/cms/api";
 import { CmsButton } from "@/components/cms/button";
 import { CmsCard } from "@/components/cms/card";
+import { CmsDocument } from "@/components/cms/document";
 import { useCmsFeedback } from "@/components/cms/feedback";
 import { CmsFormField, CmsTextarea } from "@/components/cms/fields";
 import { useRecordId } from "@/components/cms/hooks";
@@ -40,9 +41,10 @@ const BACK = "/admin/skill-proofs";
  * one card, the status, audit and ruling in the options panel.
  *
  * There is no `GET /admin/skill-proofs/:id`, so the row is found in the list the
- * table read (same key, no second request). The document is drawn when its key
- * is a URL (`documentUrl`); a real upload's storage key has no admin route that
- * presigns it, so the file is named instead of shown.
+ * table read (same key, no second request). The document is shown when its key
+ * opens (`documentUrl`) — a PDF in the browser's viewer, an image as itself; a
+ * real upload's storage key has no admin route that presigns it, so the file is
+ * named instead of shown.
  */
 export function SkillProofReviewScreen() {
   const t = useTranslations("cms.verification");
@@ -168,33 +170,9 @@ function ProofRecord({
               </dl>
 
               {url ? (
-                <figure className="mt-6 border-t border-border pt-6">
-                  <a
-                    className="block w-full max-w-md overflow-hidden rounded-md ring-1 ring-border transition-opacity hover:opacity-90"
-                    href={url}
-                    rel="noreferrer"
-                    target="_blank"
-                  >
-                    {/* eslint-disable-next-line @next/next/no-img-element -- a remote document URL, drawn as-is. */}
-                    <img
-                      alt={proof.originalFileName}
-                      className="block h-auto w-full"
-                      loading="lazy"
-                      src={url}
-                    />
-                  </a>
-                  <figcaption className="mt-2">
-                    <a
-                      className="inline-flex items-center gap-1 text-sm font-medium text-action hover:text-action/75"
-                      href={url}
-                      rel="noreferrer"
-                      target="_blank"
-                    >
-                      <ExternalLink aria-hidden className="size-4" />
-                      {t("openFile")}
-                    </a>
-                  </figcaption>
-                </figure>
+                <div className="mt-6 border-t border-border pt-6">
+                  <CmsDocument name={proof.originalFileName} url={url} />
+                </div>
               ) : null}
 
               {pending ? (

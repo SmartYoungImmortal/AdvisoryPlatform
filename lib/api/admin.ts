@@ -48,7 +48,8 @@
  *   detail route**, only the list.
  * - **Documents are storage keys, not URLs.** `documentObjectKey`, a skill proof's
  *   `objectKey` and refund evidence keys are SeaweedFS keys; there is no admin
- *   presign route, so nothing here can render the document.
+ *   presign route, so a real upload cannot be rendered. The demo seed's keys are
+ *   paths under `public/demo-docs/`, which `documentUrl` opens.
  *
  * ## Rulings, and the two failures that are not bugs
  *
@@ -286,12 +287,13 @@ export function rejectIdentityVerification(
 }
 
 /**
- * A document key the console can open as it is: a URL. Real uploads store a
- * SeaweedFS key no admin route presigns, so those return `null` and the page
- * names the file instead; the demo seed's documents are URLs.
+ * A document key the console can open as it is: a URL, or a demo specimen the
+ * console serves itself from `public/demo-docs/`. Real uploads store a SeaweedFS
+ * key no admin route presigns, so those return `null` and the page names the
+ * file instead.
  */
 export function documentUrl(key: string | null | undefined): string | null {
-  return key && /^https?:\/\//.test(key) ? key : null;
+  return key && (/^https?:\/\//.test(key) || key.startsWith("/demo-docs/")) ? key : null;
 }
 
 /* ------------------------------------------------------------- skill proofs */

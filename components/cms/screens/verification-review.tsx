@@ -9,6 +9,7 @@ import { useCallback, useId, useMemo, useState } from "react";
 import { CmsApiError, CmsCardSkeleton, useRuling } from "@/components/cms/api";
 import { CmsButton } from "@/components/cms/button";
 import { CmsCard } from "@/components/cms/card";
+import { CmsDocument } from "@/components/cms/document";
 import { useCmsFeedback } from "@/components/cms/feedback";
 import { CmsFormField, CmsTextarea } from "@/components/cms/fields";
 import { useRecordId } from "@/components/cms/hooks";
@@ -48,12 +49,12 @@ const IDENTITY_KEY = ADMIN_KEYS.identity;
  * choice from Figma 1952:36339 cannot be honoured: approving verifies the identity
  * and nothing else. Restoring it needs the level on the approve DTO.
  *
- * ## The document is named, not shown
+ * ## The document
  *
- * `documentObjectKey` is a SeaweedFS object key. No admin route presigns it, so
- * there is no URL to put in an `<img>`, and the card states the key rather than
- * rendering a stock national-id picture that is not this applicant's document. The
- * same is true of every skill proof's `objectKey`.
+ * `documentObjectKey` is a SeaweedFS object key for a real upload, and no admin
+ * route presigns it, so that card says no document can be shown rather than
+ * drawing a stock picture that is not this applicant's. The demo seed's keys are
+ * specimen cards under `public/demo-docs/`, which `documentUrl` opens.
  *
  * Also absent from the DTO, so absent here: full name, birth date, national id,
  * credential and field. The applicant is a display name and an email.
@@ -244,15 +245,7 @@ function Review({ request }: { readonly request: IdentityVerification }) {
         <section className="mt-6 border-t border-border pt-6">
           <h2 className="mb-4 text-sm font-semibold text-highlighted">{t("idCard")}</h2>
           {document ? (
-            <a
-              className="block w-full max-w-md overflow-hidden rounded-md ring-1 ring-border transition-opacity hover:opacity-90"
-              href={document}
-              rel="noreferrer"
-              target="_blank"
-            >
-              {/* eslint-disable-next-line @next/next/no-img-element -- a remote document URL, drawn as-is. */}
-              <img alt={t("idCard")} className="block h-auto w-full" loading="lazy" src={document} />
-            </a>
+            <CmsDocument className="max-w-lg" name={t("idCard")} url={document} />
           ) : (
             <p className="text-sm text-muted-foreground">{t("noDocument")}</p>
           )}

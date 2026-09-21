@@ -23,6 +23,7 @@ import { useCmsList } from "@/components/cms/use-cms-list";
 import {
   ADMIN_KEYS,
   ADMIN_MAX_LIMIT,
+  approveIdentityVerification,
   approveSkillProof,
   listIdentityVerifications,
   listSkillProofs,
@@ -131,6 +132,8 @@ function IdentityTable({ requests }: { readonly requests: readonly IdentityVerif
   const audit = useAuditHeaders();
   const accountName = useAccountName();
   const router = useRouter();
+  const { confirm } = useCmsFeedback();
+  const rule = useRuling();
   const statusOptions = useApiStatusOptions("identity", [
     "SUBMITTED",
     "VERIFIED",
@@ -163,6 +166,29 @@ function IdentityTable({ requests }: { readonly requests: readonly IdentityVerif
 
   type Row = (typeof keyed)[number];
 
+  /**
+   * Approving takes no body, so several go at once; a rejection needs its reason.
+   * Only rows still waiting are approved — a ruled one would answer 409.
+   */
+  const waiting = (ids: readonly string[]) =>
+    ids.filter((id) => keyed.find((r) => r.id === id)?.verificationStatus === "SUBMITTED");
+
+  async function approve(advisorIds: readonly string[]) {
+    if (advisorIds.length === 0) return;
+    const ok = await confirm({
+      type: "success",
+      title: t("approveIdentityTitle", { count: advisorIds.length }),
+      confirmLabel: t("approve"),
+    });
+    if (!ok) return;
+    await rule({
+      keyPrefix: IDENTITY_KEY,
+      onDone: list.clearSelection,
+      run: advisorIds.map((id) => () => approveIdentityVerification(id)),
+      success: t("approvedIdentity", { count: advisorIds.length }),
+    });
+  }
+
   // A submission's "created" is when it was sent — the row has no other date.
   const columns: ReadonlyArray<CmsColumn<Row>> = [
     createdColumn(tTable("createdAt"), (r) => r.submittedAt),
@@ -186,6 +212,15 @@ function IdentityTable({ requests }: { readonly requests: readonly IdentityVerif
 
   return (
     <CmsTable
+      bulkActions={(ids) => {
+        const open = waiting(ids);
+        // Nothing selected is still waiting: no action to offer.
+        return open.length === 0 ? null : (
+          <CmsButton color="success" icon={Check} onClick={() => approve(open)}>
+            {t("approveSelected", { count: open.length })}
+          </CmsButton>
+        );
+      }}
       columns={columns}
       filters={
         <CmsFilterMenu
@@ -198,7 +233,6 @@ function IdentityTable({ requests }: { readonly requests: readonly IdentityVerif
       list={list}
       onRowClick={(r) => router.push(`/admin/verification/review?id=${r.advisorId}`)}
       searchPlaceholder={t("searchIdentity")}
-      selectable={false}
     />
   );
 }
@@ -234,7 +268,12 @@ function ProofTable({ proofs }: { readonly proofs: readonly SkillProof[] }) {
     filters: [{ key: "status", test: (p, values) => values.includes(p.reviewStatus) }],
   });
 
+  /** Only proofs still pending are approved — a ruled one would answer 409. */
+  const pendingIds = (ids: readonly string[]) =>
+    ids.filter((id) => rows.find((p) => p.id === id)?.reviewStatus === "PENDING");
+
   async function approve(ids: readonly string[]) {
+    if (ids.length === 0) return;
     const ok = await confirm({
       type: "success",
       title: t("approveProofTitle", { count: ids.length }),
@@ -275,11 +314,15 @@ function ProofTable({ proofs }: { readonly proofs: readonly SkillProof[] }) {
 
   return (
     <CmsTable
-      bulkActions={(ids) => (
-        <CmsButton color="success" icon={Check} onClick={() => approve(ids)}>
-          {t("approveSelected", { count: ids.length })}
-        </CmsButton>
-      )}
+      bulkActions={(ids) => {
+        const open = pendingIds(ids);
+        // Nothing selected is still pending: no action to offer.
+        return open.length === 0 ? null : (
+          <CmsButton color="success" icon={Check} onClick={() => approve(open)}>
+            {t("approveSelected", { count: open.length })}
+          </CmsButton>
+        );
+      }}
       columns={columns}
       onRowClick={(p) => router.push(`/admin/skill-proofs/review?id=${p.id}`)}
       filters={

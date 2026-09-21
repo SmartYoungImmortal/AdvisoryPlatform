@@ -9,9 +9,8 @@ import { useEffect, useId, useState, type FormEvent } from "react";
 import { CmsButton } from "@/components/cms/button";
 import { useCmsFeedback } from "@/components/cms/feedback";
 import { CmsFormField, CmsInput } from "@/components/cms/fields";
-import { DemoAccounts } from "@/components/session/demo-accounts";
 import { Checkbox } from "@/components/ui/checkbox";
-import { logo } from "@/lib/assets/r2";
+import { consoleLogo } from "@/lib/assets/r2";
 import { isEmail, safeNext, signIn, useSession } from "@/lib/session";
 import { cn } from "@/lib/utils";
 
@@ -25,9 +24,10 @@ const LOGIN_RING = "[&_input]:ring-border [&_input]:focus-visible:ring-border";
 
 /**
  * Nexus's `/admin/login`: the `auth` layout (grey page, centred 448px column)
- * around a `UPageCard` holding `UAuthForm` — logo, "Login", email, password,
- * remember me, a full-width blue submit. Failures surface as a toast, the way
- * Nexus's `cmsFormatAuthError` reports them.
+ * around a `UPageCard` holding `UAuthForm` — the logo, email, password,
+ * remember me, a full-width blue submit. No visible "Login" title and no demo
+ * account picker: the console's door carries the logo and the form only.
+ * Failures surface as a toast, the way Nexus's `cmsFormatAuthError` reports them.
  */
 export function CmsLoginScreen({ preset = "default" }: { readonly preset?: "default" | "error" }) {
   const t = useTranslations("cms.login");
@@ -104,16 +104,15 @@ export function CmsLoginScreen({ preset = "default" }: { readonly preset?: "defa
               noValidate
               onSubmit={(event) => void submit(event)}
             >
+              {/* The logo alone heads the card; the page title stays for screen readers. */}
               <div className="flex flex-col text-center">
-                <div className="mb-2">
-                  <Image
-                    alt="Advisory Platform"
-                    className="mx-auto block h-auto w-28"
-                    priority
-                    src={logo}
-                  />
-                </div>
-                <h1 className="text-xl font-semibold text-pretty text-highlighted">{t("title")}</h1>
+                <Image
+                  alt="Advisory Platform"
+                  className="mx-auto block h-9 w-auto"
+                  priority
+                  src={consoleLogo}
+                />
+                <h1 className="sr-only">{t("title")}</h1>
               </div>
               <div className="space-y-5">
                 <CmsFormField error={errors.email} htmlFor={emailId} label={t("email")} required>
@@ -180,14 +179,6 @@ export function CmsLoginScreen({ preset = "default" }: { readonly preset?: "defa
                 </CmsButton>
               </div>
             </form>
-            <DemoAccounts
-              only={["admin"]}
-              onPick={(account) => {
-                setEmail(account.email);
-                setPassword(account.password);
-                setErrors({});
-              }}
-            />
           </div>
         </div>
       </div>

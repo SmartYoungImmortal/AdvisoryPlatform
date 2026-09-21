@@ -1,13 +1,14 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { Check, FileText, X } from "lucide-react";
+import { Check, X } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { useCallback, useId, useState } from "react";
 
 import { CmsApiError, CmsCardSkeleton, useRuling } from "@/components/cms/api";
 import { CmsButton } from "@/components/cms/button";
 import { CmsCard } from "@/components/cms/card";
+import { CmsDocumentGrid } from "@/components/cms/document";
 import { useCmsFeedback } from "@/components/cms/feedback";
 import { CmsFormField, CmsTextarea } from "@/components/cms/fields";
 import { useRecordId } from "@/components/cms/hooks";
@@ -23,6 +24,7 @@ import { CmsApiStatus } from "@/components/cms/status";
 import { CaseEvidence } from "@/components/cms/case-evidence";
 import {
   approveRefundCase,
+  documentUrl,
   getRefundCase,
   getRefundContext,
   rejectRefundCase,
@@ -42,13 +44,13 @@ import { formatBaht } from "@/lib/mock-db/format";
  * field it revealed cannot be sent anywhere. Restoring them needs an amount on the
  * approve DTO and a column to hold it.
  *
- * ## Evidence is named, not shown
+ * ## Evidence
  *
  * The detail route carries `evidence` as object keys, original file names and MIME
- * types. There is no admin route that presigns a key, so there is no URL to put in
- * an `<img>` and the lightbox is gone with it — the files are listed by name. A
- * grid of the same stock document thumbnail, four times, claimed to be this
- * requester's evidence, which it never was.
+ * types. A file whose key opens (`documentUrl` — the demo seed's specimens under
+ * `public/demo-docs/`) is a thumbnail that opens it in a new tab. A real upload's
+ * key has no admin route that presigns it, so that tile names the file and shows
+ * no picture: a stock thumbnail would claim to be this requester's evidence.
  */
 export function RefundReviewScreen() {
   const t = useTranslations("cms.refunds");
@@ -197,23 +199,24 @@ function Review({ refund }: { readonly refund: AdminRefundCaseDetail }) {
           <CmsDataRow label={t("col.reason")}>
             <span className="font-normal text-foreground">{refund.reason}</span>
           </CmsDataRow>
-          <CmsDataRow label={t("evidence", { count: refund.evidence.length })}>
-            {refund.evidence.length === 0 ? (
-              <span className="font-normal text-muted-foreground">-</span>
-            ) : (
-              <ul className="space-y-1">
-                {refund.evidence.map((file) => (
-                  <li className="flex items-center gap-2" key={file.objectKey}>
-                    <FileText aria-hidden className="size-4 shrink-0 text-dimmed" />
-                    <span className="truncate font-latin font-normal">
-                      {file.originalFileName}
-                    </span>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </CmsDataRow>
         </dl>
+        <section className="mt-6 border-t border-border pt-6">
+          <h2 className="mb-4 text-sm font-semibold text-highlighted">
+            {t("evidence", { count: refund.evidence.length })}
+          </h2>
+          {refund.evidence.length === 0 ? (
+            <p className="text-sm text-muted-foreground">-</p>
+          ) : (
+            <CmsDocumentGrid
+              files={refund.evidence.map((file) => ({
+                key: file.objectKey,
+                url: documentUrl(file.objectKey),
+                name: file.originalFileName,
+                mimeType: file.mimeType,
+              }))}
+            />
+          )}
+        </section>
         <CaseEvidence context={evidence.data} loading={evidence.loading} />
         {open ? (
           <div className="mt-6 border-t border-border pt-6">

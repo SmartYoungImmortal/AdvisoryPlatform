@@ -584,10 +584,14 @@
     }
   },
   "cms": {
+    "document": {
+      "open": "Open document"
+    },
     "nav": {
       "label": "Admin Console",
       "home": "ไปหน้า Dashboard",
       "openMenu": "เปิดเมนู",
+      "resize": "ปรับความกว้างแถบเมนู",
       "back": "ย้อนกลับ",
       "dashboard": "Dashboard",
       "user": "User",
@@ -855,11 +859,12 @@
       "reject": "ปฏิเสธ",
       "reason": "Rejection reason",
       "reasonRequired": "Rejection reason is required",
-      "openFile": "Open document",
       "noDocument": "No document was attached.",
       "rejectPlaceholder": "เหตุผลนี้จะแสดงให้ผู้สมัครเห็น",
       "approveProofTitle": "อนุมัติเอกสาร {count} รายการ?",
       "approvedProof": "อนุมัติเอกสารแล้ว {count} รายการ",
+      "approveIdentityTitle": "ยืนยันตัวตน {count} รายการ?",
+      "approvedIdentity": "ยืนยันตัวตนแล้ว {count} รายการ",
       "rejectProofTitle": "ปฏิเสธเอกสาร {count} รายการ?",
       "rejectedProof": "ปฏิเสธเอกสารแล้ว {count} รายการ",
       "approveSelected": "อนุมัติ {count}",
