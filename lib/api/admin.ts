@@ -285,6 +285,15 @@ export function rejectIdentityVerification(
   });
 }
 
+/**
+ * A document key the console can open as it is: a URL. Real uploads store a
+ * SeaweedFS key no admin route presigns, so those return `null` and the page
+ * names the file instead; the demo seed's documents are URLs.
+ */
+export function documentUrl(key: string | null | undefined): string | null {
+  return key && /^https?:\/\//.test(key) ? key : null;
+}
+
 /* ------------------------------------------------------------- skill proofs */
 
 /** `SkillProofResponseDto`. */

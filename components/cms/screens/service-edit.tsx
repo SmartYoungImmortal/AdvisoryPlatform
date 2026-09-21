@@ -1,231 +1,200 @@
 "use client";
 
-import Link from "next/link";
-import { ExternalLink, Save } from "lucide-react";
+import { ExternalLink } from "lucide-react";
 import { useTranslations } from "next-intl";
-import { useId, useState } from "react";
+import { useCallback, useId } from "react";
 
-import { CmsPerson } from "@/components/cms/avatar";
-import { CmsButton } from "@/components/cms/button";
+import { CmsApiError, CmsCardSkeleton } from "@/components/cms/api";
 import { CmsCard } from "@/components/cms/card";
-import { useCmsFeedback } from "@/components/cms/feedback";
 import {
   CmsFormField,
+  CmsInput,
   CmsLinkButton,
-  CmsSelect,
   CmsTextarea,
-  CmsTextField,
 } from "@/components/cms/fields";
-import { useAccountLookup, useActorId, useRecordId } from "@/components/cms/hooks";
+import { useRecordId } from "@/components/cms/hooks";
 import { CmsPage } from "@/components/cms/layout";
-import { CmsDataRow, CmsMissing, CmsSidebarOptions } from "@/components/cms/sidebar-options";
-import { CmsStatus, useStatusLabels } from "@/components/cms/status";
-import { setServicesStatus, updateService } from "@/lib/mock-db/actions";
-import { useDatabase } from "@/lib/mock-db/store";
-import type { MarketService, PublishStatus } from "@/lib/mock-db/types";
+import { useAccountName } from "@/components/cms/people";
+import { CmsMissing, CmsSidebarOptions } from "@/components/cms/sidebar-options";
+import { CmsStatus } from "@/components/cms/status";
+import {
+  ADMIN_KEYS,
+  ADMIN_MAX_LIMIT,
+  listAdminServices,
+  listCategories,
+  type AdminService,
+  type TaxonomyRecord,
+} from "@/lib/api/admin";
+import type { Paginated } from "@/lib/api/client";
+import { useResource } from "@/lib/api/use-resource";
 
-const MINUTE_OPTIONS = ["30", "45", "60", "90", "120"] as const;
-
+/**
+ * One listing, from the admin services list — Nexus's record page (`[id].vue`):
+ * the fields in one form card, the status and the audit in the options panel.
+ *
+ * **Read-only.** `AdminServicesController` is a single `GET`: nothing edits,
+ * publishes or hides a service for an admin, so the fields are shown disabled
+ * rather than as a form whose Save could not be sent. The record is found in the
+ * list the table already read (same key, no extra request); there is no admin
+ * `GET /services/:id`.
+ */
 export function ServiceEditScreen() {
   const t = useTranslations("cms.serviceEdit");
   const id = useRecordId();
-  const service = useDatabase((db) => db.services.find((s) => s.id === id));
-  if (!service) {
+
+  const servicesFetcher = useCallback(
+    (signal: AbortSignal) => listAdminServices({ limit: ADMIN_MAX_LIMIT }, signal),
+    [],
+  );
+  const services = useResource<Paginated<AdminService>>(
+    `${ADMIN_KEYS.services}?limit=${ADMIN_MAX_LIMIT}`,
+    servicesFetcher,
+  );
+  const service = services.data?.items.find((s) => s.id === id);
+
+  if (id === "" || (!services.loading && !services.error && !service)) {
     return (
       <CmsPage backHref="/admin/services" title={t("title")}>
         <CmsMissing backHref="/admin/services" />
       </CmsPage>
     );
   }
-  // Keyed on `updatedAt` so a save or an outside change resets the form to it.
-  return <ServiceEditor key={`${service.id}:${service.updatedAt}`} service={service} />;
-}
 
-/**
- * A listing seen from the console: its catalogue fields, and a status select
- * in the options column the way Nexus's edit pages carry Draft/Published.
- * Hiding asks for the reason the advisor will be shown.
- *
- * **Still on `lib/mock-db`, and no longer linked to.** `AdminServicesController` is
- * a single `GET /admin/services`: there is no route that edits a service, publishes
- * one or hides one, so nothing on this page can be saved against the API. The
- * services queue therefore no longer opens it — a row that led to an editor whose
- * Save button cannot work is worse than a table that does not pretend to be one —
- * and this screen is reachable only by typing its URL, where it will show a fixture
- * whose id came from the fixture. Wiring it needs
- * `PATCH /api/v1/admin/services/:serviceId` on the API.
- */
-function ServiceEditor({ service }: { readonly service: MarketService }) {
-  const t = useTranslations("cms.serviceEdit");
-  const actorId = useActorId();
-  const person = useAccountLookup();
-  const labels = useStatusLabels();
-  const { toast } = useCmsFeedback();
-  const categories = useDatabase((db) => db.categories);
-  const statusId = useId();
-  const categoryId = useId();
-  const minutesId = useId();
-  const reasonId = useId();
-
-  const initial = {
-    title: service.title,
-    categoryId: service.categoryId,
-    price: String(service.priceSatang / 100),
-    minutes: String(service.minutes),
-    status: service.status,
-    reason: service.hiddenReason ?? "",
-  };
-  const [form, setForm] = useState(initial);
-  const [errors, setErrors] = useState<{ title?: string; price?: string; reason?: string }>({});
-
-  const dirty = (Object.keys(initial) as Array<keyof typeof initial>).some(
-    (key) => form[key] !== initial[key],
-  );
-
-  function save() {
-    const price = Number(form.price);
-    const next: typeof errors = {};
-    if (!form.title.trim()) next.title = t("titleRequired");
-    if (!Number.isFinite(price) || price <= 0) next.price = t("priceInvalid");
-    if (form.status === "hidden" && !form.reason.trim()) next.reason = t("reasonRequired");
-    setErrors(next);
-    if (Object.keys(next).length > 0) return;
-
-    updateService(
-      service.id,
-      {
-        title: form.title.trim(),
-        categoryId: form.categoryId,
-        priceSatang: Math.round(price * 100),
-        minutes: Number(form.minutes),
-      },
-      actorId,
+  if (services.loading) {
+    return (
+      <CmsPage backHref="/admin/services" title={t("title")}>
+        <CmsCardSkeleton rows={5} />
+      </CmsPage>
     );
-    if (form.status !== service.status || form.reason !== (service.hiddenReason ?? "")) {
-      setServicesStatus([service.id], form.status, form.reason, actorId);
-    }
-    toast({ title: t("saved") });
   }
 
-  const statusItems: ReadonlyArray<{ value: PublishStatus; label: string }> = [
-    { value: "published", label: labels.publish.published },
-    { value: "hidden", label: labels.publish.hidden },
-  ];
+  if (services.error || !service) {
+    return (
+      <CmsPage backHref="/admin/services" title={t("title")}>
+        {services.error ? (
+          <CmsApiError error={services.error} onRetry={services.reload} />
+        ) : (
+          <CmsMissing backHref="/admin/services" />
+        )}
+      </CmsPage>
+    );
+  }
+
+  return <ServiceRecord service={service} />;
+}
+
+function ServiceRecord({ service }: { readonly service: AdminService }) {
+  const t = useTranslations("cms.serviceEdit");
+  const accountName = useAccountName();
+  const descriptionId = useId();
+  const owner = accountName(service.advisorId);
+
+  const categoriesFetcher = useCallback(
+    (signal: AbortSignal) => listCategories({ limit: ADMIN_MAX_LIMIT }, signal),
+    [],
+  );
+  const categories = useResource<Paginated<TaxonomyRecord>>(
+    `${ADMIN_KEYS.categories}?limit=${ADMIN_MAX_LIMIT}`,
+    categoriesFetcher,
+  );
+  const category =
+    categories.data?.items.find((c) => c.id === service.categoryId)?.name ?? "-";
 
   return (
-    <CmsPage
-      aside={
-        <CmsSidebarOptions
-          actions={
-            <>
-              <CmsButton block color="action" disabled={!dirty} icon={Save} onClick={save} size="lg">
-                {t("save")}
-              </CmsButton>
-              {service.catalogueId ? (
-                <CmsLinkButton
-                  block
-                  color="neutral"
-                  href={`/service/${service.catalogueId}`}
-                  icon={ExternalLink}
-                  size="lg"
-                  variant="outline"
+    <CmsPage backHref="/admin/services" title={service.name}>
+      {/* Nexus's page body: its own p-4, a 4-column grid, the form card on
+          three of them and the options panel on the fourth. */}
+      <section className="p-4">
+        <div className="grid grid-cols-1 gap-8 md:grid-cols-4">
+          <div className="md:col-span-3">
+            <CmsCard>
+              <div className="grid gap-4 sm:grid-cols-2">
+                <ReadOnly className="sm:col-span-2" label={t("fieldTitle")} value={service.name} />
+                <ReadOnly label={t("category")} value={category} />
+                <ReadOnly label={t("advisor")} value={owner ?? "-"} />
+                <ReadOnly
+                  label={t("price")}
+                  value={(service.priceSatang / 100).toLocaleString("en-US")}
+                />
+                <ReadOnly
+                  label={t("minutes")}
+                  value={t("minutesValue", { count: service.durationMinutes })}
+                />
+                <ReadOnly
+                  label={t("screening")}
+                  value={service.screeningRequired ? t("yes") : t("no")}
+                />
+                <ReadOnly
+                  label={t("trial")}
+                  value={
+                    service.trialEnabled && service.trialDurationMinutes
+                      ? t("minutesValue", { count: service.trialDurationMinutes })
+                      : t("no")
+                  }
+                />
+                <CmsFormField
+                  className="sm:col-span-2"
+                  htmlFor={descriptionId}
+                  label={t("description")}
                 >
-                  {t("viewPublic")}
-                </CmsLinkButton>
-              ) : null}
-            </>
-          }
-          info={[
-            { label: t("created"), at: service.createdAt },
-            { label: t("updated"), at: service.updatedAt },
-          ]}
-        >
-          <CmsFormField htmlFor={statusId} label={t("status")}>
-            <CmsSelect
-              id={statusId}
-              items={statusItems}
-              onValueChange={(status) => setForm({ ...form, status })}
-              value={form.status}
-            />
-          </CmsFormField>
-          {form.status === "hidden" ? (
-            <CmsFormField
-              error={errors.reason}
-              help={t("reasonHelp")}
-              htmlFor={reasonId}
-              label={t("reason")}
-              required
-            >
-              <CmsTextarea
-                id={reasonId}
-                invalid={Boolean(errors.reason)}
-                onChange={(event) => setForm({ ...form, reason: event.target.value })}
-                rows={3}
-                value={form.reason}
-              />
-            </CmsFormField>
-          ) : null}
-        </CmsSidebarOptions>
-      }
-      backHref="/admin/services"
-      badge={<CmsStatus group="publish" value={service.status} />}
-      title={service.title}
-    >
-      <CmsCard>
-        <div className="grid gap-4 sm:grid-cols-2">
-          <CmsTextField
-            className="sm:col-span-2"
-            error={errors.title}
-            label={t("fieldTitle")}
-            onChange={(event) => setForm({ ...form, title: event.target.value })}
-            required
-            value={form.title}
-          />
-          <CmsFormField htmlFor={categoryId} label={t("category")} required>
-            <CmsSelect
-              id={categoryId}
-              items={categories.map((c) => ({ value: c.id, label: c.name }))}
-              onValueChange={(value) => setForm({ ...form, categoryId: value })}
-              value={form.categoryId}
-            />
-          </CmsFormField>
-          <CmsFormField htmlFor={minutesId} label={t("minutes")} required>
-            <CmsSelect
-              id={minutesId}
-              items={MINUTE_OPTIONS.map((m) => ({ value: m, label: t("minutesValue", { count: Number(m) }) }))}
-              onValueChange={(value) => setForm({ ...form, minutes: value })}
-              value={form.minutes}
-            />
-          </CmsFormField>
-          <CmsTextField
-            error={errors.price}
-            inputMode="numeric"
-            label={t("price")}
-            min={1}
-            onChange={(event) => setForm({ ...form, price: event.target.value })}
-            required
-            trailing={<span className="text-sm text-dimmed">฿</span>}
-            type="number"
-            value={form.price}
-          />
-        </div>
-      </CmsCard>
+                  <CmsTextarea
+                    disabled
+                    id={descriptionId}
+                    readOnly
+                    value={service.description ?? ""}
+                  />
+                </CmsFormField>
+              </div>
+            </CmsCard>
+          </div>
 
-      <CmsCard title={t("ownerTitle")}>
-        <dl className="space-y-3">
-          <CmsDataRow label={t("advisor")}>
-            <Link className="inline-block" href={`/admin/users/edit?id=${service.advisorId}`}>
-              <CmsPerson account={person(service.advisorId)} detail={person(service.advisorId)?.email} />
-            </Link>
-          </CmsDataRow>
-          <CmsDataRow label={t("bookings")}>
-            <span className="font-latin">{service.bookings}</span>
-          </CmsDataRow>
-          <CmsDataRow label={t("rating")}>
-            <span className="font-latin">{service.rating.toFixed(1)}</span>
-          </CmsDataRow>
-        </dl>
-      </CmsCard>
+          <CmsSidebarOptions
+            actions={
+              <CmsLinkButton
+                block
+                color="neutral"
+                href={`/service/${service.id}`}
+                icon={ExternalLink}
+                size="lg"
+                variant="outline"
+              >
+                {t("viewPublic")}
+              </CmsLinkButton>
+            }
+            info={[
+              { label: t("created"), by: owner ?? undefined, at: service.createdAt },
+              { label: t("updated"), by: owner ?? undefined, at: service.modifiedAt },
+            ]}
+          >
+            <CmsFormField label={t("status")}>
+              <div>
+                <CmsStatus
+                  group="publish"
+                  value={service.isPublished ? "published" : "hidden"}
+                />
+              </div>
+            </CmsFormField>
+          </CmsSidebarOptions>
+        </div>
+      </section>
     </CmsPage>
+  );
+}
+
+/** A disabled input: how a Nexus form shows a field the admin cannot change. */
+function ReadOnly({
+  label,
+  value,
+  className,
+}: {
+  readonly label: string;
+  readonly value: string;
+  readonly className?: string;
+}) {
+  const id = useId();
+  return (
+    <CmsFormField className={className} htmlFor={id} label={label}>
+      <CmsInput disabled id={id} readOnly value={value} />
+    </CmsFormField>
   );
 }

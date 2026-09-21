@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { Check, X } from "lucide-react";
+import { Check } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { useCallback, useMemo } from "react";
 
@@ -26,7 +26,6 @@ import {
   approveSkillProof,
   listIdentityVerifications,
   listSkillProofs,
-  rejectSkillProof,
   type IdentityVerification,
   type SkillProof,
 } from "@/lib/api/admin";
@@ -205,18 +204,17 @@ function IdentityTable({ requests }: { readonly requests: readonly IdentityVerif
 }
 
 /**
- * Skill proofs.
- *
- * `objectKey` is a SeaweedFS key with no admin route that presigns it, so the
- * document is named and not opened — there is no URL to open it with. Approving
- * takes no body; rejecting takes a reason, capped at 4000 characters by the API.
+ * Skill proofs. A row opens `/admin/skill-proofs/review`, where the document is
+ * shown and a rejection carries its reason — no inline buttons, no prompt.
+ * Approving several at once stays a bulk action: it takes no body.
  */
 function ProofTable({ proofs }: { readonly proofs: readonly SkillProof[] }) {
   const t = useTranslations("cms.verification");
   const tTable = useTranslations("cms.table");
   const audit = useAuditHeaders();
   const accountName = useAccountName();
-  const { confirm, prompt } = useCmsFeedback();
+  const router = useRouter();
+  const { confirm } = useCmsFeedback();
   const rule = useRuling();
   const statusOptions = useApiStatusOptions("proof", ["PENDING", "APPROVED", "REJECTED"]);
   const rows = useMemo(
@@ -251,24 +249,6 @@ function ProofTable({ proofs }: { readonly proofs: readonly SkillProof[] }) {
     });
   }
 
-  async function reject(ids: readonly string[]) {
-    const note = await prompt({
-      type: "danger",
-      title: t("rejectProofTitle", { count: ids.length }),
-      inputLabel: t("reason"),
-      placeholder: t("rejectPlaceholder"),
-      confirmLabel: t("reject"),
-    });
-    if (note === null) return;
-    await rule({
-      keyPrefix: PROOFS_KEY,
-      onDone: list.clearSelection,
-      run: ids.map((id) => () => rejectSkillProof(id, note)),
-      success: t("rejectedProof", { count: ids.length }),
-      successColor: "warning",
-    });
-  }
-
   const columns: ReadonlyArray<CmsColumn<SkillProof>> = [
     createdColumn(tTable("createdAt"), (p) => p.createdAt),
     statusColumn(t("col.status"), (p) => (
@@ -291,48 +271,17 @@ function ProofTable({ proofs }: { readonly proofs: readonly SkillProof[] }) {
       (p) => accountName(p.advisorId) ?? p.advisorDisplayName,
       (p) => accountName(p.reviewedByAdminId),
     ),
-    {
-      id: "actions",
-      header: "",
-      align: "end",
-      interactive: true,
-      render: (p) =>
-        p.reviewStatus === "PENDING" ? (
-          <span className="inline-flex gap-1">
-            <CmsButton
-              aria-label={t("approve")}
-              color="success"
-              icon={Check}
-              onClick={() => approve([p.id])}
-              variant="soft"
-            />
-            <CmsButton
-              aria-label={t("reject")}
-              color="error"
-              icon={X}
-              onClick={() => reject([p.id])}
-              variant="soft"
-            />
-          </span>
-        ) : (
-          <span className="text-xs">{p.rejectionReason ?? ""}</span>
-        ),
-    },
   ];
 
   return (
     <CmsTable
       bulkActions={(ids) => (
-        <>
-          <CmsButton color="success" icon={Check} onClick={() => approve(ids)}>
-            {t("approveSelected", { count: ids.length })}
-          </CmsButton>
-          <CmsButton color="error" icon={X} onClick={() => reject(ids)}>
-            {t("rejectSelected", { count: ids.length })}
-          </CmsButton>
-        </>
+        <CmsButton color="success" icon={Check} onClick={() => approve(ids)}>
+          {t("approveSelected", { count: ids.length })}
+        </CmsButton>
       )}
       columns={columns}
+      onRowClick={(p) => router.push(`/admin/skill-proofs/review?id=${p.id}`)}
       filters={
         <CmsFilterMenu
           label={t("allStatuses")}

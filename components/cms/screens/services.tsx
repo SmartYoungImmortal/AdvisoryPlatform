@@ -1,5 +1,6 @@
 "use client";
 
+import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { useCallback, useMemo } from "react";
 
@@ -62,6 +63,7 @@ const SERVICES_KEY = ADMIN_KEYS.services;
 export function ServicesScreen() {
   const t = useTranslations("cms.services");
   const tTable = useTranslations("cms.table");
+  const router = useRouter();
   const audit = useAuditHeaders();
   const accountName = useAccountName();
 
@@ -185,6 +187,7 @@ export function ServicesScreen() {
           </>
         }
         list={list}
+        onRowClick={(s) => router.push(`/admin/services/edit?id=${s.id}`)}
         searchPlaceholder={t("search")}
         selectable={false}
       />
