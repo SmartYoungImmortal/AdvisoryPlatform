@@ -6,7 +6,9 @@ import { useCallback, useMemo } from "react";
 import { CmsApiError, CmsTableSkeleton } from "@/components/cms/api";
 import { CmsPage } from "@/components/cms/layout";
 import { CmsStatus, useStatusOptions } from "@/components/cms/status";
+import { useAccountName, useAuditHeaders } from "@/components/cms/people";
 import {
+  auditColumns,
   CmsFilterMenu,
   CmsTable,
   createdColumn,
@@ -59,6 +61,8 @@ const SERVICES_KEY = ADMIN_KEYS.services;
 export function ServicesScreen() {
   const t = useTranslations("cms.services");
   const tTable = useTranslations("cms.table");
+  const audit = useAuditHeaders();
+  const accountName = useAccountName();
 
   const servicesFetcher = useCallback(
     (signal: AbortSignal) => listAdminServices({ limit: ADMIN_MAX_LIMIT }, signal),
@@ -138,6 +142,13 @@ export function ServicesScreen() {
       className: "font-latin",
       render: (s) => formatStamp(s.modifiedAt),
     },
+    // Only the owning advisor can create or edit a service; the admin API has
+    // no write route for one.
+    ...auditColumns<AdminService>(
+      audit,
+      (s) => accountName(s.advisorId),
+      (s) => accountName(s.advisorId),
+    ),
   ];
 
   if (services.loading) {

@@ -12,6 +12,7 @@ import { useCmsFeedback } from "@/components/cms/feedback";
 import { CmsFormField, CmsTextarea } from "@/components/cms/fields";
 import { useRecordId } from "@/components/cms/hooks";
 import { CmsPage } from "@/components/cms/layout";
+import { useAccountName } from "@/components/cms/people";
 import { REFUNDS_KEY } from "@/components/cms/screens/refunds";
 import {
   CmsDataRow,
@@ -94,6 +95,7 @@ function Review({ refund }: { readonly refund: AdminRefundCaseDetail }) {
   const router = useRouter();
   const { confirm } = useCmsFeedback();
   const rule = useRuling();
+  const accountName = useAccountName();
   const reasonId = useId();
   const open = refund.status === "OPEN";
   const amount = formatBaht(refund.invoiceAmountSatang);
@@ -166,7 +168,9 @@ function Review({ refund }: { readonly refund: AdminRefundCaseDetail }) {
     >
       <CmsCard>
         <dl className="space-y-4">
-          <CmsDataRow label={t("col.requester")}>{refund.requesterDisplayName}</CmsDataRow>
+          <CmsDataRow label={t("col.requester")}>
+            {accountName(refund.requestedByUserId) ?? refund.requesterDisplayName}
+          </CmsDataRow>
           {/* The whole invoice: the approve route takes no amount. */}
           <CmsDataRow label={t("col.amount")}>
             <span className="font-latin">{amount}</span>

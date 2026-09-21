@@ -16,7 +16,9 @@ import {
   useApiStatusOptions,
   useStatusOptions,
 } from "@/components/cms/status";
+import { useAccountName, useAuditHeaders } from "@/components/cms/people";
 import {
+  auditColumns,
   CmsFilterMenu,
   CmsTable,
   createdColumn,
@@ -33,7 +35,7 @@ import {
 } from "@/lib/api/admin";
 import type { Paginated } from "@/lib/api/client";
 import { useResource } from "@/lib/api/use-resource";
-import { formatBaht, formatDateTime, timeValue } from "@/lib/mock-db/format";
+import { formatBaht, formatStamp, timeValue } from "@/lib/mock-db/format";
 import { useDatabase } from "@/lib/mock-db/store";
 import type { Transaction } from "@/lib/mock-db/types";
 
@@ -64,6 +66,8 @@ const PAYOUTS_KEY = "admin/payouts";
 export function PayoutsScreen() {
   const t = useTranslations("cms.payouts");
   const tTable = useTranslations("cms.table");
+  const audit = useAuditHeaders();
+  const accountName = useAccountName();
   const { confirm } = useCmsFeedback();
   const rule = useRuling();
 
@@ -131,7 +135,11 @@ export function PayoutsScreen() {
   const columns: ReadonlyArray<CmsColumn<AdminPayout>> = [
     createdColumn(tTable("createdAt"), (p) => p.createdAt),
     statusColumn(t("col.status"), (p) => <CmsApiStatus group="payout" value={p.status} />),
-    { id: "advisor", header: t("col.advisor"), render: (p) => p.advisorDisplayName },
+    {
+      id: "advisor",
+      header: t("col.advisor"),
+      render: (p) => accountName(p.advisorId) ?? p.advisorDisplayName,
+    },
     {
       id: "amount",
       header: t("col.amount"),
@@ -139,6 +147,8 @@ export function PayoutsScreen() {
       className: "font-latin",
       render: (p) => formatBaht(p.amountSatang),
     },
+    // A payout run creates the row; the payout carries no reviewer.
+    ...auditColumns<AdminPayout>(audit, () => audit.system, () => null),
     {
       id: "actions",
       header: "",
@@ -146,7 +156,7 @@ export function PayoutsScreen() {
       interactive: true,
       render: (p) =>
         p.status === "PAID" ? (
-          <span className="text-xs">{formatDateTime(p.paidAt)}</span>
+          <span className="font-latin text-xs">{formatStamp(p.paidAt)}</span>
         ) : (
           <span className="inline-flex gap-1">
             <CmsButton color="success" onClick={() => pay([p.id])} size="sm" variant="soft">
@@ -228,6 +238,7 @@ export function PayoutsScreen() {
 export function TransactionsScreen() {
   const t = useTranslations("cms.transactions");
   const tTable = useTranslations("cms.table");
+  const audit = useAuditHeaders();
   const person = useAccountLookup();
   const transactions = useDatabase((db) => db.transactions);
   const statusOptions = useStatusOptions("transaction");
@@ -268,6 +279,11 @@ export function TransactionsScreen() {
     { id: "amount", header: t("col.amount"), sortable: true, className: "font-latin", render: (tx) => formatBaht(tx.amountSatang) },
     { id: "fee", header: t("col.fee"), className: "font-latin", render: (tx) => formatBaht(tx.feeSatang) },
     { id: "method", header: t("col.method"), render: (tx) => t(`method.${tx.method}`) },
+    ...auditColumns<Transaction>(
+      audit,
+      (tx) => person(tx.payerId)?.name,
+      () => audit.system,
+    ),
   ];
 
   return (

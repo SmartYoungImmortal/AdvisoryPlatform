@@ -9,7 +9,8 @@ import { CmsApiError, CmsTableSkeleton, useRuling } from "@/components/cms/api";
 import { CmsButton } from "@/components/cms/button";
 import { useCmsFeedback } from "@/components/cms/feedback";
 import { CmsPage } from "@/components/cms/layout";
-import { CmsTable, createdColumn, type CmsColumn } from "@/components/cms/table";
+import { useAuditHeaders } from "@/components/cms/people";
+import { auditColumns, CmsTable, createdColumn, type CmsColumn } from "@/components/cms/table";
 import { useCmsList } from "@/components/cms/use-cms-list";
 import {
   ADMIN_KEYS,
@@ -147,6 +148,7 @@ function CategoryTable({
 }) {
   const t = useTranslations("cms.catalog");
   const tTable = useTranslations("cms.table");
+  const audit = useAuditHeaders();
   const { confirm } = useCmsFeedback();
   const rule = useRuling();
 
@@ -202,6 +204,8 @@ function CategoryTable({
       className: "font-latin",
       render: (c) => formatStamp(c.modifiedAt),
     },
+    // `service_categories` records no author; a dash, not a guess.
+    ...auditColumns<TaxonomyRecord>(audit, () => null, () => null),
   ];
 
   return (
@@ -228,6 +232,7 @@ function SkillTable({
 }) {
   const t = useTranslations("cms.catalog");
   const tTable = useTranslations("cms.table");
+  const audit = useAuditHeaders();
   const { confirm } = useCmsFeedback();
   const rule = useRuling();
 
@@ -251,6 +256,7 @@ function SkillTable({
       className: "font-latin",
       render: (s) => formatStamp(s.modifiedAt),
     },
+    ...auditColumns<TaxonomyRecord>(audit, () => null, () => null),
   ];
 
   return (

@@ -13,6 +13,7 @@ import { useCmsFeedback } from "@/components/cms/feedback";
 import { CmsFormField } from "@/components/cms/fields";
 import { useRecordId } from "@/components/cms/hooks";
 import { CmsPage } from "@/components/cms/layout";
+import { useAccountName } from "@/components/cms/people";
 import { FLAGS_KEY, REPORTS_KEY } from "@/components/cms/screens/cases";
 import {
   CmsDataRow,
@@ -144,6 +145,7 @@ export function ReportReviewScreen() {
 
 function ReportRecord({ report }: { readonly report: AdminReport }) {
   const t = useTranslations("cms.cases");
+  const accountName = useAccountName();
   const router = useRouter();
   const { confirm } = useCmsFeedback();
   const rule = useRuling();
@@ -196,10 +198,16 @@ function ReportRecord({ report }: { readonly report: AdminReport }) {
       <CmsCard>
         <dl className="space-y-4">
           <CmsDataRow label={t("col.reported")}>
-            <PersonLink id={report.reportedUserId} name={report.reportedDisplayName} />
+            <PersonLink
+              id={report.reportedUserId}
+              name={accountName(report.reportedUserId) ?? report.reportedDisplayName}
+            />
           </CmsDataRow>
           <CmsDataRow label={t("col.reporter")}>
-            <PersonLink id={report.reporterUserId} name={report.reporterDisplayName} />
+            <PersonLink
+              id={report.reporterUserId}
+              name={accountName(report.reporterUserId) ?? report.reporterDisplayName}
+            />
           </CmsDataRow>
           <CmsDataRow label={t("col.detail")}>
             <span className="font-normal text-foreground">{report.reason}</span>

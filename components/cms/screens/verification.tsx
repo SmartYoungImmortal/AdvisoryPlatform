@@ -10,7 +10,9 @@ import { CmsButton } from "@/components/cms/button";
 import { useCmsFeedback } from "@/components/cms/feedback";
 import { CmsPage } from "@/components/cms/layout";
 import { CmsApiStatus, useApiStatusOptions } from "@/components/cms/status";
+import { useAccountName, useAuditHeaders } from "@/components/cms/people";
 import {
+  auditColumns,
   CmsFilterMenu,
   CmsTable,
   createdColumn,
@@ -127,6 +129,8 @@ function IdentityTable({ requests }: { readonly requests: readonly IdentityVerif
   const t = useTranslations("cms.verification");
   const tUsers = useTranslations("cms.users");
   const tTable = useTranslations("cms.table");
+  const audit = useAuditHeaders();
+  const accountName = useAccountName();
   const router = useRouter();
   const statusOptions = useApiStatusOptions("identity", [
     "SUBMITTED",
@@ -170,9 +174,15 @@ function IdentityTable({ requests }: { readonly requests: readonly IdentityVerif
       id: "applicant",
       header: t("col.applicant"),
       sortable: true,
-      render: (r) => r.displayName,
+      render: (r) => accountName(r.advisorId) ?? r.displayName,
     },
     { id: "email", header: tUsers("col.email"), className: "font-latin", render: (r) => r.email },
+    // The applicant sends it; the admin who ruled is the last to touch it.
+    ...auditColumns<Row>(
+      audit,
+      (r) => accountName(r.advisorId) ?? r.displayName,
+      (r) => accountName(r.verifiedByAdminId),
+    ),
   ];
 
   return (
@@ -204,6 +214,8 @@ function IdentityTable({ requests }: { readonly requests: readonly IdentityVerif
 function ProofTable({ proofs }: { readonly proofs: readonly SkillProof[] }) {
   const t = useTranslations("cms.verification");
   const tTable = useTranslations("cms.table");
+  const audit = useAuditHeaders();
+  const accountName = useAccountName();
   const { confirm, prompt } = useCmsFeedback();
   const rule = useRuling();
   const statusOptions = useApiStatusOptions("proof", ["PENDING", "APPROVED", "REJECTED"]);
@@ -262,7 +274,11 @@ function ProofTable({ proofs }: { readonly proofs: readonly SkillProof[] }) {
     statusColumn(t("col.status"), (p) => (
       <CmsApiStatus group="proof" value={p.reviewStatus} />
     )),
-    { id: "advisor", header: t("col.advisor"), render: (p) => p.advisorDisplayName },
+    {
+      id: "advisor",
+      header: t("col.advisor"),
+      render: (p) => accountName(p.advisorId) ?? p.advisorDisplayName,
+    },
     { id: "skill", header: t("col.skill"), sortable: true, render: (p) => p.skillName },
     {
       id: "file",
@@ -270,6 +286,11 @@ function ProofTable({ proofs }: { readonly proofs: readonly SkillProof[] }) {
       className: "font-latin",
       render: (p) => <span className="block max-w-64 truncate">{p.originalFileName}</span>,
     },
+    ...auditColumns<SkillProof>(
+      audit,
+      (p) => accountName(p.advisorId) ?? p.advisorDisplayName,
+      (p) => accountName(p.reviewedByAdminId),
+    ),
     {
       id: "actions",
       header: "",

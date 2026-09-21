@@ -68,6 +68,37 @@ export function createdColumn<Row>(
   };
 }
 
+/**
+ * Nexus's last two columns, `createdBy` and `updatedBy` — `text-center w-40`.
+ *
+ * The schema has no audit columns, so each screen says who from what the row
+ * does carry: the requester, reporter or owner for "created", the admin who
+ * ruled for "updated". A row with no such fact prints a dash rather than a
+ * guess.
+ */
+export function auditColumns<Row>(
+  headers: { readonly createdBy: string; readonly updatedBy: string },
+  createdBy: (row: Row) => string | null | undefined,
+  updatedBy: (row: Row) => string | null | undefined,
+): ReadonlyArray<CmsColumn<Row>> {
+  return [
+    {
+      id: "createdBy",
+      header: headers.createdBy,
+      align: "center",
+      className: "w-40",
+      render: (row) => createdBy(row) || "-",
+    },
+    {
+      id: "updatedBy",
+      header: headers.updatedBy,
+      align: "center",
+      className: "w-40",
+      render: (row) => updatedBy(row) || "-",
+    },
+  ];
+}
+
 /** Nexus's second column — the status badge: sortable, centred, 10% wide. */
 export function statusColumn<Row>(
   header: string,

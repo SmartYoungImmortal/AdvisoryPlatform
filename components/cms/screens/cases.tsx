@@ -10,7 +10,9 @@ import { CmsButton } from "@/components/cms/button";
 import { useCmsFeedback } from "@/components/cms/feedback";
 import { CmsPage } from "@/components/cms/layout";
 import { CmsApiStatus, useApiStatusOptions } from "@/components/cms/status";
+import { useAccountName, useAuditHeaders } from "@/components/cms/people";
 import {
+  auditColumns,
   CmsFilterMenu,
   CmsTable,
   createdColumn,
@@ -85,6 +87,8 @@ function useOutcomeCopy() {
 export function ReportsScreen() {
   const t = useTranslations("cms.cases");
   const tTable = useTranslations("cms.table");
+  const audit = useAuditHeaders();
+  const accountName = useAccountName();
   const router = useRouter();
   const { confirm } = useCmsFeedback();
   const rule = useRuling();
@@ -128,13 +132,26 @@ export function ReportsScreen() {
   const columns: ReadonlyArray<CmsColumn<AdminReport>> = [
     createdColumn(tTable("createdAt"), (r) => r.createdAt),
     statusColumn(t("col.status"), (r) => <CmsApiStatus group="report" value={r.status} />),
-    { id: "reported", header: t("col.reported"), render: (r) => r.reportedDisplayName },
+    {
+      id: "reported",
+      header: t("col.reported"),
+      render: (r) => accountName(r.reportedUserId) ?? r.reportedDisplayName,
+    },
     {
       id: "detail",
       header: t("col.detail"),
       render: (r) => <span className="block max-w-80 truncate">{r.reason}</span>,
     },
-    { id: "reporter", header: t("col.reporter"), render: (r) => r.reporterDisplayName },
+    {
+      id: "reporter",
+      header: t("col.reporter"),
+      render: (r) => accountName(r.reporterUserId) ?? r.reporterDisplayName,
+    },
+    ...auditColumns<AdminReport>(
+      audit,
+      (r) => accountName(r.reporterUserId) ?? r.reporterDisplayName,
+      (r) => accountName(r.reviewedByAdminId),
+    ),
   ];
 
   if (reports.loading) {
@@ -215,6 +232,8 @@ export function ReportsScreen() {
 export function OffPlatformScreen() {
   const t = useTranslations("cms.cases");
   const tTable = useTranslations("cms.table");
+  const audit = useAuditHeaders();
+  const accountName = useAccountName();
   const router = useRouter();
   const { confirm } = useCmsFeedback();
   const rule = useRuling();
@@ -275,6 +294,12 @@ export function OffPlatformScreen() {
       className: "font-latin",
       render: (f) => f.penaltyPointsApplied,
     },
+    // The scanner raises a flag; an admin rules on it.
+    ...auditColumns<OffPlatformFlag>(
+      audit,
+      () => audit.system,
+      (f) => accountName(f.reviewedByAdminId),
+    ),
   ];
 
   if (flags.loading) {

@@ -192,7 +192,7 @@ function UserRecord({ account }: { readonly account: AdminAccountDetail }) {
       }
       backHref="/admin/users"
       badge={<CmsApiStatus group="role" value={account.role} />}
-      title={account.displayName}
+      title={account.fullName || account.displayName}
     >
       <CmsCard>
         <div className="mb-6 flex items-center gap-4">
@@ -205,7 +205,7 @@ function UserRecord({ account }: { readonly account: AdminAccountDetail }) {
           />
           <div className="min-w-0">
             <p className="truncate text-lg font-semibold text-highlighted">
-              {account.displayName}
+              {account.fullName || account.displayName}
             </p>
             <p className="truncate font-latin text-sm text-muted-foreground">{account.email}</p>
           </div>

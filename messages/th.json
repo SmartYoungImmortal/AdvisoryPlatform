@@ -646,6 +646,9 @@
     "table": {
       "createdAt": "Date Created",
       "updatedAt": "Updated at",
+      "createdBy": "Created by",
+      "updatedBy": "Updated by",
+      "system": "System",
       "status": "Status",
       "search": "Search...",
       "clearSearch": "Clear search",

@@ -10,7 +10,9 @@ import { CmsButton } from "@/components/cms/button";
 import { useCmsFeedback } from "@/components/cms/feedback";
 import { CmsPage } from "@/components/cms/layout";
 import { CmsApiStatus, useApiStatusOptions } from "@/components/cms/status";
+import { useAccountName, useAuditHeaders } from "@/components/cms/people";
 import {
+  auditColumns,
   CmsFilterMenu,
   CmsTable,
   createdColumn,
@@ -52,6 +54,8 @@ export const REFUNDS_KEY = "admin/refunds";
 export function RefundsScreen() {
   const t = useTranslations("cms.refunds");
   const tTable = useTranslations("cms.table");
+  const audit = useAuditHeaders();
+  const accountName = useAccountName();
   const router = useRouter();
   const { prompt } = useCmsFeedback();
   const rule = useRuling();
@@ -80,7 +84,11 @@ export function RefundsScreen() {
   const columns: ReadonlyArray<CmsColumn<AdminRefundCase>> = [
     createdColumn(tTable("createdAt"), (r) => r.createdAt),
     statusColumn(t("col.status"), (r) => <CmsApiStatus group="refund" value={r.status} />),
-    { id: "requester", header: t("col.requester"), render: (r) => r.requesterDisplayName },
+    {
+      id: "requester",
+      header: t("col.requester"),
+      render: (r) => accountName(r.requestedByUserId) ?? r.requesterDisplayName,
+    },
     {
       id: "reason",
       header: t("col.reason"),
@@ -93,6 +101,11 @@ export function RefundsScreen() {
       className: "font-latin",
       render: (r) => formatBaht(r.invoiceAmountSatang),
     },
+    ...auditColumns<AdminRefundCase>(
+      audit,
+      (r) => accountName(r.requestedByUserId) ?? r.requesterDisplayName,
+      (r) => accountName(r.reviewedByAdminId),
+    ),
   ];
 
   if (refunds.loading) {

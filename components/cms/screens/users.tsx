@@ -12,7 +12,9 @@ import { useCmsFeedback } from "@/components/cms/feedback";
 import { useAdminUserId } from "@/components/cms/hooks";
 import { CmsPage } from "@/components/cms/layout";
 import { CmsApiStatus, useApiStatusOptions } from "@/components/cms/status";
+import { useAuditHeaders } from "@/components/cms/people";
 import {
+  auditColumns,
   CmsFilterMenu,
   CmsTable,
   createdColumn,
@@ -64,6 +66,7 @@ export function UsersScreen() {
   // "แก้ไขล่าสุด" is the same words for the same field.
   const tEdit = useTranslations("cms.userEdit");
   const tTable = useTranslations("cms.table");
+  const audit = useAuditHeaders();
   const router = useRouter();
   const { prompt } = useCmsFeedback();
   const rule = useRuling();
@@ -90,7 +93,7 @@ export function UsersScreen() {
   const list = useCmsList(items, {
     searchText: (a) => `${a.displayName} ${a.fullName} ${a.email}`,
     sortValue: (a, id) => {
-      if (id === "name") return a.displayName;
+      if (id === "name") return a.fullName || a.displayName;
       if (id === "status") return a.status;
       if (id === "updatedAt") return timeValue(a.updatedAt);
       return timeValue(a.createdAt);
@@ -109,8 +112,8 @@ export function UsersScreen() {
       <CmsApiStatus group="accountStatus" value={a.status} />
     )),
     {
-      // Nexus's image column, 48px with a hairline ring and centred — round,
-      // because it is a person.
+      // Nexus's image column, centred with a hairline ring — round, because it
+      // is a person, and 32px so a row stays the height of its text.
       id: "image",
       header: t("col.image"),
       align: "center",
@@ -119,12 +122,17 @@ export function UsersScreen() {
           <CmsAvatar
             account={{ name: a.displayName, imageUrl: a.image }}
             className="ring-1 ring-border"
-            size="xl"
+            size="md"
           />
         </span>
       ),
     },
-    { id: "name", header: t("col.name"), sortable: true, render: (a) => a.displayName },
+    {
+      id: "name",
+      header: t("col.name"),
+      sortable: true,
+      render: (a) => a.fullName || a.displayName,
+    },
     { id: "email", header: t("col.email"), className: "font-latin", render: (a) => a.email },
     {
       id: "role",
@@ -138,6 +146,8 @@ export function UsersScreen() {
       className: "font-latin",
       render: (a) => formatStamp(a.updatedAt),
     },
+    // An account signs itself up; nothing records who last changed it.
+    ...auditColumns<AdminAccount>(audit, (a) => a.fullName || a.displayName, () => null),
   ];
 
   if (accounts.loading) {
