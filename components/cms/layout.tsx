@@ -168,7 +168,9 @@ function NavEntry({
     return (
       <li className="min-w-0">
         <Collapsible defaultOpen={active || !nested}>
-          <CollapsibleTrigger className={cn(linkBase, linkState(active))}>
+          {/* Nexus hands every group its `cmsNavGroupHeaderClass`, which
+              defaults to `font-semibold` — the headers outweigh their links. */}
+          <CollapsibleTrigger className={cn(linkBase, linkState(active), "font-semibold")}>
             {icon}
             <span className="truncate">{t(item.key)}</span>
             <ChevronDown

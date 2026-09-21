@@ -45,13 +45,19 @@ export function CmsQueryTabs<Value extends string>({
       }}
       value={active}
     >
+      {/* Nexus's `ui` overrides: `list: pb-1.5`, `trigger: grow shrink-0`,
+          `indicator: bottom-1.5` — the tabs share the full width and the
+          underline sits on the tab, 6px above the row's hairline.
+          `group-data-horizontal/tabs:h-auto` beats the primitive's 36px row,
+          which clipped the 38px triggers under `overflow-x-auto` and took the
+          active underline with them. */}
       <TabsList
-        className="h-auto w-full justify-start gap-0 overflow-x-auto rounded-none border-b border-border bg-transparent p-1 pb-0"
+        className="h-auto w-full group-data-horizontal/tabs:h-auto justify-start gap-0 overflow-x-auto rounded-none border-b border-border bg-transparent p-1 pb-1.5"
         variant="line"
       >
         {items.map((item) => (
           <TabsTrigger
-            className="h-auto flex-none gap-1.5 rounded-md border-0 px-3 py-1.5 text-sm font-medium text-muted-foreground shadow-none after:rounded-full after:bg-primary group-data-horizontal/tabs:after:-bottom-px group-data-horizontal/tabs:after:h-px hover:text-foreground data-active:text-primary"
+            className="h-auto flex-1 shrink-0 gap-1.5 rounded-md border-0 px-3 py-1.5 text-sm font-medium text-muted-foreground shadow-none after:rounded-full after:bg-primary group-data-horizontal/tabs:after:bottom-0 group-data-horizontal/tabs:after:h-px hover:text-foreground data-active:text-primary"
             key={item.value}
             value={item.value}
           >

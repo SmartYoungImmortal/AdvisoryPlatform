@@ -1,6 +1,6 @@
 "use client";
 
-import { Plus, Trash2 } from "lucide-react";
+import { Trash2 } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { useCallback, useMemo, useState } from "react";
 
@@ -122,7 +122,6 @@ export function CatalogScreen() {
         <CmsButton
           className="h-9 px-4"
           color="action"
-          icon={Plus}
           onClick={() =>
             tab === "categories" ? setEditingCategory("new") : setEditingSkill("new")
           }

@@ -13,8 +13,15 @@ import { DemoAccounts } from "@/components/session/demo-accounts";
 import { Checkbox } from "@/components/ui/checkbox";
 import { logo } from "@/lib/assets/r2";
 import { isEmail, safeNext, signIn, useSession } from "@/lib/session";
+import { cn } from "@/lib/utils";
 
 type FieldErrors = { email?: string; password?: string };
+
+/**
+ * Nexus's login pins both inputs' ring to `#e2e8f0` — the border slate, a step
+ * lighter than every other console control — and keeps it there on focus.
+ */
+const LOGIN_RING = "[&_input]:ring-border [&_input]:focus-visible:ring-border";
 
 /**
  * Nexus's `/admin/login`: the `auth` layout (grey page, centred 448px column)
@@ -86,7 +93,9 @@ export function CmsLoginScreen({ preset = "default" }: { readonly preset?: "defa
   }
 
   return (
-    <div className="flex min-h-dvh items-center justify-center bg-muted px-4 py-12 sm:px-6 md:px-8">
+    // Nexus's `auth` layout grounds the card on `bg-gray-50`; half the console's
+    // muted slate over white lands on the same near-white.
+    <div className="flex min-h-dvh items-center justify-center bg-muted/50 px-4 py-12 sm:px-6 md:px-8">
       <div className="w-full max-w-md">
         <div className="relative flex rounded-lg bg-card shadow-xl ring-1 ring-border">
           <div className="flex flex-1 flex-col gap-y-4 p-4 sm:p-6">
@@ -110,7 +119,7 @@ export function CmsLoginScreen({ preset = "default" }: { readonly preset?: "defa
                 <CmsFormField error={errors.email} htmlFor={emailId} label={t("email")} required>
                   <CmsInput
                     autoComplete="username"
-                    className="w-full"
+                    className={cn("w-full", LOGIN_RING)}
                     id={emailId}
                     invalid={Boolean(errors.email)}
                     onChange={(event) => setEmail(event.target.value)}
@@ -127,6 +136,7 @@ export function CmsLoginScreen({ preset = "default" }: { readonly preset?: "defa
                 >
                   <CmsInput
                     autoComplete="current-password"
+                    className={LOGIN_RING}
                     id={passwordId}
                     invalid={Boolean(errors.password)}
                     onChange={(event) => setPassword(event.target.value)}
@@ -157,7 +167,15 @@ export function CmsLoginScreen({ preset = "default" }: { readonly preset?: "defa
                     {t("remember")}
                   </label>
                 </div>
-                <CmsButton block className="py-2" color="action" loading={loading} type="submit">
+                {/* Nexus's submit is `#2B7FFF` — Tailwind's own blue-500, a shade
+                    brighter than the console's secondary — with a 300ms fade. */}
+                <CmsButton
+                  block
+                  className="bg-blue-500 py-2 transition-all duration-300 hover:bg-blue-500/90 disabled:bg-blue-500 disabled:opacity-80"
+                  color="action"
+                  loading={loading}
+                  type="submit"
+                >
                   {t("submit")}
                 </CmsButton>
               </div>
