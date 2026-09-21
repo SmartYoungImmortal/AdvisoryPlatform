@@ -24,10 +24,10 @@ const LOGIN_RING = "[&_input]:ring-border [&_input]:focus-visible:ring-border";
 
 /**
  * Nexus's `/admin/login`: the `auth` layout (grey page, centred 448px column)
- * around a `UPageCard` holding `UAuthForm` — the logo, email, password,
- * remember me, a full-width blue submit. No visible "Login" title and no demo
- * account picker: the console's door carries the logo and the form only.
- * Failures surface as a toast, the way Nexus's `cmsFormatAuthError` reports them.
+ * around a `UPageCard` holding `UAuthForm` — logo, "Login", email, password,
+ * remember me, a full-width blue submit, in English as Nexus has them, and no
+ * demo-account picker. Failures surface as a toast, the way Nexus's
+ * `cmsFormatAuthError` reports them.
  */
 export function CmsLoginScreen({ preset = "default" }: { readonly preset?: "default" | "error" }) {
   const t = useTranslations("cms.login");
@@ -104,15 +104,16 @@ export function CmsLoginScreen({ preset = "default" }: { readonly preset?: "defa
               noValidate
               onSubmit={(event) => void submit(event)}
             >
-              {/* The logo alone heads the card; the page title stays for screen readers. */}
               <div className="flex flex-col text-center">
-                <Image
-                  alt="Advisory Platform"
-                  className="mx-auto block h-9 w-auto"
-                  priority
-                  src={consoleLogo}
-                />
-                <h1 className="sr-only">{t("title")}</h1>
+                <div className="mb-2">
+                  <Image
+                    alt="Advisory Platform"
+                    className="mx-auto block h-9 w-auto"
+                    priority
+                    src={consoleLogo}
+                  />
+                </div>
+                <h1 className="text-xl font-semibold text-pretty text-highlighted">{t("title")}</h1>
               </div>
               <div className="space-y-5">
                 <CmsFormField error={errors.email} htmlFor={emailId} label={t("email")} required>
@@ -179,6 +180,10 @@ export function CmsLoginScreen({ preset = "default" }: { readonly preset?: "defa
                 </CmsButton>
               </div>
             </form>
+            {/* UAuthForm's footer slot, as Nexus fills it: the maker's credit. */}
+            <p className="mt-4 text-center text-sm font-medium text-muted-foreground">
+              {t("credit")}
+            </p>
           </div>
         </div>
       </div>
