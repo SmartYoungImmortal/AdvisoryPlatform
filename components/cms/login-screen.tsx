@@ -86,7 +86,7 @@ export function CmsLoginScreen({ preset = "default" }: { readonly preset?: "defa
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-muted px-4 py-12 sm:px-6 md:px-8">
+    <div className="flex min-h-dvh items-center justify-center bg-muted px-4 py-12 sm:px-6 md:px-8">
       <div className="w-full max-w-md">
         <div className="relative flex rounded-lg bg-card shadow-xl ring-1 ring-border">
           <div className="flex flex-1 flex-col gap-y-4 p-4 sm:p-6">

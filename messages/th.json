@@ -649,7 +649,7 @@
       "noResults": "ไม่พบผลลัพธ์สำหรับ “{query}”",
       "empty": "ยังไม่มีรายการ",
       "perPage": "แถวต่อหน้า:",
-      "range": "{start}–{end} จาก {total}",
+      "range": "{start}-{end} จาก {total}",
       "selected": "เลือกแล้ว {count} รายการ",
       "pagination": "เปลี่ยนหน้า",
       "first": "หน้าแรก",

@@ -301,7 +301,7 @@ export function TransactionsScreen() {
       render: (tx) => (
         <span className="flex max-w-56 flex-col">
           <span className="truncate text-highlighted">{tx.serviceTitle}</span>
-          <span className="truncate text-xs">{person(tx.advisorId)?.name ?? "—"}</span>
+          <span className="truncate text-xs">{person(tx.advisorId)?.name ?? "-"}</span>
         </span>
       ),
     },

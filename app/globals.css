@@ -251,6 +251,9 @@
    (slate neutrals, green/yellow/blue status colours, a 0.25rem base radius that
    makes 6px controls and 8px cards — this scale's `md` and `lg` at 0.5rem). */
 .cms-admin {
+  /* Tabular figures console-wide: counts, baht and timestamps sit in columns
+     and stat tiles, and proportional digits made them drift between rows. */
+  font-variant-numeric: tabular-nums;
   --background: #ffffff;
   --foreground: #334155;
   --highlighted: #0f172a;

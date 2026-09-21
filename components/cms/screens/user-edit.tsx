@@ -208,7 +208,7 @@ function UserRecord({ account }: { readonly account: AdminAccountDetail }) {
         </div>
         <dl className="space-y-3">
           <CmsDataRow label={t("name")}>{account.displayName}</CmsDataRow>
-          <CmsDataRow label={t("fullName")}>{account.fullName || "—"}</CmsDataRow>
+          <CmsDataRow label={t("fullName")}>{account.fullName || "-"}</CmsDataRow>
           <CmsDataRow label={t("email")}>
             <span className="font-latin">{account.email}</span>
           </CmsDataRow>

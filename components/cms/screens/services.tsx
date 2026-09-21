@@ -125,7 +125,7 @@ export function ServicesScreen() {
     {
       id: "category",
       header: t("col.category"),
-      render: (s) => categoryName.get(s.categoryId) ?? "—",
+      render: (s) => categoryName.get(s.categoryId) ?? "-",
     },
     {
       id: "price",

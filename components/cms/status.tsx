@@ -217,7 +217,7 @@ export function CmsApiStatus({
   if (!badge) {
     return (
       <CmsBadge color="neutral">
-        <span className="font-latin">{value ?? "—"}</span>
+        <span className="font-latin">{value ?? "-"}</span>
       </CmsBadge>
     );
   }

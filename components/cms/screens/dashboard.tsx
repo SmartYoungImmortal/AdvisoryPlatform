@@ -208,7 +208,7 @@ export function DashboardScreen() {
                     <span className="flex items-center justify-between gap-3">
                       <span className="text-sm font-medium text-highlighted">
                         {item.kind === "report" ? t("caseReport") : t("caseFlag")} ·{" "}
-                        {person(item.accountId)?.name ?? "—"}
+                        {person(item.accountId)?.name ?? "-"}
                       </span>
                       <span className="shrink-0 text-xs text-muted-foreground">
                         {formatDateTime(item.at)}
@@ -234,7 +234,7 @@ export function DashboardScreen() {
                   <span className="font-medium text-highlighted">{person(entry.actorId)?.name ?? entry.actorId}</span>{" "}
                   <span className="font-latin text-muted-foreground">{entry.action}</span>{" "}
                   <span className="font-latin text-muted-foreground">{entry.targetId}</span>
-                  {entry.summary ? <span className="text-muted-foreground"> — {entry.summary}</span> : null}
+                  {entry.summary ? <span className="text-muted-foreground">: {entry.summary}</span> : null}
                 </span>
                 <span className="shrink-0 text-xs text-muted-foreground">{formatDateTime(entry.at)}</span>
               </li>
@@ -268,11 +268,11 @@ function Stat({
       </span>
       <span className="flex min-w-0 flex-col">
         <span className="truncate text-sm text-muted-foreground">{label}</span>
-        {/* An em-width dash while the count is unknown, not a zero: a queue
+        {/* A dash while the count is unknown, not a zero: a queue
             reading 0 when it has not been counted is the one wrong answer that
             looks like a right one. */}
         <span className="font-latin text-2xl font-semibold tabular-nums text-highlighted">
-          {value ?? <span className="text-muted-foreground">&ndash;</span>}
+          {value ?? <span className="text-muted-foreground">-</span>}
         </span>
       </span>
     </Link>

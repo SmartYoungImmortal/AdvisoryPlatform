@@ -67,7 +67,7 @@ export function CmsPerson({
   readonly account: CmsPersonLike | undefined;
   readonly detail?: string;
 }) {
-  if (!account) return <span className="text-dimmed">—</span>;
+  if (!account) return <span className="text-dimmed">-</span>;
   return (
     <span className="flex min-w-0 items-center gap-3">
       <CmsAvatar account={account} />
