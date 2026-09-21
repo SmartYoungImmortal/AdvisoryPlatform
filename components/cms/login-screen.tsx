@@ -24,10 +24,10 @@ const LOGIN_RING = "[&_input]:ring-border [&_input]:focus-visible:ring-border";
 
 /**
  * Nexus's `/admin/login`: the `auth` layout (grey page, centred 448px column)
- * around a `UPageCard` holding `UAuthForm` — logo, "Login", email, password,
- * remember me, a full-width blue submit, in English as Nexus has them, and no
- * demo-account picker. Failures surface as a toast, the way Nexus's
- * `cmsFormatAuthError` reports them.
+ * around a `UPageCard` holding `UAuthForm` — the logo (no visible title), email,
+ * password, remember me, a full-width blue submit, in English as Nexus has
+ * them, and no demo-account picker. Failures surface as a toast, the way
+ * Nexus's `cmsFormatAuthError` reports them.
  */
 export function CmsLoginScreen({ preset = "default" }: { readonly preset?: "default" | "error" }) {
   const t = useTranslations("cms.login");
@@ -108,7 +108,7 @@ export function CmsLoginScreen({ preset = "default" }: { readonly preset?: "defa
               onSubmit={(event) => void submit(event)}
             >
               <div className="flex flex-col text-center">
-                <div className="mt-2 mb-6">
+                <div className="my-2">
                   <Image
                     alt="Advisory Platform"
                     className="mx-auto block h-9 w-auto"
@@ -116,7 +116,8 @@ export function CmsLoginScreen({ preset = "default" }: { readonly preset?: "defa
                     src={consoleLogo}
                   />
                 </div>
-                <h1 className="text-xl font-semibold text-pretty text-highlighted">{t("title")}</h1>
+                {/* The logo heads the card; the title stays for screen readers. */}
+                <h1 className="sr-only">{t("title")}</h1>
               </div>
               <div className="space-y-5">
                 <CmsFormField error={errors.email} htmlFor={emailId} label={t("email")} required>
