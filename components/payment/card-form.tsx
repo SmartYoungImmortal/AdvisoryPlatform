@@ -12,6 +12,8 @@ import {
   FieldSet,
 } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
+import { queryClient } from "@/lib/api/client";
+import { $api } from "@/lib/api/v1/api";
 import { useCreateCardToken } from "@/lib/payment";
 import { useForm, useSelector } from "@tanstack/react-form-nextjs";
 import { Lock } from "lucide-react";
@@ -40,7 +42,7 @@ export const formDefaults = {
   cardHolderName: "pee pee",
 };
 
-export const formStates = z.enum(['canSubmit', 'isSubmitting']);
+export const formStates = z.enum(["canSubmit", "isSubmitting"]);
 
 export function formatCardNumber(value: string) {
   return value
@@ -66,9 +68,10 @@ export function formatExpiryDate(value: string) {
 
 type CardFormProps = {
   setFormState: (state: z.infer<typeof formStates>) => void;
+  invoiceId: string;
 };
 
-export function CardForm({ setFormState }: CardFormProps) {
+export function CardForm({ setFormState, invoiceId }: CardFormProps) {
   // const today = new Date();
   const { mutateAsync: createToken } = useCreateCardToken();
 
@@ -82,17 +85,16 @@ export function CardForm({ setFormState }: CardFormProps) {
       onSubmit: formSchema,
     },
     onSubmit: async ({ value }) => {
-      console.log(value);
       const omiseCard = transformCardFormToOmiseDto(value);
-      console.log(omiseCard);
-      const res = await createToken(omiseCard, {
-        onSuccess: (result) => {
-          console.log(result);
-        },
-        onError: (err) => {
-          console.error(err);
-        },
-      });
+
+      try {
+        const redirectUrl = await createToken({ card: omiseCard, invoiceId });
+        console.log('redirecrUrl', redirectUrl);
+        window.location.replace(redirectUrl || "");
+        // const
+      } catch (error) {
+        console.error(error);
+      }
     },
   });
 

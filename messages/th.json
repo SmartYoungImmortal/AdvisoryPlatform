@@ -1472,6 +1472,9 @@
         "expiryFilled": "03 / 24",
         "cvcFilled": "12"
       }
+    },
+    "loading": {
+      "loading": "กรุณารอสักครู่..."
     }
   },
   "advisorOnboarding": {

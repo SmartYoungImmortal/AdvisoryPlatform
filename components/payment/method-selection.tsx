@@ -9,18 +9,31 @@ import {
 import { SummaryLine } from "@/components/payment/summary-line";
 import { FootNote } from "@/components/screening/parts";
 import { useTranslations } from "next-intl";
+import type { components } from "@/lib/api/v1/schema";
+import { formatCurrency } from "@/lib/utils/locale";
+import Link from "next/link";
 
-export function MethodSelection() {
+export function MethodSelection({
+  invoice,
+}: {
+  invoice: components["schemas"]["InvoiceDto"];
+}) {
   const methods = [
     {
       key: "card",
       path: "/checkout/card",
       icon: CreditCard,
-    }
+    },
   ] as const;
 
   const t = useTranslations("payment");
   const c = useTranslations("common");
+
+  const price = formatCurrency(invoice.amountSatang / 100);
+  const fee = formatCurrency(invoice.platformFeeSatang / 100);
+  const total = formatCurrency(
+    (invoice.amountSatang + invoice.platformFeeSatang) / 100,
+  );
 
   return (
     <MobileScreen>
@@ -36,13 +49,10 @@ export function MethodSelection() {
                 {t("advisor")}
               </span>
             </div>
-            <SummaryLine label={t("session")} value={t("sessionPrice")} />
-            <SummaryLine
-              label={t("platformFee")}
-              value={t("platformFeeValue")}
-            />
+            <SummaryLine label={t("session")} value={price} />
+            <SummaryLine label={t("platformFee")} value={fee} />
             <div className="h-px w-full shrink-0 bg-muted" />
-            <SummaryLine label={t("total")} strong value={t("totalValue")} />
+            <SummaryLine label={t("total")} strong value={total} />
           </div>
         </div>
 
@@ -53,9 +63,9 @@ export function MethodSelection() {
           <div className="rounded-xl w-full overflow-clip">
             {methods.map((e, index) => (
               <div key={e.key}>
-                <a
+                <Link
                   className="w-full bg-white p-3.5 flex flex-row gap-x-3 items-center"
-                  href={e.path}
+                  href={`${e.path}?invoiceId=${invoice.id}`}
                 >
                   <div className=" w-fit">
                     <e.icon />
@@ -68,8 +78,10 @@ export function MethodSelection() {
                       {t(`methodSelection.methods.${e.key}.title`)}
                     </p>
                   </div>
-                </a>
-                {index === (methods.length - 1) ? (undefined) : <div className="h-px w-full shrink-0 bg-muted" />}
+                </Link>
+                {index === methods.length - 1 ? undefined : (
+                  <div className="h-px w-full shrink-0 bg-muted" />
+                )}
               </div>
             ))}
           </div>

@@ -1,35 +1,54 @@
+import { queryClient } from "@/lib/api/client";
+import { api } from "@/lib/api/v1/api";
 import { omiseVault } from "@/lib/payment/omise";
 import { Card } from "@/lib/payment/types";
-import { QueryClient, useMutation } from "@tanstack/react-query";
-
-const queryClient = new QueryClient({});
+import { useMutation } from "@tanstack/react-query";
 
 export function useCreateCardToken() {
-  return useMutation({
-    mutationFn: async (card: Card) => {
-      const { data: omiseData, error: omiseError } = await omiseVault.POST("/tokens", {
-        body: { card }
-      });
+  return useMutation(
+    {
+      mutationFn: async ({
+        card,
+        invoiceId,
+      }: {
+        card: Card;
+        invoiceId: string;
+      }) => {
+        const { data: tokenData, error: tokenError } = await omiseVault.POST(
+          "/tokens",
+          {
+            body: { card },
+          },
+        );
 
-      if (omiseError) {
-        throw new Error("Failed to create Omise token");
-      }
+        if (tokenError || !tokenData.id) {
+          throw new Error("Failed to create Omise token");
+        }
 
-      return omiseData;
+        if (!tokenData?.id || tokenData?.used !== false) {
+          throw new Error("Invalid token data received");
+        }
 
-    //   if (omiseData?.id && omiseData?.used === false) {
-    //     const { data: backendData, error: backendError } = await backendClient.POST("/token", {
-    //       body: { token: omiseData.id },
-    //     });
+        const { data: checkoutData, error: checkoutError } = await api.POST(
+          "/api/v1/payment/checkout",
+          {
+            body: {
+              invoiceId,
+              cardToken: tokenData.id,
+            },
+            credentials: "include",
+          },
+        );
 
-    //     if (backendError) {
-    //       throw new Error(backendError.message || "Failed to send token to backend");
-    //     }
+        if (checkoutError || !checkoutData.data?.url) {
+          throw new Error(
+            checkoutError?.message || "Failed to send token to backend",
+          );
+        }
 
-    //     return backendData;
-    //   }
-
-    //   throw new Error("Invalid token data received");
+        return checkoutData.data.url;
+      },
     },
-  }, queryClient);
+    queryClient,
+  );
 }

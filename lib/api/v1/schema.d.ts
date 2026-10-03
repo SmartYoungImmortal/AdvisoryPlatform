@@ -291,7 +291,39 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        post: operations["PaymentController_checkout"];
+        post: operations["PaymentController_postCheckout"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/payment/invoice": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["PaymentController_postInvoice"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/payment/invoice/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["PaymentController_getInvoice"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -830,7 +862,26 @@ export interface components {
             trialEnabled: boolean;
             trialDurationMinutes?: Record<string, never> | null;
         };
-        CheckoutDto: Record<string, never>;
+        CheckoutResponse: {
+            url: string;
+        };
+        CheckoutDto: {
+            invoiceId: string;
+            cardToken: string;
+        };
+        CreateInvoiceDto: {
+            serviceId: string;
+            startTimes: string[];
+            cardToken: string;
+        };
+        InvoiceDto: {
+            id: string;
+            /** Format: date-time */
+            createdAt: string;
+            status: string;
+            amountSatang: number;
+            platformFeeSatang: number;
+        };
         GlobalAvailabilityResponseDto: {
             advisorId: string;
             slotIntervalMinutes: number;
@@ -2538,7 +2589,7 @@ export interface operations {
             };
         };
     };
-    PaymentController_checkout: {
+    PaymentController_postCheckout: {
         parameters: {
             query?: never;
             header?: never;
@@ -2551,11 +2602,106 @@ export interface operations {
             };
         };
         responses: {
+            /** @description Checkout response created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiEnvelopeDto"] & {
+                        data?: components["schemas"]["CheckoutResponse"];
+                    };
+                };
+            };
+            /** @description No valid session. This API uses a Better Auth HttpOnly session cookie; Swagger cannot accept a pasted session value. Use Postman or establish the browser session before executing this endpoint in Swagger. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiNullDataEnvelopeDto"];
+                };
+            };
+            /** @description Session valid but role or ownership is not permitted */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiNullDataEnvelopeDto"];
+                };
+            };
+        };
+    };
+    PaymentController_postInvoice: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateInvoiceDto"];
+            };
+        };
+        responses: {
             201: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+        };
+    };
+    PaymentController_getInvoice: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Invoice found */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiEnvelopeDto"] & {
+                        data?: components["schemas"]["InvoiceDto"];
+                    };
+                };
+            };
+            /** @description No valid session. This API uses a Better Auth HttpOnly session cookie; Swagger cannot accept a pasted session value. Use Postman or establish the browser session before executing this endpoint in Swagger. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiNullDataEnvelopeDto"];
+                };
+            };
+            /** @description Session valid but role or ownership is not permitted */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiNullDataEnvelopeDto"];
+                };
+            };
+            /** @description Invoice not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiNullDataEnvelopeDto"];
+                };
             };
         };
     };

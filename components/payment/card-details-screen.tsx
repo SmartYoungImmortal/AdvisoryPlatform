@@ -1,4 +1,4 @@
-'use client';
+"use client";
 
 import { CreditCard } from "lucide-react";
 import { useTranslations } from "next-intl";
@@ -19,7 +19,10 @@ import {
   ScreenSpacer,
   ScreenTopBar,
 } from "@/components/mobile/screen";
-import { PAGE_BAND, PAGE_HEAD_BAND } from "@/components/payment/invoice-screens";
+import {
+  PAGE_BAND,
+  PAGE_HEAD_BAND,
+} from "@/components/payment/invoice-screens";
 import { FootNote } from "@/components/screening/parts";
 // import { SummaryLine } from "@/components/payment/summary-line";
 import { CardForm, formStates } from "@/components/payment/card-form";
@@ -27,7 +30,8 @@ import { TopBar } from "@/components/topbar";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import z from "zod";
-
+import { formatCurrency } from "@/lib/utils/locale";
+import { components } from "@/lib/api/v1/schema";
 
 /** Figma order-summary line — label left, amount right. */
 function SummaryLine({
@@ -43,7 +47,9 @@ function SummaryLine({
     <div className="flex w-full shrink-0 items-center justify-between gap-3">
       <span
         className={`min-w-px flex-1 text-sm ${
-          strong ? "font-medium text-foreground" : "font-normal text-muted-foreground"
+          strong
+            ? "font-medium text-foreground"
+            : "font-normal text-muted-foreground"
         }`}
       >
         {label}
@@ -80,7 +86,10 @@ function SavedCardMethod() {
 
   return (
     <div className="flex w-full shrink-0 flex-col items-start gap-2 overflow-clip">
-      <p className="w-full text-sm font-semibold text-foreground" id="payment-method-label">
+      <p
+        className="w-full text-sm font-semibold text-foreground"
+        id="payment-method-label"
+      >
         {t("methodTitle")}
       </p>
       <Select defaultValue="saved" items={[{ label, value: "saved" }]}>
@@ -123,8 +132,10 @@ function SavedCardMethod() {
  */
 export function CardDetailsScreen({
   state = "default",
+  invoice,
 }: {
   readonly state?: "default" | "errors" | "saved";
+  invoice: components["schemas"]["InvoiceDto"];
 }) {
   const t = useTranslations("payment");
   const tc = useTranslations("payment.methodForm.card");
@@ -132,18 +143,32 @@ export function CardDetailsScreen({
   const err = state === "errors";
   const saved = state === "saved";
 
-  const [formState, setFormState] = useState<z.infer<typeof formStates>>('canSubmit');
+  const price = formatCurrency(invoice.amountSatang / 100);
+  const fee = formatCurrency(invoice.platformFeeSatang / 100);
+  const total = formatCurrency(
+    (invoice.amountSatang + invoice.platformFeeSatang) / 100,
+  );
+
+  const [formState, setFormState] =
+    useState<z.infer<typeof formStates>>("canSubmit");
 
   return (
     <MobileScreen wide>
-      <ScreenTopBar className="lg:hidden" href="/screening/accepted" label={c("back")} />
+      <ScreenTopBar
+        className="lg:hidden"
+        href="/screening/accepted"
+        label={c("back")}
+      />
       <ScreenBody>
         <div className="hidden w-full lg:block">
           <TopBar backHref="/screening/accepted" />
         </div>
 
         <div className={PAGE_HEAD_BAND}>
-          <ScreenHeading className={`pt-4 ${PAGE_BAND} lg:pt-5 lg:pb-9`} title={t("cardTitle")} />
+          <ScreenHeading
+            className={`pt-4 ${PAGE_BAND} lg:pt-5 lg:pb-9`}
+            title={t("cardTitle")}
+          />
         </div>
 
         {/* Figma "Body" — 788 + 32 + 380 on the 1200 column. The third row is
@@ -161,50 +186,18 @@ export function CardDetailsScreen({
                   {t("advisor")}
                 </span>
               </div>
-              <SummaryLine label={t("session")} value={t("sessionPrice")} />
-              <SummaryLine label={t("platformFee")} value={t("platformFeeValue")} />
+              <SummaryLine label={t("session")} value={price} />
+              <SummaryLine
+                label={t("platformFee")}
+                value={fee}
+              />
               <div className="h-px w-full shrink-0 bg-muted" />
-              <SummaryLine label={t("total")} strong value={t("totalValue")} />
+              <SummaryLine label={t("total")} strong value={total} />
             </div>
           </div>
 
-          {/* The form column. `lg:*:px-0` drops the phone's 24px gutter off both
-              blocks inside it — the grid already holds the 120px page inset. */}
-          <div className="flex w-full flex-col lg:col-start-1 lg:row-span-3 lg:row-start-1 lg:*:px-0">
-            {/* Figma "Payment Method" + "Form Fields (CVC only)" — the stored
-                card, then the one number it still has to be told. The frame
-                holds the field to 220 of the 788 column; the phone gives it the
-                width it has. */}
-            {saved ? (
-              <>
-                <div className="flex w-full shrink-0 flex-col items-start px-6 pt-4 lg:pt-0">
-                  <SavedCardMethod />
-                </div>
-                <div className="flex w-full shrink-0 flex-col items-start px-6 pt-4 lg:pt-6">
-                  <div className="w-full lg:max-w-55">
-                    <Field
-                      id="card-cvc"
-                      label={t("cvcLabel")}
-                      latin
-                      placeholder={t("cvcPlaceholder")}
-                    />
-                  </div>
-                </div>
-              </>
-            ) : (
-              <>
-                <CardForm setFormState={setFormState} />
-              </>
-            )}
-          </div>
+          <CardForm setFormState={(state) => {setFormState(state)}} invoiceId={invoice.id} />
 
-          {/* The phone pins the action to the bottom edge; the 1440 frame sets
-              it 20px under the summary, as wide as the aside.
-
-              Both saved-card frames draw the button at 40% — the CVC above it
-              is still empty, and this screen has no state to clear that with,
-              so it stays disabled there rather than pretending to authorise. */}
-          <ScreenSpacer className="lg:hidden" />
           <div className="flex w-full shrink-0 flex-col items-center px-6 pt-2 pb-2 lg:col-start-2 lg:row-start-2 lg:px-0 lg:pt-5 lg:pb-0">
             {/* {saved ? (
               <SubmitButtonElement className="disabled:opacity-40 lg:h-11" disabled>
@@ -216,14 +209,20 @@ export function CardDetailsScreen({
               </SubmitButtonElement>
             )} */}
             {
-              <Button type="submit" disabled={formState !== 'canSubmit'} className="w-full" form="card-form">
-                {formState === 'isSubmitting' ? tc("payButtonProcessing") : tc("payButtonReady")}
+              <Button
+                type="submit"
+                disabled={formState !== "canSubmit"}
+                className="w-full"
+                form="card-form"
+              >
+                {formState === "isSubmitting"
+                  ? tc("payButtonProcessing")
+                  : tc("payButtonReady")}
               </Button>
             }
           </div>
         </div>
 
-        {/* <CardForm /> */}
 
         {/* <ScreenSpacer /> */}
         {/* <div className="flex w-full shrink-0 flex-col items-center px-6 pt-2 pb-2">

@@ -106,7 +106,7 @@ export function ScreenTopBar({
         className={trigger}
         // false only for the anchor form; the fallback really is a native button.
         nativeButton={!href}
-        render={href ? <Link href={href} /> : undefined}
+        render={href ? <Link href={href} /> : <button onClick={() => history.back()}></button>}
         size="icon"
         variant="ghost"
       >
