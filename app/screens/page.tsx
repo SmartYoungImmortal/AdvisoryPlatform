@@ -106,6 +106,7 @@ const SECTIONS: ReadonlyArray<{
       { href: "/screening/setup", label: "Advisor – Screening setup" },
       { href: "/screening/requests", label: "Advisor – Screening requests" },
       { href: "/screening/review", label: "Advisor – Review answers" },
+      { href: "/screening/review/decline", label: "Advisor – Review answers – Decline" },
       { href: "/screening/questions", label: "Advisee – Screening questions" },
       { href: "/screening/submitted", label: "Advisee – Screening submitted" },
       { href: "/screening/accepted", label: "Advisee – Screening accepted" },

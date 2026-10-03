@@ -1,5 +1,5 @@
-import { ScreeningQuestionsScreen } from "@/components/screening/advisee-screens";
+import { ScreeningQuestionsRoute } from "@/components/screening/screening-routes";
 
 export default function ScreeningQuestionsPage() {
-  return <ScreeningQuestionsScreen />;
+  return <ScreeningQuestionsRoute />;
 }
