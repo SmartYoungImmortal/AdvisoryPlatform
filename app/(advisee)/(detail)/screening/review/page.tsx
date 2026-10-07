@@ -1,5 +1,5 @@
-import { ReviewAnswersScreen } from "@/components/screening/advisor-screens";
+import { ReviewAnswersRoute } from "@/components/screening/screening-routes";
 
 export default function ReviewAnswersPage() {
-  return <ReviewAnswersScreen />;
+  return <ReviewAnswersRoute />;
 }

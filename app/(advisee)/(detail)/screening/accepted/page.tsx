@@ -1,5 +1,5 @@
-import { ScreeningAcceptedScreen } from "@/components/screening/advisee-screens";
+import { ScreeningOutcomeRoute } from "@/components/screening/screening-routes";
 
 export default function ScreeningAcceptedPage() {
-  return <ScreeningAcceptedScreen />;
+  return <ScreeningOutcomeRoute outcome="accepted" />;
 }

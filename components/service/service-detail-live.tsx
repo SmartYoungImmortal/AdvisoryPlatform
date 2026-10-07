@@ -257,7 +257,7 @@ function SlotsBlock({ serviceId }: { readonly serviceId: string }) {
                   <StatusPill tone="info">{s("screeningRequired")}</StatusPill>
                   <NeutralButton
                     className="w-auto shrink-0"
-                    href="/screening/questions"
+                    href={`/screening/questions?serviceId=${serviceId}`}
                     size="sm"
                   >
                     {sc("answerTitle")}

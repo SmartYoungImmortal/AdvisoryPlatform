@@ -1,5 +1,5 @@
-import { ScreeningSubmittedScreen } from "@/components/screening/advisee-screens";
+import { ScreeningOutcomeRoute } from "@/components/screening/screening-routes";
 
 export default function ScreeningSubmittedPage() {
-  return <ScreeningSubmittedScreen />;
+  return <ScreeningOutcomeRoute outcome="submitted" />;
 }
