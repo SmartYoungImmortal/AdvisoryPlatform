@@ -8,5 +8,6 @@ export const PaymentConfig = {
   },
   urlParams: {
     invoiceId: 'invoiceId',
+    serviceId: 'serviceId',
   },
 };

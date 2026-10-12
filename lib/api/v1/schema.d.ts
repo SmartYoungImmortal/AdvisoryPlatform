@@ -330,6 +330,38 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/payment/invoice/{id}/paymentStatus": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["PaymentController_getPaymentStatus"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/payment/callback/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["PaymentController_checkoutCallback"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/advisors/me/availability/global": {
         parameters: {
             query?: never;
@@ -655,7 +687,7 @@ export interface components {
             displayName: string;
             email: string;
             headline: string;
-            bio: Record<string, never> | null;
+            bio: string | null;
             /** Format: date-time */
             createdAt: string;
             /** Format: date-time */
@@ -678,7 +710,7 @@ export interface components {
         SkillResponseDto: {
             id: string;
             name: string;
-            description?: Record<string, never>;
+            description?: string | null;
             /** Format: date-time */
             createdAt: string;
             /** Format: date-time */
@@ -695,7 +727,7 @@ export interface components {
         ServiceCategoryResponseDto: {
             id: string;
             name: string;
-            description?: Record<string, never>;
+            description?: string | null;
             /** Format: date-time */
             createdAt: string;
             /** Format: date-time */
@@ -715,7 +747,7 @@ export interface components {
             email: string;
             emailVerified: boolean;
             fullName: string;
-            avatarKey: Record<string, never> | null;
+            avatarKey: string | null;
             timezone: string;
             roles: ("ADVISEE" | "ADVISOR" | "ADMIN")[];
             /** Format: date-time */
@@ -730,7 +762,7 @@ export interface components {
             timezone?: string;
         };
         UserAvatarResponseDto: {
-            avatarKey: Record<string, never> | null;
+            avatarKey: string | null;
         };
         UserAvatarUrlResponseDto: {
             /** Format: uri */
@@ -741,7 +773,8 @@ export interface components {
         ChatRoomResponseDto: {
             id: string;
             isAnonymous: boolean;
-            lastReadAt?: Record<string, never> | null;
+            /** Format: date-time */
+            lastReadAt?: string | null;
             unreadCount: number;
             /** Format: date-time */
             createdAt: string;
@@ -767,7 +800,10 @@ export interface components {
             lastReadAt: string;
         };
         MarkChatReadDto: {
-            /** @description Last message the current member has seen */
+            /**
+             * Format: uuid
+             * @description Last message the current member has seen
+             */
             messageId: string;
         };
         ChatFileResponseDto: {
@@ -793,17 +829,17 @@ export interface components {
             id: string;
             advisorId: string;
             categoryId: string;
-            availabilityProfileId?: Record<string, never> | null;
+            availabilityProfileId?: string | null;
             name: string;
-            description?: Record<string, never>;
+            description?: string | null;
             /** @description Integer satang */
             priceSatang: number;
             durationMinutes: number;
-            dailyConsultationLimitMinutes?: Record<string, never> | null;
+            dailyConsultationLimitMinutes?: number | null;
             isPublished: boolean;
             screeningRequired: boolean;
             trialEnabled: boolean;
-            trialDurationMinutes?: Record<string, never>;
+            trialDurationMinutes?: number | null;
             /** Format: date-time */
             createdAt: string;
             /** Format: date-time */
@@ -820,7 +856,7 @@ export interface components {
             priceSatang: number;
             /** @description Positive number of minutes */
             durationMinutes: number;
-            dailyConsultationLimitMinutes?: Record<string, never> | null;
+            dailyConsultationLimitMinutes?: number | null;
             /** @default false */
             isPublished: boolean;
             /** @default false */
@@ -840,7 +876,7 @@ export interface components {
             priceSatang?: number;
             /** @description Positive number of minutes */
             durationMinutes?: number;
-            dailyConsultationLimitMinutes?: Record<string, never> | null;
+            dailyConsultationLimitMinutes?: number | null;
             /** @default false */
             isPublished: boolean;
             /** @default false */
@@ -854,33 +890,61 @@ export interface components {
             advisorId: string;
             categoryId: string;
             name: string;
-            description?: Record<string, never> | null;
+            description?: string | null;
             /** @description Integer satang */
             priceSatang: number;
             durationMinutes: number;
             screeningRequired: boolean;
             trialEnabled: boolean;
-            trialDurationMinutes?: Record<string, never> | null;
+            trialDurationMinutes?: number | null;
         };
         CheckoutResponse: {
+            /** Format: uri */
             url: string;
         };
         CheckoutDto: {
+            /** Format: uuid */
             invoiceId: string;
             cardToken: string;
         };
         CreateInvoiceDto: {
+            /** Format: uuid */
             serviceId: string;
             startTimes: string[];
-            cardToken: string;
         };
         InvoiceDto: {
             id: string;
             /** Format: date-time */
             createdAt: string;
-            status: string;
+            /** @enum {string} */
+            status: "PENDING" | "HELD_IN_ESCROW" | "RELEASED" | "REFUNDED" | "FAILED";
             amountSatang: number;
             platformFeeSatang: number;
+        };
+        PaymentStatusAppointments: {
+            /** Format: date-time */
+            startTime: string;
+            /** Format: date-time */
+            endTime: string;
+        };
+        PaymentStatusInvoice: {
+            id: string;
+            amountSatang: number;
+            /** Format: date-time */
+            createdAt: string;
+            platformFeeSatang: number;
+            /** @enum {string} */
+            status: "PENDING" | "HELD_IN_ESCROW" | "RELEASED" | "REFUNDED" | "FAILED";
+        };
+        PaymentStatusService: {
+            advisorFullName: string;
+            name: string;
+        };
+        PaymentStatusDto: {
+            appointments: components["schemas"]["PaymentStatusAppointments"][];
+            invoice: components["schemas"]["PaymentStatusInvoice"];
+            service: components["schemas"]["PaymentStatusService"];
+            chargeStatus: Record<string, never>;
         };
         GlobalAvailabilityResponseDto: {
             advisorId: string;
@@ -888,7 +952,7 @@ export interface components {
             bufferMinutes: number;
             bookingHorizonDays: number;
             minimumBookingNoticeMinutes: number;
-            dailyConsultationLimitMinutes?: Record<string, never> | null;
+            dailyConsultationLimitMinutes?: number | null;
         };
         UpsertGlobalAvailabilityDto: {
             /** @default 0 */
@@ -897,7 +961,7 @@ export interface components {
             bookingHorizonDays: number;
             /** @default 0 */
             minimumBookingNoticeMinutes: number;
-            dailyConsultationLimitMinutes?: Record<string, never> | null;
+            dailyConsultationLimitMinutes?: number | null;
         };
         WeeklyWindowDto: {
             /** @example 09:00 */
@@ -2534,6 +2598,11 @@ export interface operations {
             query?: {
                 page?: number;
                 limit?: number;
+                q?: string;
+                categoryId?: string;
+                advisorId?: string;
+                minPriceSatang?: number;
+                maxPriceSatang?: number;
             };
             header?: never;
             path?: never;
@@ -2650,7 +2719,9 @@ export interface operations {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": components["schemas"]["InvoiceDto"];
+                };
             };
         };
     };
@@ -2702,6 +2773,76 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["ApiNullDataEnvelopeDto"];
                 };
+            };
+        };
+    };
+    PaymentController_getPaymentStatus: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Payment status found */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiEnvelopeDto"] & {
+                        data?: components["schemas"]["PaymentStatusDto"];
+                    };
+                };
+            };
+            /** @description No valid session. This API uses a Better Auth HttpOnly session cookie; Swagger cannot accept a pasted session value. Use Postman or establish the browser session before executing this endpoint in Swagger. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiNullDataEnvelopeDto"];
+                };
+            };
+            /** @description Session valid but role or ownership is not permitted */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiNullDataEnvelopeDto"];
+                };
+            };
+            /** @description Payment status not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiNullDataEnvelopeDto"];
+                };
+            };
+        };
+    };
+    PaymentController_checkoutCallback: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            303: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
         };
     };

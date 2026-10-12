@@ -15,10 +15,15 @@ import { useTranslations } from "next-intl";
 import { walletFailed, walletSuccess } from "@/lib/assets/r2";
 import { SiteFooter } from "@/components/marketing/site-footer";
 import { NeutralButton, PrimaryButton } from "@/components/mobile/buttons";
-import { MobileScreen, ScreenActions, ScreenBody } from "@/components/mobile/screen";
+import {
+  MobileScreen,
+  ScreenActions,
+  ScreenBody,
+} from "@/components/mobile/screen";
 import { DetailRow, FootNote } from "@/components/screening/parts";
 import { TopBar } from "@/components/topbar";
 import { cn } from "@/lib/utils";
+import { components } from "@/lib/api/v1/schema";
 
 /**
  * Figma "Card" on the desktop payment outcomes — 560px wide, centred in the
@@ -43,9 +48,87 @@ type ResultRow = {
   readonly tone?: string;
 };
 
+type ChargeStatus = {
+    status: "pending";
+} | {
+    status: "success";
+    lastDigits: string;
+    redirectUrl: string;
+    chargeId: string;
+} | {
+    status: "failed";
+    lastDigits: string;
+    errorCode: "confirmed_amount_mismatch" | "failed_fraud_check" | "failed_processing" | "insufficient_balance/insufficient_fund" | "invalid_account_number/invalid_account" | "insufficient_balance" | "insufficient_fund" | "invalid_account_number" | "invalid_account" | "payment_cancelled" | "payment_rejected" | "expired_card" | "stolen_or_lost_card" | "timeout" | "unspecified";
+    message: string;
+};
+
+function formatDateRange(startTime: string, endTime: string) {
+  const start = new Date(startTime);
+  const end = new Date(endTime);
+
+  return `${start.toLocaleTimeString()} - ${end.toLocaleTimeString()}`
+}
+
 /** Copy, detail rows and actions per outcome — keeps the screen itself flat. */
-function useResultCopy(state: Result) {
+function useResultCopy(
+  state: Result,
+  statusData: components["schemas"]["PaymentStatusDto"],
+) {
   const t = useTranslations("payment");
+
+  const { service, appointments, invoice, chargeStatus } = statusData;
+
+  const charge = chargeStatus as unknown as ChargeStatus;
+
+  if (charge.status === 'success') {
+    return {
+      title: t("successTitle"),
+      body: t("successBody"),
+      rows: [
+        { icon: UserRound, label: t("advisorLabel"), value: service.advisorFullName },
+        ...appointments.map(a => (
+          { icon: CalendarDays, label: t("dateLabel"), value: formatDateRange(a.startTime, a.endTime) }
+        )),
+        { icon: Clock, label: t("timeLabel"), value: `${(new Date(appointments[0].startTime)).toDateString()}` }
+      ],
+      primary: { label: t("viewBooking"), href: "/profile" },
+      secondary: { label: t("backHome"), href: "/profile" },
+    }
+  } else if (charge.status === 'failed') {
+    return {
+      title: t("failedTitle"),
+      body: t("failedBody"),
+      rows: [
+        { icon: CreditCard, label: t("cardLabel"), value: charge.lastDigits },
+        { icon: CreditCard, label: t("amountLabel"), value: String(invoice.amountSatang / 100) },
+        {
+          icon: TriangleAlert,
+          label: t("reasonLabel"),
+          value: charge.message,
+          tone: "text-destructive",
+        },
+      ],
+      primary: { label: t("tryAgain"), href: "/checkout/card" },
+      secondary: { label: t("useOther"), href: "/checkout/card" },
+    }
+  } else if (charge.status === 'pending') {
+    return {
+      title: t("unconfirmedTitle"),
+      body: t("unconfirmedBody"),
+      rows: [
+        { icon: CreditCard, label: t("cardLabel"), value: "..." },
+        {
+          icon: Clock,
+          label: t("statusLabel"),
+          value: t("statusValue"),
+          tone: "text-primary",
+        },
+        { icon: ShieldCheck, label: t("refLabel"), value: t("refValue") },
+      ],
+      primary: { label: t("viewHistory"), href: "/transactions" },
+      secondary: { label: t("contactSupport"), href: "/transactions" },
+    }
+  }
 
   const table: Record<
     Result,
@@ -61,9 +144,11 @@ function useResultCopy(state: Result) {
       title: t("successTitle"),
       body: t("successBody"),
       rows: [
-        { icon: UserRound, label: t("advisorLabel"), value: t("advisor") },
-        { icon: CalendarDays, label: t("dateLabel"), value: t("dateValue") },
-        { icon: Clock, label: t("timeLabel"), value: t("timeValue") },
+        { icon: UserRound, label: t("advisorLabel"), value: service.advisorFullName },
+        ...appointments.map(a => (
+          { icon: CalendarDays, label: t("dateLabel"), value: formatDateRange(a.startTime, a.endTime) }
+        )),
+        { icon: Clock, label: t("timeLabel"), value: `${(new Date(appointments[0].startTime)).toDateString()}` }
       ],
       primary: { label: t("viewBooking"), href: "/profile" },
       secondary: { label: t("backHome"), href: "/profile" },
@@ -72,8 +157,8 @@ function useResultCopy(state: Result) {
       title: t("failedTitle"),
       body: t("failedBody"),
       rows: [
-        { icon: CreditCard, label: t("cardLabel"), value: t("cardValue") },
-        { icon: CreditCard, label: t("amountLabel"), value: t("amountValue") },
+        { icon: CreditCard, label: t("cardLabel"), value: '' },
+        { icon: CreditCard, label: t("amountLabel"), value: String(invoice.amountSatang / 100) },
         {
           icon: TriangleAlert,
           label: t("reasonLabel"),
@@ -106,7 +191,11 @@ function useResultCopy(state: Result) {
       rows: [
         { icon: CalendarDays, label: t("slotLabel"), value: t("slotValue") },
         { icon: CreditCard, label: t("cardLabel"), value: t("cardValue") },
-        { icon: CreditCard, label: t("chargedLabel"), value: t("chargedValue") },
+        {
+          icon: CreditCard,
+          label: t("chargedLabel"),
+          value: t("chargedValue"),
+        },
       ],
       primary: { label: t("pickAnotherTime"), href: "/matching/results" },
       secondary: { label: t("backToAdvisor"), href: "/matching/results" },
@@ -125,9 +214,15 @@ function useResultCopy(state: Result) {
  * too: the very same stack, gathered into a 560px card centred between the app
  * nav and the site footer. Nothing is added or dropped — see `RESULT_CARD`.
  */
-export function PaymentResultScreen({ state }: { readonly state: Result }) {
+export function PaymentResultScreen({
+  state,
+  statusData,
+}: {
+  readonly state: Result;
+  statusData: components["schemas"]["PaymentStatusDto"];
+}) {
   const t = useTranslations("payment");
-  const copy = useResultCopy(state);
+  const copy = useResultCopy(state, statusData);
   const success = state === "success";
   const slotTaken = state === "slot-taken";
 
@@ -150,7 +245,11 @@ export function PaymentResultScreen({ state }: { readonly state: Result }) {
               /* Figma layers a 49px lime check over the success wallet at
                  x=188 / y=142.55 within the 280px illustration. */
               <div className="relative size-[280px] shrink-0">
-                <Image alt="" className="size-full" src={success ? walletSuccess : walletFailed} />
+                <Image
+                  alt=""
+                  className="size-full"
+                  src={success ? walletSuccess : walletFailed}
+                />
                 {success ? (
                   <Check
                     className="absolute size-[49px] text-success"
@@ -188,7 +287,9 @@ export function PaymentResultScreen({ state }: { readonly state: Result }) {
             </div>
           </div>
 
-          {success ? <FootNote icon={ShieldCheck}>{t("escrowNote")}</FootNote> : null}
+          {success ? (
+            <FootNote icon={ShieldCheck}>{t("escrowNote")}</FootNote>
+          ) : null}
           {state === "failed" ? (
             <FootNote icon={CircleCheckBig}>{t("failedHelp")}</FootNote>
           ) : null}
