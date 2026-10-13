@@ -21,12 +21,8 @@ import {
 } from "@/components/mobile/screen";
 import { StatusPill } from "@/components/mobile/status-pill";
 import { DeclineScreeningDialog } from "@/components/screening/decline-dialog";
-import {
-  ScreeningErrorNotice,
-  ScreeningLoading,
-  useElapsedLabel,
-  useSentLabel,
-} from "@/components/screening/live-parts";
+import { LoadingBlock, useElapsedLabel } from "@/components/mobile/live-state";
+import { ScreeningErrorNotice, useSentLabel } from "@/components/screening/live-parts";
 import { Card, FootNote, StackRow, TimeMeta } from "@/components/screening/parts";
 import {
   acceptScreeningRequest,
@@ -46,15 +42,15 @@ import {
 import { invalidate, useResource } from "@/lib/api/use-resource";
 
 /**
- * The advisor's screening screens, read from and written to the API. Same frames
- * as `advisor-screens.tsx`, which stays the fixture the `/screens` index shows.
+ * The advisor's screening screens, connected to the API. They use the same Figma
+ * frames as `advisor-screens.tsx` (the sample version shown in `/screens`).
  */
 
 const COLUMN = "lg:[&>*]:mx-auto lg:[&>*]:w-full lg:[&>*]:max-w-[720px]";
 
 /* ----------------------------------------------------------------- requests */
 
-/** One row: the advisee, the service name under it, the time and the unread dot. */
+/** One row: the advisee's name, the service name, the time and the unread dot. */
 function RequestRow({
   request,
   elapsed,
@@ -112,7 +108,7 @@ export function LiveScreeningRequests() {
 
   let body;
   if (requests.loading) {
-    body = <ScreeningLoading />;
+    body = <LoadingBlock />;
   } else if (requests.error || !requests.data) {
     body = (
       <ScreeningErrorNotice
@@ -171,7 +167,7 @@ export function LiveScreeningRequests() {
 
 /* ------------------------------------------------------------------- review */
 
-/** One answer: the question as the quiet label, the answer as the thing read. */
+/** One answer: the question as a small label, with the answer below it. */
 function AnswerRow({ question, answer }: { readonly question: string; readonly answer: string }) {
   return (
     <div className="flex w-full shrink-0 items-start gap-3 p-3.5">
@@ -187,8 +183,8 @@ function AnswerRow({ question, answer }: { readonly question: string; readonly a
 }
 
 /**
- * Figma "Advisor - Review answers (Light)" — 995:11572 — and, with `declining`,
- * the decline dialog over it (2077:20179).
+ * Figma "Advisor - Review answers (Light)" (995:11572). With `declining`, the
+ * decline dialog opens on top of it (2077:20179).
  */
 export function LiveReviewAnswers({
   requestId,
@@ -210,7 +206,7 @@ export function LiveReviewAnswers({
   const [busy, setBusy] = useState(false);
   const [failure, setFailure] = useState<ScreeningErrorKey | null>(null);
 
-  // Opening the request is what marks it viewed, so the list's dot is stale now.
+  // Opening the request marks it as viewed, so the cached list is now out of date.
   const loaded = request.data !== undefined;
   useEffect(() => {
     if (loaded) invalidate(screeningKeys.requests);
@@ -249,14 +245,14 @@ export function LiveReviewAnswers({
   };
 
   const reviewHref = `/screening/review?requestId=${requestId}`;
-  // The dialog has room for one line, so an error there is its short form.
+  // The dialog has room for one line, so it shows a short version of the error.
   let dialogError: string | null = null;
   if (failure === "errorAlreadyDecided") dialogError = t("errorAlreadyDecided");
   else if (failure === "offline") dialogError = e("offlineBody");
   else if (failure) dialogError = e("serverBody");
   let body;
   if (request.loading) {
-    body = <ScreeningLoading />;
+    body = <LoadingBlock />;
   } else if (request.error || !request.data) {
     body = (
       <ScreeningErrorNotice errorKey={screeningErrorKey(request.error)} onRetry={request.reload} />
@@ -286,8 +282,8 @@ export function LiveReviewAnswers({
         <FootNote icon={ShieldCheck}>{t("reviewNote")}</FootNote>
         {failure && !declining ? <ScreeningErrorNotice errorKey={failure} /> : null}
 
-        {/* The phone pins the decision to the bottom edge; on desktop it follows
-            the answers instead of sinking to the foot of a tall page. */}
+        {/* On the phone the buttons stay at the bottom; on desktop they come right
+           after the answers. */}
         <ScreenSpacer className="lg:hidden" />
         {pending ? (
           <ScreenActions className="lg:pt-6">
@@ -335,13 +331,19 @@ interface DraftQuestion {
   readonly isRequired: boolean;
 }
 
+const toDraft = (question: ApiScreeningQuestion): DraftQuestion => ({
+  key: question.id,
+  question: question.question,
+  isRequired: question.isRequired,
+});
+
 /**
- * Figma "Advisor - Screening setup (Light)" — 995:11456 — editable.
+ * Figma "Advisor - Screening setup (Light)" (995:11456), made editable.
  *
- * The frame draws the question list and an "add question" row but no editing
- * screen, so each row edits in place with the kit's input and switch: the
- * question, whether it is required, and a remove button. Saving replaces the whole
- * list (1–5 questions); the API expires earlier acceptances when it does.
+ * The Figma frame shows the list and an "add question" row but no edit screen, so
+ * each row is edited in place: the question text, a required switch and a remove
+ * button. Saving replaces the whole list (1–5 questions), and the API expires
+ * earlier acceptances.
  */
 export function LiveScreeningSetup({ serviceId }: { readonly serviceId: string }) {
   const c = useTranslations("common");
@@ -350,14 +352,14 @@ export function LiveScreeningSetup({ serviceId }: { readonly serviceId: string }
     useCallback((signal: AbortSignal) => listScreeningQuestions(serviceId, signal), [serviceId]),
   );
 
-  // The editor holds what was saved while it is open; the cached list is only
-  // dropped on the way out, so the next visit reads fresh without the screen
-  // reloading (and losing its "saved" line) under the advisor's hands.
+  // Keep the saved list while the editor is open and clear the cache when leaving.
+  // The next visit then loads fresh data, without reloading the screen while the
+  // advisor is using it (which would hide the "saved" message).
   useEffect(() => () => invalidate(screeningKeys.questions(serviceId)), [serviceId]);
 
   let body;
   if (questions.loading) {
-    body = <ScreeningLoading />;
+    body = <LoadingBlock />;
   } else if (questions.error || !questions.data) {
     body = (
       <ScreeningErrorNotice errorKey={screeningErrorKey(questions.error)} onRetry={questions.reload} />
@@ -382,13 +384,7 @@ function SetupEditor({
   readonly initial: readonly ApiScreeningQuestion[];
 }) {
   const t = useTranslations("screening");
-  const [drafts, setDrafts] = useState<DraftQuestion[]>(() =>
-    initial.map((question) => ({
-      key: question.id,
-      question: question.question,
-      isRequired: question.isRequired,
-    })),
-  );
+  const [drafts, setDrafts] = useState<DraftQuestion[]>(() => initial.map(toDraft));
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [failure, setFailure] = useState<ScreeningErrorKey | null>(null);
@@ -422,13 +418,7 @@ function SetupEditor({
         serviceId,
         drafts.map((draft) => ({ question: draft.question.trim(), isRequired: draft.isRequired })),
       );
-      setDrafts(
-        stored.map((question) => ({
-          key: question.id,
-          question: question.question,
-          isRequired: question.isRequired,
-        })),
-      );
+      setDrafts(stored.map(toDraft));
       setSaved(true);
     } catch (cause) {
       setFailure(screeningErrorKey(cause));
@@ -494,8 +484,8 @@ function SetupEditor({
             </button>
           ) : null}
         </Card>
-        {/* The saved confirmation sits with the questions it confirms, not in the
-            action row — there it pushed the save button sideways. */}
+        {/* The "saved" message sits under the questions, not next to the button, so
+           the button does not move. */}
         <div className="flex w-full flex-wrap items-center justify-between gap-x-3 gap-y-1">
           <p className="text-xs text-muted-foreground">
             {t("questionLimit", { max: SCREENING_MAX_QUESTIONS })}

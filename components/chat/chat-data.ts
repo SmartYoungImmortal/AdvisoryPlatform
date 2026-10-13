@@ -28,22 +28,9 @@
  * every export is written to be moved verbatim.
  */
 
-import { api, type Paginated } from "@/lib/api/client";
+import { api, type CursorPage, type Paginated } from "@/lib/api/client";
 
 /* -------------------------------------------------------------------- shapes */
-
-/**
- * A page of results, exactly as the API's `CursorPaginatedResult<T>` is shaped —
- * `common/pagination/cursor-pagination.dto.ts`. Distinct from `Paginated<T>`:
- * messages and files are keyset-paginated on `(createdAt, id)` and have no total.
- */
-export interface CursorPage<T> {
-  readonly items: readonly T[];
-  readonly limit: number;
-  /** Opaque; pass back as `cursor` for the next page. Null at the end. */
-  readonly nextCursor: string | null;
-  readonly hasMore: boolean;
-}
 
 /**
  * `ChatRoomResponseDto` — chat/dtos/chat-room-response.dto.ts

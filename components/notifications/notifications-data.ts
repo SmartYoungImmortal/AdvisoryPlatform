@@ -1,19 +1,16 @@
 /**
- * The notifications half of the API — `AdvisoryPlatformAPI/src/modules/notifications`.
+ * API calls for notifications (`AdvisoryPlatformAPI/src/modules/notifications`).
  *
- * Kept beside the screens, the way `components/screening/screening-data.ts` keeps
- * its own: `lib/api/resources.ts` is shared, and every export here is written to
- * be moved there verbatim.
+ * Kept next to the screens, like `components/screening/screening-data.ts`, so it
+ * can be moved into the shared `lib/api/resources.ts` later without changes.
  *
- * The feed is the signed-in user's own. Other features write into it on the
- * server (screening today; booking, payment, chat and reviews once their owners
- * call `NotificationsService.notify()`), so this side only reads and marks.
+ * Each user only sees their own notifications. Other features create them on the
+ * server (screening now; booking, payment, chat and reviews once they call
+ * `NotificationsService.notify()`), so this file only reads them and marks them as
+ * read.
  */
 
-import { api } from "@/lib/api/client";
-
-/** How often an open tab asks whether anything new arrived. */
-export const NOTIFICATION_POLL_MS = 30_000;
+import { api, type CursorPage } from "@/lib/api/client";
 
 /* -------------------------------------------------------------------- shapes */
 
@@ -34,21 +31,16 @@ export type NotificationType =
 export interface ApiNotification {
   readonly id: string;
   readonly type: NotificationType;
-  /** Thai, written by the feature that sent it. */
+  /** Thai text, written by the feature that sent it. */
   readonly title: string;
   readonly content: string | null;
-  /** The record it is about; what kind follows from `type` — see `notificationHref`. */
+  /**
+   * The id of the record it is about; `type` tells what kind (see
+   * `notificationHref`).
+   */
   readonly resourceId: string | null;
   readonly isRead: boolean;
   readonly createdAt: string;
-}
-
-/** A cursor page, exactly as the API's `CursorPaginatedResult<T>` is shaped. */
-export interface CursorPage<T> {
-  readonly items: readonly T[];
-  readonly limit: number;
-  readonly nextCursor: string | null;
-  readonly hasMore: boolean;
 }
 
 /* --------------------------------------------------------------------- reads */
@@ -70,7 +62,7 @@ export function countUnreadNotifications(
 
 /* -------------------------------------------------------------------- writes */
 
-/** `PATCH /notifications/:id/read` — 404 for someone else's. */
+/** `PATCH /notifications/:id/read`: returns 404 for someone else's notification. */
 export function markNotificationRead(
   notificationId: string,
   signal?: AbortSignal,
@@ -78,7 +70,7 @@ export function markNotificationRead(
   return api.patch(`notifications/${notificationId}/read`, { signal });
 }
 
-/** `PATCH /notifications/read-all` — answers how many changed. */
+/** `PATCH /notifications/read-all`: returns how many were changed. */
 export function markAllNotificationsRead(
   signal?: AbortSignal,
 ): Promise<{ readonly count: number }> {
@@ -88,9 +80,9 @@ export function markAllNotificationsRead(
 /* ------------------------------------------------------------------ routing */
 
 /**
- * Where tapping a notification goes: the record when it carries one, otherwise
- * the list it belongs to. A screening decision lands on the outcome route, which
- * forwards to whichever state the request is really in.
+ * Where tapping a notification goes: the record itself if it has one, otherwise its
+ * list. A screening decision opens the outcome page, which redirects to the
+ * request's real status.
  */
 export function notificationHref(notification: ApiNotification): string {
   const id = notification.resourceId;
@@ -115,19 +107,21 @@ export function notificationHref(notification: ApiNotification): string {
     case "VERIFICATION_DECIDED":
       return "/advisor/profile";
     default:
-      // POLICY_WARNING: the account it was about.
+      // POLICY_WARNING: open the user's profile.
       return "/profile";
   }
 }
 
 /* --------------------------------------------------------------------- dates */
 
-/** Local calendar day, so "วันนี้" means the reader's today rather than UTC's. */
+/**
+ * The local calendar day, so "วันนี้" means today for the user, not today in UTC.
+ */
 export function dayKey(date: Date): string {
   return `${date.getFullYear()}-${date.getMonth()}-${date.getDate()}`;
 }
 
-/** Groups a newest-first feed into runs of the same local day, in order. */
+/** Groups a newest-first list by local day, keeping the order. */
 export function groupByDay(
   items: readonly ApiNotification[],
 ): readonly { readonly day: string; readonly date: Date; readonly items: ApiNotification[] }[] {

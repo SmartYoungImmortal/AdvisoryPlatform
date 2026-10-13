@@ -17,17 +17,16 @@ import { DestructiveButton, NeutralButton } from "@/components/mobile/buttons";
 import { SCREENING_DECLINE_MESSAGE_MAX_LENGTH } from "@/components/screening/screening-data";
 
 /**
- * Figma "Advisor - Review answers - Decline (Light)" (Main 2077:20179, desktop
- * 2077:20250) — opened from "ปฏิเสธอย่างสุภาพ", over the review itself.
+ * Figma "Advisor - Review answers - Decline (Light)" (2077:20179, desktop
+ * 2077:20250). Opens from the "ปฏิเสธ" button, on top of the review screen.
  *
- * The team's confirm pattern (`DeleteServiceDialog`): centred, a badge above the
- * title, cancel and a destructive action side by side, 326 on the phone and 420
- * at 1440. What this one adds is the optional message, which the advisee sees on
- * their declined screen only when it was written. `defaultOpen` because the route
- * *is* the open state.
+ * It follows the team's confirm dialog (`DeleteServiceDialog`): centered, an icon
+ * above the title, and cancel and decline buttons side by side (326px wide on the
+ * phone, 420px on desktop). It adds an optional message that the advisee sees on
+ * their declined screen. `defaultOpen` is set because this route is the open state.
  *
- * `onConfirm` sends the decline; without it (the fixture route) the action is a
- * plain link, so the prototype can still be clicked through.
+ * With `onConfirm`, the button sends the decline. Without it (the sample route),
+ * the button is a plain link so the prototype can still be clicked through.
  */
 export function DeclineScreeningDialog({
   name,

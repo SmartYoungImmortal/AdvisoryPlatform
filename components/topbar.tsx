@@ -12,7 +12,7 @@ import { Bell, ChevronLeft, LogIn } from "lucide-react";
 import { logo } from "@/lib/assets/r2";
 import { avatarImage, initials } from "@/lib/mock-db/avatars";
 import { useSession } from "@/lib/session";
-import { useUnreadDot } from "@/components/notifications/notification-pulse";
+import { useUnreadDot } from "@/components/notifications/notification-store";
 import { NeutralButton, PrimaryButton } from "@/components/mobile/buttons";
 import { Button } from "@/components/ui/button";
 import {

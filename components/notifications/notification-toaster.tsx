@@ -9,21 +9,22 @@ import { useEffect } from "react";
 import {
   dismissFresh,
   useNotificationPulse,
-} from "@/components/notifications/notification-pulse";
+} from "@/components/notifications/notification-store";
 import { notificationHref } from "@/components/notifications/notifications-data";
 import { isApiConfigured } from "@/lib/api/client";
 import { useSession } from "@/lib/session";
 
-/** How long a toast stays before it lets go. */
+/** How long the toast stays on screen. */
 const TOAST_MS = 6_000;
 
 /**
- * Figma "In-app toast" (995:11035, desktop 1952:35853): a dark pill above the tab
- * bar — a glyph, what arrived, and "ดูข้อความ" for a message. It shows whatever
- * the shared poll just saw arrive, on every screen but the feed itself.
+ * Figma "In-app toast" (995:11035, desktop 1952:35853): a dark bar above the tab
+ * bar with an icon, what arrived, and "ดูข้อความ" for a message. It shows the
+ * newest notification found by the shared check, on every page except the
+ * notification center.
  *
- * The in-app banner (the session reminder) is a separate, mobile-only surface and
- * waits for a server-side reminder to exist.
+ * The in-app banner (the session reminder) is separate, mobile only, and waits
+ * until the server can send reminders.
  */
 export function NotificationToaster() {
   const t = useTranslations("notifications");

@@ -8,33 +8,35 @@ import {
   listNotifications,
   markAllNotificationsRead,
   markNotificationRead,
-  NOTIFICATION_POLL_MS,
   type ApiNotification,
 } from "@/components/notifications/notifications-data";
 
 /**
- * The tab's one live picture of the user's notifications, shared by the bell's
- * dot, the toast and the notification center — so a read, a mark-all or
- * something new shows everywhere at once, without a reload.
+ * One shared store per browser tab for the user's notifications. The bell dot, the
+ * toast and the notification center all read from it, so a read, "mark all read" or
+ * a new notification shows everywhere at once, without a reload.
  *
- * - **Pulse:** the unread count, asked every 30 seconds while the tab is visible.
- *   When it goes up, the newest notification is fetched once for the toast, and
- *   an open feed reloads its first page.
- * - **Feed:** the center's list. It loads fresh every time the center opens, and
- *   reads are applied to it in place.
+ * - Pulse: checks the unread count every 30 seconds while the tab is visible. When
+ *   the count goes up, it loads the newest notification for the toast and reloads
+ *   the open list.
+ * - Feed: the notification center's list. It loads fresh every time the center
+ *   opens, and read changes are applied to it directly.
  *
- * Polling is the stand-in for Socket.IO until the frontend takes on
- * `socket.io-client` (a team decision). Only this file would change.
+ * Polling is used until the team decides on `socket.io-client`. Only this file
+ * would need to change.
  */
 
 /* --------------------------------------------------------------------- pulse */
 
 export interface Pulse {
-  /** Null until the first answer — callers fall back to their own default. */
+  /** Null until the first answer; callers use their own default until then. */
   readonly unread: number | null;
-  /** The notification that just arrived, until the toast lets go of it. */
+  /** The notification that just arrived, until the toast is done with it. */
   readonly fresh: ApiNotification | null;
 }
+
+/** How often an open tab checks for new notifications. */
+const POLL_MS = 30_000;
 
 const IDLE: Pulse = { unread: null, fresh: null };
 
@@ -47,7 +49,10 @@ function publishPulse(next: Pulse): void {
   for (const listener of pulseListeners) listener();
 }
 
-/** `force` is the first check on mount, which a tab opened in the background still needs. */
+/**
+ * `force` runs the check even when the tab is hidden. It is used for the first
+ * check and after a read.
+ */
 async function tick(force = false): Promise<void> {
   if (!force && document.visibilityState === "hidden") return;
   try {
@@ -62,7 +67,7 @@ async function tick(force = false): Promise<void> {
     const newest = page.items[0];
     publishPulse({ unread: count, fresh: newest && !newest.isRead ? newest : pulse.fresh });
   } catch {
-    // Offline or signed out mid-way: keep what we last knew; the next tick retries.
+    // Offline or signed out: keep the last known state; the next check tries again.
   }
 }
 
@@ -74,7 +79,7 @@ function subscribePulse(listener: () => void): () => void {
   pulseListeners.add(listener);
   if (pulseListeners.size === 1) {
     void tick(true);
-    timer = setInterval(() => void tick(), NOTIFICATION_POLL_MS);
+    timer = setInterval(() => void tick(), POLL_MS);
     document.addEventListener("visibilitychange", onVisible);
   }
   return () => {
@@ -88,7 +93,9 @@ function subscribePulse(listener: () => void): () => void {
 
 const ignore = () => () => {};
 
-/** The shared poll; `enabled` is false for a guest or a build with no API. */
+/**
+ * The shared check. `enabled` is false for guests and when the build has no API.
+ */
 export function useNotificationPulse(enabled: boolean): Pulse {
   return useSyncExternalStore(
     enabled ? subscribePulse : ignore,
@@ -98,16 +105,16 @@ export function useNotificationPulse(enabled: boolean): Pulse {
 }
 
 /**
- * Whether the bell shows its dot: the live unread count once it has answered,
- * until then the screen's own `fallback`. Signed out, or with no API, it is only
- * the fallback.
+ * Whether the bell shows its dot: the live unread count once it is known, otherwise
+ * the screen's `fallback`. Guests and builds without an API always use the
+ * fallback.
  */
 export function useUnreadDot(signedIn: boolean, fallback: boolean): boolean {
   const { unread } = useNotificationPulse(isApiConfigured && signedIn);
   return unread === null ? fallback : unread > 0;
 }
 
-/** The toast is done with the fresh notification. */
+/** Clears the new notification once the toast is done with it. */
 export function dismissFresh(): void {
   if (pulse.fresh) publishPulse({ ...pulse, fresh: null });
 }
@@ -130,7 +137,10 @@ const LOADING: Feed = { status: "loading" };
 
 let feed: Feed = LOADING;
 const feedListeners = new Set<() => void>();
-/** Bumped on every first-page load, so a slower, older answer cannot land on top. */
+/**
+ * Increased on every first-page load, so an older, slower response cannot replace a
+ * newer one.
+ */
 let generation = 0;
 
 function publishFeed(next: Feed): void {
@@ -146,7 +156,7 @@ async function loadFirstPage(): Promise<void> {
     publishFeed({ status: "ready", items: page.items, nextCursor: page.nextCursor, loadingMore: false });
   } catch (cause: unknown) {
     if (mine !== generation) return;
-    // A reload that fails keeps the list already on screen.
+    // If a reload fails, keep the list that is already on screen.
     if (feed.status === "ready") return;
     publishFeed({ status: "failed", error: cause instanceof Error ? cause : new Error(String(cause)) });
   }
@@ -154,9 +164,10 @@ async function loadFirstPage(): Promise<void> {
 
 function subscribeFeed(listener: () => void): () => void {
   feedListeners.add(listener);
-  // Every visit starts from the server's answer, never a copy from last time.
+  // Every visit loads from the server, never from an old copy.
   if (feedListeners.size === 1) {
-    // Set, not published: React reads the snapshot again right after subscribing.
+    // Set directly instead of publishing: React reads the value again right after
+    // subscribing.
     feed = LOADING;
     void loadFirstPage();
   }
@@ -176,7 +187,7 @@ export function retryFeed(): void {
   void loadFirstPage();
 }
 
-/** The next page, when the end of the list scrolls into view. */
+/** Loads the next page when the end of the list scrolls into view. */
 export async function loadMoreFeed(): Promise<void> {
   if (feed.status !== "ready" || !feed.nextCursor || feed.loadingMore) return;
   const mine = generation;
@@ -191,7 +202,7 @@ export async function loadMoreFeed(): Promise<void> {
       loadingMore: false,
     });
   } catch {
-    // Leave the cursor where it was; scrolling back down tries again.
+    // Keep the cursor; scrolling down again will retry.
     if (feed.status === "ready") publishFeed({ ...feed, loadingMore: false });
   }
 }
@@ -204,20 +215,25 @@ function applyRead(read: (item: ApiNotification) => boolean): void {
   });
 }
 
-/** Tapping a row: read on screen now, on the server in the background. */
+/**
+ * Tapping a row: mark it read on screen now, and on the server in the background.
+ */
 export async function readNotification(notificationId: string): Promise<void> {
   applyRead((item) => item.id === notificationId);
   if (pulse.unread) publishPulse({ ...pulse, unread: pulse.unread - 1 });
   try {
     await markNotificationRead(notificationId);
   } catch {
-    // The row stays read on screen; the next visit shows the server's answer.
+    // The row stays read on screen; the next visit shows the server's state.
   } finally {
     void tick(true);
   }
 }
 
-/** "Mark all read": the same, for everything. A failure puts the server's answer back. */
+/**
+ * "Mark all read": the same as above for every notification. If it fails, the list
+ * reloads from the server.
+ */
 export async function readAllNotifications(): Promise<void> {
   applyRead(() => true);
   publishPulse({ ...pulse, unread: 0 });

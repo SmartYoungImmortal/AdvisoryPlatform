@@ -346,7 +346,11 @@
     "profile": "โปรไฟล์",
     "search": "ค้นหา",
     "signUp": "สมัครสมาชิก",
-    "termsOfService": "ข้อกำหนดการให้บริการ"
+    "termsOfService": "ข้อกำหนดการให้บริการ",
+    "justNow": "เมื่อสักครู่",
+    "minutesAgo": "{count} นาที",
+    "hoursAgo": "{count} ชม.",
+    "yesterday": "เมื่อวาน"
   },
   "profile": {
     "name": "อารยา ส.",
@@ -1584,9 +1588,6 @@
     "optionalSuffix": "(ไม่บังคับ)",
     "submittedSubtitleLive": "{name} จะตอบกลับภายใน 24 ชั่วโมง เราจะแจ้งเตือนคุณทันที",
     "acceptedSubtitleLive": "{name} ยินดีช่วยคุณ เลือกเวลาปรึกษาได้เลย",
-    "justNow": "เมื่อสักครู่",
-    "minutesAgo": "{count} นาที",
-    "hoursAgo": "{count} ชม.",
     "questionPlaceholder": "พิมพ์คำถาม",
     "requiredToggle": "จำเป็น",
     "removeQuestion": "ลบคำถาม",

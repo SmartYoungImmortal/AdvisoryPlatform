@@ -16,6 +16,12 @@ import { useEffect, useRef } from "react";
 
 import { useMountTime } from "@/components/bookings/booking-flow";
 import {
+  LoadErrorNotice,
+  LoadingBlock,
+  loadErrorKind,
+  useElapsedLabel,
+} from "@/components/mobile/live-state";
+import {
   DayGroup,
   EmptyFeed,
   NotificationCenterFrame,
@@ -29,25 +35,19 @@ import {
   readNotification,
   retryFeed,
   useNotificationFeed,
-} from "@/components/notifications/notification-pulse";
+} from "@/components/notifications/notification-store";
 import {
   dayKey,
   groupByDay,
   notificationHref,
   type NotificationType,
 } from "@/components/notifications/notifications-data";
-import {
-  ScreeningErrorNotice,
-  ScreeningLoading,
-  useElapsedLabel,
-} from "@/components/screening/live-parts";
-import { screeningErrorKey } from "@/components/screening/screening-data";
 import { isApiConfigured } from "@/lib/api/client";
 import { READING_COLUMN } from "@/lib/layout";
 import { useSession } from "@/lib/session";
 import { cn } from "@/lib/utils";
 
-/** The glyph and colour each kind of notification wears — see `KINDS`. */
+/** The icon and color for each notification type (colors come from `KINDS`). */
 const LOOK: Record<NotificationType, { readonly icon: LucideIcon; readonly kind: NotificationKind }> = {
   BOOKING_CONFIRMED: { icon: CalendarDays, kind: "booking" },
   BOOKING_RECEIVED: { icon: CalendarDays, kind: "booking" },
@@ -63,19 +63,18 @@ const LOOK: Record<NotificationType, { readonly icon: LucideIcon; readonly kind:
 };
 
 /**
- * `/notifications` — live whenever the build has an API. The list has no id to
- * carry, like the screening request list; without an API it is the fixture the
- * `/screens` index shows.
+ * `/notifications`: uses the API whenever the build has one. Without an API it
+ * shows the sample screen from the `/screens` index.
  */
 export function NotificationsRoute() {
   return isApiConfigured ? <LiveNotificationCenter /> : <NotificationCenterScreen />;
 }
 
 /**
- * The signed-in user's own feed, newest first, in day groups. Further pages load
- * as the end of the list scrolls into view. Tapping a row marks it read and opens
- * what it is about. The list lives in the shared store (`notification-pulse.ts`),
- * so reads and new arrivals show without a reload.
+ * The signed-in user's notifications, newest first, grouped by day. More load as
+ * the user scrolls down. Tapping a row marks it read and opens what it is about.
+ * The list comes from the shared store (`notification-store.ts`), so changes show
+ * without a reload.
  */
 function LiveNotificationCenter() {
   const t = useTranslations("notifications");
@@ -106,21 +105,21 @@ function LiveNotificationCenter() {
     return format.dateTime(date, { day: "numeric", month: "long" });
   };
 
-  // The loading and error blocks carry the phone's 24px inset; on desktop they
-  // sit in the feed's 800px column, flush with where the day groups would be.
+  // The loading and error blocks have the phone's 24px side padding; on desktop
+  // they sit in the same 800px column as the list.
   const column = cn("w-full shrink-0 lg:pt-2 lg:*:px-0", READING_COLUMN);
 
   let body;
   if (feed.status === "loading") {
     body = (
       <div className={column}>
-        <ScreeningLoading />
+        <LoadingBlock />
       </div>
     );
   } else if (feed.status === "failed") {
     body = (
       <div className={column}>
-        <ScreeningErrorNotice errorKey={screeningErrorKey(feed.error)} onRetry={retryFeed} />
+        <LoadErrorNotice kind={loadErrorKind(feed.error)} onRetry={retryFeed} />
       </div>
     );
   } else if (feed.items.length === 0) {
