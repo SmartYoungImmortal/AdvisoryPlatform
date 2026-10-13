@@ -217,8 +217,8 @@ export function ReviewAnswersScreen() {
 
         <FootNote icon={ShieldCheck}>{t("reviewNote")}</FootNote>
 
-        <ScreenSpacer />
-        <ScreenActions>
+        <ScreenSpacer className="lg:hidden" />
+        <ScreenActions className="lg:pt-6">
           <PrimaryButton href="/screening/requests">{t("accept")}</PrimaryButton>
           <NeutralButton href="/screening/requests">{t("decline")}</NeutralButton>
         </ScreenActions>

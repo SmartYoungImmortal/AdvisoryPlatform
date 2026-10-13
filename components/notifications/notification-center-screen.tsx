@@ -36,7 +36,7 @@ import { cn } from "@/lib/utils";
  * green, a request needs an answer and is amber, a message is the accent, a
  * booking is informational.
  */
-const KINDS = {
+export const KINDS = {
   booking: "bg-info/10 text-info",
   message: "bg-accent-surface text-primary",
   money: "bg-success/12 text-success",
@@ -45,7 +45,7 @@ const KINDS = {
   review: "bg-warning/15 text-warning",
 } as const;
 
-type NotificationKind = keyof typeof KINDS;
+export type NotificationKind = keyof typeof KINDS;
 
 /**
  * Figma notification row — 64px tall: a 16px glyph, a title/body stack and a
@@ -56,7 +56,7 @@ type NotificationKind = keyof typeof KINDS;
  * does — a tinted ground, a semibold title — so the feed has a shape before it
  * is read. The row also answers the pointer, which it never did.
  */
-function NotificationRow({
+export function NotificationRow({
   icon: Icon,
   kind,
   title,
@@ -64,6 +64,7 @@ function NotificationRow({
   time,
   unread = false,
   href,
+  onClick,
 }: {
   readonly icon: LucideIcon;
   readonly kind: NotificationKind;
@@ -72,9 +73,11 @@ function NotificationRow({
   readonly time: string;
   readonly unread?: boolean;
   readonly href: string;
+  readonly onClick?: () => void;
 }) {
   return (
     <Link
+      onClick={onClick}
       className={cn(
         "flex w-full shrink-0 items-center gap-3 overflow-clip px-3.5 py-3 transition-colors duration-150 ease-out hover:bg-muted motion-reduce:transition-none",
         unread && "bg-accent-surface/40 hover:bg-accent-surface/70",
@@ -123,7 +126,7 @@ function NotificationRow({
  * the hairlines between the rows come from — the group used to space them with a
  * hand-built `Divider` between every pair.
  */
-function DayGroup({
+export function DayGroup({
   label,
   children,
 }: {
@@ -279,7 +282,7 @@ function AdvisorFeed() {
  * Figma "Empty State": a circled glyph, a title and a line of copy — which is
  * `EmptyState`, at the size every other empty list in the app now uses.
  */
-function EmptyFeed() {
+export function EmptyFeed() {
   const t = useTranslations("notifications");
 
   return (
@@ -320,12 +323,38 @@ export function NotificationCenterScreen({
 }: {
   readonly state?: "default" | "empty" | "advisor";
 }) {
+  const Feed = FEEDS[state];
+
+  return (
+    <NotificationCenterFrame advisor={state === "advisor"}>
+      <Feed />
+    </NotificationCenterFrame>
+  );
+}
+
+/**
+ * The page around a feed — back control, heading band and footer — shared by the
+ * fixture screen above and the API-backed one (`notifications-live.tsx`).
+ *
+ * "Mark all read" sits beside the title in Figma's desktop head band. Copper
+ * ruled on 2026-10-13 that the phone gets it too, so below `lg` it is its own
+ * row under the heading.
+ */
+export function NotificationCenterFrame({
+  advisor = false,
+  onMarkAllRead,
+  markAllDisabled = false,
+  children,
+}: {
+  readonly advisor?: boolean;
+  readonly onMarkAllRead?: () => void;
+  readonly markAllDisabled?: boolean;
+  readonly children: React.ReactNode;
+}) {
   const t = useTranslations("notifications");
   const c = useTranslations("common");
-  const advisor = state === "advisor";
   // The advisee reaches this from their profile; the advisor from the desk.
   const back = advisor ? "/work" : "/profile";
-  const Feed = FEEDS[state];
 
   return (
     <MobileScreen wide>
@@ -338,12 +367,12 @@ export function NotificationCenterScreen({
         {/* Figma "Head Band" — the title sits on the card surface rather than
             the page, so the band is full-bleed and only its content is capped. */}
         <div className="w-full shrink-0 lg:border-b lg:border-border lg:bg-card lg:shadow-card">
-          <div className={cn("relative", READING_COLUMN)}>
+          <div className={cn("relative flex flex-col", READING_COLUMN)}>
             <ScreenHeading className="pt-4 lg:pt-5 lg:pb-9" title={t("title")} />
-            {/* Figma's desktop head band carries this beside the title; the
-                phone frame has no room for it. */}
             <Button
-              className="absolute end-0 bottom-9 hidden h-auto p-0 text-sm font-medium text-primary hover:bg-transparent lg:block"
+              className="h-auto self-end p-0 pe-6 text-sm font-medium text-primary hover:bg-transparent lg:absolute lg:end-0 lg:bottom-9 lg:pe-0"
+              disabled={markAllDisabled}
+              onClick={onMarkAllRead}
               variant="ghost"
             >
               {t("markAllRead")}
@@ -351,7 +380,7 @@ export function NotificationCenterScreen({
           </div>
         </div>
 
-        <Feed />
+        {children}
 
         <ScreenSpacer className="lg:min-h-14" />
         <SiteFooter className="hidden lg:flex" />

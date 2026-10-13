@@ -286,9 +286,11 @@ export function LiveReviewAnswers({
         <FootNote icon={ShieldCheck}>{t("reviewNote")}</FootNote>
         {failure && !declining ? <ScreeningErrorNotice errorKey={failure} /> : null}
 
-        <ScreenSpacer />
+        {/* The phone pins the decision to the bottom edge; on desktop it follows
+            the answers instead of sinking to the foot of a tall page. */}
+        <ScreenSpacer className="lg:hidden" />
         {pending ? (
-          <ScreenActions>
+          <ScreenActions className="lg:pt-6">
             <PrimaryButton disabled={busy} onClick={() => void accept()}>
               {t("accept")}
             </PrimaryButton>
@@ -297,7 +299,7 @@ export function LiveReviewAnswers({
             </NeutralButton>
           </ScreenActions>
         ) : (
-          <ScreenActions>
+          <ScreenActions className="lg:pt-6">
             <StatusPill tone={data.status === "ACCEPTED" ? "success" : "danger"}>
               {data.status === "ACCEPTED" ? t("req4Body") : t("req5Body")}
             </StatusPill>
