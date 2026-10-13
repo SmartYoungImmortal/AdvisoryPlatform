@@ -12,8 +12,7 @@ import { Bell, ChevronLeft, LogIn } from "lucide-react";
 import { logo } from "@/lib/assets/r2";
 import { avatarImage, initials } from "@/lib/mock-db/avatars";
 import { useSession } from "@/lib/session";
-import { isApiConfigured } from "@/lib/api/client";
-import { useNotificationPulse } from "@/components/notifications/notification-pulse";
+import { useUnreadDot } from "@/components/notifications/notification-pulse";
 import { NeutralButton, PrimaryButton } from "@/components/mobile/buttons";
 import { Button } from "@/components/ui/button";
 import {
@@ -298,9 +297,7 @@ export function TopBar({
   const sessionStatus = useSession().status;
   const signedIn = sessionStatus === "authenticated";
   const sessionKnown = sessionStatus !== "loading";
-  // The live unread count, once it has answered; until then the screen's own say.
-  const unread = useNotificationPulse(isApiConfigured && signedIn).unread;
-  const showUnreadDot = unread === null ? unreadNotifications : unread > 0;
+  const showUnreadDot = useUnreadDot(signedIn, unreadNotifications);
 
   // Figma's desktop nav carries four: find an advisor, bookings, chat, about.
   /**

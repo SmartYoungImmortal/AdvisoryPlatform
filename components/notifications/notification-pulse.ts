@@ -2,6 +2,7 @@
 
 import { useCallback, useSyncExternalStore } from "react";
 
+import { isApiConfigured } from "@/lib/api/client";
 import {
   countUnreadNotifications,
   listNotifications,
@@ -94,6 +95,16 @@ export function useNotificationPulse(enabled: boolean): Pulse {
     useCallback(() => (enabled ? pulse : IDLE), [enabled]),
     () => IDLE,
   );
+}
+
+/**
+ * Whether the bell shows its dot: the live unread count once it has answered,
+ * until then the screen's own `fallback`. Signed out, or with no API, it is only
+ * the fallback.
+ */
+export function useUnreadDot(signedIn: boolean, fallback: boolean): boolean {
+  const { unread } = useNotificationPulse(isApiConfigured && signedIn);
+  return unread === null ? fallback : unread > 0;
 }
 
 /** The toast is done with the fresh notification. */

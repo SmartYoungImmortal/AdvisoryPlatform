@@ -37,7 +37,9 @@ export function NotificationToaster() {
     return () => clearTimeout(timer);
   }, [fresh]);
 
-  const show = fresh !== null && pathname !== "/notifications";
+  // A static host may serve the page with a trailing slash.
+  const onFeed = pathname.replace(/\/$/, "") === "/notifications";
+  const show = fresh !== null && !onFeed;
   const Icon = fresh?.type === "NEW_MESSAGE" ? MessageSquare : Bell;
 
   return (
