@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 
 import { MobileViewport } from "@/components/mobile/viewport";
+import { NotificationToaster } from "@/components/notifications/notification-toaster";
 import { AccessGate } from "@/components/session/access-gate";
 
 /**
@@ -11,6 +12,7 @@ export default function GroupLayout({ children }: Readonly<{ children: ReactNode
   return (
     <MobileViewport>
       <AccessGate>{children}</AccessGate>
+      <NotificationToaster />
     </MobileViewport>
   );
 }
