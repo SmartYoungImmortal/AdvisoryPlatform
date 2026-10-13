@@ -54,7 +54,6 @@ type ChargeStatus = {
     status: "success";
     lastDigits: string;
     redirectUrl: string;
-    chargeId: string;
 } | {
     status: "failed";
     lastDigits: string;
@@ -63,15 +62,14 @@ type ChargeStatus = {
 };
 
 function formatDateRange(startTime: string, endTime: string) {
-  const start = new Date(startTime);
-  const end = new Date(endTime);
+  const start = (new Date(startTime)).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+  const end = (new Date(endTime)).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
 
-  return `${start.toLocaleTimeString()} - ${end.toLocaleTimeString()}`
+  return `${start} - ${end}`
 }
 
 /** Copy, detail rows and actions per outcome — keeps the screen itself flat. */
 function useResultCopy(
-  state: Result,
   statusData: components["schemas"]["PaymentStatusDto"],
 ) {
   const t = useTranslations("payment");
@@ -130,6 +128,8 @@ function useResultCopy(
     }
   }
 
+  throw new Error();
+
   const table: Record<
     Result,
     {
@@ -140,51 +140,6 @@ function useResultCopy(
       readonly secondary: { readonly label: string; readonly href: string };
     }
   > = {
-    success: {
-      title: t("successTitle"),
-      body: t("successBody"),
-      rows: [
-        { icon: UserRound, label: t("advisorLabel"), value: service.advisorFullName },
-        ...appointments.map(a => (
-          { icon: CalendarDays, label: t("dateLabel"), value: formatDateRange(a.startTime, a.endTime) }
-        )),
-        { icon: Clock, label: t("timeLabel"), value: `${(new Date(appointments[0].startTime)).toDateString()}` }
-      ],
-      primary: { label: t("viewBooking"), href: "/profile" },
-      secondary: { label: t("backHome"), href: "/profile" },
-    },
-    failed: {
-      title: t("failedTitle"),
-      body: t("failedBody"),
-      rows: [
-        { icon: CreditCard, label: t("cardLabel"), value: '' },
-        { icon: CreditCard, label: t("amountLabel"), value: String(invoice.amountSatang / 100) },
-        {
-          icon: TriangleAlert,
-          label: t("reasonLabel"),
-          value: t("reasonValue"),
-          tone: "text-destructive",
-        },
-      ],
-      primary: { label: t("tryAgain"), href: "/checkout/card" },
-      secondary: { label: t("useOther"), href: "/checkout/card" },
-    },
-    unconfirmed: {
-      title: t("unconfirmedTitle"),
-      body: t("unconfirmedBody"),
-      rows: [
-        { icon: CreditCard, label: t("cardLabel"), value: t("cardValue") },
-        {
-          icon: Clock,
-          label: t("statusLabel"),
-          value: t("statusValue"),
-          tone: "text-primary",
-        },
-        { icon: ShieldCheck, label: t("refLabel"), value: t("refValue") },
-      ],
-      primary: { label: t("viewHistory"), href: "/transactions" },
-      secondary: { label: t("contactSupport"), href: "/transactions" },
-    },
     "slot-taken": {
       title: t("slotTakenTitle"),
       body: t("slotTakenBody"),
@@ -201,8 +156,6 @@ function useResultCopy(
       secondary: { label: t("backToAdvisor"), href: "/matching/results" },
     },
   };
-
-  return table[state];
 }
 
 /**
@@ -215,16 +168,15 @@ function useResultCopy(
  * nav and the site footer. Nothing is added or dropped — see `RESULT_CARD`.
  */
 export function PaymentResultScreen({
-  state,
   statusData,
 }: {
-  readonly state: Result;
   statusData: components["schemas"]["PaymentStatusDto"];
 }) {
   const t = useTranslations("payment");
-  const copy = useResultCopy(state, statusData);
-  const success = state === "success";
-  const slotTaken = state === "slot-taken";
+  const copy = useResultCopy(statusData);
+  const status = (statusData.chargeStatus as unknown as ChargeStatus).status;
+  const success = status === "success";
+  const slotTaken = status === "failed";
 
   return (
     <MobileScreen className="pt-6 lg:pt-0" wide>
@@ -259,7 +211,7 @@ export function PaymentResultScreen({
                 ) : null}
               </div>
             )}
-            {state === "unconfirmed" ? (
+            {status === "pending" ? (
               <p className="font-latin mt-4 w-full text-center text-heading font-semibold text-foreground lg:text-heading-lg">
                 {t("unconfirmedAmount")}
               </p>
@@ -290,7 +242,7 @@ export function PaymentResultScreen({
           {success ? (
             <FootNote icon={ShieldCheck}>{t("escrowNote")}</FootNote>
           ) : null}
-          {state === "failed" ? (
+          {status === "failed" ? (
             <FootNote icon={CircleCheckBig}>{t("failedHelp")}</FootNote>
           ) : null}
 
