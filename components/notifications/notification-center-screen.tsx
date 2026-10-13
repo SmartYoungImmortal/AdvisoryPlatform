@@ -36,7 +36,7 @@ import { cn } from "@/lib/utils";
  * green, a request needs an answer and is amber, a message is the accent, a
  * booking is informational.
  */
-export const KINDS = {
+const KINDS = {
   booking: "bg-info/10 text-info",
   message: "bg-accent-surface text-primary",
   money: "bg-success/12 text-success",
@@ -333,12 +333,11 @@ export function NotificationCenterScreen({
 }
 
 /**
- * The page around a feed — back control, heading band and footer — shared by the
- * fixture screen above and the API-backed one (`notifications-live.tsx`).
+ * The page layout around the list (back button, heading and footer), shared by the
+ * sample screen above and the API version (`notifications-live.tsx`).
  *
- * "Mark all read" sits beside the title in Figma's desktop head band. Copper
- * ruled on 2026-10-13 that the phone gets it too, so below `lg` it is its own
- * row under the heading.
+ * "Mark all read" sits next to the title on desktop, as in Figma. On the phone
+ * there is no room next to the title, so it gets its own row under the heading.
  */
 export function NotificationCenterFrame({
   advisor = false,

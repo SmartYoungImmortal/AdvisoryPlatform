@@ -27,12 +27,12 @@ import { DeclineScreeningDialog } from "@/components/screening/decline-dialog";
 import { isApiConfigured } from "@/lib/api/client";
 
 /**
- * Which version of each screening screen a route shows.
+ * Decides which version of each screening screen a route shows.
  *
- * With an id in the query string (`?serviceId=` / `?requestId=`) the screen reads
- * the API — the static export can only prerender fixture slugs, so ids ride in the
- * query string, as `components/bookings/booking-flow.ts` explains. Without one it
- * is the fixture the `/screens` index and the prototype click-through use.
+ * With an id in the query string (`?serviceId=` or `?requestId=`), the screen uses
+ * the API. The static export can only prerender fixed slugs, so ids go in the query
+ * string (see `components/bookings/booking-flow.ts`). Without an id, the route
+ * shows the sample screen used by the `/screens` index and the prototype.
  */
 
 export function ScreeningQuestionsRoute() {
@@ -52,7 +52,7 @@ export function ScreeningOutcomeRoute({
   return <ScreeningSubmittedScreen />;
 }
 
-/** The list has no id to carry, so it is live whenever the build has an API. */
+/** The list needs no id, so it uses the API whenever the build has one. */
 export function ScreeningRequestsRoute() {
   return isApiConfigured ? <LiveScreeningRequests /> : <ScreeningRequestsScreen />;
 }

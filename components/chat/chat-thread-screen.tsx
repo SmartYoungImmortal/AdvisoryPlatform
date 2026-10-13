@@ -12,8 +12,8 @@ import {
   pendingCopy,
   type ApiChatFile,
   type ApiChatMessage,
-  type CursorPage,
 } from "@/components/chat/chat-data";
+import type { CursorPage } from "@/lib/api/client";
 import { ChatList } from "@/components/chat/chat-inbox-screen";
 import {
   DayDivider,

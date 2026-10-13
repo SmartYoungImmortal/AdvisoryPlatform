@@ -25,10 +25,8 @@ import {
 } from "@/components/mobile/screen";
 import { StatusPill } from "@/components/mobile/status-pill";
 import { Surface } from "@/components/mobile/surface";
-import {
-  ScreeningErrorNotice,
-  ScreeningLoading,
-} from "@/components/screening/live-parts";
+import { LoadingBlock } from "@/components/mobile/live-state";
+import { ScreeningErrorNotice } from "@/components/screening/live-parts";
 import { DetailRow, StatusHero } from "@/components/screening/parts";
 import {
   adviseeScreeningPath,
@@ -44,14 +42,13 @@ import { getAdvisor, getService } from "@/lib/api/resources";
 import { invalidate, useResource } from "@/lib/api/use-resource";
 
 /**
- * The advisee's screening screens, read from and written to the API. Same frames
- * as `advisee-screens.tsx` — that file stays the fixture the `/screens` index
- * shows — with the advisor, the service and the questions taken from the
- * service in `?serviceId=`.
+ * The advisee's screening screens, connected to the API. They use the same Figma
+ * frames as `advisee-screens.tsx` (the sample version shown in `/screens`). The
+ * service comes from `?serviceId=`.
  *
- * Which of the four screens is right is the request's own state, so each one
- * sends the reader to the right one if they land on another (a stale link, the
- * back button after the advisor decided).
+ * Each screen checks the request's current status and redirects to the right screen
+ * if needed, for example after an old link or pressing back once the advisor has
+ * decided.
  */
 
 const COLUMN = "lg:[&>*]:mx-auto lg:[&>*]:w-full lg:[&>*]:max-w-[720px]";
@@ -62,7 +59,9 @@ interface ScreeningContext {
   readonly advisorName: string;
 }
 
-/** The screening state plus the two names the copy needs, in one cached read. */
+/**
+ * Loads the screening data and the two names the text needs, in one cached request.
+ */
 function useScreeningContext(serviceId: string) {
   const fetcher = useCallback(
     async (signal: AbortSignal): Promise<ScreeningContext> => {
@@ -74,8 +73,8 @@ function useScreeningContext(serviceId: string) {
       try {
         advisorName = (await getAdvisor(service.advisorId, signal)).displayName;
       } catch {
-        // An advisor who is not discoverable has no public name; the copy reads
-        // without one rather than the screen failing.
+        // If the advisor's profile is not public there is no name; show the text
+        // without it instead of failing.
       }
       return { screening, serviceName: service.name, advisorName };
     },
@@ -84,7 +83,7 @@ function useScreeningContext(serviceId: string) {
   return useResource(screeningKeys.service(serviceId), fetcher);
 }
 
-/** Replaces the URL when the request belongs on a different screen. */
+/** Redirects to the screen that matches the request's status. */
 function useScreeningRedirect(
   serviceId: string,
   context: ScreeningContext | undefined,
@@ -95,7 +94,7 @@ function useScreeningRedirect(
   useEffect(() => {
     if (!context) return;
     const status = context.screening.request?.status;
-    // The questions screen is where a declined or expired advisee applies again.
+    // A declined or expired request can be answered again on the questions screen.
     if (allowAnswering && status !== "PENDING" && status !== "ACCEPTED") return;
     const target = adviseeScreeningPath(serviceId, context.screening.request);
     if (!target.startsWith(`${pathname.replace(/\/$/, "")}?`)) {
@@ -151,7 +150,7 @@ export function LiveScreeningQuestions({ serviceId }: { readonly serviceId: stri
 
   let body;
   if (context.loading) {
-    body = <ScreeningLoading />;
+    body = <LoadingBlock />;
   } else if (context.error || !context.data) {
     body = (
       <ScreeningErrorNotice
@@ -160,8 +159,9 @@ export function LiveScreeningQuestions({ serviceId }: { readonly serviceId: stri
       />
     );
   } else if (!context.data.screening.screeningRequired || questions.length === 0) {
-    // A service that screens but has no questions yet (just created, say): keep the
-    // screen's title so the reader knows where they are, then say why there is no form.
+    // The service needs screening but has no questions yet (for example, it was
+    // just created). Keep the title so the user knows where they are, and explain
+    // why there is no form.
     body = (
       <>
         <div className="flex w-full shrink-0 flex-col items-start px-6 pt-2">
@@ -188,9 +188,8 @@ export function LiveScreeningQuestions({ serviceId }: { readonly serviceId: stri
           </p>
         </div>
 
-        {/* Figma "Form Fields": 8px top padding, 16px between rows. Every answer
-            is a textarea: the API has no short/long question type, and an answer
-            may run to 1,000 characters. */}
+        {/* Figma "Form Fields": 8px top padding, 16px between rows. Every answer is
+           a textarea because answers can be up to 1,000 characters. */}
         <div className="flex w-full shrink-0 flex-col items-start gap-4 px-6 pt-2">
           {questions.map((question, index) => {
             const id = `screen-${question.id}`;
@@ -242,9 +241,9 @@ export function LiveScreeningQuestions({ serviceId }: { readonly serviceId: stri
 /* ----------------------------------------------------------------- outcomes */
 
 /**
- * Figma "Advisee - Screening submitted / accepted / declined (Light)" —
- * 995:11668, 995:11708, 995:11750 — one component, because which of the three
- * is the request's state.
+ * Figma "Advisee - Screening submitted / accepted / declined (Light)" (995:11668,
+ * 995:11708, 995:11750). One component shows the right one for the request's
+ * status.
  */
 export function LiveScreeningOutcome({
   serviceId,
@@ -260,7 +259,7 @@ export function LiveScreeningOutcome({
 
   let body;
   if (context.loading) {
-    body = <ScreeningLoading />;
+    body = <LoadingBlock />;
   } else if (context.error || !context.data) {
     body = (
       <ScreeningErrorNotice
@@ -311,8 +310,8 @@ export function LiveScreeningOutcome({
       </>
     );
   } else if (outcome === "accepted") {
-    // The free-trial row and button wait for the Trial flow (decided 2026-10-03);
-    // until then the one way forward is choosing a paid time on the service.
+    // The free-trial row and button come later with the Trial flow. For now the
+    // only next step is booking a paid time on the service.
     body = (
       <>
         <StatusHero
@@ -343,8 +342,8 @@ export function LiveScreeningOutcome({
           subtitle={t("declinedSubtitle")}
           title={t("declinedTitle")}
         />
-        {/* Figma "Advisor Note" — only when the advisor wrote one (decided
-            2026-10-03: the decline message is optional). */}
+        {/* Figma "Advisor Note": shown only if the advisor wrote a decline message
+           (it is optional). */}
         {message ? (
           <div className="flex w-full shrink-0 flex-col items-start px-6 pt-8">
             <Surface className="flex w-full shrink-0 items-start gap-3 p-3.5" tier="well">
