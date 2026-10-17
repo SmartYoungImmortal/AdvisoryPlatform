@@ -7,6 +7,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint && node scripts/check-design-tokens.mjs && node scripts/check-a11y-render.mjs",
+    "test:e2e:auth": "playwright test",
     "lint:tokens": "node scripts/check-design-tokens.mjs",
     "lint:a11y": "node scripts/check-a11y-render.mjs",
     "preview": "next build && wrangler dev",
@@ -16,6 +17,7 @@
   "devDependencies": {
     "@fontsource-variable/geist": "^5.3.0",
     "@fontsource-variable/noto-sans-thai": "^5.3.0",
+    "@playwright/test": "^1.64.1",
     "@tailwindcss/postcss": "^4.3.3",
     "@types/node": "^26.1.2",
     "@types/react": "^19.2.18",
