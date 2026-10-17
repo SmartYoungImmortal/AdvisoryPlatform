@@ -51,11 +51,13 @@ export interface CursorPage<T> {
  */
 export class ApiError extends Error {
   readonly status: number;
+  readonly code?: string;
 
-  constructor(status: number, message: string) {
+  constructor(status: number, message: string, code?: string) {
     super(message);
     this.name = "ApiError";
     this.status = status;
+    this.code = code;
   }
 
   /** The session is missing or expired, and signing in again is the fix. */
@@ -153,7 +155,14 @@ async function unwrap<T>(response: Response, enveloped: boolean): Promise<T> {
       typeof (payload as { message: unknown }).message === "string"
         ? (payload as { message: string }).message
         : response.statusText || "Request failed";
-    throw new ApiError(response.status, message);
+    const code =
+      typeof payload === "object" &&
+      payload !== null &&
+      "code" in payload &&
+      typeof (payload as { code: unknown }).code === "string"
+        ? (payload as { code: string }).code
+        : undefined;
+    throw new ApiError(response.status, message, code);
   }
 
   if (!enveloped) return payload as T;

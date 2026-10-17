@@ -20,7 +20,7 @@ import {
   ScreenTopBar,
 } from "@/components/mobile/screen";
 import { Surface } from "@/components/mobile/surface";
-import { isEmail, passwordProblems, register, roleHome } from "@/lib/session";
+import { isEmail, passwordProblems, register } from "@/lib/session";
 import { cn } from "@/lib/utils";
 
 type Errors = Partial<
@@ -111,6 +111,10 @@ export function RegisterScreen({
       email,
       phone: "",
       password,
+      callbackURL: new URL(
+        `/email-verified?email=${encodeURIComponent(email.trim())}`,
+        window.location.origin,
+      ).toString(),
     });
     if (!result.ok) {
       setBusy(false);
@@ -121,14 +125,9 @@ export function RegisterScreen({
       setTrouble({ kind: result.reason, detail: result.message ?? null });
       return;
     }
-    // Into the app, not onto the privacy policy. The consent this form needs is
-    // the checkbox above, which already blocks submission until it is ticked;
-    // routing a new account to a document to press "accept" a second time
-    // recorded nothing and read as a step that could be failed.
-    //
-    // Still busy on the way out: the account exists and the session is live, so
-    // re-enabling the form would only offer to create it a second time.
-    router.push(roleHome(result.account.role));
+    // The account exists and the API sent its verification link. Keep the
+    // entered address visible so the user can resend from the next screen.
+    router.push(`/verification-sent?email=${encodeURIComponent(email.trim())}`);
   }
 
   const reveal = (

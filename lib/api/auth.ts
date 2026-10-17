@@ -111,11 +111,52 @@ export function signUp(
     readonly name: string;
     readonly fullName: string;
     readonly timezone?: string;
+    readonly callbackURL?: string;
   },
   signal?: AbortSignal,
 ): Promise<SignInResponse> {
   return api.post(`${AUTH}/sign-up/email`, {
     body: { timezone: "Asia/Bangkok", ...input },
+    signal,
+    unprefixed: true,
+  });
+}
+
+export interface AuthActionResponse {
+  readonly status: boolean;
+}
+
+/** `POST /api/auth/send-verification-email` — resend an unverified user's link. */
+export function sendVerificationEmail(
+  input: { readonly email: string; readonly callbackURL?: string },
+  signal?: AbortSignal,
+): Promise<AuthActionResponse> {
+  return api.post(`${AUTH}/send-verification-email`, {
+    body: input,
+    signal,
+    unprefixed: true,
+  });
+}
+
+/** `POST /api/auth/request-password-reset`; responds alike for known and unknown email. */
+export function requestPasswordReset(
+  input: { readonly email: string; readonly redirectTo?: string },
+  signal?: AbortSignal,
+): Promise<AuthActionResponse> {
+  return api.post(`${AUTH}/request-password-reset`, {
+    body: input,
+    signal,
+    unprefixed: true,
+  });
+}
+
+/** `POST /api/auth/reset-password` with the one-time emailed token. */
+export function resetPassword(
+  input: { readonly token: string; readonly newPassword: string },
+  signal?: AbortSignal,
+): Promise<AuthActionResponse> {
+  return api.post(`${AUTH}/reset-password`, {
+    body: input,
     signal,
     unprefixed: true,
   });
