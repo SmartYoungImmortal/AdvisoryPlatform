@@ -27,6 +27,71 @@ async function submitResetForm(page: Page, token: string) {
 }
 
 test.describe("password reset screen", () => {
+  test("requests a reset link and shows the submitted email", async ({ page }) => {
+    let submitted: unknown;
+    await page.route("http://localhost:3200/api/auth/request-password-reset", async (route) => {
+      submitted = route.request().postDataJSON();
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({ status: true }),
+      });
+    });
+
+    await page.goto("/forgot-password");
+    await page.getByRole("textbox", { name: "อีเมล" }).fill("reader@example.test");
+    await page.getByRole("button", { name: "ส่งลิงก์ตั้งรหัสผ่านใหม่" }).click();
+
+    await expect(page).toHaveURL(/\/reset-sent\?email=reader%40example\.test$/);
+    await expect(page.getByText("reader@example.test")).toBeVisible();
+    expect(submitted).toEqual({
+      email: "reader@example.test",
+      redirectTo: "http://localhost:3001/reset-password",
+    });
+  });
+
+  test("resends a reset link from the confirmation screen", async ({ page }) => {
+    let submitted: unknown;
+    await page.route("http://localhost:3200/api/auth/request-password-reset", async (route) => {
+      submitted = route.request().postDataJSON();
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({ status: true }),
+      });
+    });
+
+    await page.goto("/reset-sent?email=reader%40example.test");
+    await page.getByRole("button", { name: "ส่งลิงก์อีกครั้ง" }).click();
+
+    await expect(page.getByText("ส่งอีเมลอีกครั้งแล้ว")).toBeVisible();
+    expect(submitted).toEqual({
+      email: "reader@example.test",
+      redirectTo: "http://localhost:3001/reset-password",
+    });
+  });
+
+  test("resends verification to the email shown on the confirmation screen", async ({ page }) => {
+    let submitted: unknown;
+    await page.route("http://localhost:3200/api/auth/send-verification-email", async (route) => {
+      submitted = route.request().postDataJSON();
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({ status: true }),
+      });
+    });
+
+    await page.goto("/verification-sent?email=reader%40example.test");
+    await page.getByRole("button", { name: "ส่งลิงก์ยืนยันอีกครั้ง" }).click();
+
+    await expect(page.getByText("ส่งลิงก์ยืนยันอีกครั้งแล้ว")).toBeVisible();
+    expect(submitted).toEqual({
+      email: "reader@example.test",
+      callbackURL: "http://localhost:3001/email-verified?email=reader%40example.test",
+    });
+  });
+
   test("sends the emailed token and shows success after the API accepts it", async ({
     page,
   }) => {
