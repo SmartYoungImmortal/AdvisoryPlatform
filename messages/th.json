@@ -2379,7 +2379,8 @@
     "saveChanges": "บันทึกการแก้ไข",
     "deleteDialogTitle": "ลบบริการนี้?",
     "deleteDialogBody": "“{name}” จะถูกลบถาวร บริการจะหายจากการค้นหาทันที การจองที่ชำระเงินแล้วจะยังดำเนินต่อจนเสร็จสิ้น",
-    "deleteConfirm": "ลบบริการ"
+    "deleteConfirm": "ลบบริการ",
+    "durationLabel": "ระยะเวลา (นาที)"
   },
   "serviceSchedule": {
     "title": "ตารางเวลาของบริการ",
@@ -2591,4 +2592,4 @@
     "cachedNoteSyncing": "กำลังอัปเดตข้อมูลล่าสุด",
     "cachedNoteOffline": "อัปเดตล่าสุด 09:12 น."
   }
-}
+}\n
