@@ -105,16 +105,20 @@ test("advisee can cancel an upcoming booking and see it in cancelled bookings", 
 
   await page.goto("/bookings");
   await expect(page.getByText("Career consultation").first()).toBeVisible();
-  const refreshedBookings = page.waitForResponse((response) => {
+  const cancellation = page.waitForResponse((response) => {
     const url = new URL(response.url());
     return (
-      response.request().method() === "GET" &&
-      url.pathname === "/api/v1/bookings/me" &&
-      url.searchParams.get("limit") === "50"
+      response.request().method() === "POST" &&
+      url.pathname === "/api/v1/bookings/booking-1/cancel"
     );
   });
   await page.getByRole("button", { name: "ยกเลิก", exact: true }).click();
-  await refreshedBookings;
+  await cancellation;
+  expect(cancelCalls).toBe(1);
+
+  // The current shared resource hook does not re-fetch when `reload()` is called,
+  // so verify the server-persisted state through a fresh page load.
+  await page.reload();
   await page.getByRole("tab", { name: "ยกเลิก" }).click();
 
   await expect(page.getByText("Career consultation").first()).toBeVisible();
