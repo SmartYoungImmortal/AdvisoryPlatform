@@ -25,7 +25,8 @@ import {
 } from "@/components/profile/account-chrome";
 import { useAccount } from "@/components/session/account-bits";
 import { TopBar } from "@/components/topbar";
-import { getDatabase } from "@/lib/mock-db/store";
+import { ApiError } from "@/lib/api/client";
+import { requestEmailChange } from "@/lib/api/account";
 import { isEmail } from "@/lib/session";
 import { cn } from "@/lib/utils";
 
@@ -65,7 +66,7 @@ function EmailCard({
 }
 
 /** What stopped the form, at most one at a time. */
-type Problem = "in-use" | "invalid-email" | "same-email" | "wrong-password";
+type Problem = "in-use" | "invalid-email" | "same-email" | "request-failed";
 
 /**
  * The pending address `ChangeEmailScreen` hands on, read straight off the URL.
@@ -90,12 +91,9 @@ const noPendingEmail = () => null;
  * beside the fields instead of above them, so the reader can compare the two
  * as they type.
  *
- * The form checks the mock database: the address has to parse, has to differ
- * from the one in use, and must not belong to another account; the password
- * has to be the signed-in account's. Nothing is written — both frames say the
- * change only lands when the link in the new inbox is opened — so a pass hands
- * the pending address to the verify screen and stops there. `state` only seeds
- * the in-use frame so its route still opens on it; typing clears it.
+ * The API sends a confirmation link to the current address and then a
+ * verification link to the new address. The address changes only after both
+ * links are opened. `state` only seeds the in-use visual state.
  */
 export function ChangeEmailScreen({
   state = "default",
@@ -109,7 +107,7 @@ export function ChangeEmailScreen({
   const seeded = state === "in-use";
 
   const [email, setEmail] = useState(seeded ? t("inUseValue") : "");
-  const [password, setPassword] = useState("");
+  const [submitting, setSubmitting] = useState(false);
   const [problem, setProblem] = useState<Problem | null>(seeded ? "in-use" : null);
 
   const currentEmail = account?.email ?? c("emailValue");
@@ -120,7 +118,7 @@ export function ChangeEmailScreen({
   else if (problem === "invalid-email") emailError = t("invalidEmail");
   else if (problem === "same-email") emailError = t("sameEmail");
 
-  function submit(event: FormEvent<HTMLFormElement>) {
+  async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const next = email.trim().toLowerCase();
     if (!isEmail(next)) {
@@ -131,17 +129,19 @@ export function ChangeEmailScreen({
       setProblem("same-email");
       return;
     }
-    if (getDatabase().accounts.some((a) => a.email.toLowerCase() === next)) {
-      setProblem("in-use");
-      return;
+    try {
+      setSubmitting(true);
+      await requestEmailChange(next, `/settings/email/verify?to=${encodeURIComponent(next)}`);
+      router.push(`/settings/email/verify?to=${encodeURIComponent(next)}`);
+    } catch (error) {
+      if (error instanceof ApiError && [400, 409].includes(error.status)) {
+        setProblem("in-use");
+      } else {
+        setProblem("request-failed");
+      }
+    } finally {
+      setSubmitting(false);
     }
-    // A signed-out visitor has no password to check against — the exported HTML
-    // is still clickable through to the frame that follows.
-    if (account && password !== account.password) {
-      setProblem("wrong-password");
-      return;
-    }
-    router.push(`/settings/email/verify?to=${encodeURIComponent(next)}`);
   }
 
   return (
@@ -168,9 +168,9 @@ export function ChangeEmailScreen({
           noValidate
           onSubmit={submit}
         >
-          {inUse ? (
+          {inUse || problem === "request-failed" ? (
             <AlertBanner
-              body={t("inUseBody", { email: email.trim() || t("inUseValue") })}
+              body={inUse ? t("inUseBody", { email: email.trim() || t("inUseValue") }) : "ส่งคำขอไม่สำเร็จ กรุณาลองอีกครั้ง"}
               className="lg:px-0"
               icon={Mail}
               title={t("inUseTitle")}
@@ -208,20 +208,6 @@ export function ChangeEmailScreen({
                 type="email"
                 value={email}
               />
-              <Field
-                autoComplete="current-password"
-                error={problem === "wrong-password" ? t("wrongPassword") : undefined}
-                id="confirm-password"
-                invalid={problem === "wrong-password"}
-                label={t("passwordLabel")}
-                onChange={(event) => {
-                  setPassword(event.target.value);
-                  setProblem(null);
-                }}
-                placeholder={t("passwordPlaceholder")}
-                type="password"
-                value={password}
-              />
             </div>
           </div>
 
@@ -231,7 +217,7 @@ export function ChangeEmailScreen({
           <ScreenActions className="lg:flex-row-reverse lg:justify-start lg:px-0 lg:pt-8 lg:pb-0">
             <PrimaryButton
               className="disabled:opacity-40 lg:h-11 lg:w-[210px]"
-              disabled={!email.trim() || !password}
+              disabled={!email.trim() || submitting}
               type="submit"
             >
               {t("submit")}
@@ -264,13 +250,25 @@ export function VerifyEmailScreen() {
   const t = useTranslations("verifyEmail");
   const c = useTranslations("common");
   const account = useAccount();
+  const [resending, setResending] = useState(false);
+  const [resendStatus, setResendStatus] = useState<"sent" | "failed" | null>(null);
 
   const pending = useSyncExternalStore(subscribeNever, readPendingEmail, noPendingEmail);
 
   const email = pending ?? t("pendingFallback");
-  const resend = pending
-    ? `/settings/email/verify?to=${encodeURIComponent(pending)}`
-    : "/settings/email/verify";
+  async function resend() {
+    if (!pending) return;
+    setResending(true);
+    setResendStatus(null);
+    try {
+      await requestEmailChange(pending, `/settings/email/verify?to=${encodeURIComponent(pending)}`);
+      setResendStatus("sent");
+    } catch {
+      setResendStatus("failed");
+    } finally {
+      setResending(false);
+    }
+  }
 
   return (
     <MobileScreen wide>
@@ -319,11 +317,12 @@ export function VerifyEmailScreen() {
               only as tall as its content, so the stack turns into Figma's
               centred row of 210px buttons. */}
           <ScreenSpacer className="lg:hidden" />
+          {resendStatus ? <p role="status" className="px-6 pt-3 text-sm text-muted-foreground">{resendStatus === "sent" ? "ส่งอีเมลยืนยันอีกครั้งแล้ว" : "ส่งอีเมลไม่สำเร็จ กรุณาลองอีกครั้ง"}</p> : null}
           <ScreenActions className="lg:flex-row lg:justify-center lg:px-0 lg:pt-14 lg:pb-8">
             <PrimaryButton className="lg:w-[210px]" href="/settings">
               {t("backToSettings")}
             </PrimaryButton>
-            <NeutralButton className="lg:w-[210px]" href={resend}>
+            <NeutralButton className="lg:w-[210px]" disabled={!pending || resending} onClick={resend} type="button">
               {t("resend")}
             </NeutralButton>
           </ScreenActions>
