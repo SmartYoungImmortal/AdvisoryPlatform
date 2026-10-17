@@ -1,4 +1,8 @@
+"use client";
+
 import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { useState } from "react";
 import { CalendarClock, Globe, Info } from "lucide-react";
 import { useTranslations } from "next-intl";
 import type { ReactNode } from "react";
@@ -12,17 +16,14 @@ import {
   ScreenBody,
   ScreenTopBar,
 } from "@/components/mobile/screen";
-import { StatusPill } from "@/components/mobile/status-pill";
 import { Surface, surfaceClass } from "@/components/mobile/surface";
 import { ThaiText } from "@/components/mobile/thai-text";
 import { TopBar } from "@/components/topbar";
 import { READING_COLUMN, SPLIT_WITH_ASIDE } from "@/lib/layout";
 import { cn } from "@/lib/utils";
-import {
-  AVAILABILITY_PROFILES,
-  type AvailabilityProfileFixture,
-  type ProfilesScreenState,
-} from "@/lib/availability/profiles";
+import { availabilityApi, type AvailabilityProfile } from "@/lib/availability/api";
+import { invalidate, useResource } from "@/lib/api/use-resource";
+import type { AvailabilityProfileFixture, ProfilesScreenState, Weekday } from "@/lib/availability/profiles";
 
 /**
  * Figma "Back Bar" (1994:28375) and "Head Band" (1994:28378) — the 52px row
@@ -35,11 +36,6 @@ const HEAD_BAND = "w-full shrink-0 lg:border-b lg:border-border lg:bg-card";
 const COLUMN = cn(READING_COLUMN, "lg:px-0");
 
 /** How many Services point at a profile at all — the sum the list itself states. */
-const SERVICES_ON_PROFILES = AVAILABILITY_PROFILES.reduce(
-  (total, profile) => total + profile.serviceCount,
-  0,
-);
-
 /** Figma "Note" — the tinted accent strip both states close on. */
 function Note({ children }: { readonly children: string }) {
   return (
@@ -65,7 +61,7 @@ function AddProfileButton({ label }: { readonly label: ReactNode }) {
   return (
     <Link
       className="flex w-full shrink-0 items-center justify-center gap-2 overflow-clip rounded-card border border-dashed border-border bg-muted p-3.5 text-sm font-medium text-primary transition-colors hover:bg-accent-surface"
-      href="/availability/profiles"
+      href="/availability/profiles/new/from-list"
     >
       {label}
     </Link>
@@ -83,10 +79,8 @@ function AddProfileButton({ label }: { readonly label: ReactNode }) {
  * is explicit so the phone's reading order (timezone, week, dates, services) is
  * the DOM order at both widths.
  */
-function ProfileCard({
-  profile,
-}: {
-  readonly profile: AvailabilityProfileFixture;
+function ProfileCard({ profile }: {
+  readonly profile: Omit<AvailabilityProfileFixture, "isDefault">;
 }) {
   const t = useTranslations("availability");
 
@@ -103,30 +97,20 @@ function ProfileCard({
         <h2 className="min-w-px flex-1 text-base font-medium text-foreground">
           {profile.name}
         </h2>
-        {profile.isDefault ? (
-          <StatusPill tone="accent">{t("defaultBadge")}</StatusPill>
-        ) : null}
         <Link
           className="shrink-0 text-sm font-medium whitespace-nowrap text-primary transition-colors hover:underline"
-          href="/availability/profiles"
+          href={`/availability/profiles/edit?id=${encodeURIComponent(profile.id)}`}
         >
           {t("edit")}
         </Link>
-        {/* The default profile is what every Service falls back to, so its delete is
-            present but inert — the frame draws it at half opacity rather than hiding
-            it, which keeps the two cards' rows the same shape. */}
-        {profile.isDefault ? (
-          <span className="shrink-0 text-sm font-medium whitespace-nowrap text-muted-foreground opacity-50">
-            {t("delete")}
-          </span>
-        ) : (
+        {profile.serviceCount === 0 ? (
           <Link
             className="shrink-0 text-sm font-medium whitespace-nowrap text-destructive transition-colors hover:underline"
-            href="/availability/profiles/delete"
+            href={`/availability/profiles/delete?id=${encodeURIComponent(profile.id)}`}
           >
             {t("delete")}
           </Link>
-        )}
+        ) : null}
       </div>
 
       {/* Three auto rows plus a filling one: the week spans them all, and without
@@ -145,7 +129,7 @@ function ProfileCard({
         >
           <Globe className="size-4 shrink-0 text-muted-foreground" />
           <p className="min-w-px flex-1 font-latin text-sm font-normal text-foreground">
-            {profile.timezone}
+            เขตเวลาของอุปกรณ์ · {profile.timezone}
           </p>
         </Surface>
 
@@ -156,13 +140,11 @@ function ProfileCard({
 
         <Link
           className="w-full text-sm font-medium text-primary transition-colors hover:underline lg:col-start-1 lg:row-start-2"
-          href="/availability/profiles"
+          href={`/availability/profiles/add-date?id=${encodeURIComponent(profile.id)}`}
         >
           {t("addSpecificDate")}
         </Link>
-        <p className="w-full text-xs font-normal text-muted-foreground lg:col-start-1 lg:row-start-3">
-          {t("usedByServices", { count: profile.serviceCount })}
-        </p>
+        <p className="w-full text-xs font-normal text-muted-foreground lg:col-start-1 lg:row-start-3">{t("usedByServices", { count: profile.serviceCount })}</p>
       </div>
     </article>
   );
@@ -184,7 +166,29 @@ export function ProfilesScreen({
 }) {
   const t = useTranslations("availability");
   const c = useTranslations("common");
-  const isEmpty = state === "empty";
+  const router = useRouter();
+  const resource = useResource<AvailabilityProfile[]>("availability/profiles", (signal) => availabilityApi.getProfiles(signal));
+  const usageResource = useResource<Map<string, number>>("advisors/me/services", (signal) => availabilityApi.getProfileServiceUsage(signal));
+  const [deleteError, setDeleteError] = useState<string | null>(null);
+  const selectedId = typeof window === "undefined" ? "" : new URLSearchParams(window.location.search).get("id") ?? "";
+  const profiles = resource.data ?? [];
+  const isEmpty = !resource.loading && !usageResource.loading && !resource.error && !usageResource.error && profiles.length === 0;
+  const selected = profiles.find((profile) => profile.id === selectedId);
+  const profileWindows = (profile: AvailabilityProfile): Partial<Record<Weekday, string>> => {
+    const days = ["mon", "tue", "wed", "thu", "fri", "sat", "sun"] as const;
+    const windows: Partial<Record<Weekday, string>> = {};
+    days.forEach((day, index) => {
+      const ranges = profile.weeklyWindows.filter((window) => window.dayOfWeek === index + 1);
+      if (ranges.length) windows[day] = ranges.map((window) => `${window.startTime}–${window.endTime}`).join(", ");
+    });
+    return windows;
+  };
+  const remove = async () => {
+    if (!selected) return;
+    setDeleteError(null);
+    try { await availabilityApi.deleteProfile(selected.id); invalidate("availability/profiles"); resource.reload(); router.push("/availability/profiles"); }
+    catch (cause) { setDeleteError(cause instanceof Error ? cause.message : "ลบชุดเวลาว่างไม่สำเร็จ"); }
+  };
 
   return (
     // Figma "Desktop / Availability - Profiles (Light)" (1994:28352) and its
@@ -209,19 +213,11 @@ export function ProfilesScreen({
                 full-width white slab holding two lines of text; the figures are
                 already in the fixture and every card below repeats a piece of
                 them. `lg:` only — the phone's heading is unchanged. */}
-            {isEmpty ? null : (
-              <p className="hidden font-latin text-sm font-normal text-muted-foreground lg:block">
-                {t("profilesMeta", {
-                  profiles: AVAILABILITY_PROFILES.length,
-                  services: SERVICES_ON_PROFILES,
-                })}
-              </p>
-            )}
           </div>
         </div>
 
         <div className={cn("flex w-full shrink-0 flex-col items-start gap-2.5 overflow-clip px-6", COLUMN, "lg:pt-12")}>
-          {isEmpty ? (
+          {resource.loading || usageResource.loading ? <Surface className="w-full p-6"><p role="status">กำลังโหลดชุดเวลาว่าง…</p></Surface> : resource.error || usageResource.error ? <Surface className="w-full p-6"><p role="alert" className="text-destructive">{(resource.error ?? usageResource.error)?.message}</p><button className="mt-3 text-primary underline" onClick={() => { resource.reload(); usageResource.reload(); }} type="button">ลองอีกครั้ง</button></Surface> : isEmpty ? (
             /* Figma "Empty" — a single card carrying the centred explanation, now
                the app's one `EmptyState`: same two lines, with the mark and the
                18px title an empty screen is supposed to lead with. */
@@ -233,8 +229,8 @@ export function ProfilesScreen({
               />
             </Surface>
           ) : (
-            AVAILABILITY_PROFILES.map((profile) => (
-              <ProfileCard key={profile.id} profile={profile} />
+            profiles.map((profile) => (
+              <ProfileCard key={profile.id} profile={{ id: profile.id, name: profile.name, timezone: Intl.DateTimeFormat().resolvedOptions().timeZone, windows: profileWindows(profile), serviceCount: usageResource.data?.get(profile.id) ?? 0 }} />
             ))
           )}
 
@@ -246,7 +242,7 @@ export function ProfilesScreen({
         <SiteFooter className="mt-auto hidden lg:flex" />
       </ScreenBody>
 
-      {state === "delete" ? <DeleteProfileDialog /> : null}
+      {state === "delete" && selected ? <DeleteProfileDialog profileName={selected.name} error={deleteError} onDelete={() => void remove()} /> : null}
     </MobileScreen>
   );
 }
