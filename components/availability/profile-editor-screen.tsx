@@ -28,6 +28,7 @@ import { ThaiText } from "@/components/mobile/thai-text";
 import { NeutralButton } from "@/components/mobile/buttons";
 import { TopBar } from "@/components/topbar";
 import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { READING_COLUMN } from "@/lib/layout";
 import { cn } from "@/lib/utils";
@@ -75,6 +76,10 @@ function rangeMinutes(range: TimeRange): number {
   const [startHour, startMinute] = range.start.split(":").map(Number);
   const [endHour, endMinute] = range.end.split(":").map(Number);
   return endHour * 60 + endMinute - (startHour * 60 + startMinute);
+}
+
+function timeInputValue(value: string): string {
+  return value.slice(0, 5);
 }
 
 /**
@@ -183,11 +188,13 @@ function TimeTrigger({
   invalid = false,
   open = false,
   name,
+  valueChanged,
 }: {
   readonly value: string;
   readonly invalid?: boolean;
   readonly open?: boolean;
   readonly name?: string;
+  readonly valueChanged?: (value: string) => void;
 }) {
   return (
     <span
@@ -198,7 +205,7 @@ function TimeTrigger({
         !invalid && !open && "border-border",
       )}
     >
-      {name ? <input aria-label={name} className="min-w-px flex-1 bg-transparent font-latin text-sm font-medium text-foreground outline-none" name={name} type="time" defaultValue={value || undefined} /> : <span className="min-w-px flex-1 font-latin text-sm font-medium text-foreground">{value}</span>}
+      {name ? <input aria-label={name} className="min-w-px flex-1 bg-transparent font-latin text-sm font-medium text-foreground outline-none" name={name} type="time" value={value} onChange={(event) => valueChanged?.(event.currentTarget.value)} /> : <span className="min-w-px flex-1 font-latin text-sm font-medium text-foreground">{value}</span>}
       <ChevronDown className="size-3.5 shrink-0 text-muted-foreground" />
     </span>
   );
@@ -220,27 +227,24 @@ function RangeRow({
   readonly startName?: string;
   readonly endName?: string;
 }) {
+  const [start, setStart] = useState(range.start);
+  const [end, setEnd] = useState(range.end);
   return (
     // Bounded at `lg`: inside the 800px panel the two triggers were 340px each to
     // hold "09:00", which is a time field pretending to be a search bar.
     <div className="flex w-full shrink-0 items-center gap-2 lg:max-w-96">
-      <TimeTrigger invalid={invalid} name={startName} value={range.start} />
+      <TimeTrigger invalid={invalid} name={startName} value={start} valueChanged={setStart} />
       <span className="shrink-0 text-sm font-normal whitespace-nowrap text-muted-foreground">
         –
       </span>
       {/* The popover anchors to the end trigger, so that half of the row — and only
           that half — becomes the positioning context. */}
       <span className="relative flex min-w-px flex-1 items-center">
-        <TimeTrigger invalid={invalid} name={endName} open={picker} value={range.end} />
-        {picker ? <TimePickerPopover /> : null}
+        <TimeTrigger invalid={invalid} name={endName} open={picker} value={end} valueChanged={setEnd} />
+        {picker ? <TimePickerPopover value={end} onSelect={setEnd} /> : null}
       </span>
       {removable ? (
-        <span
-          aria-hidden
-          className="flex size-7 shrink-0 items-center justify-center overflow-clip text-base font-medium text-muted-foreground"
-        >
-          ×
-        </span>
+        <Button type="button" variant="ghost" size="icon-xs" aria-label="Remove time range" onClick={() => { setStart(""); setEnd(""); }} className="text-muted-foreground">×</Button>
       ) : null}
     </div>
   );
@@ -273,24 +277,6 @@ function EditorCard({
     >
       {children}
     </div>
-  );
-}
-
-/** Figma "+ เพิ่ม…" — the accent link that closes a card or a list. */
-function AddLink({
-  children,
-  href,
-}: {
-  readonly children: ReactNode;
-  readonly href: string;
-}) {
-  return (
-    <Link
-      className="w-full text-sm font-medium text-primary transition-colors hover:underline"
-      href={href}
-    >
-      {children}
-    </Link>
   );
 }
 
@@ -438,9 +424,10 @@ function WeeklyTab({
   readonly picker?: boolean;
 }) {
   const t = useTranslations("availability");
+  const [extraRangeCount, setExtraRangeCount] = useState<Record<string, number>>({});
   const create = isCreate(mode);
   const days = WEEKLY_DAYS.map(({ day }, index) => {
-    const persisted = profile?.weeklyWindows.filter((window) => window.dayOfWeek === index + 1).map(({ startTime, endTime }) => ({ start: startTime, end: endTime }));
+    const persisted = profile?.weeklyWindows.filter((window) => window.dayOfWeek === index + 1).map(({ startTime, endTime }) => ({ start: timeInputValue(startTime), end: timeInputValue(endTime) }));
     const ranges = persisted ?? (create ? PRESET_WEEKLY_DAYS[index]?.ranges ?? [] : []);
     return { day, ranges };
   });
@@ -506,7 +493,10 @@ function WeeklyTab({
                 removable={shown.length > 1}
               />
             ))}
-            <RangeRow range={{ start: "", end: "" }} startName={`weeklyStart-${day}-new`} endName={`weeklyEnd-${day}-new`} removable={false} />
+            {Array.from({ length: extraRangeCount[day] ?? 1 }, (_, extraIndex) => {
+              const index = shown.length + extraIndex;
+              return <RangeRow key={`new-${day}-${extraIndex}`} range={{ start: "", end: "" }} startName={`weeklyStart-${day}-${index}`} endName={`weeklyEnd-${day}-${index}`} removable={extraIndex > 0} />;
+            })}
 
             {dayInvalid ? (
               <p className="w-full text-xs font-normal text-destructive">
@@ -519,11 +509,7 @@ function WeeklyTab({
               </p>
             ) : null}
 
-            {isOpen ? (
-              <AddLink href={create ? CREATE_TAB_HREF.weekly : TAB_HREF.weekly}>
-                {t("addRange")}
-              </AddLink>
-            ) : null}
+            {isOpen ? <Button type="button" variant="link" className="h-auto justify-start p-0 text-sm" onClick={() => setExtraRangeCount((current) => ({ ...current, [day]: (current[day] ?? 1) + 1 }))}>{t("addRange")}</Button> : null}
           </EditorCard>
         );
       })}
@@ -563,7 +549,7 @@ function SpecificTab({ mode, profile, profileId = "", addingDate = false }: { re
             {windows.map((window, index) => (
               <RangeRow
                 key={`${window.startTime}-${window.endTime}`}
-                range={{ start: window.startTime, end: window.endTime }}
+                range={{ start: timeInputValue(window.startTime), end: timeInputValue(window.endTime) }}
                 startName={`specificStart-${date}-${index}`}
                 endName={`specificEnd-${date}-${index}`}
                 removable={false}
@@ -631,7 +617,7 @@ function BlockedTab({ mode, profile }: { readonly mode: EditorMode; readonly pro
                 />
               </div>
               {!wholeDay ? (
-                <RangeRow range={{ start: date.startTime ?? "", end: date.endTime ?? "" }} startName={`blockedStart-${index}`} endName={`blockedEnd-${index}`} removable={false} />
+              <RangeRow range={{ start: timeInputValue(date.startTime ?? ""), end: timeInputValue(date.endTime ?? "") }} startName={`blockedStart-${index}`} endName={`blockedEnd-${index}`} removable={false} />
               ) : null}
             </EditorCard>
           );
@@ -709,8 +695,9 @@ export function ProfileEditorScreen({
     try {
       const weeklyWindows: WeeklyAvailabilityWindow[] = tab === "weekly" ? WEEKLY_DAYS.flatMap(({ day }, index) => {
         if (form.get(`dayOpen-${day}`) !== "on") return [];
-        const persisted = profile?.weeklyWindows.filter((window) => window.dayOfWeek === index + 1).map(({ startTime, endTime }) => ({ startTime, endTime })) ?? (create ? PRESET_WEEKLY_DAYS[index]?.ranges.map((range) => ({ startTime: range.start, endTime: range.end })) ?? [] : []);
-        const ranges = [...persisted.map((_, rangeIndex) => parseRange(form.get(`weeklyStart-${day}-${rangeIndex}`), form.get(`weeklyEnd-${day}-${rangeIndex}`))), parseRange(form.get(`weeklyStart-${day}-new`), form.get(`weeklyEnd-${day}-new`))].filter((range): range is { startTime: string; endTime: string } => range !== null);
+        let rangeCount = 0;
+        while (form.has(`weeklyStart-${day}-${rangeCount}`)) rangeCount += 1;
+        const ranges = Array.from({ length: rangeCount }, (_, rangeIndex) => parseRange(form.get(`weeklyStart-${day}-${rangeIndex}`), form.get(`weeklyEnd-${day}-${rangeIndex}`))).filter((range): range is { startTime: string; endTime: string } => range !== null);
         return ranges.map((range) => ({ ...range, dayOfWeek: index + 1 }));
       }) : [...(profile?.weeklyWindows ?? (create ? PRESET_WEEKLY_DAYS.flatMap((day, index) => day.ranges.map((range) => ({ dayOfWeek: index + 1, startTime: range.start, endTime: range.end }))) : []))];
       const removedSpecific = new Set(form.getAll("removeSpecificDate").filter((value): value is string => typeof value === "string"));

@@ -22,7 +22,7 @@ import {
  * of the things that shadow exists for, and it replaces the wide `shadow-lift`
  * wash, which is the hero treatment and read as fog under a 208px list.
  */
-export function TimePickerPopover() {
+export function TimePickerPopover({ value, onSelect }: { readonly value: string; readonly onSelect: (value: string) => void }) {
   const t = useTranslations("availability");
 
   return (
@@ -37,13 +37,11 @@ export function TimePickerPopover() {
       </p>
       <ul className="flex max-h-60 flex-col overflow-y-auto">
         {END_TIME_OPTIONS.map((option) => (
-          <li
-            className={cn(
-              "flex shrink-0 items-center gap-2 px-3 py-2",
-              option.time === PICKED_END_TIME ? "bg-accent-surface" : null,
-            )}
-            key={option.time}
-          >
+          <li key={option.time}>
+            <button type="button" aria-pressed={option.time === value} onClick={() => onSelect(option.time)} className={cn(
+              "flex w-full shrink-0 items-center gap-2 px-3 py-2 text-left hover:bg-muted",
+              option.time === value || (!value && option.time === PICKED_END_TIME) ? "bg-accent-surface" : null,
+            )}>
             <span className="min-w-px flex-1 font-latin text-sm font-normal text-foreground">
               {option.time}
             </span>
@@ -52,6 +50,7 @@ export function TimePickerPopover() {
                 ? t("minutes", { count: option.minutes })
                 : t("hoursDecimal", { hours: option.minutes / 60 })}
             </span>
+            </button>
           </li>
         ))}
       </ul>
