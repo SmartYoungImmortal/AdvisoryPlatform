@@ -46,7 +46,7 @@ export function DeleteServiceDialog({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const id = serviceId ?? record?.serviceId ?? "";
-  const name = serviceName ?? record?.service.title ?? "service";
+  const name = serviceName ?? record?.service.title ?? t("unnamedService");
   const back = `/advisor/services/manage?serviceId=${encodeURIComponent(id)}`;
 
   async function remove() {
@@ -58,7 +58,7 @@ export function DeleteServiceDialog({
       invalidate("advisors/me/services");
       router.push("/advisor/services");
     } catch (cause) {
-      setError(cause instanceof ApiError ? cause.message : "Could not reach the service API. Check your connection and retry.");
+      setError(cause instanceof ApiError ? cause.message : t("apiUnavailable"));
       setBusy(false);
     }
   }
@@ -86,7 +86,7 @@ export function DeleteServiceDialog({
           <NeutralButton className="flex-1" href={back}>
             {c("cancel")}
           </NeutralButton>
-          <DestructiveButton className="flex-1" type="button" disabled={busy} onClick={() => void remove()}>{busy ? "Deleting…" : t("deleteConfirm")}</DestructiveButton>
+          <DestructiveButton className="flex-1" type="button" disabled={busy} onClick={() => void remove()}>{busy ? t("deleting") : t("deleteConfirm")}</DestructiveButton>
         </AlertDialogFooter>
       </AlertDialogContent>
     </AlertDialog>

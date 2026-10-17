@@ -390,7 +390,7 @@ export function ServiceFormScreen({
     const profileId = selectedProfile || apiRecord?.availabilityProfileId || "";
     const categoryId = selectedCategory || apiRecord?.categoryId || "";
     if (!name || !categoryId || !profileId || !Number.isInteger(price) || price < 0 || !Number.isInteger(duration) || duration < 1) {
-      setProblem("Enter a service name, category, availability profile, valid price and duration.");
+      setProblem(t("validationError"));
       return;
     }
     setSaving(true);
@@ -402,7 +402,7 @@ export function ServiceFormScreen({
       invalidate("advisors/me/services");
       router.push(`/advisor/services/view?serviceId=${encodeURIComponent(saved.id)}`);
     } catch (error) {
-      setProblem(error instanceof ApiError ? error.message : "Could not reach the service API. Check your connection and retry.");
+      setProblem(error instanceof ApiError ? error.message : t("apiUnavailable"));
     } finally { setSaving(false); }
   }
 
@@ -415,7 +415,7 @@ export function ServiceFormScreen({
       invalidate(`advisors/me/services/${resolvedServiceId}`);
       liveService.reload();
     } catch (error) {
-      setProblem(error instanceof ApiError ? error.message : "Could not reach the service API. Check your connection and retry.");
+      setProblem(error instanceof ApiError ? error.message : t("apiUnavailable"));
     } finally { setSaving(false); }
   }
 
@@ -434,7 +434,7 @@ export function ServiceFormScreen({
         name="publish"
         value="true"
       >
-        {saving ? "Saving…" : edit ? t("saveChanges") : t("publish")}
+        {saving ? t("saving") : edit ? t("saveChanges") : t("publish")}
       </PrimaryButton>
     </>
   );
@@ -453,8 +453,8 @@ export function ServiceFormScreen({
       <form id="advisor-service-form" key={apiRecord?.modifiedAt ?? "new"} onSubmit={(event) => void submit(event, true)}>
       <ScreenBody className="gap-4 pb-6 lg:gap-0 lg:pb-0">
         {problem ? <p className="mx-6 mt-4 rounded-card border border-destructive/30 p-3 text-sm" role="alert">{problem}</p> : null}
-        {profiles.error || categories.error || (edit && liveService.error) ? <div className="mx-6 mt-4 rounded-card border border-destructive/30 p-3 text-sm" role="alert"><p>{(profiles.error ?? categories.error ?? liveService.error)?.message}</p><button className="mt-2 text-primary underline" type="button" onClick={() => { profiles.reload(); categories.reload(); liveService.reload(); }}>Retry</button></div> : null}
-        {edit && liveService.loading ? <p className="mx-6 mt-4 text-sm text-muted-foreground" role="status">Loading service…</p> : null}
+        {profiles.error || categories.error || (edit && liveService.error) ? <div className="mx-6 mt-4 rounded-card border border-destructive/30 p-3 text-sm" role="alert"><p>{(profiles.error ?? categories.error ?? liveService.error)?.message}</p><button className="mt-2 text-primary underline" type="button" onClick={() => { profiles.reload(); categories.reload(); liveService.reload(); }}>{t("retry")}</button></div> : null}
+        {edit && liveService.loading ? <p className="mx-6 mt-4 text-sm text-muted-foreground" role="status">{t("loadingService")}</p> : null}
         {!profiles.loading && profileRows.length === 0 ? <p className="mx-6 mt-4 rounded-card bg-muted p-3 text-sm" role="status">{t("noProfileHint")}</p> : null}
         <div className={HEAD_BAND}>
           <div className={cn("flex w-full shrink-0 flex-col items-start gap-1.5 overflow-clip px-6", PAGE, "lg:py-6")}>

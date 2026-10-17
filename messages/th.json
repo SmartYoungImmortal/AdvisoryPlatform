@@ -2331,7 +2331,10 @@
     "bookingsTitle": "การจองของผู้รับคำปรึกษา",
     "bookingsCount": "{count} รายการ",
     "bookingUpcoming": "กำลังจะถึง",
-    "bookingCompleted": "เสร็จสิ้น"
+    "bookingCompleted": "เสร็จสิ้น",
+    "loading": "กำลังโหลดบริการ…",
+    "retry": "ลองอีกครั้ง",
+    "empty": "ยังไม่มีบริการ"
   },
   "serviceForm": {
     "createTitle": "สร้างบริการ",
@@ -2380,7 +2383,16 @@
     "deleteDialogTitle": "ลบบริการนี้?",
     "deleteDialogBody": "“{name}” จะถูกลบถาวร บริการจะหายจากการค้นหาทันที การจองที่ชำระเงินแล้วจะยังดำเนินต่อจนเสร็จสิ้น",
     "deleteConfirm": "ลบบริการ",
-    "durationLabel": "ระยะเวลา (นาที)"
+    "durationLabel": "ระยะเวลา (นาที)",
+    "missingServiceId": "ไม่พบรหัสบริการ",
+    "loadingService": "กำลังโหลดบริการ…",
+    "loading": "กำลังโหลด…",
+    "retry": "ลองอีกครั้ง",
+    "saving": "กำลังบันทึก…",
+    "deleting": "กำลังลบ…",
+    "validationError": "กรุณากรอกชื่อบริการ หมวดหมู่ ชุดเวลาว่าง ราคา และระยะเวลาให้ถูกต้อง",
+    "apiUnavailable": "เชื่อมต่อบริการไม่ได้ ตรวจสอบอินเทอร์เน็ตแล้วลองอีกครั้ง",
+    "unnamedService": "บริการนี้"
   },
   "serviceSchedule": {
     "title": "ตารางเวลาของบริการ",
@@ -2592,4 +2604,4 @@
     "cachedNoteSyncing": "กำลังอัปเดตข้อมูลล่าสุด",
     "cachedNoteOffline": "อัปเดตล่าสุด 09:12 น."
   }
-}\n
+}

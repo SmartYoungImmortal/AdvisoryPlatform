@@ -191,9 +191,9 @@ export function MyServicesScreen() {
           </div>
 
           <div className="flex w-full shrink-0 flex-col items-start gap-3 px-6 lg:col-start-1 lg:row-start-1 lg:px-0">
-            {services.loading ? <p className="text-sm text-muted-foreground" role="status">Loading services…</p> : null}
-            {services.error || profiles.error ? <div role="alert" className="w-full rounded-card border border-destructive/30 p-4 text-sm"><p>{(services.error ?? profiles.error)?.message}</p><button className="mt-2 text-primary underline" onClick={() => { services.reload(); profiles.reload(); }} type="button">Retry</button></div> : null}
-            {!services.loading && !services.error && rows.length === 0 ? <div className="w-full rounded-card border border-border p-6 text-center"><p className="text-sm text-muted-foreground">No services yet.</p><Link className="mt-3 inline-flex text-sm font-medium text-primary" href="/advisor/services/new">{t("create")}</Link></div> : null}
+            {services.loading ? <p className="text-sm text-muted-foreground" role="status">{t("loading")}</p> : null}
+            {services.error || profiles.error ? <div role="alert" className="w-full rounded-card border border-destructive/30 p-4 text-sm"><p>{(services.error ?? profiles.error)?.message}</p><button className="mt-2 text-primary underline" onClick={() => { services.reload(); profiles.reload(); }} type="button">{t("retry")}</button></div> : null}
+            {!services.loading && !services.error && rows.length === 0 ? <div className="w-full rounded-card border border-border p-6 text-center"><p className="text-sm text-muted-foreground">{t("empty")}</p><Link className="mt-3 inline-flex text-sm font-medium text-primary" href="/advisor/services/new">{t("create")}</Link></div> : null}
             {rows.map((record) => <ServiceCard key={record.id} record={record} profileName={profiles.data?.find((profile) => profile.id === record.availabilityProfileId)?.name} />)}
           </div>
         </div>
