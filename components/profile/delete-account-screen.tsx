@@ -1,5 +1,9 @@
-import { CalendarDays, Trash2, TriangleAlert, Wallet } from "lucide-react";
+"use client";
+
+import { CalendarDays, Trash2, TriangleAlert } from "lucide-react";
 import { useTranslations } from "next-intl";
+import { useRouter } from "next/navigation";
+import { useEffect, useState, type FormEvent } from "react";
 
 import { SiteFooter } from "@/components/marketing/site-footer";
 import {
@@ -23,7 +27,18 @@ import {
   AccountBackBar,
 } from "@/components/profile/account-chrome";
 import { TopBar } from "@/components/topbar";
+import { ApiError, api } from "@/lib/api/client";
+import { deleteOwnAccount } from "@/lib/api/account";
+import { signOut } from "@/lib/session";
 import { cn } from "@/lib/utils";
+
+interface AccountDeletionBlockers {
+  readonly upcomingAppointments: readonly {
+    readonly appointmentId: string;
+    readonly startTime: string;
+    readonly state: "PENDING_PAYMENT" | "BOOKED";
+  }[];
+}
 
 /**
  * Figma "Delete account" (995:7458) and its blocked state (995:7499), which swaps
@@ -41,7 +56,74 @@ export function DeleteAccountScreen({
 }) {
   const t = useTranslations("deleteAccount");
   const c = useTranslations("common");
-  const isBlocked = state === "blocked";
+  const router = useRouter();
+  const [isBlocked, setIsBlocked] = useState(state === "blocked");
+  const [upcomingAppointments, setUpcomingAppointments] = useState<
+    AccountDeletionBlockers["upcomingAppointments"]
+  >([]);
+  const [loadingBlockers, setLoadingBlockers] = useState(state === "blocked");
+  const [confirmation, setConfirmation] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+  const [failed, setFailed] = useState(false);
+
+  async function refreshBlockers() {
+    const result = await api.get<AccountDeletionBlockers>(
+      "users/me/deletion-blockers",
+    );
+    setUpcomingAppointments(result.upcomingAppointments);
+    setIsBlocked(result.upcomingAppointments.length > 0);
+    return result.upcomingAppointments;
+  }
+
+  useEffect(() => {
+    if (state !== "blocked") return;
+    let active = true;
+    async function loadBlockers() {
+      try {
+        const result = await api.get<AccountDeletionBlockers>(
+          "users/me/deletion-blockers",
+        );
+        if (active) {
+          setUpcomingAppointments(result.upcomingAppointments);
+          setIsBlocked(result.upcomingAppointments.length > 0);
+        }
+      } catch {
+        if (active) setFailed(true);
+      } finally {
+        if (active) setLoadingBlockers(false);
+      }
+    }
+    void loadBlockers();
+    return () => {
+      active = false;
+    };
+  }, [state]);
+
+  async function submit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (confirmation !== "DELETE") return;
+    setSubmitting(true);
+    try {
+      await deleteOwnAccount();
+      await signOut();
+      router.push("/login");
+    } catch (error) {
+      if (error instanceof ApiError && error.status === 409) {
+        try {
+          const blockers = await refreshBlockers();
+          if (blockers.length > 0) {
+            setFailed(false);
+            return;
+          }
+        } catch {
+          // Show the regular failure state if the blocker details could not load.
+        }
+      }
+      setFailed(true);
+    } finally {
+      setSubmitting(false);
+    }
+  }
 
   return (
     <MobileScreen wide>
@@ -54,7 +136,7 @@ export function DeleteAccountScreen({
             bar takes the 76px the other frames split between the two. */}
         <AccountBackBar className="lg:h-19" href="/settings" label={c("back")} />
 
-        <div
+        <form onSubmit={submit}
           className={cn("flex w-full flex-1 flex-col items-center", ACCOUNT_CONFIRM_PANEL)}
         >
           <WarningHero
@@ -79,17 +161,26 @@ export function DeleteAccountScreen({
               {isBlocked ? (
                 <>
                   <InfoStackRow
-                    body={t("blocked1Body")}
+                    body={
+                      loadingBlockers
+                        ? t("blockedLoading")
+                        : t("blocked1Body")
+                    }
                     icon={CalendarDays}
                     iconClassName="text-destructive"
                     title={t("blocked1Title")}
                   />
-                  <InfoStackRow
-                    body={t("blocked2Body")}
-                    icon={Wallet}
-                    iconClassName="text-destructive"
-                    title={t("blocked2Title")}
-                  />
+                  {upcomingAppointments.map((appointment) => (
+                    <p
+                      className="w-full pl-11 text-sm text-muted-foreground"
+                      key={appointment.appointmentId}
+                    >
+                      {new Intl.DateTimeFormat(undefined, {
+                        dateStyle: "medium",
+                        timeStyle: "short",
+                      }).format(new Date(appointment.startTime))}
+                    </p>
+                  ))}
                 </>
               ) : (
                 <>
@@ -111,12 +202,19 @@ export function DeleteAccountScreen({
             <div className="flex w-full shrink-0 flex-col items-start px-6 pt-5">
               <Field
                 id="delete-confirm"
+                value={confirmation}
+                onChange={(event) => { setConfirmation(event.target.value); setFailed(false); }}
                 label={t("confirmLabel")}
                 latin
                 placeholder={t("confirmPlaceholder")}
               />
             </div>
           )}
+          {failed ? (
+            <p role="alert" className="px-6 pt-3 text-sm text-destructive">
+              {t("deleteFailed")}
+            </p>
+          ) : null}
 
           {/* The phone frame pins its actions to the bottom edge; the panel is
               only as tall as its content, so the spacer goes with the frame and
@@ -135,7 +233,7 @@ export function DeleteAccountScreen({
               </>
             ) : (
               <>
-                <DestructiveButton className="lg:w-auto" href="/login">
+                <DestructiveButton className="lg:w-auto" disabled={confirmation !== "DELETE" || submitting} type="submit">
                   {t("submit")}
                 </DestructiveButton>
                 <NeutralButton className="lg:w-auto" href="/settings">
@@ -144,7 +242,7 @@ export function DeleteAccountScreen({
               </>
             )}
           </ScreenActions>
-        </div>
+        </form>
 
         <SiteFooter className="hidden lg:mt-auto lg:flex" />
       </ScreenBody>
