@@ -26,17 +26,22 @@ async function submitResetForm(page: Page, token: string) {
   await page.getByRole("button", { name: "บันทึกรหัสผ่านใหม่" }).click();
 }
 
+async function mockRequestPasswordReset(page: Page) {
+  let submitted: unknown;
+  await page.route("http://localhost:3200/api/auth/request-password-reset", async (route) => {
+    submitted = route.request().postDataJSON();
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({ status: true }),
+    });
+  });
+  return () => submitted;
+}
+
 test.describe("password reset screen", () => {
   test("requests a reset link and shows the submitted email", async ({ page }) => {
-    let submitted: unknown;
-    await page.route("http://localhost:3200/api/auth/request-password-reset", async (route) => {
-      submitted = route.request().postDataJSON();
-      await route.fulfill({
-        status: 200,
-        contentType: "application/json",
-        body: JSON.stringify({ status: true }),
-      });
-    });
+    const getSubmitted = await mockRequestPasswordReset(page);
 
     await page.goto("/forgot-password");
     await page.getByRole("textbox", { name: "อีเมล" }).fill("reader@example.test");
@@ -44,28 +49,20 @@ test.describe("password reset screen", () => {
 
     await expect(page).toHaveURL(/\/reset-sent\?email=reader%40example\.test$/);
     await expect(page.getByText("reader@example.test")).toBeVisible();
-    expect(submitted).toEqual({
+    expect(getSubmitted()).toEqual({
       email: "reader@example.test",
       redirectTo: "http://localhost:3001/reset-password",
     });
   });
 
   test("resends a reset link from the confirmation screen", async ({ page }) => {
-    let submitted: unknown;
-    await page.route("http://localhost:3200/api/auth/request-password-reset", async (route) => {
-      submitted = route.request().postDataJSON();
-      await route.fulfill({
-        status: 200,
-        contentType: "application/json",
-        body: JSON.stringify({ status: true }),
-      });
-    });
+    const getSubmitted = await mockRequestPasswordReset(page);
 
     await page.goto("/reset-sent?email=reader%40example.test");
     await page.getByRole("button", { name: "ส่งลิงก์อีกครั้ง" }).click();
 
     await expect(page.getByText("ส่งอีเมลอีกครั้งแล้ว")).toBeVisible();
-    expect(submitted).toEqual({
+    expect(getSubmitted()).toEqual({
       email: "reader@example.test",
       redirectTo: "http://localhost:3001/reset-password",
     });
