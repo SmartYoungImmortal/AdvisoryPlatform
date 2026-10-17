@@ -338,6 +338,7 @@ export type RegisterInput = {
   /** Dropped: `POST /sign-up/email` has nowhere to put it. */
   readonly phone: string;
   readonly password: string;
+  readonly callbackURL?: string;
 };
 
 export type RegisterResult =
@@ -404,6 +405,7 @@ export async function register(input: RegisterInput): Promise<RegisterResult> {
       password: input.password,
       name: input.name.trim(),
       fullName: input.fullName.trim() || input.name.trim(),
+      callbackURL: input.callbackURL,
     });
   } catch (cause) {
     if (cause instanceof ApiError) {

@@ -1,7 +1,12 @@
-import { Mail, MailCheck } from "lucide-react";
+"use client";
+
+import { Mail, MailCheck, TriangleAlert, WifiOff } from "lucide-react";
+import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
+import { useState, type FormEvent } from "react";
 
 import { AUTH_CARD, AuthFooter, AuthTopNav } from "@/components/auth/auth-chrome";
+import { AlertBanner } from "@/components/mobile/banner";
 import { NeutralButton, PrimaryButton } from "@/components/mobile/buttons";
 import { Field } from "@/components/mobile/field";
 import {
@@ -13,131 +18,174 @@ import {
   ScreenTopBar,
 } from "@/components/mobile/screen";
 import { Surface } from "@/components/mobile/surface";
+import { ApiUnreachableError } from "@/lib/api/client";
+import { requestPasswordReset } from "@/lib/api/auth";
+import { useLocationSearch } from "@/lib/navigation/use-location-search";
 import { cn } from "@/lib/utils";
 
-/**
- * Figma "Forgot password (Light)" — 995:4148.
- *
- * ## Still a drawing, on purpose: the API has no reset flow to call
- *
- * Checked against the running API rather than assumed. `POST /api/auth/forget-password`
- * answers **404**, byte for byte what a route that does not exist answers —
- * `auth.config.ts` builds with `betterAuth` from `better-auth/minimal` and sets
- * `emailAndPassword: { enabled: true }` with no `sendResetPassword`, so the route
- * is never mounted. `POST /api/auth/reset-password` *is* mounted (it answers
- * `400 "Invalid token"`), but the only thing that can mint one of its tokens is
- * the endpoint that is missing, and nothing on the API sends mail.
- *
- * So this screen stays as the frame draws it and its button stays a link to
- * `/reset-sent`. Wiring the field to a fetch would give it a spinner, a success
- * state and no email — a flow that looks finished and does nothing, which is
- * worse than a screen that is visibly still a prototype. It needs
- * `sendResetPassword` and a mail transport on the API first; the screen is then
- * two calls away.
- */
+type Failure = "rejected" | "unreachable";
+
+function failureKind(error: unknown): Failure {
+  return error instanceof ApiUnreachableError ? "unreachable" : "rejected";
+}
+
+function resetUrl(): string {
+  return new URL("/reset-password", window.location.origin).toString();
+}
+
+/** Figma "Forgot password (Light)" — submits a reset request to Better Auth. */
 export function ForgotPasswordScreen() {
   const t = useTranslations("forgotPassword");
+  const flow = useTranslations("authEmailFlow");
   const c = useTranslations("common");
+  const router = useRouter();
+  const [email, setEmail] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [failure, setFailure] = useState<Failure | null>(null);
+
+  async function submit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (busy) return;
+    setBusy(true);
+    setFailure(null);
+    try {
+      await requestPasswordReset({ email: email.trim(), redirectTo: resetUrl() });
+      router.push(`/reset-sent?email=${encodeURIComponent(email.trim())}`);
+    } catch (error) {
+      setBusy(false);
+      setFailure(failureKind(error));
+    }
+  }
 
   return (
-    // Figma "Desktop / Forgot password (Light)" (1787:23853) — the phone frame's
-    // own blocks inside the shared auth card. See `components/auth/auth-chrome`.
     <MobileScreen wide>
       <ScreenTopBar className="lg:hidden" href="/login" label={c("back")} />
       <ScreenBody className="lg:items-stretch lg:justify-center">
         <AuthTopNav />
-        <div className={cn("flex w-full flex-1 flex-col items-center lg:mx-auto", AUTH_CARD)}>
-          {/* Figma "Heading": 112px block — 16px top, 40px title, 8px gap, 40px subtitle. */}
-          <ScreenHeading
-            className="gap-2 pt-4"
-            subtitle={t("subtitle")}
-            title={t("title")}
-          />
+        <form
+          className={cn("flex w-full flex-1 flex-col items-center lg:mx-auto", AUTH_CARD)}
+          onSubmit={(event) => void submit(event)}
+        >
+          <ScreenHeading className="gap-2 pt-4" subtitle={t("subtitle")} title={t("title")} />
+          {failure ? (
+            <AlertBanner
+              body={failure === "unreachable" ? flow("offline") : flow("requestFailed")}
+              icon={failure === "unreachable" ? WifiOff : TriangleAlert}
+              title={flow("errorTitle")}
+            />
+          ) : null}
           <div className="flex w-full shrink-0 flex-col items-start px-6 pt-4">
             <Field
+              autoComplete="email"
               icon={Mail}
               id="forgot-email"
               label={t("emailLabel")}
               latin
+              onChange={(event) => setEmail(event.target.value)}
               placeholder={t("emailPlaceholder")}
+              required
               type="email"
+              value={email}
             />
           </div>
           <ScreenSpacer className="lg:hidden" />
-          {/* Figma "Actions": 8px padding, 12px gap; the primary CTA starts
-              disabled. `stacked` + `block` keeps the frame's column inside the
-              448 card — see `LoginScreen`. */}
           <ScreenActions stacked>
-            <PrimaryButton block href="/reset-sent">
-              {t("submit")}
+            <PrimaryButton block disabled={busy} type="submit">
+              {busy ? flow("sending") : t("submit")}
             </PrimaryButton>
             <NeutralButton block href="/login">
               {t("backToSignIn")}
             </NeutralButton>
           </ScreenActions>
-        </div>
+        </form>
         <AuthFooter className="lg:mt-auto" />
       </ScreenBody>
     </MobileScreen>
   );
 }
 
-/** Figma "Reset link sent (Light)" — 995:4500. */
+/** Figma "Reset link sent (Light)" — displays and can resend to the submitted address. */
 export function ResetLinkSentScreen() {
   const t = useTranslations("resetSent");
+  const flow = useTranslations("authEmailFlow");
   const c = useTranslations("common");
+  const search = useLocationSearch();
+  const email = new URLSearchParams(search).get("email") ?? "";
+  const [busy, setBusy] = useState(false);
+  const [sentAgain, setSentAgain] = useState(false);
+  const [failure, setFailure] = useState<Failure | null>(null);
+
+  async function resend() {
+    if (!email || busy) return;
+    setBusy(true);
+    setFailure(null);
+    setSentAgain(false);
+    try {
+      await requestPasswordReset({ email, redirectTo: resetUrl() });
+      setSentAgain(true);
+    } catch (error) {
+      setFailure(failureKind(error));
+    } finally {
+      setBusy(false);
+    }
+  }
 
   return (
-    // Figma "Desktop / Reset link sent (Light)" (1787:24050).
     <MobileScreen wide>
       <ScreenTopBar className="lg:hidden" href="/forgot-password" label={c("back")} />
       <ScreenBody className="lg:items-stretch lg:justify-center">
         <AuthTopNav />
         <div className={cn("flex w-full flex-1 flex-col items-center lg:mx-auto", AUTH_CARD)}>
-        {/* Figma "Hero": 96px badge inset 56px from the top, then the 30/40 text
-            block. The badge takes the accent ground rather than the grey one: a
-            blue glyph in a grey circle was the only thing on the screen with a
-            colour, and it read as a disabled state. */}
-        <div className="flex w-full shrink-0 flex-col items-center pt-14">
-          <span className="flex size-24 shrink-0 items-center justify-center rounded-full bg-accent-surface">
-            <MailCheck className="size-10 text-primary" />
-          </span>
-          <div className="flex w-full shrink-0 flex-col items-center gap-2.5 overflow-clip px-6 pt-4.5 text-center">
-            <p className="w-full text-2xl leading-7.5 font-semibold text-foreground">
-              {t("title")}
-            </p>
-            <p className="w-full text-sm font-normal text-muted-foreground">
-              {t("subtitle")}
-            </p>
-          </div>
-        </div>
-
-        {/* Figma "Sent To": card with a 16px mail glyph and a label/value stack.
-            It was `bg-card` on the card surface, i.e. invisible; as the one fact
-            the screen states it belongs in a well under the copy above it. */}
-        <div className="flex w-full shrink-0 flex-col items-start px-6 pt-6">
-          <Surface className="flex w-full items-center gap-2.5 p-3.5" tier="well">
-            <Mail className="size-4 shrink-0 text-muted-foreground" />
-            <div className="flex min-w-px flex-1 flex-col items-start gap-0.5 overflow-clip">
-              <p className="w-full text-xs font-normal text-muted-foreground">
-                {t("sentToLabel")}
+          <div className="flex w-full shrink-0 flex-col items-center pt-14">
+            <span className="flex size-24 shrink-0 items-center justify-center rounded-full bg-accent-surface">
+              <MailCheck className="size-10 text-primary" />
+            </span>
+            <div className="flex w-full shrink-0 flex-col items-center gap-2.5 overflow-clip px-6 pt-4.5 text-center">
+              <p className="w-full text-2xl leading-7.5 font-semibold text-foreground">
+                {t("title")}
               </p>
-              <p className="font-latin w-full truncate text-sm font-medium text-foreground">
-                {t("sentToValue")}
+              <p className="w-full text-sm font-normal text-muted-foreground">
+                {t("subtitle")}
               </p>
             </div>
-          </Surface>
-        </div>
-
-        <ScreenSpacer className="lg:hidden" />
-        <ScreenActions stacked>
-          <PrimaryButton block href="/login">
-            {t("backToSignIn")}
-          </PrimaryButton>
-          <NeutralButton block href="/reset-sent">
-            {t("resend")}
-          </NeutralButton>
-        </ScreenActions>
+          </div>
+          <div className="flex w-full shrink-0 flex-col items-start px-6 pt-6">
+            <Surface className="flex w-full items-center gap-2.5 p-3.5" tier="well">
+              <Mail className="size-4 shrink-0 text-muted-foreground" />
+              <div className="flex min-w-px flex-1 flex-col items-start gap-0.5 overflow-clip">
+                <p className="w-full text-xs font-normal text-muted-foreground">
+                  {t("sentToLabel")}
+                </p>
+                <p className="font-latin w-full truncate text-sm font-medium text-foreground">
+                  {email || t("sentToValue")}
+                </p>
+              </div>
+            </Surface>
+          </div>
+          {sentAgain ? (
+            <p className="px-6 pt-4 text-sm text-muted-foreground">{flow("resent")}</p>
+          ) : null}
+          {failure ? (
+            <AlertBanner
+              body={failure === "unreachable" ? flow("offline") : flow("requestFailed")}
+              icon={failure === "unreachable" ? WifiOff : TriangleAlert}
+              title={flow("errorTitle")}
+            />
+          ) : null}
+          <ScreenSpacer className="lg:hidden" />
+          <ScreenActions stacked>
+            <PrimaryButton block href="/login">
+              {t("backToSignIn")}
+            </PrimaryButton>
+            <NeutralButton
+              block
+              disabled={!email || busy}
+              onClick={() => void resend()}
+              type="button"
+            >
+              {busy ? flow("sending") : t("resend")}
+            </NeutralButton>
+          </ScreenActions>
         </div>
         <AuthFooter className="lg:mt-auto" />
       </ScreenBody>
