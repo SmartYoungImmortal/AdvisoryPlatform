@@ -1,5 +1,9 @@
+"use client";
+
 import { CircleCheck, Lock } from "lucide-react";
 import { useTranslations } from "next-intl";
+import { useRouter } from "next/navigation";
+import { useState, type FormEvent } from "react";
 
 import { SiteFooter } from "@/components/marketing/site-footer";
 import { AlertBanner, InfoCard, InfoRow } from "@/components/mobile/banner";
@@ -20,6 +24,8 @@ import {
   AccountBackBar,
 } from "@/components/profile/account-chrome";
 import { TopBar } from "@/components/topbar";
+import { changePassword } from "@/lib/api/account";
+import { ApiError } from "@/lib/api/client";
 import { cn } from "@/lib/utils";
 
 /**
@@ -38,7 +44,30 @@ export function ChangePasswordScreen({
 }) {
   const t = useTranslations("changePassword");
   const c = useTranslations("common");
-  const isWrong = state === "wrong-current";
+  const router = useRouter();
+  const [currentPassword, setCurrentPassword] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [problem, setProblem] = useState<"wrong-current" | "invalid" | null>(state === "wrong-current" ? "wrong-current" : null);
+  const [submitting, setSubmitting] = useState(false);
+  const isWrong = problem === "wrong-current";
+
+  async function submit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (newPassword.length < 8 || newPassword.length > 64 || !/[^A-Za-z0-9]/.test(newPassword) || !/\d/.test(newPassword) || newPassword === currentPassword || newPassword !== confirmPassword) {
+      setProblem("invalid");
+      return;
+    }
+    setSubmitting(true);
+    try {
+      await changePassword({ currentPassword, newPassword });
+      router.push("/settings/updated");
+    } catch (error) {
+      setProblem(error instanceof ApiError && error.status === 400 ? "wrong-current" : "invalid");
+    } finally {
+      setSubmitting(false);
+    }
+  }
 
   return (
     <MobileScreen wide>
@@ -55,7 +84,7 @@ export function ChangePasswordScreen({
         </div>
 
         {/* Figma "Form Band" — the panel the whole form moves into at 1440. */}
-        <div className={cn("flex w-full flex-1 flex-col items-center", ACCOUNT_FORM_PANEL)}>
+        <form onSubmit={submit} className={cn("flex w-full flex-1 flex-col items-center", ACCOUNT_FORM_PANEL)}>
           {isWrong ? (
             <AlertBanner
               body={t("wrongCurrentBody")}
@@ -74,7 +103,8 @@ export function ChangePasswordScreen({
             {/* Figma "Form Fields": 16px top padding, 16px between fields. */}
             <div className="flex w-full shrink-0 flex-col items-start gap-4 px-6 pt-4 lg:px-0 lg:pt-0">
               <Field
-                defaultValue={isWrong ? "password" : undefined}
+                value={currentPassword}
+                onChange={(event) => { setCurrentPassword(event.target.value); setProblem(null); }}
                 error={isWrong ? t("wrongCurrentFieldError") : undefined}
                 id="current-password"
                 invalid={isWrong}
@@ -84,12 +114,16 @@ export function ChangePasswordScreen({
               />
               <Field
                 id="new-password"
+                value={newPassword}
+                onChange={(event) => { setNewPassword(event.target.value); setProblem(null); }}
                 label={t("newLabel")}
                 placeholder={t("newPlaceholder")}
                 type="password"
               />
               <Field
                 id="confirm-password"
+                value={confirmPassword}
+                onChange={(event) => { setConfirmPassword(event.target.value); setProblem(null); }}
                 label={t("confirmLabel")}
                 placeholder={t("confirmPlaceholder")}
                 type="password"
@@ -114,12 +148,13 @@ export function ChangePasswordScreen({
           {/* The phone frame pins the action to the bottom edge; on the panel it
               sits under the two columns, held to the right. */}
           <ScreenSpacer className="lg:hidden" />
+          {problem === "invalid" ? <p role="alert" className="px-6 pt-3 text-sm text-destructive">ตรวจสอบรหัสผ่านใหม่และการยืนยันอีกครั้ง</p> : null}
           <ScreenActions className="lg:flex-row-reverse lg:justify-start lg:px-0 lg:pt-8 lg:pb-0">
-            <PrimaryButton className="lg:w-auto" href="/settings/updated">
+            <PrimaryButton className="lg:w-auto" disabled={submitting} type="submit">
               {t("submit")}
             </PrimaryButton>
           </ScreenActions>
-        </div>
+        </form>
 
         <SiteFooter className="hidden lg:mt-auto lg:flex" />
       </ScreenBody>

@@ -1,7 +1,11 @@
+"use client";
+
 import Image from "next/image";
 import Link from "next/link";
 import { ChevronRight, Globe, Info, Minus, Plus } from "lucide-react";
 import { useTranslations } from "next-intl";
+import { useRouter } from "next/navigation";
+import { useState, type FormEvent } from "react";
 import type { ReactNode } from "react";
 
 import { DeleteServiceDialog } from "@/components/advisor-services/delete-service-dialog";
@@ -28,15 +32,17 @@ import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import { PAGE } from "@/lib/layout";
 import { cn } from "@/lib/utils";
+import { ApiError } from "@/lib/api/client";
+import { useResource, invalidate } from "@/lib/api/use-resource";
+import { createAdvisorService, getMyAdvisorService, listMyAvailabilityProfiles, listServiceCategories, updateAdvisorService, type AdvisorService } from "@/lib/advisor-services/api";
 import { SLOT_MINUTES, type AdvisorServiceRecord } from "@/lib/advisor-services";
+import type { Weekday } from "@/lib/availability/profiles";
 import {
   CREATE_PLACEHOLDERS,
   EDIT_VALUES,
   MAX_SERVICE_IMAGES,
   PREVIEW_TIMEZONE,
   PREVIEW_WEEK,
-  PROFILE_OPTIONS,
-  SERVICE_CATEGORIES,
   SERVICE_LIMIT,
   type ServiceFormMode,
   type ServiceFormState,
@@ -179,15 +185,19 @@ function OptionSelect({
   id,
   items,
   defaultValue,
+  value,
   placeholder,
+  onValueChange,
 }: {
   readonly id: string;
   readonly items: ReadonlyArray<{ readonly value: string; readonly label: string }>;
   readonly defaultValue?: string;
+  readonly value?: string;
   readonly placeholder: string;
+  readonly onValueChange?: (value: string) => void;
 }) {
   return (
-    <Select defaultValue={defaultValue} items={[...items]}>
+    <Select value={value ?? defaultValue} items={[...items]} onValueChange={(value) => onValueChange?.(String(value ?? ""))}>
       <SelectTrigger className="w-full" id={id}>
         <SelectValue placeholder={placeholder} />
       </SelectTrigger>
@@ -203,7 +213,7 @@ function OptionSelect({
 }
 
 /** The chosen profile's timezone and week, previewed under its select. */
-function ProfilePreview({ density }: { readonly density: "regular" | "compact" }) {
+function ProfilePreview({ density, windows }: { readonly density: "regular" | "compact"; readonly windows?: Partial<Record<Weekday, string>> }) {
   const compact = density === "compact";
 
   return (
@@ -229,7 +239,7 @@ function ProfilePreview({ density }: { readonly density: "regular" | "compact" }
           {PREVIEW_TIMEZONE}
         </p>
       </div>
-      <WeekTable density={density} windows={PREVIEW_WEEK} />
+      <WeekTable density={density} windows={windows ?? PREVIEW_WEEK} />
     </div>
   );
 }
@@ -330,34 +340,101 @@ export function ServiceFormScreen({
   mode,
   state = "default",
   record,
+  serviceId,
 }: {
   readonly mode: ServiceFormMode;
   readonly state?: ServiceFormState;
   readonly record?: AdvisorServiceRecord;
+  readonly serviceId?: string;
 }) {
   const t = useTranslations("serviceForm");
   const c = useTranslations("common");
+  const router = useRouter();
+  const [selectedProfile, setSelectedProfile] = useState("");
+  const [selectedCategory, setSelectedCategory] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [problem, setProblem] = useState<string | null>(null);
+  const profiles = useResource("advisors/me/availability/profiles", listMyAvailabilityProfiles);
+  const categories = useResource("service-categories", listServiceCategories);
+  const [limitEnabled, setLimitEnabled] = useState<boolean | null>(null);
+  const [screeningEnabled, setScreeningEnabled] = useState<boolean | null>(null);
+  const [trialEnabled, setTrialEnabled] = useState<boolean | null>(null);
+  const resolvedServiceId = serviceId ?? record?.serviceId;
   const edit = mode === "edit";
+  const liveService = useResource<AdvisorService | null>(`advisors/me/services/${resolvedServiceId ?? "new"}`, (signal) => resolvedServiceId ? getMyAdvisorService(resolvedServiceId, signal) : Promise.resolve(null));
+  const profileRows = profiles.data ?? [];
+  const categoryRows = categories.data?.items ?? [];
+  const apiRecord = edit ? liveService.data ?? undefined : undefined;
+  const selectedProfileRow = profileRows.find((profile) => profile.id === (selectedProfile || apiRecord?.availabilityProfileId));
+  const profileWindows = selectedProfileRow?.weeklyWindows.reduce<Partial<Record<Weekday, string>>>((days, window) => {
+    const day = ( ["", "mon", "tue", "wed", "thu", "fri", "sat", "sun"] as const )[window.dayOfWeek];
+    if (day) days[day] = days[day] ? `${days[day]}, ${window.startTime}–${window.endTime}` : `${window.startTime}–${window.endTime}`;
+    return days;
+  }, {});
   const noProfile = state === "no-profile";
   const limitOn = state === "limit-on";
-  const backHref = edit && record
-    ? `/advisor/services/${record.serviceId}`
+  const serviceDetailHref = resolvedServiceId ? `/advisor/services/view?serviceId=${encodeURIComponent(resolvedServiceId)}` : "/advisor/services";
+  const backHref = edit && resolvedServiceId
+    ? serviceDetailHref
     : "/advisor/services";
+
+  async function submit(event: FormEvent<HTMLFormElement>, publish: boolean) {
+    event.preventDefault();
+    if (saving) return;
+    const data = new FormData(event.currentTarget);
+    const submitter = (event.nativeEvent as SubmitEvent).submitter;
+    const publishAction = !(submitter instanceof HTMLButtonElement && submitter.value === "false");
+    const name = String(data.get("name") ?? "").trim();
+    const price = Number(data.get("price"));
+    const duration = Number(data.get("duration") ?? SLOT_MINUTES);
+    const profileId = selectedProfile || apiRecord?.availabilityProfileId || "";
+    const categoryId = selectedCategory || apiRecord?.categoryId || "";
+    if (!name || !categoryId || !profileId || !Number.isInteger(price) || price < 0 || !Number.isInteger(duration) || duration < 1) {
+      setProblem("Enter a service name, category, availability profile, valid price and duration.");
+      return;
+    }
+    setSaving(true);
+    setProblem(null);
+    try {
+      const isTrial = trialEnabled ?? apiRecord?.trialEnabled ?? false;
+      const input = { name, categoryId, availabilityProfileId: profileId, description: String(data.get("description") ?? ""), priceSatang: price * 100, durationMinutes: duration, isPublished: edit ? (apiRecord?.isPublished ?? false) : publishAction && publish, screeningRequired: screeningEnabled ?? apiRecord?.screeningRequired ?? false, trialEnabled: isTrial, ...(isTrial ? { trialDurationMinutes: apiRecord?.trialDurationMinutes ?? SLOT_MINUTES } : {}), dailyConsultationLimitMinutes: (limitEnabled ?? Boolean(apiRecord?.dailyConsultationLimitMinutes)) ? SERVICE_LIMIT.hours * 60 : null };
+      const saved = edit && resolvedServiceId ? await updateAdvisorService(resolvedServiceId, input) : await createAdvisorService(input);
+      invalidate("advisors/me/services");
+      router.push(`/advisor/services/view?serviceId=${encodeURIComponent(saved.id)}`);
+    } catch (error) {
+      setProblem(error instanceof ApiError ? error.message : "Could not reach the service API. Check your connection and retry.");
+    } finally { setSaving(false); }
+  }
+
+  async function togglePublished() {
+    if (!resolvedServiceId || !apiRecord || saving) return;
+    setSaving(true);
+    setProblem(null);
+    try {
+      await updateAdvisorService(resolvedServiceId, { isPublished: !apiRecord.isPublished });
+      invalidate(`advisors/me/services/${resolvedServiceId}`);
+      liveService.reload();
+    } catch (error) {
+      setProblem(error instanceof ApiError ? error.message : "Could not reach the service API. Check your connection and retry.");
+    } finally { setSaving(false); }
+  }
 
   // The pair the phone pins to its bottom edge and the desktop frame parks at the
   // foot of the rail. Written once, placed twice — the bar is the phone's answer
   // to the same need and stops at `lg`.
   const actions = (
     <>
-      <NeutralButton className="w-30 shrink-0" href={backHref}>
-        {edit ? c("cancel") : t("saveDraft")}
-      </NeutralButton>
+      {edit ? <NeutralButton className="w-30 shrink-0" href={backHref}>{c("cancel")}</NeutralButton> : <NeutralButton className="w-30 shrink-0" form="advisor-service-form" type="submit" name="publish" value="false" disabled={saving || profiles.loading || categories.loading}>{t("saveDraft")}</NeutralButton>}
       <PrimaryButton
         className="min-w-px flex-1"
-        disabled={noProfile}
-        href={noProfile ? undefined : backHref}
+        disabled={(noProfile && profileRows.length === 0) || saving || profiles.loading || categories.loading || (edit && liveService.loading)}
+        form="advisor-service-form"
+        type="submit"
+        onClick={() => setProblem(null)}
+        name="publish"
+        value="true"
       >
-        {edit ? t("saveChanges") : t("publish")}
+        {saving ? "Saving…" : edit ? t("saveChanges") : t("publish")}
       </PrimaryButton>
     </>
   );
@@ -373,7 +450,12 @@ export function ServiceFormScreen({
       </div>
       <ScreenTopBar className={BACK_BAR} href={backHref} label={c("back")} />
 
+      <form id="advisor-service-form" key={apiRecord?.modifiedAt ?? "new"} onSubmit={(event) => void submit(event, true)}>
       <ScreenBody className="gap-4 pb-6 lg:gap-0 lg:pb-0">
+        {problem ? <p className="mx-6 mt-4 rounded-card border border-destructive/30 p-3 text-sm" role="alert">{problem}</p> : null}
+        {profiles.error || categories.error || (edit && liveService.error) ? <div className="mx-6 mt-4 rounded-card border border-destructive/30 p-3 text-sm" role="alert"><p>{(profiles.error ?? categories.error ?? liveService.error)?.message}</p><button className="mt-2 text-primary underline" type="button" onClick={() => { profiles.reload(); categories.reload(); liveService.reload(); }}>Retry</button></div> : null}
+        {edit && liveService.loading ? <p className="mx-6 mt-4 text-sm text-muted-foreground" role="status">Loading service…</p> : null}
+        {!profiles.loading && profileRows.length === 0 ? <p className="mx-6 mt-4 rounded-card bg-muted p-3 text-sm" role="status">{t("noProfileHint")}</p> : null}
         <div className={HEAD_BAND}>
           <div className={cn("flex w-full shrink-0 flex-col items-start gap-1.5 overflow-clip px-6", PAGE, "lg:py-6")}>
             <h1 className="w-full text-2xl font-semibold text-foreground">
@@ -408,7 +490,8 @@ export function ServiceFormScreen({
             <FieldLabel htmlFor="service-name">{t("nameLabel")}</FieldLabel>
             <Input
               className="h-9"
-              defaultValue={edit ? record?.service.title : undefined}
+              name="name"
+              defaultValue={apiRecord?.name ?? (edit ? record?.service.title : undefined)}
               id="service-name"
               placeholder={edit ? undefined : t("namePlaceholder")}
               type="text"
@@ -421,7 +504,8 @@ export function ServiceFormScreen({
             </FieldLabel>
             <Textarea
               className="h-21 resize-y field-sizing-fixed"
-              defaultValue={edit ? EDIT_VALUES.description : undefined}
+              name="description"
+              defaultValue={apiRecord?.description ?? (edit ? EDIT_VALUES.description : undefined)}
               id="service-description"
               placeholder={edit ? undefined : t("descriptionPlaceholder")}
             />
@@ -432,7 +516,8 @@ export function ServiceFormScreen({
               <FieldLabel htmlFor="service-price">{t("priceLabel")}</FieldLabel>
               <Input
                 className="h-9"
-                defaultValue={edit ? EDIT_VALUES.price : undefined}
+                name="price"
+                defaultValue={apiRecord ? String(apiRecord.priceSatang / 100) : edit ? EDIT_VALUES.price : undefined}
                 id="service-price"
                 inputMode="numeric"
                 placeholder={edit ? undefined : CREATE_PLACEHOLDERS.price}
@@ -440,13 +525,14 @@ export function ServiceFormScreen({
               />
             </FieldBlock>
             <FieldBlock className="min-w-px flex-1">
-              <FieldLabel htmlFor="service-max-slots">
-                {t("maxSlotsLabel")}
+              <FieldLabel htmlFor="service-duration">
+                {t("durationLabel")}
               </FieldLabel>
-              <Input
-                className="h-9"
-                defaultValue={edit ? EDIT_VALUES.maxSlots : undefined}
-                id="service-max-slots"
+                <Input
+                  className="h-9"
+                  name="duration"
+                  defaultValue={apiRecord ? String(apiRecord.durationMinutes) : String(SLOT_MINUTES)}
+                  id="service-duration"
                 inputMode="numeric"
                 placeholder={edit ? undefined : CREATE_PLACEHOLDERS.maxSlots}
                 type="text"
@@ -465,9 +551,10 @@ export function ServiceFormScreen({
               {t("categoryLabel")}
             </FieldLabel>
             <OptionSelect
-              defaultValue={edit ? EDIT_VALUES.category : undefined}
+              value={selectedCategory || apiRecord?.categoryId}
               id="service-category"
-              items={SERVICE_CATEGORIES}
+              items={categoryRows.map((item) => ({ value: item.id, label: item.name }))}
+              onValueChange={setSelectedCategory}
               placeholder={t("categoryPlaceholder")}
             />
           </FieldBlock>
@@ -490,7 +577,8 @@ export function ServiceFormScreen({
                 <Switch
                   aria-label={t("limitOffTitle")}
                   className="shrink-0"
-                  defaultChecked={limitOn}
+                  checked={limitEnabled ?? (Boolean(apiRecord?.dailyConsultationLimitMinutes) || limitOn)}
+                  onCheckedChange={setLimitEnabled}
                 />
               }
             />
@@ -513,7 +601,8 @@ export function ServiceFormScreen({
                 <Switch
                   aria-label={t("screeningTitle")}
                   className="shrink-0"
-                  defaultChecked={edit}
+                  checked={screeningEnabled ?? Boolean(apiRecord?.screeningRequired)}
+                  onCheckedChange={setScreeningEnabled}
                 />
               }
             />
@@ -542,7 +631,8 @@ export function ServiceFormScreen({
                 <Switch
                   aria-label={t("trialTitle")}
                   className="shrink-0"
-                  defaultChecked={edit}
+                  checked={trialEnabled ?? Boolean(apiRecord?.trialEnabled)}
+                  onCheckedChange={setTrialEnabled}
                 />
               }
             />
@@ -556,12 +646,12 @@ export function ServiceFormScreen({
                     {t("trialProfileLabel")}
                   </label>
                   <OptionSelect
-                    defaultValue={EDIT_VALUES.trialProfile}
+                    value={selectedProfile || apiRecord?.availabilityProfileId || undefined}
                     id="service-trial-profile"
-                    items={PROFILE_OPTIONS}
+                    items={profileRows.map((profile) => ({ value: profile.id, label: profile.name }))}
                     placeholder={t("noProfilePlaceholder")}
                   />
-                  <ProfilePreview density="compact" />
+                  <ProfilePreview density="compact" windows={profileWindows} />
                 </div>
                 <InlineNote>{t("trialNote")}</InlineNote>
               </>
@@ -569,18 +659,14 @@ export function ServiceFormScreen({
           </div>
         </div>
 
-        {edit && record ? (
+        {edit && resolvedServiceId ? (
           /* Figma "Danger Zone" — hiding is reversible and keeps existing bookings;
              deleting is neither, which is why only it opens a confirmation. */
           <div className="order-5 flex w-full shrink-0 flex-col items-start gap-2 overflow-clip px-6 lg:px-0">
-            <SettingRow
-              caption={t("hideCaption")}
-              title={t("hideTitle")}
-              trailing={null}
-            />
+            <SettingRow caption={t("hideCaption")} title={apiRecord?.isPublished ? t("hideTitle") : t("publish")} trailing={<button className="text-sm font-medium text-primary" type="button" disabled={saving || !apiRecord} onClick={() => void togglePublished()}>{apiRecord?.isPublished ? t("hideTitle") : t("publish")}</button>} />
             <SettingRow
               caption={t("deleteCaption")}
-              href={`/advisor/services/${record.serviceId}/edit/delete`}
+              href={`/advisor/services/manage/delete?serviceId=${encodeURIComponent(resolvedServiceId ?? "")}`}
               title={t("deleteTitle")}
               titleClassName="text-destructive"
               trailing={null}
@@ -600,9 +686,10 @@ export function ServiceFormScreen({
               {t("profileLabel")}
             </label>
             <OptionSelect
-              defaultValue={noProfile ? undefined : EDIT_VALUES.profile}
+              value={selectedProfile || apiRecord?.availabilityProfileId || undefined}
               id="service-profile"
-              items={noProfile ? [] : PROFILE_OPTIONS}
+              items={profileRows.map((profile) => ({ value: profile.id, label: profile.name }))}
+              onValueChange={setSelectedProfile}
               placeholder={t("noProfilePlaceholder")}
             />
             {noProfile ? (
@@ -610,7 +697,7 @@ export function ServiceFormScreen({
                 <ThaiText>{t("noProfileHint")}</ThaiText>
               </p>
             ) : (
-              <ProfilePreview density={edit ? "compact" : "regular"} />
+              <ProfilePreview density={edit ? "compact" : "regular"} windows={profileWindows} />
             )}
             <CreateProfileRow />
           </div>
@@ -628,9 +715,10 @@ export function ServiceFormScreen({
       <div className="flex w-full shrink-0 items-start gap-3 overflow-clip border-t border-border bg-card px-6 py-3 lg:hidden">
         {actions}
       </div>
+      </form>
 
-      {state === "delete" && record ? (
-        <DeleteServiceDialog record={record} />
+      {state === "delete" && resolvedServiceId ? (
+        <DeleteServiceDialog record={record} serviceId={resolvedServiceId} serviceName={apiRecord?.name ?? record?.service.title} />
       ) : null}
     </MobileScreen>
   );

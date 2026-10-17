@@ -8,11 +8,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { DestructiveButton, NeutralButton } from "@/components/mobile/buttons";
-import {
-  AVAILABILITY_PROFILES,
-  DELETE_TARGET,
-} from "@/lib/availability/profiles";
+import { NeutralButton } from "@/components/mobile/buttons";
 
 /**
  * Figma "Availability - Delete profile confirm" (1594:31904).
@@ -24,12 +20,9 @@ import {
  * bookings. `bg-destructive/10` rather than `<Alert variant="destructive">`: that
  * variant is red text on a plain card, and the frame tints the ground.
  */
-export function DeleteProfileDialog() {
+export function DeleteProfileDialog({ profileName, error, onDelete }: { readonly profileName: string; readonly error: string | null; readonly onDelete: () => void }) {
   const t = useTranslations("availability");
   const c = useTranslations("common");
-  const profile = AVAILABILITY_PROFILES.find(
-    (candidate) => candidate.id === DELETE_TARGET.profileId,
-  );
 
   return (
     <AlertDialog defaultOpen>
@@ -43,17 +36,10 @@ export function DeleteProfileDialog() {
           <AlertDialogTitle className="text-xl leading-7 font-semibold">
             {t("deleteTitle")}
           </AlertDialogTitle>
-          <AlertDialogDescription className="text-left">
-            {t("deleteBody", {
-              name: profile?.name ?? "",
-              count: profile?.serviceCount ?? 0,
-            })}
-          </AlertDialogDescription>
+          <AlertDialogDescription className="text-left">ลบ “{profileName}” หรือไม่? หากบริการใช้งานชุดนี้อยู่ เวลาที่เปิดให้จองจะหายไปจนกว่าจะเลือกชุดใหม่</AlertDialogDescription>
         </AlertDialogHeader>
 
-        <p className="w-full rounded-lg bg-destructive/10 px-3 py-2.5 text-xs font-normal text-destructive">
-          {t("deleteImpact", { service: DELETE_TARGET.affectedServiceName })}
-        </p>
+        {error ? <p role="alert" className="w-full rounded-lg bg-destructive/10 px-3 py-2.5 text-xs text-destructive">{error}</p> : null}
 
         {/* Figma puts the two actions side by side here, unlike the stacked mobile
             confirmations, so the footer's default grid is kept and only the widths
@@ -62,9 +48,7 @@ export function DeleteProfileDialog() {
           <NeutralButton className="flex-1" href="/availability/profiles">
             {c("cancel")}
           </NeutralButton>
-          <DestructiveButton className="flex-1" href="/availability/profiles">
-            {t("deleteConfirm")}
-          </DestructiveButton>
+          <button className="flex-1 rounded-lg bg-destructive px-4 py-2 text-sm font-medium text-white" onClick={onDelete} type="button">{t("deleteConfirm")}</button>
         </AlertDialogFooter>
       </AlertDialogContent>
     </AlertDialog>
