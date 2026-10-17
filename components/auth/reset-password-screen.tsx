@@ -59,27 +59,26 @@ export function ResetPasswordScreen() {
       await resetPassword({ token, newPassword: password });
       setComplete(true);
     } catch (error) {
-      setFailure(
-        error instanceof ApiUnreachableError
-          ? "unreachable"
-          : error instanceof ApiError && error.code === "INVALID_TOKEN"
-            ? "invalid-link"
-            : "rejected",
-      );
+      if (error instanceof ApiUnreachableError) {
+        setFailure("unreachable");
+      } else if (error instanceof ApiError && error.code === "INVALID_TOKEN") {
+        setFailure("invalid-link");
+      } else {
+        setFailure("rejected");
+      }
     } finally {
       setBusy(false);
     }
   }
 
+  const failureMessages: Record<Failure, string> = {
+    "invalid-link": t("expired"),
+    rejected: t("passwordError"),
+    unreachable: flow("offline"),
+  };
   const alert = failure ? (
     <AlertBanner
-      body={
-        failure === "unreachable"
-          ? flow("offline")
-          : failure === "invalid-link"
-            ? t("expired")
-            : t("passwordError")
-      }
+      body={failureMessages[failure]}
       icon={failure === "unreachable" ? WifiOff : TriangleAlert}
       title={flow("errorTitle")}
     />
