@@ -35,6 +35,7 @@ import {
 } from "@/components/bookings/booking-flow";
 import { Button } from "@/components/ui/button";
 import { NeutralButton } from "@/components/mobile/buttons";
+import { RescheduleBooking } from "@/components/bookings/reschedule-booking";
 import { EmptyState } from "@/components/mobile/empty-state";
 import { MobileScreen, ScreenBody } from "@/components/mobile/screen";
 import { StatTile } from "@/components/mobile/stat-tile";
@@ -189,10 +190,12 @@ function StatePill({ state }: { readonly state: ApiBookingState }) {
 function BookingCard({
   entry,
   onCancel,
+  onRescheduled,
   cancelling,
 }: {
   readonly entry: Joined;
   readonly onCancel: (bookingId: string) => void;
+  readonly onRescheduled: () => void;
   readonly cancelling: boolean;
 }) {
   const c = useTranslations("common");
@@ -253,14 +256,17 @@ function BookingCard({
       </div>
 
       {isCancellable(booking.state) ? (
-        <NeutralButton
-          className="w-auto shrink-0"
-          disabled={cancelling}
-          onClick={() => onCancel(booking.id)}
-          size="sm"
-        >
-          {c("cancel")}
-        </NeutralButton>
+        <div className="flex w-full flex-wrap items-start gap-2">
+          <NeutralButton
+            className="w-auto shrink-0"
+            disabled={cancelling}
+            onClick={() => onCancel(booking.id)}
+            size="sm"
+          >
+            {c("cancel")}
+          </NeutralButton>
+          <RescheduleBooking booking={booking} onRescheduled={onRescheduled} />
+        </div>
       ) : null}
     </Surface>
   );
@@ -538,6 +544,7 @@ export function MyBookingsScreen() {
                           entry={entry}
                           key={entry.booking.id}
                           onCancel={onCancel}
+                          onRescheduled={bookings.reload}
                         />
                       ))
                     ) : (
