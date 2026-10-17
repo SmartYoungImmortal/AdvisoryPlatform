@@ -1,3 +1,5 @@
+"use client";
+
 import Link from "next/link";
 import {
   CalendarRange,
@@ -8,6 +10,7 @@ import {
 } from "lucide-react";
 import { useTranslations } from "next-intl";
 import type { ReactNode } from "react";
+import { useState, type FormEvent } from "react";
 
 import { SiteFooter } from "@/components/marketing/site-footer";
 import {
@@ -18,12 +21,14 @@ import {
 import { StatTile } from "@/components/mobile/stat-tile";
 import { surfaceClass } from "@/components/mobile/surface";
 import { ThaiText } from "@/components/mobile/thai-text";
-import { NeutralButton, PrimaryButton } from "@/components/mobile/buttons";
+import { NeutralButton } from "@/components/mobile/buttons";
 import { TopBar } from "@/components/topbar";
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
 import { READING_COLUMN } from "@/lib/layout";
 import { cn } from "@/lib/utils";
+import { availabilityApi, type AvailabilityProfile, type GlobalAvailability } from "@/lib/availability/api";
+import { invalidate, useResource } from "@/lib/api/use-resource";
 import {
   BUFFER_MINUTE_OPTIONS,
   CUSTOM_BOUNDS,
@@ -73,11 +78,23 @@ const CARD_ACTIONS = "lg:justify-end lg:border-0 lg:bg-transparent lg:px-0 lg:py
  */
 function OptionChip({
   selected = false,
+  name,
+  value,
   children,
 }: {
   readonly selected?: boolean;
+  readonly name?: string;
+  readonly value?: string | number;
   readonly children: ReactNode;
 }) {
+  if (name !== undefined) return (
+    <label className={cn(
+      "has-[:checked]:border-transparent has-[:checked]:bg-primary has-[:checked]:text-primary-foreground flex shrink-0 cursor-pointer items-center rounded-full border px-3.5 py-[7px] text-sm font-medium",
+      selected ? "border-transparent bg-primary text-primary-foreground" : "border-border bg-card text-foreground",
+    )}>
+      <input className="sr-only" type="radio" name={name} value={value} defaultChecked={selected} />{children}
+    </label>
+  );
   return (
     <span
       className={cn(
@@ -156,15 +173,18 @@ function Group({
 function CustomValueRow({
   value,
   unit,
+  name,
 }: {
   readonly value: number;
   readonly unit: ReactNode;
+  readonly name?: string;
 }) {
   return (
     <GroupSurface className="items-center gap-3">
       <Input
         className="h-9 w-24 shrink-0 font-latin"
         defaultValue={value}
+        name={name}
         inputMode="numeric"
         type="text"
       />
@@ -223,25 +243,52 @@ export function GlobalAvailabilityScreen({
 }) {
   const t = useTranslations("availability");
   const c = useTranslations("common");
-  const fixture = GLOBAL_AVAILABILITY[state];
-  const limitOn = state !== "default";
+  const resource = useResource<GlobalAvailability>("availability/global", () => availabilityApi.getGlobal());
+  const profiles = useResource<AvailabilityProfile[]>("availability/profiles", () => availabilityApi.getProfiles());
+  const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
+  const [saved, setSaved] = useState(false);
+  const data = resource.data;
+  const fixture = data ? {
+    horizonDays: HORIZON_DAY_OPTIONS.some((value) => value === data.bookingHorizonDays) ? data.bookingHorizonDays : null,
+    bufferMinutes: BUFFER_MINUTE_OPTIONS.some((value) => value === data.bufferMinutes) ? data.bufferMinutes : null,
+    dailyLimitHours: data.dailyConsultationLimitMinutes === null ? null : DAILY_LIMIT_HOUR_OPTIONS.some((value) => value * 60 === data.dailyConsultationLimitMinutes) ? data.dailyConsultationLimitMinutes / 60 : null,
+    customHorizonDays: HORIZON_DAY_OPTIONS.some((value) => value === data.bookingHorizonDays) ? undefined : data.bookingHorizonDays,
+    customBufferMinutes: BUFFER_MINUTE_OPTIONS.some((value) => value === data.bufferMinutes) ? undefined : data.bufferMinutes,
+    customDailyLimitHours: data.dailyConsultationLimitMinutes !== null && !DAILY_LIMIT_HOUR_OPTIONS.some((value) => value * 60 === data.dailyConsultationLimitMinutes) ? data.dailyConsultationLimitMinutes / 60 : undefined,
+  } : GLOBAL_AVAILABILITY[state];
+  const limitOn = data ? data.dailyConsultationLimitMinutes !== null : state !== "default";
   const bufferMinutes = fixture.bufferMinutes ?? fixture.customBufferMinutes ?? 0;
   const dailyLimitHours =
     fixture.dailyLimitHours ?? fixture.customDailyLimitHours ?? 0;
 
   // The phone pins these to its bottom edge over a hairline; the desktop frame
   // parks the same pair at the end of the card. Written once, placed twice.
+  const onSave = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault(); setSaving(true); setSaveError(null); setSaved(false);
+    const form = new FormData(event.currentTarget);
+    const horizonValue = String(form.get("horizon") ?? "60");
+    const bufferValue = String(form.get("buffer") ?? "0");
+    const limitValue = String(form.get("dailyLimit") ?? "3");
+    const horizon = Number(horizonValue === "custom" ? form.get("customHorizon") : horizonValue);
+    const buffer = Number(bufferValue === "custom" ? form.get("customBuffer") : bufferValue);
+    const limitOn = form.get("limitEnabled") === "on";
+    const limitHours = Number(limitValue === "custom" ? form.get("customDailyLimit") : limitValue);
+    if (!Number.isInteger(horizon) || horizon < 1 || horizon > 365 || !Number.isInteger(buffer) || buffer < 0 || buffer > 120 || (limitOn && (!Number.isFinite(limitHours) || !Number.isInteger(limitHours * 60) || limitHours < 1 || limitHours > 12))) {
+      setSaveError("กรุณาตรวจสอบค่า: จองล่วงหน้า 1–365 วัน เว้นช่วง 0–120 นาที และจำกัด 1–12 ชั่วโมง"); setSaving(false); return;
+    }
+    try {
+      await availabilityApi.saveGlobal({ bookingHorizonDays: horizon, bufferMinutes: buffer, minimumBookingNoticeMinutes: data?.minimumBookingNoticeMinutes ?? 0, dailyConsultationLimitMinutes: limitOn ? limitHours * 60 : null });
+      invalidate("availability/global"); resource.reload(); setSaved(true);
+    } catch (cause) { setSaveError(cause instanceof Error ? cause.message : "บันทึกเวลาว่างไม่สำเร็จ"); }
+    finally { setSaving(false); }
+  };
   const actions = (
     <>
       <NeutralButton className="w-30 shrink-0 lg:w-auto lg:px-6" href="/advisor/profile">
         {c("cancel")}
       </NeutralButton>
-      <PrimaryButton
-        className="min-w-px flex-1 lg:w-auto lg:flex-none lg:px-8"
-        href="/advisor/profile"
-      >
-        {t("save")}
-      </PrimaryButton>
+      <button disabled={saving} className="min-w-px flex-1 rounded-lg bg-primary px-6 py-2 font-medium text-primary-foreground disabled:opacity-50 lg:w-auto lg:flex-none lg:px-8" type="submit">{saving ? "กำลังบันทึก…" : t("save")}</button>
     </>
   );
 
@@ -249,7 +296,7 @@ export function GlobalAvailabilityScreen({
     // Figma "Desktop / Availability - Global (Light)" (1994:27872 / 27993 /
     // 28129): the heading becomes a white band and the whole form becomes one
     // 800px card on the grey ground, with its actions inside it.
-    <MobileScreen className="pb-0" wide>
+    <form key={data?.advisorId ?? state} onSubmit={onSave} className="contents"><MobileScreen className="pb-0" wide>
       <div className="hidden w-full lg:block">
         <TopBar unreadNotifications />
       </div>
@@ -330,10 +377,7 @@ export function GlobalAvailabilityScreen({
                 {t("profilesAction")}
               </span>
               <span className="w-full text-xs font-normal text-muted-foreground">
-                {t("profilesMeta", {
-                  profiles: fixture.profileCount,
-                  services: fixture.serviceCount,
-                })}
+                {profiles.data ? `${profiles.data.length} ชุดเวลาว่าง` : t("profilesAction")}
               </span>
             </span>
             <ChevronRight className="size-4 shrink-0 text-muted-foreground" />
@@ -351,18 +395,18 @@ export function GlobalAvailabilityScreen({
         >
           <GroupSurface className="flex-wrap content-start items-start gap-2">
             {HORIZON_DAY_OPTIONS.map((days) => (
-              <OptionChip key={days} selected={fixture.horizonDays === days}>
+              <OptionChip key={days} name="horizon" value={days} selected={fixture.horizonDays === days}>
                 {t("days", { count: days })}
               </OptionChip>
             ))}
-            <OptionChip selected={fixture.horizonDays === null}>
+            <OptionChip name="horizon" value="custom" selected={fixture.horizonDays === null}>
               {t("custom")}
             </OptionChip>
           </GroupSurface>
           {fixture.customHorizonDays ? (
             <CustomValueRow
               unit={t("dayUnit")}
-              value={fixture.customHorizonDays}
+              name="customHorizon" value={fixture.customHorizonDays}
             />
           ) : null}
         </Group>
@@ -380,19 +424,21 @@ export function GlobalAvailabilityScreen({
             {BUFFER_MINUTE_OPTIONS.map((minutes) => (
               <OptionChip
                 key={minutes}
+                name="buffer"
+                value={minutes}
                 selected={fixture.bufferMinutes === minutes}
               >
                 {minutes === 0 ? t("noBuffer") : t("minutes", { count: minutes })}
               </OptionChip>
             ))}
-            <OptionChip selected={fixture.bufferMinutes === null}>
+            <OptionChip name="buffer" value="custom" selected={fixture.bufferMinutes === null}>
               {t("custom")}
             </OptionChip>
           </GroupSurface>
           {fixture.customBufferMinutes ? (
             <CustomValueRow
               unit={t("minuteUnit")}
-              value={fixture.customBufferMinutes}
+              name="customBuffer" value={fixture.customBufferMinutes}
             />
           ) : null}
         </Group>
@@ -434,6 +480,7 @@ export function GlobalAvailabilityScreen({
             <Switch
               aria-label={t("limitLabel")}
               className="shrink-0"
+              name="limitEnabled"
               defaultChecked={limitOn}
             />
           </GroupSurface>
@@ -443,12 +490,14 @@ export function GlobalAvailabilityScreen({
               {DAILY_LIMIT_HOUR_OPTIONS.map((hours) => (
                 <OptionChip
                   key={hours}
+                  name="dailyLimit"
+                  value={hours}
                   selected={fixture.dailyLimitHours === hours}
                 >
                   {t("hours", { count: hours })}
                 </OptionChip>
               ))}
-              <OptionChip selected={fixture.dailyLimitHours === null}>
+              <OptionChip name="dailyLimit" value="custom" selected={fixture.dailyLimitHours === null}>
                 {t("custom")}
               </OptionChip>
             </GroupSurface>
@@ -457,7 +506,7 @@ export function GlobalAvailabilityScreen({
           {fixture.customDailyLimitHours ? (
             <CustomValueRow
               unit={t("hourUnit")}
-              value={fixture.customDailyLimitHours}
+              name="customDailyLimit" value={fixture.customDailyLimitHours}
             />
           ) : null}
         </Group>
@@ -472,6 +521,7 @@ export function GlobalAvailabilityScreen({
           </div>
         </div>
 
+        {saveError || saved || resource.error ? <p role={saveError || resource.error ? "alert" : "status"} className={cn("px-6 text-sm lg:px-0", saveError || resource.error ? "text-destructive" : "text-primary")}>{saveError ?? (resource.error ? "โหลดข้อมูลเดิมไม่สำเร็จ ระบบจะแสดงค่าเริ่มต้นให้บันทึกใหม่ได้" : "บันทึกข้อมูลแล้ว")}</p> : null}
         <div className={cn("hidden w-full shrink-0 items-center gap-3", CARD_ACTIONS, "lg:flex")}>
           {actions}
         </div>
@@ -486,6 +536,6 @@ export function GlobalAvailabilityScreen({
       <div className="flex w-full shrink-0 items-start gap-3 overflow-clip border-t border-border bg-card px-6 py-3 lg:hidden">
         {actions}
       </div>
-    </MobileScreen>
+    </MobileScreen></form>
   );
 }
