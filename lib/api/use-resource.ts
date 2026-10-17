@@ -82,6 +82,7 @@ export function useResource<T>(
   // re-reads the cache; the cache is the single place the result lives.
   const [, setRevision] = useState(0);
   const rerender = useCallback(() => setRevision((value) => value + 1), []);
+  const [reloadVersion, setReloadVersion] = useState(0);
 
   // The fetcher is a closure the caller rebuilds every render, so depending on it
   // would refetch forever; the key is the identity that matters. Kept in a ref,
@@ -95,8 +96,8 @@ export function useResource<T>(
 
   const reload = useCallback(() => {
     cache.delete(key);
-    rerender();
-  }, [key, rerender]);
+    setReloadVersion((value) => value + 1);
+  }, [key]);
 
   useEffect(() => {
     if (!isApiConfigured) return;
@@ -133,7 +134,7 @@ export function useResource<T>(
       controller.abort();
       if (cache.get(key)?.state === "loading") cache.delete(key);
     };
-  }, [key, rerender]);
+  }, [key, reloadVersion, rerender]);
 
   if (!isApiConfigured) {
     return { data: undefined, loading: false, error: NOT_CONFIGURED, reload };
