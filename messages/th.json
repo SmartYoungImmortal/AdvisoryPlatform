@@ -109,6 +109,7 @@
     "rescheduleLoading": "กำลังโหลดเวลาว่าง…",
     "rescheduleRetry": "ลองอีกครั้ง",
     "rescheduleNoSlots": "ไม่มีเวลาว่างใน 60 วันข้างหน้า",
+    "rescheduleScreeningRequired": "ต้องผ่านการคัดกรองก่อนจึงจะดูเวลาว่างได้",
     "rescheduleConflict": "เวลานี้เพิ่งถูกจองไปแล้ว กรุณาเลือกเวลาอื่น",
     "rescheduleSaving": "กำลังเปลี่ยนเวลา…",
     "rescheduleConfirm": "ยืนยันเวลาใหม่"
@@ -2600,4 +2601,4 @@
     "cachedNoteSyncing": "กำลังอัปเดตข้อมูลล่าสุด",
     "cachedNoteOffline": "อัปเดตล่าสุด 09:12 น."
   }
-}\n
+}

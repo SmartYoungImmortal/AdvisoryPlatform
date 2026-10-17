@@ -47,6 +47,7 @@ function RescheduleSlots({
   readonly onRescheduled: () => void;
 }) {
   const t = useTranslations("bookings");
+  const sc = useTranslations("screening");
   const format = useFormatter();
   const [selected, setSelected] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
@@ -97,10 +98,24 @@ function RescheduleSlots({
             <p className="text-sm text-muted-foreground">{t("rescheduleLoading")}</p>
           ) : slots.error ? (
             <div className="flex flex-col items-start gap-2">
-              <p className="text-sm text-destructive">{slots.error.message}</p>
-              <NeutralButton onClick={slots.reload} size="sm">
-                {t("rescheduleRetry")}
-              </NeutralButton>
+              <p className="text-sm text-destructive">
+                {slots.error instanceof ApiError && slots.error.status === 400
+                  ? t("rescheduleScreeningRequired")
+                  : slots.error.message}
+              </p>
+              {slots.error instanceof ApiError && slots.error.status === 400 ? (
+                <NeutralButton
+                  className="w-auto"
+                  href={`/screening/questions?serviceId=${booking.serviceId}`}
+                  size="sm"
+                >
+                  {sc("answerTitle")}
+                </NeutralButton>
+              ) : (
+                <NeutralButton onClick={slots.reload} size="sm">
+                  {t("rescheduleRetry")}
+                </NeutralButton>
+              )}
             </div>
           ) : available.length === 0 ? (
             <p className="text-sm text-muted-foreground">{t("rescheduleNoSlots")}</p>
@@ -111,7 +126,10 @@ function RescheduleSlots({
                   aria-pressed={selected === slot.startTime}
                   className={`rounded-lg border px-3 py-2 text-sm font-latin tabular-nums focus-visible:outline-2 focus-visible:outline-ring ${selected === slot.startTime ? "border-primary bg-accent-surface text-primary" : "border-border bg-card text-foreground"}`}
                   key={slot.startTime}
-                  onClick={() => setSelected(slot.startTime)}
+                  onClick={() => {
+                    setSelected(slot.startTime);
+                    setFailure(null);
+                  }}
                   type="button"
                 >
                   {format.dateTime(new Date(slot.startTime), {
