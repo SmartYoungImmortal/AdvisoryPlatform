@@ -16,7 +16,7 @@ import {
   ScreenSpacer,
   ScreenTopBar,
 } from "@/components/mobile/screen";
-import { ApiUnreachableError } from "@/lib/api/client";
+import { ApiError, ApiUnreachableError } from "@/lib/api/client";
 import { resetPassword } from "@/lib/api/auth";
 import { useLocationSearch } from "@/lib/navigation/use-location-search";
 import { passwordProblems } from "@/lib/session";
@@ -59,7 +59,13 @@ export function ResetPasswordScreen() {
       await resetPassword({ token, newPassword: password });
       setComplete(true);
     } catch (error) {
-      setFailure(error instanceof ApiUnreachableError ? "unreachable" : "invalid-link");
+      setFailure(
+        error instanceof ApiUnreachableError
+          ? "unreachable"
+          : error instanceof ApiError && error.code === "INVALID_TOKEN"
+            ? "invalid-link"
+            : "rejected",
+      );
     } finally {
       setBusy(false);
     }
