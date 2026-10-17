@@ -2,28 +2,40 @@ import { expect, test, type Page } from "@playwright/test";
 
 const api = "http://localhost:3200/api/v1";
 
-async function mockAdvisorSession(page: Page) {
+function apiSuccess(data: unknown) {
+  return {
+    status: 200,
+    contentType: "application/json",
+    body: JSON.stringify({ statusCode: 200, message: "OK", data }),
+  };
+}
+
+function paginated<T>(items: readonly T[], limit: number) {
+  return { items, total: items.length, page: 1, limit, totalPages: 1 };
+}
+
+async function mockSession(
+  page: Page,
+  { id, displayName, email, roles }: {
+    readonly id: string;
+    readonly displayName: string;
+    readonly email: string;
+    readonly roles: readonly string[];
+  },
+) {
   await page.route(`${api}/users/me`, (route) =>
-    route.fulfill({
-      status: 200,
-      contentType: "application/json",
-      body: JSON.stringify({
-        statusCode: 200,
-        message: "OK",
-        data: {
-          id: "advisor-test",
-          displayName: "Taj Test Advisor",
-          email: "taj@example.test",
-          emailVerified: true,
-          fullName: "Taj Test Advisor",
-          avatarKey: null,
-          timezone: "Asia/Bangkok",
-          roles: ["ADVISEE", "ADVISOR"],
-          createdAt: "2026-01-01T00:00:00.000Z",
-          updatedAt: "2026-01-01T00:00:00.000Z",
-        },
-      }),
-    }),
+    route.fulfill(apiSuccess({
+      id,
+      displayName,
+      email,
+      emailVerified: true,
+      fullName: displayName,
+      avatarKey: null,
+      timezone: "Asia/Bangkok",
+      roles,
+      createdAt: "2026-01-01T00:00:00.000Z",
+      updatedAt: "2026-01-01T00:00:00.000Z",
+    })),
   );
 }
 
@@ -32,37 +44,14 @@ test("advisee can cancel an upcoming booking and see it in cancelled bookings", 
 }) => {
   let bookingState = "PENDING_PAYMENT";
   let cancelCalls = 0;
-  await page.route(`${api}/users/me`, (route) =>
-    route.fulfill({
-      status: 200,
-      contentType: "application/json",
-      body: JSON.stringify({
-        statusCode: 200,
-        message: "OK",
-        data: {
-          id: "advisee-test",
-          displayName: "Reader",
-          email: "reader@example.test",
-          emailVerified: true,
-          fullName: "Reader",
-          avatarKey: null,
-          timezone: "Asia/Bangkok",
-          roles: ["ADVISEE"],
-          createdAt: "2026-01-01T00:00:00.000Z",
-          updatedAt: "2026-01-01T00:00:00.000Z",
-        },
-      }),
-    }),
-  );
+  await mockSession(page, {
+    id: "advisee-test",
+    displayName: "Reader",
+    email: "reader@example.test",
+    roles: ["ADVISEE"],
+  });
   await page.route(`${api}/bookings/me?limit=50`, (route) =>
-    route.fulfill({
-      status: 200,
-      contentType: "application/json",
-      body: JSON.stringify({
-        statusCode: 200,
-        message: "OK",
-        data: {
-          items: [
+    route.fulfill(apiSuccess(paginated([
             {
               id: "booking-1",
               serviceId: "service-1",
@@ -77,24 +66,10 @@ test("advisee can cancel an upcoming booking and see it in cancelled bookings", 
               cancelledByUserId: bookingState === "CANCELLED" ? "advisee-test" : null,
               createdAt: "2026-01-01T00:00:00.000Z",
             },
-          ],
-          total: 1,
-          page: 1,
-          limit: 50,
-          totalPages: 1,
-        },
-      }),
-    }),
+          ], 50))),
   );
   await page.route(`${api}/services?limit=100`, (route) =>
-    route.fulfill({
-      status: 200,
-      contentType: "application/json",
-      body: JSON.stringify({
-        statusCode: 200,
-        message: "OK",
-        data: {
-          items: [
+    route.fulfill(apiSuccess(paginated([
             {
               id: "service-1",
               advisorId: "advisor-1",
@@ -107,24 +82,10 @@ test("advisee can cancel an upcoming booking and see it in cancelled bookings", 
               trialEnabled: false,
               trialDurationMinutes: null,
             },
-          ],
-          total: 1,
-          page: 1,
-          limit: 100,
-          totalPages: 1,
-        },
-      }),
-    }),
+          ], 100))),
   );
   await page.route(`${api}/advisors?limit=100`, (route) =>
-    route.fulfill({
-      status: 200,
-      contentType: "application/json",
-      body: JSON.stringify({
-        statusCode: 200,
-        message: "OK",
-        data: {
-          items: [
+    route.fulfill(apiSuccess(paginated([
             {
               id: "advisor-1",
               displayName: "Taj Advisor",
@@ -134,30 +95,29 @@ test("advisee can cancel an upcoming booking and see it in cancelled bookings", 
               skills: [],
               publishedServiceCount: 1,
             },
-          ],
-          total: 1,
-          page: 1,
-          limit: 100,
-          totalPages: 1,
-        },
-      }),
-    }),
+          ], 100))),
   );
   await page.route(`${api}/bookings/booking-1/cancel`, async (route) => {
     cancelCalls += 1;
     bookingState = "CANCELLED";
-    await route.fulfill({
-      status: 200,
-      contentType: "application/json",
-      body: JSON.stringify({ statusCode: 200, message: "OK", data: {} }),
-    });
+    await route.fulfill(apiSuccess({}));
   });
 
   await page.goto("/bookings");
   await expect(page.getByText("Career consultation").first()).toBeVisible();
+  const refreshedBookings = page.waitForResponse((response) => {
+    const url = new URL(response.url());
+    return (
+      response.request().method() === "GET" &&
+      url.pathname === "/api/v1/bookings/me" &&
+      url.searchParams.get("limit") === "50"
+    );
+  });
   await page.getByRole("button", { name: "ยกเลิก", exact: true }).click();
+  await refreshedBookings;
   await page.getByRole("tab", { name: "ยกเลิก" }).click();
 
+  await expect(page.getByText("Career consultation").first()).toBeVisible();
   await expect(page.getByText("ยกเลิกแล้ว", { exact: true })).toBeVisible();
   expect(cancelCalls).toBe(1);
 });
@@ -165,7 +125,12 @@ test("advisee can cancel an upcoming booking and see it in cancelled bookings", 
 test("service creation blocks publishing before an availability profile exists", async ({
   page,
 }) => {
-  await mockAdvisorSession(page);
+  await mockSession(page, {
+    id: "advisor-test",
+    displayName: "Taj Test Advisor",
+    email: "taj@example.test",
+    roles: ["ADVISEE", "ADVISOR"],
+  });
   await page.goto("/advisor/services/new/no-profile");
 
   await expect(page.getByRole("button", { name: "เผยแพร่บริการ" })).toBeDisabled();
@@ -175,7 +140,12 @@ test("service creation blocks publishing before an availability profile exists",
 test("availability editor keeps save disabled when the profile has an invalid range", async ({
   page,
 }) => {
-  await mockAdvisorSession(page);
+  await mockSession(page, {
+    id: "advisor-test",
+    displayName: "Taj Test Advisor",
+    email: "taj@example.test",
+    roles: ["ADVISEE", "ADVISOR"],
+  });
   await page.goto("/availability/profiles/edit/error");
 
   await expect(page.getByRole("button", { name: "บันทึกชุดเวลา" })).toBeDisabled();
@@ -184,7 +154,12 @@ test("availability editor keeps save disabled when the profile has an invalid ra
 test("onboarding file selection enables continuation and displays the chosen filename", async ({
   page,
 }) => {
-  await mockAdvisorSession(page);
+  await mockSession(page, {
+    id: "advisor-test",
+    displayName: "Taj Test Advisor",
+    email: "taj@example.test",
+    roles: ["ADVISEE", "ADVISOR"],
+  });
   await page.goto("/advisor-onboarding/stage-2");
 
   const continueButton = page.getByRole("button", { name: "ต่อไป" });
