@@ -354,6 +354,7 @@ export function ServiceFormScreen({
   const [selectedCategory, setSelectedCategory] = useState("");
   const [saving, setSaving] = useState(false);
   const [problem, setProblem] = useState<string | null>(null);
+  const [updatedService, setUpdatedService] = useState<AdvisorService | null>(null);
   const profiles = useResource("advisors/me/availability/profiles", listMyAvailabilityProfiles);
   const categories = useResource("service-categories", listServiceCategories);
   const [limitEnabled, setLimitEnabled] = useState<boolean | null>(null);
@@ -364,7 +365,8 @@ export function ServiceFormScreen({
   const liveService = useResource<AdvisorService | null>(`advisors/me/services/${resolvedServiceId ?? "new"}`, (signal) => resolvedServiceId ? getMyAdvisorService(resolvedServiceId, signal) : Promise.resolve(null));
   const profileRows = profiles.data ?? [];
   const categoryRows = categories.data?.items ?? [];
-  const apiRecord = edit ? liveService.data ?? undefined : undefined;
+  const liveOverride = updatedService?.id === resolvedServiceId ? updatedService : undefined;
+  const apiRecord = edit ? liveOverride ?? liveService.data ?? undefined : undefined;
   const selectedProfileRow = profileRows.find((profile) => profile.id === (selectedProfile || apiRecord?.availabilityProfileId));
   const profileWindows = selectedProfileRow?.weeklyWindows.reduce<Partial<Record<Weekday, string>>>((days, window) => {
     const day = ( ["", "mon", "tue", "wed", "thu", "fri", "sat", "sun"] as const )[window.dayOfWeek];
@@ -411,9 +413,9 @@ export function ServiceFormScreen({
     setSaving(true);
     setProblem(null);
     try {
-      await updateAdvisorService(resolvedServiceId, { isPublished: !apiRecord.isPublished });
+      const updated = await updateAdvisorService(resolvedServiceId, { isPublished: !apiRecord.isPublished });
+      setUpdatedService(updated);
       invalidate(`advisors/me/services/${resolvedServiceId}`);
-      liveService.reload();
     } catch (error) {
       setProblem(error instanceof ApiError ? error.message : t("apiUnavailable"));
     } finally { setSaving(false); }
@@ -427,7 +429,7 @@ export function ServiceFormScreen({
       {edit ? <NeutralButton className="w-30 shrink-0" href={backHref}>{c("cancel")}</NeutralButton> : <NeutralButton className="w-30 shrink-0" form="advisor-service-form" type="submit" name="publish" value="false" disabled={saving || profiles.loading || categories.loading}>{t("saveDraft")}</NeutralButton>}
       <PrimaryButton
         className="min-w-px flex-1"
-        disabled={(noProfile && profileRows.length === 0) || saving || profiles.loading || categories.loading || (edit && liveService.loading)}
+        disabled={(noProfile && profileRows.length === 0) || saving || profiles.loading || categories.loading || (edit && !liveOverride && liveService.loading)}
         form="advisor-service-form"
         type="submit"
         onClick={() => setProblem(null)}
@@ -453,8 +455,8 @@ export function ServiceFormScreen({
       <form id="advisor-service-form" key={apiRecord?.modifiedAt ?? "new"} onSubmit={(event) => void submit(event, true)}>
       <ScreenBody className="gap-4 pb-6 lg:gap-0 lg:pb-0">
         {problem ? <p className="mx-6 mt-4 rounded-card border border-destructive/30 p-3 text-sm" role="alert">{problem}</p> : null}
-        {profiles.error || categories.error || (edit && liveService.error) ? <div className="mx-6 mt-4 rounded-card border border-destructive/30 p-3 text-sm" role="alert"><p>{(profiles.error ?? categories.error ?? liveService.error)?.message}</p><button className="mt-2 text-primary underline" type="button" onClick={() => { profiles.reload(); categories.reload(); liveService.reload(); }}>{t("retry")}</button></div> : null}
-        {edit && liveService.loading ? <p className="mx-6 mt-4 text-sm text-muted-foreground" role="status">{t("loadingService")}</p> : null}
+        {profiles.error || categories.error || (edit && !liveOverride && liveService.error) ? <div className="mx-6 mt-4 rounded-card border border-destructive/30 p-3 text-sm" role="alert"><p>{(profiles.error ?? categories.error ?? liveService.error)?.message}</p><button className="mt-2 text-primary underline" type="button" onClick={() => { profiles.reload(); categories.reload(); liveService.reload(); }}>{t("retry")}</button></div> : null}
+        {edit && !liveOverride && liveService.loading ? <p className="mx-6 mt-4 text-sm text-muted-foreground" role="status">{t("loadingService")}</p> : null}
         {!profiles.loading && profileRows.length === 0 ? <p className="mx-6 mt-4 rounded-card bg-muted p-3 text-sm" role="status">{t("noProfileHint")}</p> : null}
         <div className={HEAD_BAND}>
           <div className={cn("flex w-full shrink-0 flex-col items-start gap-1.5 overflow-clip px-6", PAGE, "lg:py-6")}>
