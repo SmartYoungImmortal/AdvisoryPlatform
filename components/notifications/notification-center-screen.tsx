@@ -1,3 +1,5 @@
+"use client";
+
 import Link from "next/link";
 import {
   BadgeCheck,
@@ -360,7 +362,7 @@ export function NotificationCenterFrame({
       <ScreenTopBar className="lg:hidden" href={back} label={c("back")} />
       <ScreenBody>
         <div className="hidden w-full lg:block">
-          <TopBar backHref={back} />
+          <TopBar />
         </div>
 
         {/* Figma "Head Band" — the title sits on the card surface rather than

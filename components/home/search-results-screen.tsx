@@ -1,3 +1,5 @@
+"use client";
+
 import Image from "next/image";
 import Link from "next/link";
 import { ChevronDown, ChevronLeft, ChevronUp } from "lucide-react";
@@ -11,6 +13,7 @@ import {
   getService,
   type Service,
 } from "@/lib/catalogue/services";
+import { matchServices } from "@/lib/catalogue/search";
 import { BrowseList } from "@/components/home/browse-list";
 import { errorSearch } from "@/lib/assets/r2";
 import { Button } from "@/components/ui/button";
@@ -231,14 +234,13 @@ function FilterRail() {
   );
 }
 
-/** The catalogue's six categories, as the rail's chips — home names them. */
+/** The catalogue's five categories, as the rail's chips — home names them. */
 const CATEGORY_KEYS = [
   "categoryBusiness",
   "categoryFinance",
   "categoryLegal",
   "categoryEducation",
   "categoryWellbeing",
-  "categoryTech",
 ] as const;
 
 /** The catalogue records this frame's query ("วางแผนภาษี") turns up. */
@@ -382,20 +384,30 @@ function Suggestions() {
  */
 export function SearchResultsScreen({
   state = "default",
+  query: typed,
 }: {
   readonly state?: "default" | "no-results";
+  /**
+   * What was typed into a search field (`/search?q=…`). When present, the
+   * results are the catalogue matched against it and the empty state is
+   * whether anything matched; without it the screen shows its fixed frame.
+   */
+  readonly query?: string;
 }) {
   const t = useTranslations("search");
   const c = useTranslations("common");
-  const empty = state === "no-results";
+  const q = typed?.trim() ?? "";
   // The no-results frame is asked a different question ("ภาษีคริปโต"), which is
   // why it comes back with nothing; the query is echoed in four places.
-  const query = empty ? t("noResultsQuery") : t("query");
-  const results = empty
-    ? []
-    : RESULT_IDS.map(getService).filter(
-        (service): service is Service => Boolean(service),
-      );
+  const query = q || (state === "no-results" ? t("noResultsQuery") : t("query"));
+  const results = q
+    ? matchServices(q)
+    : state === "no-results"
+      ? []
+      : RESULT_IDS.map(getService).filter(
+          (service): service is Service => Boolean(service),
+        );
+  const empty = results.length === 0;
 
   return (
     <MobileScreen className="pb-0" wide>

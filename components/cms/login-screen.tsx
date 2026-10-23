@@ -10,7 +10,7 @@ import { CmsButton } from "@/components/cms/button";
 import { useCmsFeedback } from "@/components/cms/feedback";
 import { CmsFormField, CmsInput } from "@/components/cms/fields";
 import { Checkbox } from "@/components/ui/checkbox";
-import { consoleLogo } from "@/lib/assets/r2";
+import { logo } from "@/lib/assets/r2";
 import { isEmail, safeNext, signIn, useSession } from "@/lib/session";
 import { cn } from "@/lib/utils";
 
@@ -113,7 +113,7 @@ export function CmsLoginScreen({ preset = "default" }: { readonly preset?: "defa
                     alt="Advisory Platform"
                     className="mx-auto block h-9 w-auto"
                     priority
-                    src={consoleLogo}
+                    src={logo}
                   />
                 </div>
                 {/* The logo heads the card; the title stays for screen readers. */}

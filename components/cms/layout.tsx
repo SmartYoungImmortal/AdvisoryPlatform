@@ -43,7 +43,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Separator } from "@/components/ui/separator";
 import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
-import { consoleLogo } from "@/lib/assets/r2";
+import { logo } from "@/lib/assets/r2";
 import { resetDatabase } from "@/lib/mock-db/store";
 import { cmsNav, isCmsNavActive, type CmsNavItem } from "@/lib/navigation/cms";
 import { signOut, useSession } from "@/lib/session";
@@ -212,7 +212,7 @@ function SidebarBody() {
             alt="Advisory Platform"
             className="h-8 w-auto max-w-40 object-contain"
             priority
-            src={consoleLogo}
+            src={logo}
           />
         </Link>
       </div>

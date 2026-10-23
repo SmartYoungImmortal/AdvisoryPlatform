@@ -1,3 +1,5 @@
+"use client";
+
 import { CircleCheck, WifiOff } from "lucide-react";
 import { useTranslations } from "next-intl";
 

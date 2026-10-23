@@ -1,3 +1,5 @@
+"use client";
+
 import { CalendarDays, CreditCard, MessageSquare } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { useTranslations } from "next-intl";

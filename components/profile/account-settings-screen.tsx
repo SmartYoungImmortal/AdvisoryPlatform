@@ -1,3 +1,5 @@
+"use client";
+
 import { CircleCheckBig, Lock, Mail, Trash2 } from "lucide-react";
 import { useTranslations } from "next-intl";
 

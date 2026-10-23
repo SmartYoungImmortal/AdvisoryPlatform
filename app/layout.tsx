@@ -3,11 +3,13 @@ import type { Metadata, Viewport } from "next";
 // runs that opt in with `font-latin`.
 import '@fontsource-variable/noto-sans-thai/wght.css';
 import '@fontsource-variable/geist/wght.css';
+// Kanit sets the home hero's headline and the line under it (`font-hero`).
+import '@fontsource/kanit/400.css';
+import '@fontsource/kanit/500.css';
 import "./globals.css";
 import { cn } from "@/lib/utils";
 import { TooltipProvider } from "@/components/ui/tooltip";
-import {NextIntlClientProvider} from 'next-intl';
-import {getMessages} from 'next-intl/server';
+import { LocaleProvider } from "@/lib/i18n/locale-provider";
 
 export const metadata: Metadata = {
   title: "Advisory Platform",
@@ -42,16 +44,11 @@ export const viewport: Viewport = {
   viewportFit: "cover",
 };
 
-export default async function RootLayout({
+export default function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
-  // Client components read their copy from this provider, not from the request
-  // config, so the messages have to be handed over explicitly — without them a
-  // `useTranslations` call in a client component renders the bare key.
-  const messages = await getMessages();
-
   return (
     <html
       lang="th"
@@ -62,11 +59,14 @@ export default async function RootLayout({
           itself lives in `MobileViewport` (per route-group layouts) so the admin
           console can span the full width. */}
       <body className="min-h-full bg-muted">
-        <NextIntlClientProvider messages={messages}>
+        {/* Client components read their copy from this provider. It holds
+            the reader's language and swaps the message file when they change
+            it — see `lib/i18n/locale-provider.tsx`. */}
+        <LocaleProvider>
           <TooltipProvider>
             {children}
           </TooltipProvider>
-        </NextIntlClientProvider>
+        </LocaleProvider>
       </body>
     </html>
   );

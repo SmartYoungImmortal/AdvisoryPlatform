@@ -19,7 +19,7 @@ export function AdminSidebar() {
   return (
     <aside className="sticky top-0 flex h-dvh w-60 shrink-0 flex-col gap-5 overflow-y-auto border-r border-sidebar-border bg-sidebar px-3 py-4 text-sidebar-foreground">
       <div className="flex items-center gap-2 px-2 pt-1">
-        <Image alt="Advisory Platform" className="h-6 w-auto" src={logo} />
+        <Image alt="Advisory Platform" className="h-5 w-auto" src={logo} />
         <p className="font-latin text-sm font-semibold text-sidebar-foreground">
           {t("nav.console")}
         </p>

@@ -1,3 +1,5 @@
+"use client";
+
 import { Wifi, WifiOff } from "lucide-react";
 import { useTranslations } from "next-intl";
 
