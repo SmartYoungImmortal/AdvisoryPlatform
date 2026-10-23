@@ -1,10 +1,10 @@
-import Image from "next/image";
+"use client";
+
 import Link from "next/link";
 import { ChevronRight, Plus } from "lucide-react";
 import { useTranslations } from "next-intl";
 import type { ReactNode } from "react";
 
-import { ServiceProof } from "@/components/home/parts";
 import { SiteFooter } from "@/components/marketing/site-footer";
 import { PrimaryButton } from "@/components/mobile/buttons";
 import {
@@ -16,15 +16,10 @@ import { StatTile } from "@/components/mobile/stat-tile";
 import { StatusPill } from "@/components/mobile/status-pill";
 import { surfaceClass } from "@/components/mobile/surface";
 import { TopBar } from "@/components/topbar";
-import { getAdvisor } from "@/lib/catalogue/services";
+import { useResource } from "@/lib/api/use-resource";
+import { listMyAdvisorServices, listMyAvailabilityProfiles, type AdvisorService } from "@/lib/advisor-services/api";
 import { PAGE } from "@/lib/layout";
 import { cn } from "@/lib/utils";
-import {
-  SLOT_MINUTES,
-  advisorServices,
-  serviceCounts,
-  type AdvisorServiceRecord,
-} from "@/lib/advisor-services";
 
 /**
  * Figma "Back Bar" — the 52px row under the app's nav on every advisor frame:
@@ -97,10 +92,9 @@ function ServiceStat({
  * The whole card is the link, so it is `Surface interactive` — the hover lift and
  * the press are the affordance the trailing chevron was promising on its own.
  */
-function ServiceCard({ record }: { readonly record: AdvisorServiceRecord }) {
+function ServiceCard({ record, profileName }: { readonly record: AdvisorService; readonly profileName?: string }) {
   const t = useTranslations("advisorServices");
-  const published = record.status === "published";
-  const advisor = getAdvisor(record.service.advisorId);
+  const published = record.isPublished;
 
   return (
     <Link
@@ -108,42 +102,23 @@ function ServiceCard({ record }: { readonly record: AdvisorServiceRecord }) {
         surfaceClass({ interactive: true }),
         "flex w-full shrink-0 items-center gap-3 overflow-clip p-2 lg:gap-4 lg:p-3",
       )}
-      href={`/advisor/services/${record.serviceId}`}
+      href={`/advisor/services/view?serviceId=${encodeURIComponent(record.id)}`}
     >
       {/* 88px on the phone, 104 once the card has 788 of the 1200 column: at the
           phone's size it read as a thumbnail on a desktop-width row. */}
-      <Image
-        alt=""
-        className={cn(
-          "size-22 shrink-0 rounded-card object-cover lg:size-26",
-          published ? null : "opacity-50",
-        )}
-        src={record.service.cover}
-      />
+      <div aria-hidden className={cn("flex size-22 shrink-0 items-center justify-center rounded-card bg-muted lg:size-26", !published && "opacity-50")}>
+        <ChevronRight className="size-5 text-muted-foreground" />
+      </div>
       <div className="flex min-w-px flex-1 flex-col items-start gap-1 overflow-clip">
-        <p className="w-full text-sm font-semibold text-foreground lg:text-base">
-          {record.service.title}
-        </p>
-        {advisor ? (
-          <ServiceProof
-            bookings={record.service.bookings}
-            rating={advisor.rating}
-            reviews={advisor.reviews}
-          />
-        ) : null}
+        <p className="w-full text-sm font-semibold text-foreground lg:text-base">{record.name}</p>
         <p className="w-full text-xs font-normal text-muted-foreground">
-          {t("priceLine", {
-            price: record.shortPrice,
-            minutes: SLOT_MINUTES,
-          })}
+          {t("priceLine", { price: record.priceSatang / 100, minutes: record.durationMinutes })}
         </p>
         <div className="flex w-full shrink-0 items-center gap-2 overflow-clip">
           <StatusPill tone={published ? "success" : "neutral"}>
             {published ? t("statusPublished") : t("statusHidden")}
           </StatusPill>
-          <p className="min-w-px flex-1 truncate text-xs font-normal text-muted-foreground">
-            {record.profileName}
-          </p>
+          {profileName ? <p className="min-w-px flex-1 truncate text-xs font-normal text-muted-foreground">{profileName}</p> : null}
         </div>
       </div>
       <ChevronRight className="size-4.5 shrink-0 text-muted-foreground" />
@@ -163,7 +138,10 @@ function ServiceCard({ record }: { readonly record: AdvisorServiceRecord }) {
 export function MyServicesScreen() {
   const t = useTranslations("advisorServices");
   const c = useTranslations("common");
-  const counts = serviceCounts();
+  const services = useResource("advisors/me/services?page=1&limit=100", listMyAdvisorServices);
+  const profiles = useResource("advisors/me/availability/profiles", listMyAvailabilityProfiles);
+  const rows = services.data?.items ?? [];
+  const counts = { total: services.data?.total ?? 0, published: rows.filter((item) => item.isPublished).length, profiles: profiles.data?.length ?? 0 };
 
   return (
     // Figma "Desktop / My services (Light)" (1998:28327): the heading becomes a
@@ -213,9 +191,10 @@ export function MyServicesScreen() {
           </div>
 
           <div className="flex w-full shrink-0 flex-col items-start gap-3 px-6 lg:col-start-1 lg:row-start-1 lg:px-0">
-            {advisorServices().map((record) => (
-              <ServiceCard key={record.serviceId} record={record} />
-            ))}
+            {services.loading ? <p className="text-sm text-muted-foreground" role="status">{t("loading")}</p> : null}
+            {services.error || profiles.error ? <div role="alert" className="w-full rounded-card border border-destructive/30 p-4 text-sm"><p>{(services.error ?? profiles.error)?.message}</p><button className="mt-2 text-primary underline" onClick={() => { services.reload(); profiles.reload(); }} type="button">{t("retry")}</button></div> : null}
+            {!services.loading && !services.error && rows.length === 0 ? <div className="w-full rounded-card border border-border p-6 text-center"><p className="text-sm text-muted-foreground">{t("empty")}</p><Link className="mt-3 inline-flex text-sm font-medium text-primary" href="/advisor/services/new">{t("create")}</Link></div> : null}
+            {rows.map((record) => <ServiceCard key={record.id} record={record} profileName={profiles.data?.find((profile) => profile.id === record.availabilityProfileId)?.name} />)}
           </div>
         </div>
 
