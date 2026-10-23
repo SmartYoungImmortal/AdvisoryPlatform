@@ -102,7 +102,17 @@
     "nextSession": "เซสชันถัดไป",
     "join": "เข้าร่วมเซสชัน",
     "details": "รายละเอียด",
-    "upNext": "การจองถัดไป"
+    "upNext": "การจองถัดไป",
+    "reschedule": "เปลี่ยนเวลานัด",
+    "rescheduleClose": "ปิดตัวเลือกเวลา",
+    "rescheduleChooseSlot": "เลือกเวลาว่างใหม่",
+    "rescheduleLoading": "กำลังโหลดเวลาว่าง…",
+    "rescheduleRetry": "ลองอีกครั้ง",
+    "rescheduleNoSlots": "ไม่มีเวลาว่างใน 60 วันข้างหน้า",
+    "rescheduleScreeningRequired": "ต้องผ่านการคัดกรองก่อนจึงจะดูเวลาว่างได้",
+    "rescheduleConflict": "เวลานี้เพิ่งถูกจองไปแล้ว กรุณาเลือกเวลาอื่น",
+    "rescheduleSaving": "กำลังเปลี่ยนเวลา…",
+    "rescheduleConfirm": "ยืนยันเวลาใหม่"
   },
   "service": {
     "advisorLabel": "ผู้ให้คำปรึกษา",
