@@ -551,7 +551,7 @@ export function HomeScreen() {
 
         {/* Runs under the tab bar, which is what the bar frosts against. The
             desktop frame has no tab bar to clear, so the inset goes with it. */}
-        <SiteFooter className={FOOTER_ABOVE_TAB_BAR} />
+        <SiteFooter className={cn(FOOTER_ABOVE_TAB_BAR, "page-scale")} />
       </ScreenBody>
       {/* Figma's desktop nav carries these destinations itself — see `TopBar`. */}
       <BottomBar className="lg:hidden" role="user" selected="home" />

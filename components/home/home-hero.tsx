@@ -60,10 +60,12 @@ export function HomeHero({
     >
       <section
         className={cn(
-          // No `overflow-hidden` here: the search's suggestion panel has to be
-          // able to hang below the band. The two layers that need clipping,
-          // the photograph and the ring, each clip themselves.
-          "relative isolate flex w-full flex-col items-center justify-center bg-hero-ground",
+          // Clipped here, at the band, not inside the stage: the stage is the
+          // 1710×985 frame scaled to fit, so on a screen of another shape it
+          // is shorter or narrower than the band, and clipping the ring to it
+          // cut the lower cards off along a straight line. The search panel
+          // is held above the bottom of the screen, so it is not cut either.
+          "relative isolate flex w-full flex-col items-center justify-center bg-hero-ground lg:overflow-hidden",
           // `z-1` keeps the band over the sections waiting beneath it and
           // under the bar, which is `z-10` (`components/topbar.tsx`).
           "py-16 lg:sticky lg:top-0 lg:z-1 lg:h-[100dvh] lg:py-0 lg:pt-[5.5rem]",
@@ -84,11 +86,14 @@ export function HomeHero({
             data-slot="home-hero-photo"
           />
         </div>
-        {/* Desktop only. The pieces are placed in `vw`/`vh` from the centre, and
-          on a phone that arrangement either covers the copy or leaves the band
-          empty; the phone keeps the category rail it already has. */}
-        {/* Covers the whole band; `.hero-ring` moves its origin down from the
-          copy's centre. */}
+        {/* The composition, drawn once at 1710×985 and scaled whole to the
+            screen (`.hero-stage` in `app/globals.css`), so ring, cards, copy
+            and search keep the proportions they have on that screen on every
+            other one. Below `lg` it steps out of the way and the copy flows
+            as it always has. */}
+        <div className="hero-stage">
+        {/* Desktop only: on a phone the ring either covers the copy or leaves
+            the band empty; the phone keeps the category rail it already has. */}
         <HeroShapes className="hidden lg:block" />
         <div
           // `lg:pt-24` sets the copy 48px below the band's centre, deeper inside
@@ -118,6 +123,7 @@ export function HomeHero({
           <div className="flex w-full shrink-0 items-start gap-2">
             {children}
           </div>
+        </div>
         </div>
       </section>
     </div>

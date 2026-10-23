@@ -2,24 +2,22 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Lock, Mail, TriangleAlert, WifiOff } from "lucide-react";
+import { TriangleAlert, WifiOff } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { useState, type FormEvent } from "react";
 
-import { Checkbox } from "@/components/ui/checkbox";
-import { AUTH_CARD, AuthFooter, AuthTopNav } from "@/components/auth/auth-chrome";
-import { AlertBanner } from "@/components/mobile/banner";
-import { NeutralButton, PrimaryButton } from "@/components/mobile/buttons";
-import { Field, RevealPasswordButton } from "@/components/mobile/field";
 import {
-  MobileScreen,
-  ScreenActions,
-  ScreenBody,
-  ScreenHeading,
-  ScreenSpacer,
-  ScreenTopBar,
-} from "@/components/mobile/screen";
-import { Surface } from "@/components/mobile/surface";
+  AUTH_LINK,
+  AuthHeading,
+  AuthSplit,
+  SocialButtons,
+  authPill,
+  type SocialFailure,
+} from "@/components/auth/auth-split";
+import { AlertBanner } from "@/components/mobile/banner";
+import { Field, RevealPasswordButton } from "@/components/mobile/field";
+import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import { isEmail, passwordProblems, register } from "@/lib/session";
 import { cn } from "@/lib/utils";
 
@@ -27,13 +25,24 @@ type Errors = Partial<
   Record<"displayName" | "fullName" | "email" | "password" | "confirm" | "consent", string>
 >;
 
+/** A refusal that belongs to no single field. */
+type Trouble =
+  | { readonly kind: "rejected" | "unreachable"; readonly detail: string | null }
+  /** A social provider the API has not been given credentials for. */
+  | { readonly kind: "off"; readonly detail: string };
+
 /**
- * Figma "Register (Light)" (995:4344) plus the email-in-use (995:4383) and
- * validation-error (995:4424) states.
+ * The sign-up page, in the sign-in page's frame (`AuthSplit`): the room
+ * photograph on a desktop, the providers first, then under an "or" the form.
+ * A provider signs up and signs in in one journey, so the same buttons serve.
  *
- * Submitting creates the account through the API, which signs it in on the same
- * call, and lands it on the advisee's home. `state` prefills a frame's values and
- * errors so its route still opens on the drawing.
+ * Kept from Figma "Register (Light)" (995:4344) and its email-in-use
+ * (995:4383) and validation-error (995:4424) states: all five fields, the
+ * password rules that turn green as they hold, the consent, and the way to
+ * sign in. `state` seeds a frame's errors so its route still opens on it.
+ *
+ * Submitting creates the account through the API, which sends the
+ * verification link, and moves on to "check your email".
  *
  * ## What the API validates that this form cannot
  *
@@ -51,15 +60,15 @@ export function RegisterScreen({
   readonly state?: "default" | "email-in-use" | "validation-errors";
 }) {
   const t = useTranslations("register");
+  const l = useTranslations("login");
   const s = useTranslations("errorStates");
-  const c = useTranslations("common");
   const router = useRouter();
   const inUsePreset = state === "email-in-use";
   const invalidPreset = state === "validation-errors";
 
   const [displayName, setDisplayName] = useState("");
   const [fullName, setFullName] = useState("");
-  const [email, setEmail] = useState(inUsePreset ? "araya.s@advisory.demo" : "");
+  const [email, setEmail] = useState("");
   const [password, setPassword] = useState(invalidPreset ? "abcd" : "");
   const [confirm, setConfirm] = useState(invalidPreset ? "abcdefgh" : "");
   const [consent, setConsent] = useState(false);
@@ -76,15 +85,19 @@ export function RegisterScreen({
     return {};
   });
   const inUse = errors.email === t("emailInUse");
-  /** A refusal that belongs to no single field: the API's own, or no API at all. */
-  const [trouble, setTrouble] = useState<
-    { readonly kind: "rejected" | "unreachable"; readonly detail: string | null } | null
-  >(null);
+  const [trouble, setTrouble] = useState<Trouble | null>(null);
   const [busy, setBusy] = useState(false);
 
   function clear(key: keyof Errors) {
     setErrors((current) => ({ ...current, [key]: undefined }));
     setTrouble(null);
+  }
+
+  function onSocialFailure(social: SocialFailure | null) {
+    if (!social) return setTrouble(null);
+    if (social.kind === "off") setTrouble({ kind: "off", detail: social.provider });
+    else if (social.kind === "unreachable") setTrouble({ kind: "unreachable", detail: null });
+    else setTrouble({ kind: "rejected", detail: social.detail });
   }
 
   async function submit(event: FormEvent<HTMLFormElement>) {
@@ -130,216 +143,193 @@ export function RegisterScreen({
     router.push(`/verification-sent?email=${encodeURIComponent(email.trim())}`);
   }
 
-  const reveal = (
-    <RevealPasswordButton
-      label={t("passwordLabel")}
-      onToggle={() => setRevealed((value) => !value)}
-      revealed={revealed}
-    />
-  );
-
   return (
-    // Figma "Desktop / Register (Light)" (1787:23891) — the same form as the
-    // auth card, under the guest nav. See `components/auth/auth-chrome`.
-    <MobileScreen wide>
-      <ScreenTopBar className="lg:hidden" href="/login" label={c("back")} />
-      <ScreenBody className="lg:items-stretch lg:justify-center">
-        <AuthTopNav />
-        <form
-          className={cn("flex w-full flex-1 flex-col items-center lg:mx-auto", AUTH_CARD)}
-          noValidate
-          onSubmit={(event) => void submit(event)}
-        >
-          {/* Figma "Heading": 16px top / 8px bottom padding, 10px gap. */}
-          <ScreenHeading
-            className="gap-2.5 pt-4"
-            subtitle={t("subtitle")}
-            title={t("title")}
+    <AuthSplit>
+      <AuthHeading subtitle={t("subtitle")} title={t("titleShort")} withLogo />
+
+      {/* `px-0 pt-0`: the banner's own inset is the phone page's gutter. */}
+      {trouble?.kind === "off" ? (
+        <AlertBanner
+          className="px-0 pt-0"
+          body={l("providerOffBody")}
+          icon={TriangleAlert}
+          title={l("providerOffTitle", { provider: trouble.detail })}
+        />
+      ) : null}
+      {trouble?.kind === "rejected" ? (
+        <AlertBanner
+          className="px-0 pt-0"
+          body={trouble.detail ?? s("serverBody")}
+          icon={TriangleAlert}
+          title={s("serverTitle")}
+        />
+      ) : null}
+      {trouble?.kind === "unreachable" ? (
+        <AlertBanner className="px-0 pt-0" body={s("offlineBody")} icon={WifiOff} title={s("offlineTitle")} />
+      ) : null}
+
+      <SocialButtons compact disabled={busy} divider={t("orEmail")} onFailure={onSocialFailure} />
+
+      <form className="flex flex-col gap-4" noValidate onSubmit={(event) => void submit(event)}>
+        {/* The two names side by side from the tablet up: they are one
+            question ("who are you"), and five stacked fields read as a wall. */}
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 md:gap-3">
+          <Field
+            autoComplete="nickname"
+            error={errors.displayName}
+            id="register-display-name"
+            invalid={Boolean(errors.displayName)}
+            label={t("displayNameLabel")}
+            onChange={(event) => {
+              setDisplayName(event.target.value);
+              clear("displayName");
+            }}
+            outline
+            placeholder={t("displayNamePlaceholder")}
+            value={displayName}
           />
-
-          {/* The frame draws no banner here, because the only failure it knew
-              about was the taken email and that one lives on the field. A refusal
-              that belongs to no field needs somewhere to be said. */}
-          {trouble?.kind === "rejected" ? (
-            <AlertBanner
-              body={trouble.detail ?? s("serverBody")}
-              icon={TriangleAlert}
-              title={s("serverTitle")}
-            />
-          ) : null}
-          {trouble?.kind === "unreachable" ? (
-            <AlertBanner body={s("offlineBody")} icon={WifiOff} title={s("offlineTitle")} />
-          ) : null}
-
-          {/* Figma "Form Fields": 16px top padding, 16px between fields. */}
-          <div className="flex w-full shrink-0 flex-col items-start gap-4 overflow-clip px-6 pt-4">
-            <Field
-              autoComplete="nickname"
-              error={errors.displayName}
-              id="register-display-name"
-              invalid={Boolean(errors.displayName)}
-              label={t("displayNameLabel")}
-              onChange={(event) => {
-                setDisplayName(event.target.value);
-                clear("displayName");
-              }}
-              placeholder={t("displayNamePlaceholder")}
-              value={displayName}
-            />
-            <Field
-              autoComplete="name"
-              error={errors.fullName}
-              id="register-full-name"
-              invalid={Boolean(errors.fullName)}
-              label={t("fullNameLabel")}
-              onChange={(event) => {
-                setFullName(event.target.value);
-                clear("fullName");
-              }}
-              placeholder={t("fullNamePlaceholder")}
-              value={fullName}
-            />
-            <Field
-              autoComplete="email"
-              error={errors.email}
-              icon={Mail}
-              id="register-email"
-              invalid={Boolean(errors.email)}
-              label={t("emailLabel")}
-              latin
-              onChange={(event) => {
-                setEmail(event.target.value);
-                clear("email");
-              }}
-              placeholder={t("emailPlaceholder")}
-              type="email"
-              value={email}
-            />
-            {/* Password field: Figma stacks the rule list 4px under the input. */}
-            <div className="flex w-full shrink-0 flex-col items-start gap-1">
-              <Field
-                autoComplete="new-password"
-                icon={Lock}
-                id="register-password"
-                invalid={Boolean(errors.password)}
+          <Field
+            autoComplete="name"
+            error={errors.fullName}
+            id="register-full-name"
+            invalid={Boolean(errors.fullName)}
+            label={t("fullNameLabel")}
+            onChange={(event) => {
+              setFullName(event.target.value);
+              clear("fullName");
+            }}
+            outline
+            placeholder={t("fullNamePlaceholder")}
+            value={fullName}
+          />
+        </div>
+        <Field
+          autoComplete="email"
+          error={errors.email}
+          id="register-email"
+          invalid={Boolean(errors.email)}
+          label={t("emailLabel")}
+          latin
+          onChange={(event) => {
+            setEmail(event.target.value);
+            clear("email");
+          }}
+          outline
+          placeholder={t("emailPlaceholder")}
+          type="email"
+          value={email}
+        />
+        {/* The rule list sits 4px under the password, as the frame drew it. */}
+        <div className="flex w-full flex-col gap-1">
+          <Field
+            autoComplete="new-password"
+            id="register-password"
+            invalid={Boolean(errors.password)}
+            label={t("passwordLabel")}
+            onChange={(event) => {
+              setPassword(event.target.value);
+              clear("password");
+            }}
+            outline
+            placeholder={t("passwordPlaceholder")}
+            trailing={
+              <RevealPasswordButton
                 label={t("passwordLabel")}
-                onChange={(event) => {
-                  setPassword(event.target.value);
-                  clear("password");
-                }}
-                placeholder={t("passwordPlaceholder")}
-                trailing={reveal}
-                type={revealed ? "text" : "password"}
-                value={password}
+                onToggle={() => setRevealed((value) => !value)}
+                revealed={revealed}
               />
-              {errors.password ? (
-                <p className="w-full text-xs font-normal text-destructive">
-                  {errors.password}
-                </p>
-              ) : null}
-              {inUse ? (
-                <p className="w-full text-xs font-normal text-muted-foreground">
-                  {t("hintCompact")}
-                </p>
-              ) : (
-                <PasswordRules password={password} ranged={invalidPreset} />
-              )}
-            </div>
-            <Field
-              autoComplete="new-password"
-              error={errors.confirm}
-              icon={Lock}
-              id="register-confirm"
-              invalid={Boolean(errors.confirm)}
-              label={t("confirmLabel")}
-              onChange={(event) => {
-                setConfirm(event.target.value);
-                clear("confirm");
+            }
+            type={revealed ? "text" : "password"}
+            value={password}
+          />
+          {errors.password ? (
+            <p className="w-full text-xs font-normal text-destructive">{errors.password}</p>
+          ) : null}
+          {inUse ? (
+            <p className="w-full text-xs font-normal text-muted-foreground">{t("hintCompact")}</p>
+          ) : (
+            <PasswordRules password={password} ranged={invalidPreset} />
+          )}
+        </div>
+        <Field
+          autoComplete="new-password"
+          error={errors.confirm}
+          id="register-confirm"
+          invalid={Boolean(errors.confirm)}
+          label={t("confirmLabel")}
+          onChange={(event) => {
+            setConfirm(event.target.value);
+            clear("confirm");
+          }}
+          outline
+          placeholder={t("confirmPlaceholder")}
+          type={revealed ? "text" : "password"}
+          value={confirm}
+        />
+
+        {/* The consent is the one gate between a filled form and an
+            account. The copy is a <label>, so tapping the sentence toggles
+            the box; the error rings the row. */}
+        <div className="flex flex-col gap-1">
+          <div
+            className={cn(
+              "flex items-start gap-2.5 rounded-xl p-1",
+              errors.consent && "ring-1 ring-destructive",
+            )}
+          >
+            <Checkbox
+              aria-invalid={Boolean(errors.consent) || undefined}
+              checked={consent}
+              className="mt-0.5"
+              id="register-consent"
+              onCheckedChange={(checked) => {
+                setConsent(checked);
+                clear("consent");
               }}
-              placeholder={t("confirmPlaceholder")}
-              type={revealed ? "text" : "password"}
-              value={confirm}
             />
-          </div>
-
-          {/* Figma "PDPA Consent": 20px top padding, 10px gap, 12/18 copy. The copy
-              is a <label>, so tapping the sentence toggles the box.
-
-              The consent is the one gate between a filled form and an account,
-              and as a bare line of 12px grey under five fields it read as a
-              footnote. It sits in a well: the group is one object, the white
-              checkbox has a ground to sit on, and the error state rings it. */}
-          <div className="flex w-full shrink-0 flex-col items-start px-6 pt-5">
-            <Surface
-              className={cn(
-                "flex w-full items-start gap-2.5 p-3",
-                errors.consent && "ring-1 ring-destructive ring-inset",
-              )}
-              tier="well"
+            <label
+              className="min-w-px flex-1 text-xs leading-5 text-muted-foreground"
+              htmlFor="register-consent"
             >
-              <Checkbox
-                aria-invalid={Boolean(errors.consent) || undefined}
-                checked={consent}
-                className="mt-px size-3.5 bg-card"
-                id="register-consent"
-                onCheckedChange={(checked) => {
-                  setConsent(checked);
-                  clear("consent");
-                }}
-              />
-              <label
-                className="min-w-px flex-1 text-xs font-normal text-muted-foreground"
-                htmlFor="register-consent"
-              >
-                {t("consentPrefix")}
-                <Link className="text-brand-image" href="/terms">
-                  {t("consentTerms")}
-                </Link>
-                {t("consentAnd")}
-                <Link className="text-brand-image" href="/terms">
-                  {t("consentPrivacy")}
-                </Link>
-                {t("consentSuffix")}
-              </label>
-            </Surface>
-            {errors.consent ? (
-              <p className="w-full pt-1 text-xs font-normal text-destructive" role="alert">
-                {errors.consent}
-              </p>
-            ) : null}
-          </div>
-
-          <ScreenSpacer className="lg:hidden" />
-          {/* Figma "Actions": 8px padding, 14px gap above the sign-in link. The
-              448 card keeps the column at every width — see `LoginScreen`. */}
-          <ScreenActions className="gap-3.5" stacked>
-            {/* Busy is the frame's own label at 40%: there is no "creating…"
-                string to swap in, and `aria-busy` states it without one. */}
-            <PrimaryButton
-              aria-busy={busy || undefined}
-              block
-              className="disabled:opacity-40"
-              disabled={busy}
-              type="submit"
-            >
-              {t("submit")}
-            </PrimaryButton>
-            {inUse ? (
-              <NeutralButton block href="/login">
-                {t("signInWithEmail")}
-              </NeutralButton>
-            ) : null}
-            <p className="w-full text-center text-sm font-normal text-muted-foreground">
-              {t("haveAccount")}
-              <Link className="text-brand-image" href="/login">
-                {t("signIn")}
+              {t("consentPrefix")}{" "}
+              <Link className={AUTH_LINK} href="/terms">
+                {t("consentTerms")}
               </Link>
+              {t("consentAnd")}{" "}
+              <Link className={AUTH_LINK} href="/pdpa">
+                {t("consentPrivacy")}
+              </Link>
+              {t("consentSuffix")}
+            </label>
+          </div>
+          {errors.consent ? (
+            <p className="text-xs font-normal text-destructive" role="alert">
+              {errors.consent}
             </p>
-          </ScreenActions>
-        </form>
-        <AuthFooter className="lg:mt-auto" />
-      </ScreenBody>
-    </MobileScreen>
+          ) : null}
+        </div>
+
+        <div className="flex flex-col gap-2 pt-1">
+          {/* `aria-busy` says the round trip is out to a reader who is not
+              looking at the button. */}
+          <Button aria-busy={busy || undefined} className={authPill(true)} disabled={busy} type="submit">
+            {t("submit")}
+          </Button>
+          {inUse ? (
+            <Button className={authPill()} nativeButton={false} render={<Link href="/login" />} variant="outline">
+              {t("signInWithEmail")}
+            </Button>
+          ) : null}
+        </div>
+      </form>
+
+      <p className="text-center text-sm text-muted-foreground">
+        {t("haveAccount")}
+        <Link className={AUTH_LINK} href="/login">
+          {t("signIn")}
+        </Link>
+      </p>
+    </AuthSplit>
   );
 }
 
@@ -361,8 +351,7 @@ function PasswordRules({
   const t = useTranslations("register");
   const problems = passwordProblems(password);
   const started = password.length > 0;
-  const tone = (failing: boolean) =>
-    cn(started && !failing && "text-success");
+  const tone = (failing: boolean) => cn(started && !failing && "text-success");
 
   return (
     <div className="w-full text-xs font-normal whitespace-pre-wrap text-muted-foreground">

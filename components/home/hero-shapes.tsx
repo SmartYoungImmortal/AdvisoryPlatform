@@ -8,6 +8,7 @@ import Link from "next/link";
 import { useTranslations } from "next-intl";
 import { useEffect, useRef, type CSSProperties } from "react";
 
+import { heroCards } from "@/lib/assets/r2";
 import { cn } from "@/lib/utils";
 
 gsap.registerPlugin(useGSAP, ScrollTrigger);
@@ -121,7 +122,18 @@ export function HeroShapes({ className }: { readonly className?: string }) {
                 invalidateOnRefresh: true,
               },
             })
-            .fromTo(after, { y: () => -window.innerHeight }, { y: 0, ease: "none", duration: 1 }, 0)
+            // Divided by each block's own `zoom` (`app/globals.css`): a
+            // transform inside a zoomed box is zoomed with it, and a screen of
+            // counter-move has to stay a screen.
+            .fromTo(
+              after,
+              {
+                y: (_: number, node: Element) =>
+                  -window.innerHeight / (Number.parseFloat(getComputedStyle(node).zoom) || 1),
+              },
+              { y: 0, ease: "none", duration: 1 },
+              0,
+            )
             // Across the whole hold rather than starting late, on a curve that
             // keeps it nearly invisible until the band has mostly cleared. A
             // tween that only began at 0.6 never rendered its start state, and
@@ -166,7 +178,8 @@ export function HeroShapes({ className }: { readonly className?: string }) {
 
   return (
     <div
-      className={cn("pointer-events-none absolute inset-0 overflow-hidden", className)}
+      // No clipping of its own: the band clips (`HomeHero`).
+      className={cn("pointer-events-none absolute inset-0", className)}
       data-slot="hero-shapes"
       ref={scope}
     >
@@ -200,10 +213,8 @@ export function HeroShapes({ className }: { readonly className?: string }) {
                 // 202:191, the reference's own frame, a touch wider than square.
                 className="aspect-[202/191] w-full object-cover"
                 fetchPriority="high"
-                height={480}
                 loading="eager"
-                src={`/hero/q${n}.jpg`}
-                width={480}
+                src={heroCards[n].photo}
               />
               <div className="flex flex-col px-2.5 pb-2.5">
                 {/* Laid well into the photograph's bottom edge, as the
@@ -212,10 +223,8 @@ export function HeroShapes({ className }: { readonly className?: string }) {
                 <Image
                   alt=""
                   className="-mt-8 mb-1.5 size-10 rounded-full object-cover ring-1 ring-card"
-                  height={96}
                   loading="eager"
-                  src={`/hero/q${n}-face.jpg`}
-                  width={96}
+                  src={heroCards[n].face}
                 />
                 <span className="truncate text-hero-name font-medium text-foreground">{name}</span>
                 <span className="truncate text-hero-role font-medium text-muted-foreground">

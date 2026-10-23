@@ -45,6 +45,19 @@ type Entry =
 
 const cache = new Map<string, Entry>();
 
+/**
+ * Every mounted reader of a key. Only the mount that starts a request drives
+ * it; a second reader of the same key finds the entry `loading` and waits. It
+ * has to be told when that request settles, or it renders `undefined` for as
+ * long as it stays mounted: `/profile` asked for `users/me` twice (the screen
+ * and `OwnAvatar`), and the screen never saw the answer.
+ */
+const readers = new Map<string, Set<() => void>>();
+
+function settle(key: string): void {
+  for (const notify of readers.get(key) ?? []) notify();
+}
+
 /** Drop cached entries so the next read goes to the API. */
 export function invalidate(prefix?: string): void {
   if (prefix === undefined) {
@@ -94,6 +107,18 @@ export function useResource<T>(
     fetcherRef.current = fetcher;
   });
 
+  // Declared before the fetching effect, so a reader is listening before any
+  // request it might share has had a chance to settle.
+  useEffect(() => {
+    const set = readers.get(key) ?? new Set<() => void>();
+    readers.set(key, set);
+    set.add(rerender);
+    return () => {
+      set.delete(rerender);
+      if (set.size === 0) readers.delete(key);
+    };
+  }, [key, rerender]);
+
   const reload = useCallback(() => {
     cache.delete(key);
     setReloadVersion((value) => value + 1);
@@ -127,7 +152,7 @@ export function useResource<T>(
         });
       })
       .finally(() => {
-        if (!controller.signal.aborted) rerender();
+        if (!controller.signal.aborted) settle(key);
       });
 
     return () => {

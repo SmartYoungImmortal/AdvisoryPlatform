@@ -127,7 +127,10 @@ export function TypingPlaceholder({
     <span
       aria-hidden
       className={cn(
-        "pointer-events-none invisible absolute inset-y-0 left-0 flex items-center text-sm text-muted-foreground",
+        // One line inside the field's own edges, whatever the language: left
+        // unbounded on the right, a long English example wrapped to a second
+        // line under the field.
+        "pointer-events-none invisible absolute inset-y-0 right-0 left-0 flex items-center overflow-hidden text-sm whitespace-nowrap text-muted-foreground",
         className,
       )}
       ref={root}
