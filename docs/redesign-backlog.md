@@ -22,7 +22,7 @@
 - [x] `/register`, `/register/email-in-use`, `/register/validation-errors`
 - [x] `/terms`, `/pdpa`
 - [x] `/forgot-password`, `/reset-sent`
-- [x] ของที่ใช้ร่วมกัน: navbar, footer, เมนูมือถือ, ปุ่ม TH/EN
+- [x] ของที่ใช้ร่วมกัน: navbar, เมนูมือถือ, ปุ่ม TH/EN
 
 ## ทำแล้วแต่ยังไม่ผ่าน
 
@@ -33,6 +33,11 @@
 สถานะ: redesign ไปแล้ว (โครง fastwork, กล่องนัดถัดไป, ตัวเลขจากการจองจริง) แต่พี่ยังไม่ให้ผ่าน ต้องคุยว่าไม่ผ่านตรงไหนก่อนแก้รอบใหม่
 
 ## ยังไม่ได้ทำ
+
+### RD-17 · Footer (ทุกหน้า)
+- [ ] `components/marketing/site-footer.tsx`
+
+ใช้ร่วมกันทุกหน้า แก้ครั้งเดียวได้ทุกหน้า ตอนนี้ยังเป็นแบบที่ลอก Systronic มา ต้อง redesign ให้เข้าชุดกับ home / login / terms (ปุ่มแคปซูล, Kanit, พื้นขาวหรือแสงฟ้า-ม่วงจางๆ) พร้อมสองภาษา และ scale จาก 1710 บน iPad แนวนอน
 
 ### RD-02 · โปรไฟล์สาธารณะของผู้ให้คำปรึกษา ⭐ ทำก่อน
 - [ ] `/advisors/[advisorId]`
