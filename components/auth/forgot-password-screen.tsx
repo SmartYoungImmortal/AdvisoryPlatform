@@ -1,27 +1,18 @@
 "use client";
 
-import { Mail, MailCheck, TriangleAlert, WifiOff } from "lucide-react";
+import { MailCheck, TriangleAlert, WifiOff } from "lucide-react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { useState, type FormEvent } from "react";
 
-import { AUTH_CARD, AuthFooter, AuthTopNav } from "@/components/auth/auth-chrome";
+import { AuthHeading, AuthSplit, authPill } from "@/components/auth/auth-split";
 import { AlertBanner } from "@/components/mobile/banner";
-import { NeutralButton, PrimaryButton } from "@/components/mobile/buttons";
 import { Field } from "@/components/mobile/field";
-import {
-  MobileScreen,
-  ScreenActions,
-  ScreenBody,
-  ScreenHeading,
-  ScreenSpacer,
-  ScreenTopBar,
-} from "@/components/mobile/screen";
-import { Surface } from "@/components/mobile/surface";
+import { Button } from "@/components/ui/button";
 import { ApiUnreachableError } from "@/lib/api/client";
 import { requestPasswordReset } from "@/lib/api/auth";
 import { useLocationSearch } from "@/lib/navigation/use-location-search";
-import { cn } from "@/lib/utils";
 
 type Failure = "rejected" | "unreachable";
 
@@ -33,11 +24,28 @@ function resetUrl(): string {
   return new URL("/reset-password", window.location.origin).toString();
 }
 
-/** Figma "Forgot password (Light)" — submits a reset request to Better Auth. */
+/** The request failed, said once for both screens. */
+function FailureBanner({ failure }: { readonly failure: Failure }) {
+  const flow = useTranslations("authEmailFlow");
+  return (
+    // `px-0 pt-0`: the banner's own inset is the phone page's gutter.
+    <AlertBanner
+      body={failure === "unreachable" ? flow("offline") : flow("requestFailed")}
+      className="px-0 pt-0"
+      icon={failure === "unreachable" ? WifiOff : TriangleAlert}
+      title={flow("errorTitle")}
+    />
+  );
+}
+
+/**
+ * Figma "Forgot password (Light)", in the sign-in pages' frame (`AuthSplit`):
+ * one field, one action, and the way back. Submits a reset request to
+ * better-auth and moves on to "check your email".
+ */
 export function ForgotPasswordScreen() {
   const t = useTranslations("forgotPassword");
   const flow = useTranslations("authEmailFlow");
-  const c = useTranslations("common");
   const router = useRouter();
   const [email, setEmail] = useState("");
   const [busy, setBusy] = useState(false);
@@ -45,7 +53,7 @@ export function ForgotPasswordScreen() {
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (busy) return;
+    if (busy || !email.trim()) return;
     setBusy(true);
     setFailure(null);
     try {
@@ -58,57 +66,52 @@ export function ForgotPasswordScreen() {
   }
 
   return (
-    <MobileScreen wide>
-      <ScreenTopBar className="lg:hidden" href="/login" label={c("back")} />
-      <ScreenBody className="lg:items-stretch lg:justify-center">
-        <AuthTopNav />
-        <form
-          className={cn("flex w-full flex-1 flex-col items-center lg:mx-auto", AUTH_CARD)}
-          onSubmit={(event) => void submit(event)}
-        >
-          <ScreenHeading className="gap-2 pt-4" subtitle={t("subtitle")} title={t("title")} />
-          {failure ? (
-            <AlertBanner
-              body={failure === "unreachable" ? flow("offline") : flow("requestFailed")}
-              icon={failure === "unreachable" ? WifiOff : TriangleAlert}
-              title={flow("errorTitle")}
-            />
-          ) : null}
-          <div className="flex w-full shrink-0 flex-col items-start px-6 pt-4">
-            <Field
-              autoComplete="email"
-              icon={Mail}
-              id="forgot-email"
-              label={t("emailLabel")}
-              latin
-              onChange={(event) => setEmail(event.target.value)}
-              placeholder={t("emailPlaceholder")}
-              required
-              type="email"
-              value={email}
-            />
-          </div>
-          <ScreenSpacer className="lg:hidden" />
-          <ScreenActions stacked>
-            <PrimaryButton block disabled={busy} type="submit">
-              {busy ? flow("sending") : t("submit")}
-            </PrimaryButton>
-            <NeutralButton block href="/login">
-              {t("backToSignIn")}
-            </NeutralButton>
-          </ScreenActions>
-        </form>
-        <AuthFooter className="lg:mt-auto" />
-      </ScreenBody>
-    </MobileScreen>
+    <AuthSplit>
+      <form className="flex flex-col gap-5 md:gap-6" noValidate onSubmit={(event) => void submit(event)}>
+        <AuthHeading subtitle={t("subtitle")} title={t("title")} />
+        {failure ? <FailureBanner failure={failure} /> : null}
+        <Field
+          autoComplete="email"
+          // The page exists to take this one answer.
+          autoFocus
+          id="forgot-email"
+          label={t("emailLabel")}
+          latin
+          onChange={(event) => {
+            setEmail(event.target.value);
+            setFailure(null);
+          }}
+          outline
+          placeholder={t("emailPlaceholder")}
+          type="email"
+          value={email}
+        />
+        <div className="flex flex-col gap-2">
+          {/* Grey until there is an address to send to. */}
+          <Button
+            aria-busy={busy || undefined}
+            className={authPill(true)}
+            disabled={busy || !email.trim()}
+            type="submit"
+          >
+            {busy ? flow("sending") : t("submit")}
+          </Button>
+          <Button className={authPill()} nativeButton={false} render={<Link href="/login" />} variant="outline">
+            {t("backToSignIn")}
+          </Button>
+        </div>
+      </form>
+    </AuthSplit>
   );
 }
 
-/** Figma "Reset link sent (Light)" — displays and can resend to the submitted address. */
+/**
+ * Figma "Reset link sent (Light)": where the link went, a way to send it
+ * again, and the way back to signing in.
+ */
 export function ResetLinkSentScreen() {
   const t = useTranslations("resetSent");
   const flow = useTranslations("authEmailFlow");
-  const c = useTranslations("common");
   const search = useLocationSearch();
   const email = new URLSearchParams(search).get("email") ?? "";
   const [busy, setBusy] = useState(false);
@@ -131,64 +134,44 @@ export function ResetLinkSentScreen() {
   }
 
   return (
-    <MobileScreen wide>
-      <ScreenTopBar className="lg:hidden" href="/forgot-password" label={c("back")} />
-      <ScreenBody className="lg:items-stretch lg:justify-center">
-        <AuthTopNav />
-        <div className={cn("flex w-full flex-1 flex-col items-center lg:mx-auto", AUTH_CARD)}>
-          <div className="flex w-full shrink-0 flex-col items-center pt-14">
-            <span className="flex size-24 shrink-0 items-center justify-center rounded-full bg-accent-surface">
-              <MailCheck className="size-10 text-primary" />
-            </span>
-            <div className="flex w-full shrink-0 flex-col items-center gap-2.5 overflow-clip px-6 pt-4.5 text-center">
-              <p className="w-full text-2xl leading-7.5 font-semibold text-foreground">
-                {t("title")}
-              </p>
-              <p className="w-full text-sm font-normal text-muted-foreground">
-                {t("subtitle")}
-              </p>
-            </div>
-          </div>
-          <div className="flex w-full shrink-0 flex-col items-start px-6 pt-6">
-            <Surface className="flex w-full items-center gap-2.5 p-3.5" tier="well">
-              <Mail className="size-4 shrink-0 text-muted-foreground" />
-              <div className="flex min-w-px flex-1 flex-col items-start gap-0.5 overflow-clip">
-                <p className="w-full text-xs font-normal text-muted-foreground">
-                  {t("sentToLabel")}
-                </p>
-                <p className="font-latin w-full truncate text-sm font-medium text-foreground">
-                  {email || t("sentToValue")}
-                </p>
-              </div>
-            </Surface>
-          </div>
-          {sentAgain ? (
-            <p className="px-6 pt-4 text-sm text-muted-foreground">{flow("resent")}</p>
-          ) : null}
-          {failure ? (
-            <AlertBanner
-              body={failure === "unreachable" ? flow("offline") : flow("requestFailed")}
-              icon={failure === "unreachable" ? WifiOff : TriangleAlert}
-              title={flow("errorTitle")}
-            />
-          ) : null}
-          <ScreenSpacer className="lg:hidden" />
-          <ScreenActions stacked>
-            <PrimaryButton block href="/login">
-              {t("backToSignIn")}
-            </PrimaryButton>
-            <NeutralButton
-              block
-              disabled={!email || busy}
-              onClick={() => void resend()}
-              type="button"
-            >
-              {busy ? flow("sending") : t("resend")}
-            </NeutralButton>
-          </ScreenActions>
-        </div>
-        <AuthFooter className="lg:mt-auto" />
-      </ScreenBody>
-    </MobileScreen>
+    <AuthSplit>
+      <span className="flex size-14 items-center justify-center rounded-full bg-muted">
+        <MailCheck aria-hidden className="size-6 text-foreground" />
+      </span>
+      <AuthHeading subtitle={t("subtitle")} title={t("title")} />
+
+      {/* Where it went, so a mistyped address is caught here rather than
+          after a wait for an email that will never come. */}
+      <div className="flex flex-col gap-0.5 rounded-2xl bg-muted px-4 py-3.5">
+        <span className="text-xs text-muted-foreground">{t("sentToLabel")}</span>
+        <span className="truncate font-latin text-sm font-medium text-foreground">
+          {email || t("sentToValue")}
+        </span>
+      </div>
+
+      {sentAgain ? (
+        <p aria-live="polite" className="text-sm text-muted-foreground">
+          {flow("resent")}
+        </p>
+      ) : null}
+      {failure ? <FailureBanner failure={failure} /> : null}
+
+      <div className="flex flex-col gap-2">
+        <Button className={authPill(true)} nativeButton={false} render={<Link href="/login" />}>
+          {t("backToSignIn")}
+        </Button>
+        <Button
+          aria-busy={busy || undefined}
+          className={authPill()}
+          disabled={!email || busy}
+          onClick={() => void resend()}
+          type="button"
+          variant="outline"
+        >
+          {busy ? flow("sending") : t("resend")}
+        </Button>
+      </div>
+      <p className="text-center text-xs leading-5 text-muted-foreground">{t("spamHint")}</p>
+    </AuthSplit>
   );
 }

@@ -96,6 +96,40 @@ export function signIn(
   });
 }
 
+export type SocialProvider = "google" | "facebook" | "apple";
+
+const ALL_SOCIAL: readonly SocialProvider[] = ["google", "facebook", "apple"];
+
+/**
+ * The social sign-in buttons the page draws: all three, fastwork's set, unless
+ * `NEXT_PUBLIC_AUTH_SOCIAL` (comma-separated, e.g. `google,facebook`) narrows
+ * it. The API switches each provider on from its own env
+ * (`socialProviders` in its `auth.config.ts`); one that is off answers
+ * `PROVIDER_NOT_FOUND`, which the sign-in page reports as "not available yet"
+ * rather than as a failure.
+ */
+export const SOCIAL_PROVIDERS: readonly SocialProvider[] = process.env.NEXT_PUBLIC_AUTH_SOCIAL
+  ? process.env.NEXT_PUBLIC_AUTH_SOCIAL.split(",")
+      .map((name) => name.trim().toLowerCase())
+      .filter((name): name is SocialProvider => ALL_SOCIAL.includes(name as SocialProvider))
+  : ALL_SOCIAL;
+
+/**
+ * `POST /api/auth/sign-in/social`: better-auth answers with the provider's
+ * consent URL, and the browser goes there. It comes back to `callbackURL`
+ * with the session cookie already set.
+ */
+export function signInSocial(
+  input: { readonly provider: SocialProvider; readonly callbackURL: string },
+  signal?: AbortSignal,
+): Promise<{ readonly url?: string; readonly redirect?: boolean }> {
+  return api.post(`${AUTH}/sign-in/social`, {
+    body: { ...input, errorCallbackURL: `${window.location.origin}/login` },
+    signal,
+    unprefixed: true,
+  });
+}
+
 /**
  * `POST /api/auth/sign-up/email`.
  *

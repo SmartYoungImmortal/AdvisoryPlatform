@@ -175,3 +175,48 @@ export const walletSuccess: StaticImageData = {
   width: 280,
   height: 280,
 };
+
+/**
+ * `assets/brands/<provider>` — 24x24 SVG marks for the sign-in buttons, from
+ * Simple Icons (CC0), drawn in the page's ink (#171717) as fastwork's are.
+ */
+export const brandMarks: Readonly<Record<"google" | "facebook" | "apple", StaticImageData>> = {
+  google: { src: `${R2_BASE}/brands/google.139b2c3d.svg`, width: 24, height: 24 },
+  facebook: { src: `${R2_BASE}/brands/facebook.ee4e6829.svg`, width: 24, height: 24 },
+  apple: { src: `${R2_BASE}/brands/apple.5bbe1534.svg`, width: 24, height: 24 },
+};
+
+/** `assets/hero/ground` — 3200x2000. The room behind the home hero's ring. */
+export const heroGround: StaticImageData = {
+  src: `${R2_BASE}/hero/ground.3487762c.jpg`,
+  width: 3200,
+  height: 2000,
+};
+
+const heroImage = (key: string, width: number, height: number): StaticImageData => ({
+  src: `${R2_BASE}/hero/${key}`,
+  width,
+  height,
+});
+
+/**
+ * `assets/hero/q<n>` and `q<n>-face` — the photograph and the portrait on each
+ * of the home hero's ring cards, by card number. Photographs 560x560 (11 and
+ * 12 are 480x600), portraits 96x96.
+ */
+export const heroCards: Readonly<
+  Record<number, { readonly photo: StaticImageData; readonly face: StaticImageData }>
+> = {
+  1: { photo: heroImage("q1.accf96d3.jpg", 560, 560), face: heroImage("q1-face.8eb33ddb.jpg", 96, 96) },
+  2: { photo: heroImage("q2.80e55167.jpg", 560, 560), face: heroImage("q2-face.50b06429.jpg", 96, 96) },
+  3: { photo: heroImage("q3.77cc24fc.jpg", 560, 560), face: heroImage("q3-face.b83e18b9.jpg", 96, 96) },
+  4: { photo: heroImage("q4.223bf809.jpg", 560, 560), face: heroImage("q4-face.0be00332.jpg", 96, 96) },
+  5: { photo: heroImage("q5.b15a9e8b.jpg", 560, 560), face: heroImage("q5-face.91cde5b6.jpg", 96, 96) },
+  6: { photo: heroImage("q6.f658799a.jpg", 560, 560), face: heroImage("q6-face.8590391e.jpg", 96, 96) },
+  7: { photo: heroImage("q7.059e86cd.jpg", 560, 560), face: heroImage("q7-face.c0289e21.jpg", 96, 96) },
+  8: { photo: heroImage("q8.4d8522b7.jpg", 560, 560), face: heroImage("q8-face.55c1196c.jpg", 96, 96) },
+  9: { photo: heroImage("q9.e2d43ff2.jpg", 560, 560), face: heroImage("q9-face.66ed76ef.jpg", 96, 96) },
+  10: { photo: heroImage("q10.9ce3c564.jpg", 560, 560), face: heroImage("q10-face.50daa8d2.jpg", 96, 96) },
+  11: { photo: heroImage("q11.d26171fe.jpg", 480, 600), face: heroImage("q11-face.35a1262b.jpg", 96, 96) },
+  12: { photo: heroImage("q12.264f53c5.jpg", 480, 600), face: heroImage("q12-face.0fbcebd3.jpg", 96, 96) },
+};

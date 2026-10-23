@@ -12,7 +12,7 @@ import { Bell, ChevronLeft, LogIn } from "lucide-react";
 import { logo } from "@/lib/assets/r2";
 import { avatarImage, initials } from "@/lib/mock-db/avatars";
 import { useAppLocale } from "@/lib/i18n/locale-provider";
-import { useSession } from "@/lib/session";
+import { useSession, useSessionStatusHint } from "@/lib/session";
 import { useUnreadDot } from "@/components/notifications/notification-store";
 import { NeutralButton, PrimaryButton } from "@/components/mobile/buttons";
 import { Button } from "@/components/ui/button";
@@ -209,7 +209,11 @@ function Lockup({ reversed }: { readonly reversed: boolean }) {
  * `LocaleProvider`, and the choice is remembered in this browser. The one in
  * use is drawn in full ink and marked `aria-pressed`; the other is muted.
  */
-function LanguageSwitch() {
+/**
+ * TH / EN. Exported for the sign-in pages, which have no bar to carry it;
+ * `className` there makes it show at every width.
+ */
+export function LanguageSwitch({ className }: { readonly className?: string }) {
   const t = useTranslations("common");
   const { locale, setLocale } = useAppLocale();
   const option = (value: "th" | "en", label: string) => (
@@ -228,7 +232,10 @@ function LanguageSwitch() {
   return (
     <span
       aria-label={t("language")}
-      className="hidden h-10 shrink-0 items-center gap-1.5 px-1 font-latin text-xs font-bold lg:inline-flex"
+      className={cn(
+        "hidden h-10 shrink-0 items-center gap-1.5 px-1 font-latin text-xs font-bold lg:inline-flex",
+        className,
+      )}
       role="group"
     >
       {option("th", "TH")}
@@ -304,9 +311,18 @@ export function TopBar({
   login = false,
   backHref,
   overlay = false,
+  dock = false,
   className,
 }: {
   readonly unreadNotifications?: boolean;
+  /**
+   * From `lg`, once the page scrolls, the capsule docks: it grows to the full
+   * width, meets the top edge, loses its corners and turns a solid light grey,
+   * the way the Systronic header does. Its padding grows by exactly the margin
+   * it gives up, so the lockup and the actions stay on the same pixel through
+   * the change. Off by default: the home hero wants the floating pill.
+   */
+  readonly dock?: boolean;
   /**
    * This page is reachable by a guest, so the trailing slot falls back to a
    * sign-in link **when there is no session**.
@@ -344,7 +360,11 @@ export function TopBar({
   // every page view. Collapsing that to "not signed in" made a signed-in reader
   // see the sign-in link and no portrait, then watch both swap — so `loading`
   // renders neither rather than guessing wrong for a whole request.
-  const sessionStatus = useSession().status;
+  //
+  // Unless this browser has seen an answer before: then the last one stands
+  // in until the request returns (`useSessionStatusHint`), so "Get started"
+  // is drawn with the rest of the bar instead of a beat after it.
+  const sessionStatus = useSessionStatusHint();
   const signedIn = sessionStatus === "authenticated";
   const sessionKnown = sessionStatus !== "loading";
   const showUnreadDot = useUnreadDot(signedIn, unreadNotifications);
@@ -448,8 +468,13 @@ export function TopBar({
             // it back off at desktop width.
             "bg-[image:var(--bar-wash)]",
             // The capsule floats clear of the top edge at every scroll
-            // position now that it no longer grows into a band.
+            // position, unless the page docks it (`dock`), when the row gives
+            // up its 12px and its 24px gutters so the band can meet the top
+            // and both edges. The capsule's padding is a percentage of this
+            // row, which is 48px wider once the gutters go, so the same
+            // formula still lands the lockup on its old x.
             "lg:h-auto lg:bg-none lg:py-3",
+            dock && frosted && "lg:px-0 lg:py-0",
             className,
           )}
           style={frosted ? ({ "--bar-wash": FROSTED } as CSSProperties) : undefined}
@@ -490,8 +515,24 @@ export function TopBar({
               // reference does too.
               "lg:h-16 lg:justify-start lg:rounded-[2rem] lg:py-2 lg:pr-2 lg:pl-6 lg:backdrop-blur-[20px]",
               "lg:mx-[max(0px,calc((100%-984px)/2))]",
-              "lg:transition-colors lg:duration-500 lg:ease-out motion-reduce:lg:transition-none",
-              frosted ? "lg:bg-card/55" : "lg:bg-card/25",
+              "lg:transition-[margin,padding,height,border-radius,background-color] lg:duration-500 lg:ease-out motion-reduce:lg:transition-none",
+              dock && frosted
+                ? // Docked: the margin each side becomes padding of the same
+                  // width (a percentage in either resolves against the same
+                  // row), so nothing inside moves sideways. 72px tall: 88
+                  // (enough that nothing moved vertically either) read as a
+                  // slab, and the capsule's own 64 as cramped against the
+                  // top edge; the content rises 8px, with the same easing.
+                  // mochiice-fe's scrolled header (`Layout/Header.vue`): no
+                  // flat fill, but `--bar-wash` (the `FROSTED` pair the row
+                  // already carries, white that fades out downward over a
+                  // 45% veil) on a light `blur-sm`, with a faint white rule,
+                  // so the band dissolves into the page instead of ending
+                  // on a hard edge.
+                  "lg:mx-0 lg:h-18 lg:rounded-none lg:border-b lg:border-on-media/20 lg:bg-transparent lg:bg-[image:var(--bar-wash)] lg:backdrop-blur-sm lg:pr-[calc(max(0px,calc((100%-984px)/2))+0.5rem)] lg:pl-[calc(max(0px,calc((100%-984px)/2))+1.5rem)]"
+                : frosted
+                  ? "lg:bg-card/55"
+                  : "lg:bg-card/25",
             )}
           >
             <div
