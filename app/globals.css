@@ -139,6 +139,7 @@
   --shadow-hero-card: 0 2px 4px color-mix(in srgb, var(--scrim) 8%, transparent);
   --shadow-hero-card-hover: 0 6px 16px color-mix(in srgb, var(--scrim) 10%, transparent);
   --color-hero-card-border: var(--hero-card-border);
+  --background-image-legal-wash: var(--legal-wash);
   /* The elevation the app never had. A card used to be a white box on a
      near-white page — a 2% value step — so nothing read as an object you could
      pick up. These are the three tiers everything now uses: `card` at rest,
@@ -324,6 +325,12 @@
      of the app sets in, and a near-black navy for the one button. */
   --hero-ink: #2b313b;
   --hero-card-border: rgb(228 232 239 / 97%);
+  /* The legal pages' ground: the home hero's two lights from the top of the
+     screen, sky blue on the left and lavender on the right, without its
+     photograph, fading to the plain page within the first screen. */
+  --legal-wash:
+    radial-gradient(70% 55% at 12% 0%, rgb(142 197 255 / 22%), transparent 70%),
+    radial-gradient(60% 50% at 88% 0%, rgb(196 181 253 / 20%), transparent 70%);
   --hero-action: #131922;
   --hero-action-foreground: #ffffff;
   /* A white, nearly empty room with one desk and chair (Unsplash
@@ -344,7 +351,9 @@
   --hero-photo:
     radial-gradient(ellipse 70% 45% at 15% 0%, color-mix(in oklab, #8ec5ff 14%, transparent), transparent 70%),
     radial-gradient(ellipse 70% 45% at 85% 0%, color-mix(in oklab, #c4b5fd 12%, transparent), transparent 70%),
-    url("/hero/ground.jpg");
+    /* Served from R2 like every other design asset; the same object as
+       `heroGround` in `lib/assets/r2.ts`, which CSS cannot import. */
+    url("https://pub-07e53481352743c1826a900d773cb1f7.r2.dev/hero/ground.3487762c.jpg");
   --chart-1: oklch(0.809 0.105 251.813);
   --chart-2: oklch(0.623 0.214 259.815);
   --chart-3: oklch(0.546 0.245 262.881);
@@ -430,6 +439,7 @@
   --hero-photo: none;
   --hero-ink: var(--foreground);
   --hero-card-border: var(--border);
+  --legal-wash: none;
   --hero-action: var(--primary);
   --hero-action-foreground: var(--primary-foreground);
   /* Same geometry, roughly half the strength: on a dark ground the tint reads far
@@ -544,6 +554,71 @@
 
    The resting transform lives on `.hero-card`, not in the animation, so with
    the animation stripped a card is still at its place, visible and legible. */
+/* The hero's stage. Everything on the ring and the copy in its middle was
+   tuned on a 1710×985 screen, and placed partly in `vh` and partly in fixed
+   px; on a screen of another shape the two drifted apart, cards too big for
+   the ring on 1440×900 and lost in it on a 2560. So the composition is laid
+   out once, at exactly 1710×985 in px, and the whole of it is scaled by
+   however much that frame has to shrink or grow to fit the screen, whichever
+   of width or height runs out first.
+
+   `tan(atan2(a, b))` is a/b as a plain number: CSS cannot divide one length
+   by another, and `scale` needs a number. Pure CSS, so the first painted
+   frame is already the right size; a script measuring the window would
+   paint once at 1 and then jump. The photograph behind is not on the stage:
+   it still covers the whole band at any size. Below `lg` the stage is
+   `display: contents` and the copy flows as it always did. */
+.hero-stage {
+  display: contents;
+}
+
+@media (min-width: 1024px) {
+  .hero-stage {
+    --hero-k: min(tan(atan2(100vw, 1710px)), tan(atan2(100dvh, 985px)));
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    display: flex;
+    width: 1710px;
+    height: 985px;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    /* The bar's strip, as the band itself pads it. */
+    padding-top: 5.5rem;
+    translate: -50% -50%;
+    /* `zoom`, not `scale`: zoom lays the frame out again at the new size, so
+       type and photographs are drawn sharp at it. `scale` enlarged what had
+       already been drawn, and on a 1920 screen the tilted cards (3D layers)
+       came out soft. */
+    zoom: var(--hero-k);
+  }
+}
+
+/* The rest of the home page, on the same 1710 frame as the hero: every block
+   after the hero track, and the footer (`page-scale`), drawn at its 1710 size
+   and zoomed by the width alone, since these scroll and the height of the
+   screen does not bound them. On a 1440 the 1200 column is 1010 wide, keeping
+   the margins it has on a 1710, instead of the same 1200 crowding the edges.
+   `HeroShapes` divides the hold's counter-move by this zoom, because a
+   transform inside a zoomed box is zoomed with it. */
+@media (min-width: 1024px) {
+  [data-slot="home-hero-track"] ~ *,
+  .page-scale {
+    zoom: tan(atan2(100vw, 1710px));
+  }
+
+  /* The sign-in and sign-up form column, scaled the same way from the 1710
+     screen it was drawn on, so a landscape iPad sees the desktop page made
+     smaller rather than desktop-sized buttons in half the room. Floored at
+     0.75: the true ratio at 1024 is 0.6, which puts 16px type under 10px.
+     Capped at 1, since the column has nothing to gain from growing. */
+  .auth-scale,
+  .doc-scale {
+    zoom: clamp(0.75, tan(atan2(100vw, 1710px)), 1);
+  }
+}
+
 /* The turn is an animated angle every card adds to its own, not a rotation of
    the ring box: the track is an ellipse, and rotating an ellipse would swing
    its long axis up into the bar. Registered so it interpolates. */
@@ -556,9 +631,10 @@
 .hero-ring {
   position: absolute;
   left: 50%;
-  /* The copy's centre (the band is pulled up 5.5rem under the bar and padded
-     back by the same, so its content sits half that lower), then 25vh down. */
-  top: calc(50% + 2.75rem + 25vh);
+  /* The copy's centre (the stage pads 5.5rem for the bar, so its content sits
+     half that lower), then a quarter of the 985 frame down. In px, not `vh`,
+     because the stage is scaled as a whole: see `.hero-stage`. */
+  top: calc(50% + 2.75rem + 246.25px);
   animation: hero-ring-spin 120s linear infinite;
 }
 
@@ -566,10 +642,10 @@
   /* A circle, both radii the same. An ellipse cleared the search field more
      easily but spaced the cards unevenly: equal angles are unequal distances
      round an ellipse, so as the ring turned the gaps opened and closed. On a
-     circle every gap is the same at every moment. 55vh with twelve 208px
-     cards leaves about 48px between neighbours. */
-  --ring-rx: 55vh;
-  --ring-ry: 55vh;
+     circle every gap is the same at every moment. 541.75px (55% of the 985
+     frame) with twelve 208px cards leaves about 75px between neighbours. */
+  --ring-rx: 541.75px;
+  --ring-ry: 541.75px;
   --a: calc(var(--angle) + var(--hero-spin));
   /* The scroll-out, driven 0 → 1 by `HeroShapes` as the hero leaves the
      screen: each card runs on outward along its own spoke while the whole
@@ -578,7 +654,7 @@
   /* Strong enough that at 1 every card is clear of the screen: the outward
      push alone leaves the side cards in view, so the lift does the rest. */
   --k: calc(1 + var(--hero-exit, 0) * 1.6);
-  --lift: calc(var(--hero-exit, 0) * -90vh);
+  --lift: calc(var(--hero-exit, 0) * -886.5px);
   /* The pointer tilt: every card turns towards the cursor about the screen's
      own axes, up to 8° each way. It sits before `rotate(--a)` so it is the
      same tilt for every card, whichever way round the ring that card lies. */

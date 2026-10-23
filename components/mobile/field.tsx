@@ -64,6 +64,7 @@ export function Field({
   error,
   invalid = false,
   latin = false,
+  outline = false,
   className,
   ...inputProps
 }: {
@@ -74,6 +75,11 @@ export function Field({
   readonly error?: ReactNode;
   readonly invalid?: boolean;
   readonly latin?: boolean;
+  /**
+   * fastwork's sign-in field instead of Figma's: a 16/500 grey label 6px over
+   * a 40px white box with a 1px grey line and 12px corners, the type 16px.
+   */
+  readonly outline?: boolean;
 } & ComponentProps<"input">) {
   // An error replaces the hint rather than stacking under it, so only one of the
   // two ever renders.
@@ -85,11 +91,21 @@ export function Field({
   }
 
   return (
-    <FieldRoot className="gap-1">
-      <FieldLabel htmlFor={inputProps.id}>{label}</FieldLabel>
+    <FieldRoot className={outline ? "gap-1.5" : "gap-1"}>
+      <FieldLabel
+        className={outline ? "text-sm font-medium text-muted-foreground md:text-base" : undefined}
+        htmlFor={inputProps.id}
+      >
+        {label}
+      </FieldLabel>
       {/* Padding lives on the group so the icon, control and trailing slot share
           one 12px inset instead of each re-deriving it. */}
-      <InputGroup className="gap-2 bg-muted px-3 shadow-none">
+      <InputGroup
+        className={cn(
+          "gap-2 px-3 shadow-none",
+          outline ? "h-10 rounded-xl border-accented bg-card" : "bg-muted",
+        )}
+      >
         {Icon ? (
           <InputGroupAddon className="p-0">
             <Icon className="size-4" />
@@ -97,7 +113,7 @@ export function Field({
         ) : null}
         <InputGroupInput
           aria-invalid={invalid || undefined}
-          className={cn("px-0 text-sm", latin && "font-latin", className)}
+          className={cn("px-0", outline ? "text-base" : "text-sm", latin && "font-latin", className)}
           {...inputProps}
         />
         {trailing ? (

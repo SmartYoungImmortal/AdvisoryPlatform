@@ -141,7 +141,63 @@ const listeners = new Set<() => void>();
 
 function publish(next: Session): void {
   session = next;
+  if (next.status !== "loading") writeHint(next.status);
   for (const listener of listeners) listener();
+}
+
+/* --------------------------------------------------------------------- hint */
+
+/**
+ * What the last answer from `/users/me` was, kept in this browser so the next
+ * page view can draw the bar's trailing slot at once instead of leaving it
+ * empty for the length of a request (about a third of a second against the
+ * pooler, which is what made "Get started" arrive after everything else).
+ *
+ * A display hint and nothing more: no guard, redirect or fetch reads it, and
+ * the real answer replaces it the moment it lands. A first visit has no hint
+ * and waits as before. Storage can be unavailable (a private window), so
+ * every touch is guarded and a failure means "no hint".
+ */
+const HINT_KEY = "advisory.sessionHint";
+type SessionHint = "authenticated" | "anonymous";
+const hintListeners = new Set<() => void>();
+
+function writeHint(hint: SessionHint): void {
+  try {
+    window.localStorage.setItem(HINT_KEY, hint);
+  } catch {
+    // No storage, no hint.
+  }
+  for (const listener of hintListeners) listener();
+}
+
+function readHint(): SessionHint | null {
+  try {
+    const value = window.localStorage.getItem(HINT_KEY);
+    return value === "authenticated" || value === "anonymous" ? value : null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * The session as `useSession` has it, or, while that is still `loading`, the
+ * last answer this browser saw. For drawing chrome only.
+ */
+export function useSessionStatusHint(): Session["status"] {
+  const status = useSession().status;
+  const hint = useSyncExternalStore(
+    (listener) => {
+      hintListeners.add(listener);
+      return () => {
+        hintListeners.delete(listener);
+      };
+    },
+    readHint,
+    // The static HTML knows nothing, so hydration starts from `loading` too.
+    () => null,
+  );
+  return status === "loading" ? (hint ?? "loading") : status;
 }
 
 function snapshot(): Session {

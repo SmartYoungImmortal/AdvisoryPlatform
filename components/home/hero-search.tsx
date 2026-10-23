@@ -84,19 +84,29 @@ export function HeroSearch({
   examples,
   categories,
   submitLabel,
+  defaultValue = "",
+  variant = "hero",
 }: {
   readonly placeholder: string;
   readonly examples: readonly string[];
   /** The category names, in the order the home page shows them. */
   readonly categories: readonly string[];
   readonly submitLabel: string;
+  /** What the field opens holding: `/search` passes the query it is showing. */
+  readonly defaultValue?: string;
+  /**
+   * `hero`: the home hero's field, a pill from `lg` only. `page`: the same
+   * field as `/search`'s header, a pill at every width on a hairline, its
+   * button shown from `md`.
+   */
+  readonly variant?: "hero" | "page";
 }) {
   const t = useTranslations("home");
   const router = useRouter();
   const root = useRef<HTMLFormElement>(null);
   const input = useRef<HTMLInputElement>(null);
   const listId = useId();
-  const [value, setValue] = useState("");
+  const [value, setValue] = useState(defaultValue);
   const [focused, setFocused] = useState(false);
   const [active, setActive] = useState(-1);
   // Read once, lazily. Safe against hydration: the history is only drawn
@@ -205,8 +215,15 @@ export function HeroSearch({
   useEffect(() => {
     if (!open) return;
     const measure = () => {
-      const bottom = root.current?.getBoundingClientRect().bottom ?? 0;
-      setPanelMax(Math.max(192, window.innerHeight - bottom - 24));
+      const form = root.current;
+      if (!form) return;
+      const rect = form.getBoundingClientRect();
+      // The hero's stage is zoomed as a whole (`.hero-stage`), and a length
+      // set inside it is multiplied by that zoom, so screen pixels are turned
+      // back into the stage's own before they become a `max-height`.
+      const stage = form.closest<HTMLElement>(".hero-stage");
+      const zoom = stage ? Number.parseFloat(getComputedStyle(stage).zoom) || 1 : 1;
+      setPanelMax(Math.max(192, (window.innerHeight - rect.bottom - 24) / zoom));
     };
     measure();
     window.addEventListener("resize", measure);
@@ -239,8 +256,12 @@ export function HeroSearch({
         // every side, so the two curves run parallel.
         // At `lg`, no outline, only the hero's long soft shadow, the same one
         // the cards float on.
-        groupClassName="shadow-panel lg:h-12 lg:rounded-full lg:border-transparent lg:pl-4 lg:pr-1.5 lg:shadow-hero"
-        inputClassName="lg:text-sm"
+        groupClassName={
+          variant === "page"
+            ? "h-12 rounded-full border-border bg-card pr-1.5 pl-4 shadow-card"
+            : "shadow-panel lg:h-12 lg:rounded-full lg:border-transparent lg:pl-4 lg:pr-1.5 lg:shadow-hero"
+        }
+        inputClassName={variant === "page" ? "text-base md:text-sm" : "lg:text-sm"}
         name="q"
         onBlur={(event) => {
           // Focus moving into the panel (its clear button) keeps it open.
@@ -273,7 +294,10 @@ export function HeroSearch({
         role="combobox"
         trailing={
           <button
-            className="hidden h-9 shrink-0 items-center rounded-full bg-hero-action px-6 text-sm font-medium text-hero-action-foreground outline-none hover:bg-hero-action/85 focus-visible:ring-3 focus-visible:ring-ring/50 active:translate-y-px lg:flex"
+            className={cn(
+              "hidden h-9 shrink-0 items-center rounded-full bg-hero-action px-6 text-sm font-medium text-hero-action-foreground outline-none hover:bg-hero-action/85 focus-visible:ring-3 focus-visible:ring-ring/50 active:translate-y-px",
+              variant === "page" ? "md:flex" : "lg:flex",
+            )}
             type="submit"
           >
             {submitLabel}
