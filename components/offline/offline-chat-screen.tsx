@@ -1,3 +1,5 @@
+"use client";
+
 import { useTranslations } from "next-intl";
 
 import { deskPhoto as desk, documentPreview as doc } from "@/lib/assets/r2";

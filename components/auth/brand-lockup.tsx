@@ -15,7 +15,7 @@ export function BrandLockup({ className }: { readonly className?: string }) {
         className,
       )}
     >
-      <Image alt="Advisory Platform" className="h-[70px] w-auto" priority src={logo} />
+      <Image alt="Advisory Platform" className="h-11 w-auto" priority src={logo} />
     </div>
   );
 }

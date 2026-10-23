@@ -248,7 +248,7 @@ export default function ScreenDirectoryPage() {
       <MobileScreen className="pt-6">
         <ScreenBody className="pb-6">
           <div className="flex w-full shrink-0 flex-col items-center px-6 pt-4">
-            <Image alt="Advisory Platform" className="h-[63px] w-auto" priority src={logo} />
+            <Image alt="Advisory Platform" className="h-10 w-auto" priority src={logo} />
             <p className="mt-3 w-full text-center text-sm font-normal text-muted-foreground">
               {total} หน้าจากดีไซน์ · แตะเพื่อดูแต่ละหน้า
             </p>

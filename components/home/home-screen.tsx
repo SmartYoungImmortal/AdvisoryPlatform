@@ -1,10 +1,11 @@
+"use client";
+
 import Image from "next/image";
 import Link from "next/link";
 import {
   Book,
   Brain,
   Briefcase,
-  CodeXml,
   FileText,
   type LucideIcon,
   Wallet,
@@ -26,8 +27,9 @@ import {
 } from "@/lib/catalogue/services";
 import { ChatAvatar } from "@/components/chat/chat-avatar";
 import { AutoScrollRail } from "@/components/home/auto-scroll-rail";
+import { HeroSearch } from "@/components/home/hero-search";
+import { HomeHero } from "@/components/home/home-hero";
 import { HomeIntro } from "@/components/home/intro";
-import { TypingPlaceholder } from "@/components/home/typing-placeholder";
 import { HowToUse } from "@/components/home/how-to-use";
 import { VettingSection } from "@/components/home/vetting";
 import { FaqSection } from "@/components/marketing/faq-section";
@@ -36,7 +38,6 @@ import {
   AvailabilityPill,
   FilterButton,
   IconBadge,
-  SearchField,
   SectionHead,
   ServicePrice,
   ServiceProof,
@@ -59,7 +60,7 @@ import { cn } from "@/lib/utils";
 const SECTION = cn("flex w-full shrink-0 flex-col items-start", PAGE);
 
 /**
- * The six the catalogue is filed under. One list, drawn twice: as the phone's
+ * The five the catalogue is filed under (technology was dropped). One list, drawn twice: as the phone's
  * rail of icon tiles, and as the desktop hero's row of pills.
  */
 const CATEGORIES = [
@@ -68,7 +69,6 @@ const CATEGORIES = [
   { icon: FileText, label: "categoryLegal" },
   { icon: Book, label: "categoryEducation" },
   { icon: Brain, label: "categoryWellbeing" },
-  { icon: CodeXml, label: "categoryTech" },
 ] as const;
 
 /**
@@ -99,24 +99,6 @@ function CategoryCard({
       <span className="text-xs font-normal whitespace-nowrap text-foreground">
         {label}
       </span>
-    </Link>
-  );
-}
-
-/**
- * Figma "Categories" (1564:24876) — the same six, as pills under the desktop
- * hero's search field: 38px tall, a border hairline on the card surface, 16px
- * of side padding and 10px apart. The icon is dropped there; the frame sets
- * them as text alone, which is what keeps the row reading as one line under the
- * field rather than as a second block of content.
- */
-function CategoryChip({ label }: { readonly label: string }) {
-  return (
-    <Link
-      className="flex h-9.5 shrink-0 items-center rounded-full border border-border bg-card px-4 text-sm leading-5 font-normal whitespace-nowrap text-foreground shadow-card transition-[box-shadow,border-color,color] hover:border-primary/40 hover:text-primary hover:shadow-card-hover"
-      href="/search"
-    >
-      {label}
     </Link>
   );
 }
@@ -417,78 +399,63 @@ export function HomeScreen() {
   return (
     <MobileScreen className="pb-0" wide>
       <ScreenBody className="relative isolate">
-        <TopBar unreadNotifications />
-        {/* The wash belongs to the top of the page, not to the frame: absolutely
-            positioned inside the scroll container it travels with the content and
-            leaves as you scroll, the way the hero it is modelled on does. `-z-10`
-            keeps it under the copy — a positioned element otherwise paints above
-            in-flow text — and `isolate` on the scroller confines that negative
-            layer, which would otherwise sink behind the frame's own background.
-
-            Figma's desktop hero (1564:24866) is a 390px band that ends on a
-            hard edge against the sections below it, so the wash stops there
-            rather than fading over the first grid. */}
-        <div
-          aria-hidden
-          className="pointer-events-none absolute inset-x-0 top-0 -z-10 h-120 bg-hero-wash lg:h-[458px]"
-        />
+        {/* `login`: the home page is open to guests, so a guest gets the
+            way in rather than a bell that leads to a sign-in wall. */}
+        <TopBar login unreadNotifications />
+        {/* The page's wash used to sit here, a 458px band behind the top of
+            the content. It is gone with the hero's own gradient: the hero is
+            now a flat field carrying a dozen coloured shapes, and a wash
+            bleeding up behind them gave the band a second light direction. */}
 
         {/* Figma "Page Content" — 8px above the first block, 24px between them.
             The desktop frame runs on a 56px rhythm between its bands instead. */}
         <div className="flex w-full shrink-0 flex-col items-center gap-6 pt-2 pb-6 lg:gap-14 lg:pt-0 lg:pb-14">
           <HomeIntro>
-          {/* Figma "Search Block" — the phone's title and field. The desktop
-              frame turns the same block into the hero: a centred 720 column
-              with a headline, a line of subhead and a 64px field whose search
-              button lives inside it. */}
-          <div className="flex w-full shrink-0 flex-col items-start gap-3 px-6 lg:mx-auto lg:max-w-[720px] lg:items-center lg:gap-4 lg:px-0 lg:pt-18">
-            <h1 className="w-full text-2xl font-semibold text-foreground lg:text-center lg:text-display">
-              <span className="lg:hidden">{t("searchTitle")}</span>
-              <span className="hidden lg:inline">{t("heroTitle")}</span>
-            </h1>
-            <p className="hidden w-full text-center text-lg font-normal text-muted-foreground lg:block">
-              {t("heroSubtitle")}
-            </p>
-            <div className="flex w-full shrink-0 items-start gap-2">
-              <SearchField
-                aria-label={t("searchPlaceholder")}
-                groupClassName="shadow-card lg:h-16 lg:rounded-xl lg:px-5 lg:shadow-panel"
-                href="/search"
-                inputClassName="lg:text-base"
-                linkLabel={c("search")}
-                overlay={<TypingPlaceholder phrases={searchExamples} />}
-                placeholder={t("searchPlaceholder")}
-                readOnly
-                trailing={
-                  <span className="hidden h-12 shrink-0 items-center rounded-lg bg-primary px-7 text-base font-medium text-primary-foreground lg:flex">
-                    {c("search")}
-                  </span>
-                }
-              />
-              <FilterButton className="lg:hidden" label={c("filters")} />
-            </div>
-          </div>
+          {/* The hero, built to the shape of the team's own
+              `buonogroup-fe` home `SectionHero`: a full-bleed photograph under
+              a two-layer veil, with the copy on a full-height band. The search
+              field is what the reference puts a CTA button in. */}
+          <HomeHero
+            body={t("heroSubtitle")}
+            title={
+              <>
+                <span className="lg:hidden">{t("searchTitle")}</span>
+                {/* Two lines on purpose, broken where the sentence turns. The
+                    `<em>` in the message is kept but drawn in the headline's
+                    own grey: a blue word read as a link. */}
+                <span className="hidden lg:inline">
+                  {t.rich("heroTitle", {
+                    br: () => <br />,
+                    em: (chunks) => <>{chunks}</>,
+                  })}
+                </span>
+              </>
+            }
+          >
+            <HeroSearch
+              categories={CATEGORIES.map(({ label }) => t(label))}
+              examples={searchExamples}
+              placeholder={t("searchPlaceholder")}
+              submitLabel={c("search")}
+            />
+            <FilterButton className="lg:hidden" label={c("filters")} />
+          </HomeHero>
 
-          {/* Figma "Categories" — a rail of icon tiles under its own head on the
-              phone, the hero's row of pills on the desktop frame, where the
-              head is gone because the row sits under the field it filters. */}
-          <div className="flex w-full shrink-0 flex-col items-start gap-3 lg:mx-auto lg:max-w-[720px] lg:items-center lg:gap-0">
+          {/* Figma "Categories" — a rail of icon tiles under its own head on
+              the phone. The desktop row of pills is gone: `CategoryCards` is
+              the same six, in the hero, where the frame's pills used to sit. */}
+          <div className="flex w-full shrink-0 flex-col items-start gap-3 lg:hidden">
             <SectionHead
               action={t("seeAll")}
               className="lg:hidden"
               href="/search"
               title={t("categories")}
             />
-            <AutoScrollRail className="px-6 lg:hidden">
+            <AutoScrollRail className="px-6">
               {CATEGORIES.map(({ icon, label }) => (
                 <CategoryCard icon={icon} key={label} label={t(label)} />
               ))}
             </AutoScrollRail>
-            <div className="hidden lg:flex lg:flex-wrap lg:items-center lg:justify-center lg:gap-2.5">
-              {CATEGORIES.map(({ label }) => (
-                <CategoryChip key={label} label={t(label)} />
-              ))}
-            </div>
           </div>
 
           {/* Figma "Suggested" / "Suggested Services" — a rail of three on the

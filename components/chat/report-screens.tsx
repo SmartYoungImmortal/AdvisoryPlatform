@@ -1,3 +1,5 @@
+"use client";
+
 import { CircleCheck, FileText, Trash2, Upload } from "lucide-react";
 import { useTranslations } from "next-intl";
 import type { ReactNode } from "react";

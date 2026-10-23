@@ -11,6 +11,7 @@ import { Bell, ChevronLeft, LogIn } from "lucide-react";
 
 import { logo } from "@/lib/assets/r2";
 import { avatarImage, initials } from "@/lib/mock-db/avatars";
+import { useAppLocale } from "@/lib/i18n/locale-provider";
 import { useSession } from "@/lib/session";
 import { useUnreadDot } from "@/components/notifications/notification-store";
 import { NeutralButton, PrimaryButton } from "@/components/mobile/buttons";
@@ -154,11 +155,19 @@ function Lockup({ reversed }: { readonly reversed: boolean }) {
     // That is the flat wordmark; this asset is the script over PLATFORM, so it
     // needs the height its two lines ask for — 36px lands the script on the same
     // cap height as the frame's mark without crowding the 68px row.
-    <span className="relative block h-14 shrink-0 -translate-y-[3px] lg:h-9 lg:translate-y-0">
+    <span className="relative flex h-14 shrink-0 items-center lg:h-9">
       {/* The asset is #18181b, so the reversed bar flattens it to white. */}
+      {/* The capsule is the brand's dark ground at every desktop width, so the
+          mark reverses there whatever the phone bar is doing. */}
       <Image
         alt="Advisory Platform"
-        className={cn("h-14 w-auto lg:h-9", reversed && "brightness-0 invert")}
+        className={cn(
+          "h-8 w-auto lg:h-6",
+          // Over a hero the phone bar reverses the mark to white; the capsule
+          // carries its own light surface at every desktop width, so there it
+          // stays in the brand's own colours.
+          reversed && "brightness-0 invert lg:brightness-100 lg:invert-0",
+        )}
         priority
         src={logo}
       />
@@ -183,12 +192,48 @@ function Lockup({ reversed }: { readonly reversed: boolean }) {
         >
           <Image
             alt=""
-            className="h-14 w-auto brightness-0 invert"
+            className="h-8 w-auto brightness-0 invert"
             priority
             src={logo}
           />
         </span>
       )}
+    </span>
+  );
+}
+
+/**
+ * The language control the reference marketplaces carry at the right of the bar.
+ *
+ * Two real buttons now: each switches the whole app's copy in place, through
+ * `LocaleProvider`, and the choice is remembered in this browser. The one in
+ * use is drawn in full ink and marked `aria-pressed`; the other is muted.
+ */
+function LanguageSwitch() {
+  const t = useTranslations("common");
+  const { locale, setLocale } = useAppLocale();
+  const option = (value: "th" | "en", label: string) => (
+    <button
+      aria-pressed={locale === value}
+      className={cn(
+        "rounded-sm px-0.5 outline-none transition-colors focus-visible:ring-3 focus-visible:ring-ring/50",
+        locale === value ? "text-foreground" : "text-muted-foreground/60 hover:text-foreground",
+      )}
+      onClick={() => setLocale(value)}
+      type="button"
+    >
+      {label}
+    </button>
+  );
+  return (
+    <span
+      aria-label={t("language")}
+      className="hidden h-10 shrink-0 items-center gap-1.5 px-1 font-latin text-xs font-bold lg:inline-flex"
+      role="group"
+    >
+      {option("th", "TH")}
+      <span aria-hidden className="text-muted-foreground/60">/</span>
+      {option("en", "EN")}
     </span>
   );
 }
@@ -218,21 +263,26 @@ function NavAvatar() {
       aria-label={t("profile")}
       // A ring that appears on hover, so the portrait is visibly a control. It
       // was the one item in the desktop bar with no state at all.
-      className="hidden shrink-0 rounded-full ring-2 ring-transparent transition-[box-shadow,--tw-ring-color] duration-150 hover:ring-border motion-reduce:transition-none lg:block"
+      // A little clear of the capsule's edge: with the capsule's own 8px of
+      // padding this holds the portrait 12px in, so the round shape does not
+      // crowd the corner it sits in.
+      className="hidden shrink-0 rounded-full ring-2 ring-transparent transition-[box-shadow,--tw-ring-color] duration-150 hover:ring-border motion-reduce:transition-none lg:mr-1 lg:block"
       href="/profile"
     >
       {image ? (
         <Image
           alt=""
-          className="size-9 rounded-full object-cover"
-          height={36}
+          // 48px from `lg`, which is the height every other control in the
+          // cluster stands at; 36 left the portrait visibly short beside them.
+          className="size-9 rounded-full object-cover lg:size-10"
+          height={40}
           src={image}
-          width={36}
+          width={40}
         />
       ) : (
         <span
           aria-hidden
-          className="flex size-9 items-center justify-center rounded-full bg-muted text-sm font-medium text-muted-foreground"
+          className="flex size-9 items-center justify-center rounded-full bg-muted text-sm font-medium text-muted-foreground lg:size-10"
         >
           {initials(account)}
         </span>
@@ -354,7 +404,7 @@ export function TopBar({
     "lg:size-9 lg:rounded-lg lg:transition-colors lg:duration-150 lg:before:inset-0 lg:hover:bg-accent motion-reduce:lg:transition-none",
   );
   const ink = onMedia
-    ? "text-on-media hover:text-on-media"
+    ? "text-on-media hover:text-on-media lg:text-foreground lg:hover:text-foreground"
     : "text-foreground hover:text-foreground";
 
   return (
@@ -368,10 +418,13 @@ export function TopBar({
             "flex h-20 w-full items-center justify-between border-b px-4 py-2",
             // `filter` is in the list so the wordmark fades between its reversed
             // and normal colourway instead of snapping.
-            "transition-[background,backdrop-filter,border-color,box-shadow,filter] duration-500 ease-in-out",
+            "transition-[background,backdrop-filter,border-color,box-shadow,filter,padding] duration-500 ease-in-out",
             frosted
-              ? "border-on-media/20 backdrop-blur-sm"
-              : "border-transparent bg-transparent",
+              // The desktop row keeps its 24px gutter in both states — the
+              // capsule is what cancels it when docking, which is the only way
+              // the lockup can stay on the same x through the change.
+              ? "border-on-media/20 backdrop-blur-sm lg:border-b-0 lg:bg-transparent lg:px-6 lg:backdrop-blur-none"
+              : "border-transparent bg-transparent lg:border-b-0 lg:px-6 lg:backdrop-blur-none",
             // Figma "Top Nav" (1564:24844): 68px on the card surface behind a
             // real border, not the phone bar's glass. The wash is an inline
             // gradient, which a class cannot outrank, hence the `!` pair.
@@ -388,10 +441,18 @@ export function TopBar({
             // 72px, not 68: the desktop bar was *shorter* than the phone's 80,
             // which is backwards, since the wider viewport is where a bar has
             // room to be a band rather than a strip.
-            "lg:h-18 lg:px-0 lg:py-4",
+            // From `lg` the material moves off this row and onto the capsule
+            // inside it, so the row itself is only the gutter the capsule floats
+            // in. The wash rides on a custom property because an inline style
+            // cannot be answered by a media query, and `lg:bg-none` is what takes
+            // it back off at desktop width.
+            "bg-[image:var(--bar-wash)]",
+            // The capsule floats clear of the top edge at every scroll
+            // position now that it no longer grows into a band.
+            "lg:h-auto lg:bg-none lg:py-3",
             className,
           )}
-          style={frosted ? { background: FROSTED } : undefined}
+          style={frosted ? ({ "--bar-wash": FROSTED } as CSSProperties) : undefined}
         >
           {/* Equal flex slots either side, so the wordmark lands on the centre of
               the bar whatever the two edges hold. `justify-between` alone would
@@ -411,7 +472,28 @@ export function TopBar({
               Gated at `xl`, not `lg`: mochiice gates its own at 1512 for the same
               reason — at 1024 four links plus a lockup plus the actions have no
               room to leave a centre, so there the nav stays inline. */}
-          <div className="relative flex w-full items-center justify-between lg:mx-auto lg:max-w-[1440px] lg:justify-start lg:px-8 xl:justify-between xl:px-12">
+          {/* The capsule. At the top of a page it is a pill inset from both
+              edges; once the content scrolls under it the pill grows to the full
+              width, loses its radius and becomes the band that holds the top of
+              the window — the shape the Systronic header uses, animated between
+              the two states rather than swapped.
+
+              `max-width` and `border-radius` are both lengths at either end, so
+              the transition runs; `transform` is not involved, which keeps the
+              text crisp throughout. */}
+          <div
+            className={cn(
+              "relative flex w-full items-center justify-between",
+              // 984 x 64 with 32px corners, measured off the reference bar. The
+              // capsule keeps that box at every scroll position — only the glass
+              // behind it deepens as content passes under, which is what the
+              // reference does too.
+              "lg:h-16 lg:justify-start lg:rounded-[2rem] lg:py-2 lg:pr-2 lg:pl-6 lg:backdrop-blur-[20px]",
+              "lg:mx-[max(0px,calc((100%-984px)/2))]",
+              "lg:transition-colors lg:duration-500 lg:ease-out motion-reduce:lg:transition-none",
+              frosted ? "lg:bg-card/55" : "lg:bg-card/25",
+            )}
+          >
             <div
               className={cn(
                 "flex flex-1 items-center justify-start",
@@ -449,8 +531,14 @@ export function TopBar({
                       centred, which is what a phone menu should be. The `!`s
                       outrank `sheet`'s own `w-3/4` / `sm:max-w-sm` / `h-auto`
                       side variants. */}
+                  {/* The reference's panel: the brand ground as a vertical
+                      ramp rather than the page's own white, the list centred in
+                      the middle of the screen at one size, and the whole sheet
+                      closing on a tap anywhere off it. A translucent panel over
+                      a photographic hero left the links unreadable, so this one
+                      is solid. */}
                   <SheetContent
-                    className="h-dvh! w-full! max-w-none! gap-0 border-0 bg-background p-0"
+                    className="h-dvh! w-full! max-w-none! gap-0 border-0 bg-linear-to-b from-footer-surface-deep to-footer-surface p-0 text-on-media"
                     side="top"
                   >
                     <SheetTitle className="sr-only">{t("menu")}</SheetTitle>
@@ -462,7 +550,7 @@ export function TopBar({
                         href="/"
                         onClick={() => setMenuOpen(false)}
                       >
-                        <Lockup reversed={false} />
+                        <Lockup reversed />
                       </Link>
                     </div>
 
@@ -474,7 +562,7 @@ export function TopBar({
                         20px rows with a tinted background behind the current one,
                         which is a settings list, not a menu: four destinations on
                         a phone want to be the only thing on the screen. */}
-                    <nav className="mx-auto flex min-h-0 w-full flex-1 flex-col items-center gap-6 overflow-y-auto overscroll-contain px-5 pt-10">
+                    <nav className="mx-auto flex min-h-0 w-full max-w-md flex-1 flex-col items-center justify-center gap-6 overflow-y-auto overscroll-contain px-5 py-10">
                       {links.map(({ label, href }) => {
                         const path = href.split("#")[0];
                         const current =
@@ -485,10 +573,11 @@ export function TopBar({
                           <Link
                             aria-current={current ? "page" : undefined}
                             className={cn(
-                              "flex min-h-11 items-center rounded-md px-2 text-2xl leading-none transition-colors duration-150 motion-reduce:transition-none",
-                              current
-                                ? "font-semibold text-primary"
-                                : "font-medium text-foreground",
+                              // One size for every item in the list, as the
+                              // reference sets it: 22px bold, centred, a 44px
+                              // target, and the current section in the accent.
+                              "flex min-h-11 w-full items-center justify-center rounded-md px-2 text-2xl leading-snug font-bold transition-colors duration-200 motion-reduce:transition-none",
+                              current ? "text-primary" : "text-on-media hover:text-primary",
                             )}
                             href={href}
                             key={href}
@@ -536,80 +625,63 @@ export function TopBar({
               <Lockup reversed={onMedia} />
             </Link>
 
+
             {/* Figma "Links" (1564:24858) — 48px after the lockup, 28px apart,
                 14/20 medium, the current section in full ink. No phone frame
-                draws them, so they start at `lg`. */}
-            <nav className="hidden lg:flex lg:min-w-px lg:flex-1 lg:items-center lg:gap-10 lg:pl-12 xl:absolute xl:left-1/2 xl:flex-none xl:-translate-x-1/2 xl:pl-0">
-              {links.map(({ label, href, wide }) => {
-                const path = href.split("#")[0];
-                const current =
-                  path === "/"
-                    ? pathname === "/"
-                    : pathname === path || pathname.startsWith(`${path}/`);
-                return (
-                  <Link
-                    aria-current={current ? "page" : undefined}
-                    className={cn(
-                      // The last two appear only from `xl`: seven Thai labels at
-                      // 18px plus the lockup and the actions do not leave one line
-                      // at 1024, and a nav that wraps is broken. The tablet keeps
-                      // five.
-                      wide && "hidden xl:flex",
-                      // 18/28 and 40px apart, which is what the reference header
-                      // sets its nav at. This nav only exists from `lg` and was
-                      // at 14px, 28 apart — the phone's smallest body size, on
-                      // the widest viewport, reading like a footnote.
-                      "relative text-lg leading-7 font-medium whitespace-nowrap transition-colors duration-150 motion-reduce:transition-none",
-                      // The section the reader is in was stated by ink alone, at
-                      // 14px, against a colour one step away. It now carries
-                      // weight and a 2px rule under it, so the bar says where you
-                      // are without being read word by word.
-                      "after:absolute after:-bottom-1.5 after:left-0 after:h-0.5 after:w-full after:rounded-full after:transition-colors after:content-['']",
-                      current
-                        ? "font-semibold text-foreground after:bg-primary"
-                        : "text-muted-foreground after:bg-transparent hover:text-foreground hover:after:bg-border",
-                    )}
-                    href={href}
-                    key={href}
-                  >
-                    {label}
-                  </Link>
-                );
-              })}
-            </nav>
 
             {/* `xl:flex-1` again, to balance the lockup's side: two equal groups
                 are what let the absolutely-centred nav land on the bar's centre
                 rather than the centre of what is left over. */}
-            <div className="flex flex-1 items-center justify-end lg:flex-none lg:gap-4 xl:flex-1">
+            <div className="flex flex-1 items-center justify-end gap-1 lg:ml-auto lg:flex-none lg:gap-3">
               {/* `sessionKnown` gates the whole either/or: until the session has
                   answered, neither the sign-in link nor the bell is drawn, so the
                   slot is empty for one request rather than showing the wrong one.
                   The bar's height does not depend on what is in it, so nothing
                   moves when the answer lands. */}
+              <LanguageSwitch />
               {!sessionKnown && login ? null : login && !signedIn ? (
-                <Link
-                  className={cn(
-                    "flex shrink-0 items-center gap-1.5 text-sm font-semibold whitespace-nowrap",
-                    onMedia ? "text-on-media" : "text-foreground",
-                  )}
-                  href="/login"
-                >
-                  <LogIn className="size-4 shrink-0" />
-                  {t("login")}
-                </Link>
+                <>
+                  <Link
+                    className={cn(
+                      "flex shrink-0 items-center gap-1.5 text-sm font-semibold whitespace-nowrap lg:hidden",
+                      onMedia ? "text-on-media" : "text-foreground",
+                    )}
+                    href="/login"
+                  >
+                    <LogIn className="size-4 shrink-0" />
+                    {t("login")}
+                  </Link>
+                  {/* fastwork's "Get started": a black pill with white type that
+                      opens sign-up, the one thing on the bar for a guest to
+                      press. Signing in is still a tap away on the phone link
+                      above and on the register screen itself. */}
+                  <Button
+                    className="hidden h-10 rounded-full bg-hero-action px-5 text-sm font-semibold text-hero-action-foreground hover:bg-hero-action/85 lg:inline-flex"
+                    nativeButton={false}
+                    render={<Link href="/register" />}
+                  >
+                    {t("getStarted")}
+                  </Button>
+                </>
               ) : (
                 <Button
                   aria-label={t("notifications")}
-                  className={cn(trigger, ink)}
+                  className={cn(
+                    trigger,
+                    ink,
+                    // A bare glyph at every width: the capsule already carries
+                    // the surface, and a ring around one icon beside the plain
+                    // TH / EN pair read as two different kinds of control.
+                    "lg:size-10 lg:rounded-full lg:hover:bg-muted/60",
+                  )}
                   nativeButton={false}
                   render={<Link href="/notifications" />}
                   size="icon"
                   variant="ghost"
                 >
-                  <Bell className="size-6" />
+                  <Bell className="size-6 lg:size-5" />
                   {showUnreadDot ? (
-                    <span className="absolute top-px left-[15px] size-2 rounded-full bg-primary" />
+                    <span className="absolute top-px left-[15px] size-2 rounded-full bg-primary ring-2 ring-card lg:top-1.5 lg:right-1.5 lg:left-auto lg:size-2" />
                   ) : null}
                 </Button>
               )}

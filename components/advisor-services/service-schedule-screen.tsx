@@ -1,3 +1,5 @@
+"use client";
+
 import { ArrowLeft, ArrowRight } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { notFound } from "next/navigation";

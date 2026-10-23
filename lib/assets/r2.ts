@@ -99,19 +99,17 @@ export const landingHeroPoster: StaticImageData = {
 /** Landing hero clip — 720x1280 @ 25fps, silent, VOD HLS. */
 export const landingHeroVideo = `${R2_BASE}/advisory-home/9_16/720/stream.m3u8`;
 
-/** `assets/illustrations/logo` — 112x61. */
-export const logo: StaticImageData = {
-  src: `${R2_BASE}/illustrations/logo.9f276dba.svg`,
-  width: 112,
-  height: 61,
-};
-
 /**
- * The admin console's wordmark — mark plus "Advisory", 1700x416. Uploaded by
- * the team under a fixed key rather than a content hash, so replacing the file
- * at that key changes it everywhere; it is served without `immutable`.
+ * The brand lockup — the blue mark plus "Advisory", 1700x416, used everywhere
+ * from the console to the marketing footer. It is uploaded under a fixed key
+ * rather than a content hash, so replacing the file at that key changes the
+ * logo across the app; it is served without `immutable`.
+ *
+ * It is a wide lockup — roughly 4:1 — where the script wordmark it replaced was
+ * 1.8:1, so a box sized by height now draws more than twice as wide. Every call
+ * site sizes it by height and lets the width follow.
  */
-export const consoleLogo: StaticImageData = {
+export const logo: StaticImageData = {
   src: `${R2_BASE}/Logo/Advisory.png`,
   width: 1700,
   height: 416,
