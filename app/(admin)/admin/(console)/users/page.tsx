@@ -1,4 +1,4 @@
-import { UsersScreen } from "@/components/admin/users-screen";
+import { UsersScreen } from "@/components/cms/screens/users";
 
 export default function AdminUsersPage() {
   return <UsersScreen />;

@@ -1,4 +1,4 @@
-import { Eye, type LucideIcon } from "lucide-react";
+import { Eye, EyeOff, type LucideIcon } from "lucide-react";
 import type { ComponentProps, ReactNode } from "react";
 
 import {
@@ -19,11 +19,29 @@ import { cn } from "@/lib/utils";
  * Figma's eye affordance inside a password field. A real button, so it is
  * reachable by Tab and carries a focus ring — the bare <button> it replaces had
  * neither, and each password screen re-declared its own copy.
+ *
+ * Wired screens pass `revealed` + `onToggle` and swap the input's type; the
+ * static state frames leave both off and the button only draws the glyph.
  */
-export function RevealPasswordButton({ label }: { readonly label: string }) {
+export function RevealPasswordButton({
+  label,
+  revealed = false,
+  onToggle,
+}: {
+  readonly label: string;
+  readonly revealed?: boolean;
+  readonly onToggle?: () => void;
+}) {
+  const Icon = revealed ? EyeOff : Eye;
   return (
-    <InputGroupButton aria-label={label} className="text-muted-foreground" size="icon-xs">
-      <Eye className="size-4" />
+    <InputGroupButton
+      aria-label={label}
+      aria-pressed={onToggle ? revealed : undefined}
+      className="text-muted-foreground"
+      onClick={onToggle}
+      size="icon-xs"
+    >
+      <Icon className="size-4" />
     </InputGroupButton>
   );
 }

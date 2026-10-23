@@ -10,21 +10,45 @@ import { cn } from "@/lib/utils";
  * transparent, hence `shadow-none`. Everything the primitive already provides —
  * the focus ring, the disabled state, the active press, the 8px radius — is left
  * to it instead of being restated here.
+ *
+ * Two things changed once these screens had to hold a 1200px page.
+ *
+ * Width: `w-full` was baked into all three variants, so a desktop screen ended
+ * on a 1200×36 accent slab. A button that wide is not a button, it is a banner.
+ * It stays full width on the phone, where the frame asks for it, and sizes to
+ * its label from `lg` — unless the layout says otherwise with `block`.
+ *
+ * Height: 36px is right against a phone's thumb and short against a desktop
+ * pointer, so `size` exists. `md` — the default — grows to 40px at `lg`.
  */
-const metrics = "h-9 w-full gap-2 px-4 shadow-none";
+const SIZES = {
+  sm: "h-8 gap-1.5 px-3 text-xs",
+  md: "h-9 gap-2 px-4 lg:h-10",
+  lg: "h-11 gap-2 px-5 text-base",
+} as const;
 
-/**
- * The filled variants drop the border: shadcn pairs a 1px transparent border with
- * `bg-clip-padding`, which would inset the fill to 34px instead of Figma's 36px.
- */
-const filled = `${metrics} border-0`;
+export type ActionSize = keyof typeof SIZES;
 
-type ActionProps = ComponentProps<typeof Button> & {
+function metrics(size: ActionSize, block: boolean): string {
+  return cn(
+    SIZES[size],
+    "shadow-none",
+    block ? "w-full" : "w-full lg:w-auto",
+  );
+}
+
+/** What reaches the primitive: its own props, minus the size this file owns. */
+type ButtonProps = Omit<ComponentProps<typeof Button>, "size">;
+
+type ActionProps = ButtonProps & {
   /** Render as a link so the prototype can be clicked through. */
   readonly href?: string;
+  readonly size?: ActionSize;
+  /** Keep the full width at every size — for a card's single, primary action. */
+  readonly block?: boolean;
 };
 
-function Action({ href, ...props }: ActionProps) {
+function Action({ href, ...props }: ButtonProps & { readonly href?: string }) {
   // `render` hands the button's classes, ref and interaction wiring to the anchor,
   // so the link form keeps the focus ring and press state. Re-declaring a subset of
   // the classes on a bare <Link> — the previous approach — silently dropped both.
@@ -39,14 +63,40 @@ function Action({ href, ...props }: ActionProps) {
   );
 }
 
-/** Figma "ButtonPrimary" — accent on white; the primitive's default variant. */
-export function PrimaryButton({ className, ...props }: ActionProps) {
-  return <Action className={cn(filled, className)} {...props} />;
+/**
+ * Figma "ButtonPrimary" — accent on white; the primitive's default variant.
+ *
+ * The filled variants drop the border: shadcn pairs a 1px transparent border
+ * with `bg-clip-padding`, which would inset the fill to 34px instead of 36.
+ */
+export function PrimaryButton({
+  className,
+  size = "md",
+  block = false,
+  ...props
+}: ActionProps) {
+  return (
+    <Action
+      className={cn(metrics(size, block), "border-0", className)}
+      {...props}
+    />
+  );
 }
 
 /** Figma "ButtonNeutral" — surface with a border hairline. */
-export function NeutralButton({ className, ...props }: ActionProps) {
-  return <Action className={cn(metrics, "bg-card", className)} variant="outline" {...props} />;
+export function NeutralButton({
+  className,
+  size = "md",
+  block = false,
+  ...props
+}: ActionProps) {
+  return (
+    <Action
+      className={cn(metrics(size, block), "bg-card", className)}
+      variant="outline"
+      {...props}
+    />
+  );
 }
 
 /**
@@ -54,12 +104,17 @@ export function NeutralButton({ className, ...props }: ActionProps) {
  * shadcn's `destructive` variant is the *tinted* treatment, so the solid fill is
  * spelled out against the token pair rather than a literal white.
  */
-export function DestructiveButton({ className, ...props }: ActionProps) {
+export function DestructiveButton({
+  className,
+  size = "md",
+  block = false,
+  ...props
+}: ActionProps) {
   return (
     <Action
       className={cn(
-        filled,
-        "bg-destructive text-destructive-foreground hover:bg-destructive/90",
+        metrics(size, block),
+        "border-0 bg-destructive text-destructive-foreground hover:bg-destructive/90",
         className,
       )}
       {...props}

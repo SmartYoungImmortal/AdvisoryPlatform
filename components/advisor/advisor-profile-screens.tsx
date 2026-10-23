@@ -1,7 +1,10 @@
+"use client";
+
 import Image from "next/image";
 import Link from "next/link";
 import {
   BadgeCheck,
+  Briefcase,
   CalendarDays,
   ChevronRight,
   ChevronsUpDown,
@@ -23,6 +26,15 @@ import {
 import { useTranslations } from "next-intl";
 
 import { advisor } from "@/lib/assets/r2";
+import { advisorLevel } from "@/lib/catalogue/profiles";
+import { getAdvisor } from "@/lib/catalogue/services";
+import { cn } from "@/lib/utils";
+import { LevelBadge } from "@/components/advisor-public/level-badge";
+import {
+  AccountAvatar,
+  AccountLevelBadge,
+  AccountName,
+} from "@/components/session/account-bits";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
 import { NeutralButton, PrimaryButton } from "@/components/mobile/buttons";
@@ -42,54 +54,77 @@ import {
   SettingsRow,
   SettingsSection,
 } from "@/components/mobile/settings-list";
+import { StatusPill, type StatusTone } from "@/components/mobile/status-pill";
+import { Surface, SurfaceList, surfaceClass } from "@/components/mobile/surface";
 import { QuickActions } from "@/components/profile/quick-actions";
+import { WorkEarningsScreen } from "@/components/work/work-screens";
 import { BottomBar } from "@/components/bottombar";
 import { TopBar } from "@/components/topbar";
 
-/** Figma "Advisor profile - View (Light)" — 995:8633. */
+/**
+ * Figma "Advisor profile - View (Light)" — 995:8633, updated to 1390:25505: the
+ * level badge replaces the plain role line, and the tiles and rows that had no
+ * destination now open the service list and the "งานของฉัน" hub.
+ */
+/** The prototype's signed-in Advisor, as the catalogue records her. */
+const ME = getAdvisor("sarah-jenskins");
+
 export function AdvisorProfileScreen() {
   const t = useTranslations("advisor");
+  // The prototype's signed-in advisor.
+  const level = advisorLevel("sarah-jenskins");
 
   return (
-    <MobileScreen className="pb-0">
-      <ScreenBody className="pb-19.5">
+    <MobileScreen className="pb-0" wide>
+      <ScreenBody className="pb-19.5 lg:[&>*:not(.sticky)]:mx-auto lg:[&>*:not(.sticky)]:w-full lg:[&>*:not(.sticky)]:max-w-[880px]">
         <TopBar unreadNotifications />
         {/* Figma "Identity Card": verified name, role, then rating/booking/review stats. */}
-        <div className="flex w-full shrink-0 flex-col items-start overflow-clip px-6 pt-4">
-          <div className="flex w-full shrink-0 flex-col items-start gap-3 overflow-clip rounded-xl bg-card p-3.5">
+        <div className="flex w-full shrink-0 flex-col items-start px-6 pt-4">
+          <Surface className="flex w-full flex-col items-start gap-3 p-3.5 lg:p-4">
             <div className="flex w-full shrink-0 items-center gap-3 overflow-clip">
-              <Image
-                alt=""
-                className="size-14 shrink-0 rounded-full object-cover"
-                height={56}
-                src={advisor}
-                width={56}
-              />
-              <div className="flex min-w-px flex-1 flex-col items-start gap-0.5 overflow-clip">
+              <AccountAvatar className="size-14" fallback={advisor} size={56} />
+              <div className="flex min-w-px flex-1 flex-col items-start gap-1 overflow-clip">
                 <p className="font-latin flex w-full items-center gap-1 text-base font-medium text-foreground">
-                  {t("name")}
+                  <AccountName fallback={t("name")} />
                   <BadgeCheck className="size-4 shrink-0 text-primary" />
                 </p>
-                <p className="w-full text-xs font-normal text-muted-foreground">
-                  {t("role")}
-                </p>
+                <AccountLevelBadge
+                  fallback={
+                    level ? (
+                      <LevelBadge level={level} />
+                    ) : (
+                      <p className="w-full text-xs font-normal text-muted-foreground">
+                        {t("role")}
+                      </p>
+                    )
+                  }
+                  none={
+                    <p className="w-full text-xs font-normal text-muted-foreground">
+                      {t("role")}
+                    </p>
+                  }
+                />
               </div>
               <span className="flex size-9 shrink-0 items-center justify-center overflow-clip rounded-md bg-muted">
                 <UserRoundCog className="size-4.5 text-muted-foreground" />
               </span>
             </div>
-            <div className="h-px w-full shrink-0 bg-muted" />
-            <div className="flex w-full shrink-0 items-start overflow-clip text-center">
+            <div className="h-px w-full shrink-0 bg-border" />
+            {/* The three figures were typed into this file as "4.9 / 47 / 32" while
+                the catalogue — the record the public profile and every service card
+                read — said 4.9, 124 consultations and 124 ratings. Two numbers for
+                one advisor is one number too many, so these are the catalogue's. */}
+            <div className="flex w-full shrink-0 items-start text-center">
               {[
-                { value: "4.9", label: t("statRating"), star: true },
-                { value: "47", label: t("statBookings"), star: false },
-                { value: "32", label: t("statReviews"), star: false },
+                { value: ME?.rating ?? "—", label: t("statRating"), star: true },
+                { value: ME?.consultations ?? 0, label: t("statBookings"), star: false },
+                { value: ME?.reviews ?? 0, label: t("statReviews"), star: false },
               ].map((s) => (
                 <div
                   className="flex min-w-px flex-1 flex-col items-center gap-0.5 overflow-clip"
                   key={s.label}
                 >
-                  <p className="font-latin flex w-full items-center justify-center gap-1 text-base font-medium text-foreground">
+                  <p className="font-latin flex w-full items-center justify-center gap-1 text-base font-medium tabular-nums text-foreground lg:text-lg">
                     {s.star ? (
                       <Star className="size-3.5 shrink-0 fill-primary text-primary" />
                     ) : null}
@@ -101,15 +136,15 @@ export function AdvisorProfileScreen() {
                 </div>
               ))}
             </div>
-          </div>
+          </Surface>
         </div>
 
         <div className="flex w-full shrink-0 flex-col items-start overflow-clip px-6 pt-4">
           <QuickActions
             actions={[
-              { icon: FileText, label: t("tileServices"), href: "/screening/requests" },
-              { icon: CalendarDays, label: t("tileBookings") },
-              { icon: Wallet, label: t("tileEarnings"), href: "/earnings" },
+              { icon: Briefcase, label: t("tileServices"), href: "/advisor/services" },
+              { icon: CalendarDays, label: t("tileBookings"), href: "/work/calendar" },
+              { icon: Wallet, label: t("tileEarnings"), href: "/work/earnings" },
               { icon: MessageSquare, label: t("tileChat"), href: "/chat" },
             ]}
           />
@@ -124,7 +159,7 @@ export function AdvisorProfileScreen() {
               value={<Badge className="size-5 p-0">3</Badge>}
             />
             <SettingsDivider />
-            <SettingsRow icon={CalendarDays} label={t("myBookings")} />
+            <SettingsRow href="/work/calendar" icon={CalendarDays} label={t("myBookings")} />
             <SettingsDivider />
             <SettingsRow href="/advisor/edit" icon={UserRoundCog} label={t("editAdvisor")} />
             <SettingsDivider />
@@ -165,7 +200,7 @@ export function AdvisorProfileScreen() {
           </SettingsCard>
         </SettingsSection>
       </ScreenBody>
-      <BottomBar role="advisor" selected="user" />
+      <BottomBar className="lg:hidden" role="advisor" selected="user" />
     </MobileScreen>
   );
 }
@@ -176,9 +211,9 @@ export function AdvisorProfileEditScreen() {
   const c = useTranslations("common");
 
   return (
-    <MobileScreen>
+    <MobileScreen wide>
       <ScreenTopBar href="/advisor/profile" label={c("back")} />
-      <ScreenBody>
+      <ScreenBody className="lg:[&>*:not(.sticky)]:mx-auto lg:[&>*:not(.sticky)]:w-full lg:[&>*:not(.sticky)]:max-w-[880px]">
         <ScreenHeading
           className="gap-2 pt-4"
           subtitle={t("editSubtitle")}
@@ -217,7 +252,10 @@ export function AdvisorProfileEditScreen() {
             />
           </div>
           <Link
-            className="flex h-16 w-full shrink-0 items-start gap-3 overflow-clip rounded-xl bg-card p-3.5"
+            className={cn(
+              surfaceClass({ tier: "raised", interactive: true }),
+              "flex w-full items-center gap-3 p-3.5",
+            )}
             href="/advisor/skills"
           >
             <FileText className="size-4 shrink-0 text-muted-foreground" />
@@ -229,7 +267,7 @@ export function AdvisorProfileEditScreen() {
                 {t("skillsValue")}
               </p>
             </div>
-            <ChevronRight className="mt-2.5 size-4 shrink-0 text-muted-foreground" />
+            <ChevronRight className="size-4 shrink-0 text-muted-foreground" />
           </Link>
         </div>
 
@@ -248,23 +286,25 @@ export function SkillManagementScreen() {
   const t = useTranslations("advisor");
   const c = useTranslations("common");
 
-  const toneClass: Record<"muted" | "primary" | "destructive", string> = {
-    muted: "text-muted-foreground",
-    primary: "text-primary",
-    destructive: "text-destructive",
-  };
-
-  const skills = [
-    { name: t("skill1"), meta: t("skill1Meta"), tone: "muted" as const },
-    { name: t("skill2"), meta: t("skill2Meta"), tone: "muted" as const },
-    { name: t("skill3"), meta: t("skill3Meta"), tone: "primary" as const },
-    { name: t("skill4"), meta: t("skill4Meta"), tone: "destructive" as const },
+  // Three review outcomes that used to be three shades of 12px text — approved in
+  // grey, in-review in accent, rejected in red — so "อนุมัติแล้ว" and "กำลังตรวจสอบ"
+  // read as the same kind of note. A proof's state is a status, and statuses are
+  // pills here.
+  const skills: ReadonlyArray<{
+    readonly name: string;
+    readonly meta: string;
+    readonly tone: StatusTone;
+  }> = [
+    { name: t("skill1"), meta: t("skill1Meta"), tone: "success" },
+    { name: t("skill2"), meta: t("skill2Meta"), tone: "success" },
+    { name: t("skill3"), meta: t("skill3Meta"), tone: "warning" },
+    { name: t("skill4"), meta: t("skill4Meta"), tone: "danger" },
   ];
 
   return (
-    <MobileScreen>
+    <MobileScreen wide>
       <ScreenTopBar href="/advisor/edit" label={c("back")} />
-      <ScreenBody>
+      <ScreenBody className="lg:[&>*:not(.sticky)]:mx-auto lg:[&>*:not(.sticky)]:w-full lg:[&>*:not(.sticky)]:max-w-[880px]">
         <ScreenHeading
           className="gap-2 pt-4"
           subtitle={t("skillsSubtitle")}
@@ -275,29 +315,35 @@ export function SkillManagementScreen() {
           <p className="w-full text-xs font-normal text-muted-foreground">
             {t("yourSkills")}
           </p>
-          <div className="flex w-full shrink-0 flex-col items-start overflow-clip rounded-xl bg-card">
-            {skills.map((s, i) => (
-              <div className="w-full" key={s.name}>
-                {i > 0 ? <div className="h-px w-full shrink-0 bg-muted" /> : null}
-                <div className="flex h-16 w-full shrink-0 items-start gap-3 overflow-clip p-3.5">
-                  <FileText className="mt-2.5 size-4 shrink-0 text-muted-foreground" />
-                  <div className="flex min-w-px flex-1 flex-col items-start gap-0.5 overflow-clip">
+          <SurfaceList>
+            {skills.map((s) => {
+              // "อนุมัติแล้ว · methodology-cert.pdf" — the state, then the evidence.
+              const [state, ...rest] = s.meta.split(" · ");
+              return (
+                <div
+                  className="flex w-full items-center gap-3 p-3.5 transition-colors hover:bg-muted/50"
+                  key={s.name}
+                >
+                  <FileText className="size-4 shrink-0 text-muted-foreground" />
+                  <div className="flex min-w-px flex-1 flex-col items-start gap-1 overflow-clip">
                     <p className="w-full text-sm font-medium text-foreground">
                       {s.name}
                     </p>
-                    <p
-                      className={`w-full text-xs font-normal ${toneClass[s.tone]}`}
-                    >
-                      {s.meta}
-                    </p>
+                    <div className="flex w-full min-w-px items-center gap-2 overflow-clip">
+                      <StatusPill tone={s.tone}>{state}</StatusPill>
+                      {rest.length > 0 ? (
+                        <p className="min-w-px truncate font-latin text-xs font-normal text-muted-foreground">
+                          {rest.join(" · ")}
+                        </p>
+                      ) : null}
+                    </div>
                   </div>
-                  <ChevronRight className="mt-2.5 size-4 shrink-0 text-muted-foreground" />
+                  <ChevronRight className="size-4 shrink-0 text-muted-foreground" />
                 </div>
-              </div>
-            ))}
-            <div className="h-px w-full shrink-0 bg-muted" />
+              );
+            })}
             <AddRow label={t("addSkill")} />
-          </div>
+          </SurfaceList>
         </div>
 
         <ScreenSpacer />
@@ -312,9 +358,9 @@ export function PayoutSetupScreen() {
   const c = useTranslations("common");
 
   return (
-    <MobileScreen>
+    <MobileScreen wide>
       <ScreenTopBar href="/earnings" label={c("back")} />
-      <ScreenBody>
+      <ScreenBody className="lg:[&>*:not(.sticky)]:mx-auto lg:[&>*:not(.sticky)]:w-full lg:[&>*:not(.sticky)]:max-w-[880px]">
         <ScreenHeading className="pt-4" title={t("payoutSetupTitle")} />
         <div className="flex w-full shrink-0 flex-col items-start gap-4 px-6 pt-2">
           <Field
@@ -350,29 +396,30 @@ export function PayoutAccountScreen() {
   const c = useTranslations("common");
 
   return (
-    <MobileScreen>
+    <MobileScreen wide>
       <ScreenTopBar href="/earnings" label={c("back")} />
-      <ScreenBody>
+      <ScreenBody className="lg:[&>*:not(.sticky)]:mx-auto lg:[&>*:not(.sticky)]:w-full lg:[&>*:not(.sticky)]:max-w-[880px]">
         <ScreenHeading className="pt-4" title={t("payoutTitle")} />
 
         <div className="flex w-full shrink-0 flex-col items-start px-6 pt-2">
-          <div className="flex w-full shrink-0 flex-col items-start gap-3 overflow-clip rounded-xl bg-card p-3.5">
+          <Surface className="flex w-full flex-col items-start gap-3 p-3.5 lg:p-4">
             <div className="flex w-full shrink-0 items-center gap-3">
               <Landmark className="size-4 shrink-0 text-muted-foreground" />
               <div className="flex min-w-px flex-1 flex-col items-start gap-0.5">
                 <p className="w-full text-sm font-medium text-foreground">
                   {t("bankName")}
                 </p>
-                <p className="w-full text-xs font-normal text-muted-foreground">
+                <p className="w-full font-latin text-xs font-normal tabular-nums text-muted-foreground">
                   {t("bankAccount")}
                 </p>
               </div>
-              <Badge className="h-auto bg-primary/10 py-0.75 text-primary">
-                <CircleCheck />
+              {/* A verified account is a status, and this is the one status vocabulary
+                  the product has — the badge was a hand-tinted `bg-primary/10`. */}
+              <StatusPill icon={CircleCheck} tone="success">
                 {t("verified")}
-              </Badge>
+              </StatusPill>
             </div>
-            <div className="h-px w-full shrink-0 bg-muted" />
+            <div className="h-px w-full shrink-0 bg-border" />
             <div className="flex h-5 w-full items-center gap-2.5">
               <span className="min-w-px flex-1 text-sm font-normal text-muted-foreground">
                 {t("accountNameLabel")}
@@ -389,7 +436,7 @@ export function PayoutAccountScreen() {
                 {t("payoutTypeValue")}
               </span>
             </div>
-          </div>
+          </Surface>
         </div>
 
         <ScreenSpacer />
@@ -408,14 +455,15 @@ export function PayoutFailedScreen() {
   const c = useTranslations("common");
 
   return (
-    <MobileScreen>
+    <MobileScreen wide>
       <ScreenTopBar href="/earnings/payout-history" label={c("back")} />
-      <ScreenBody>
+      <ScreenBody className="lg:[&>*:not(.sticky)]:mx-auto lg:[&>*:not(.sticky)]:w-full lg:[&>*:not(.sticky)]:max-w-[880px]">
         <div className="flex w-full shrink-0 flex-col items-center px-6 pt-4">
           <span className="flex size-10 shrink-0 items-center justify-center rounded-full bg-destructive/10">
             <CircleAlert className="size-5 text-destructive" />
           </span>
-          <p className="font-latin mt-3 w-full text-center text-heading font-semibold text-foreground">
+          {/* The one 28px figure on the screen; every other amount below is 14px. */}
+          <p className="font-latin mt-3 w-full text-center text-heading font-semibold tabular-nums text-foreground">
             {t("payoutFailedAmount")}
           </p>
           <p className="mt-1 w-full text-center text-xs font-normal text-muted-foreground">
@@ -424,7 +472,11 @@ export function PayoutFailedScreen() {
         </div>
 
         <div className="flex w-full shrink-0 flex-col items-start px-6 pt-5">
-          <div className="flex w-full shrink-0 items-start gap-3 overflow-clip rounded-xl bg-card p-3.5">
+          {/* A well, not a card: this is reassurance about the figure above it. */}
+          <Surface
+            className="flex w-full items-start gap-3 p-3.5"
+            tier="well"
+          >
             <Clock className="size-4 shrink-0 text-primary" />
             <div className="flex min-w-px flex-1 flex-col items-start gap-0.5 overflow-clip">
               <p className="w-full text-sm font-medium text-foreground">
@@ -434,11 +486,11 @@ export function PayoutFailedScreen() {
                 {t("fundsSafeBody")}
               </p>
             </div>
-          </div>
+          </Surface>
         </div>
 
         <div className="flex w-full shrink-0 flex-col items-start px-6 pt-5">
-          <div className="flex w-full shrink-0 flex-col items-start gap-3 overflow-clip rounded-xl bg-card p-3.5">
+          <Surface className="flex w-full flex-col items-start gap-3 p-3.5 lg:p-4">
             {[
               { icon: Landmark, label: t("payoutAccountLabel"), value: t("payoutAccountValue"), tone: "" },
               { icon: CircleAlert, label: t("reasonLabel"), value: t("reasonValue"), tone: "text-destructive" },
@@ -451,13 +503,13 @@ export function PayoutFailedScreen() {
                   {label}
                 </span>
                 <span
-                  className={`font-latin shrink-0 text-sm font-medium whitespace-nowrap ${tone || "text-foreground"}`}
+                  className={`font-latin shrink-0 text-sm font-medium tabular-nums whitespace-nowrap ${tone || "text-foreground"}`}
                 >
                   {value}
                 </span>
               </div>
             ))}
-          </div>
+          </Surface>
         </div>
 
         <ScreenSpacer />
@@ -482,58 +534,56 @@ export function PayoutHistoryScreen() {
   ];
 
   return (
-    <MobileScreen>
+    <MobileScreen wide>
       <ScreenTopBar href="/earnings" label={c("back")} />
-      <ScreenBody>
+      <ScreenBody className="lg:[&>*:not(.sticky)]:mx-auto lg:[&>*:not(.sticky)]:w-full lg:[&>*:not(.sticky)]:max-w-[880px]">
         <ScreenHeading className="pt-4" title={t("historyTitle")} />
 
         <div className="flex w-full shrink-0 flex-col items-start px-6 pt-2">
-          <div className="flex w-full shrink-0 flex-col items-start gap-1 overflow-clip rounded-xl bg-card p-3.5">
+          {/* The year's total is the hero figure — 28px — and the three transfers
+              under it are 14px, so the page has one voice and three footnotes. */}
+          <Surface className="flex w-full flex-col items-start gap-1 p-3.5 lg:p-4">
             <p className="w-full text-xs font-normal text-muted-foreground">
               {t("historyYearLabel")}
             </p>
-            <p className="font-latin w-full text-heading font-semibold text-foreground">
+            <p className="font-latin w-full text-heading font-semibold tabular-nums text-foreground">
               {t("historyTotal")}
             </p>
             <p className="w-full text-xs font-normal text-muted-foreground">
               {t("historyNote")}
             </p>
-          </div>
+          </Surface>
         </div>
 
         <div className="flex w-full shrink-0 flex-col items-start gap-2 px-6 pt-5">
           <p className="w-full text-xs font-normal text-muted-foreground">
             {t("allTransfers")}
           </p>
-          <div className="flex w-full shrink-0 flex-col items-start overflow-clip rounded-xl bg-card">
-            {rows.map((r, i) => (
-              <div className="w-full" key={r.date}>
-                {i > 0 ? <div className="h-px w-full shrink-0 bg-muted" /> : null}
-                <Link
-                  className="flex h-16 w-full shrink-0 items-start gap-3 overflow-clip p-3.5"
-                  href="/earnings/payout-history/failed"
-                >
-                  <div className="flex min-w-px flex-1 flex-col items-start gap-0.5 overflow-clip">
-                    <p className="w-full text-sm font-medium text-foreground">
-                      {r.date}
-                    </p>
-                    <p className="w-full text-xs font-normal text-muted-foreground">
-                      {r.meta}
-                    </p>
-                  </div>
-                  <div className="flex shrink-0 flex-col items-end gap-0.5">
-                    <p className="font-latin text-sm font-medium whitespace-nowrap text-foreground">
-                      {r.amount}
-                    </p>
-                    <p className="text-xs font-normal text-muted-foreground">
-                      {t("success")}
-                    </p>
-                  </div>
-                  <ChevronRight className="mt-2.5 size-4 shrink-0 text-muted-foreground" />
-                </Link>
-              </div>
+          <SurfaceList>
+            {rows.map((r) => (
+              <Link
+                className="flex w-full items-center gap-3 p-3.5 transition-colors hover:bg-muted/50"
+                href="/earnings/payout-history/failed"
+                key={r.date}
+              >
+                <div className="flex min-w-px flex-1 flex-col items-start gap-0.5 overflow-clip">
+                  <p className="w-full text-sm font-medium text-foreground">
+                    {r.date}
+                  </p>
+                  <p className="w-full font-latin text-xs font-normal tabular-nums text-muted-foreground">
+                    {r.meta}
+                  </p>
+                </div>
+                <div className="flex shrink-0 flex-col items-end gap-1">
+                  <p className="text-right font-latin text-sm font-medium tabular-nums whitespace-nowrap text-foreground">
+                    {r.amount}
+                  </p>
+                  <StatusPill tone="success">{t("success")}</StatusPill>
+                </div>
+                <ChevronRight className="size-4 shrink-0 text-muted-foreground" />
+              </Link>
             ))}
-          </div>
+          </SurfaceList>
         </div>
 
         <ScreenSpacer />
@@ -542,122 +592,16 @@ export function PayoutHistoryScreen() {
   );
 }
 
-/** Figma "Advisor - Earnings (Light)" — 995:8682. */
+/**
+ * Figma "Advisor - Earnings (Light)" — 995:8682, and now one screen instead of two.
+ *
+ * There were two earnings screens: this one and `WorkEarningsScreen`, each with its
+ * own balance card, its own three-row ledger and its own list of paid sessions, both
+ * reading the same `advisor.*` copy. Two screens that show the same money will drift
+ * — this one still had no `lg:` layout, no status colour and a withdraw button that
+ * spanned the page — so the hub's version survived and `/earnings` renders it. The
+ * export stays because the route file is what points at it.
+ */
 export function EarningsScreen() {
-  const t = useTranslations("advisor");
-
-  return (
-    <MobileScreen className="pb-0">
-      <ScreenBody className="pb-19.5">
-        <TopBar unreadNotifications />
-        <ScreenHeading className="pt-4" title={t("earningsTitle")} />
-
-        {/* Figma balance card: available balance with the withdraw CTA. */}
-        <div className="flex w-full shrink-0 flex-col items-start px-6 pt-2">
-          <div className="flex w-full shrink-0 flex-col items-start gap-2 overflow-clip rounded-xl bg-card p-3.5">
-            <p className="w-full text-xs font-normal text-muted-foreground">
-              {t("available")}
-            </p>
-            <p className="font-latin w-full text-heading font-semibold text-foreground">
-              {t("availableAmount")}
-            </p>
-            <PrimaryButton href="/earnings/payout-account">{t("withdrawCta")}</PrimaryButton>
-          </div>
-        </div>
-
-        <div className="flex w-full shrink-0 flex-col items-start px-6 pt-3">
-          <div className="flex w-full shrink-0 flex-col items-start overflow-clip rounded-xl bg-card">
-            {[
-              { icon: Clock, title: t("inTransit"), meta: t("inTransitMeta"), amount: t("inTransitAmount") },
-              { icon: CircleAlert, title: t("pending"), meta: t("pendingMeta"), amount: t("pendingAmount") },
-              { icon: Wallet, title: t("withdrawn"), meta: t("withdrawnMeta"), amount: t("withdrawnAmount") },
-            ].map(({ icon: Icon, title, meta, amount }, i) => (
-              <div className="w-full" key={title}>
-                {i > 0 ? <div className="h-px w-full shrink-0 bg-muted" /> : null}
-                <div className="flex h-16 w-full shrink-0 items-start gap-3 overflow-clip p-3.5">
-                  <Icon className="mt-2.5 size-4 shrink-0 text-muted-foreground" />
-                  <div className="flex min-w-px flex-1 flex-col items-start gap-0.5 overflow-clip">
-                    <p className="w-full text-sm font-medium text-foreground">
-                      {title}
-                    </p>
-                    <p className="w-full text-xs font-normal text-muted-foreground">
-                      {meta}
-                    </p>
-                  </div>
-                  <p className="font-latin mt-2.5 shrink-0 text-sm font-medium whitespace-nowrap text-foreground">
-                    {amount}
-                  </p>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        {/* Figma "การให้คำปรึกษาล่าสุด": recent sessions with payout status. */}
-        <div className="flex w-full shrink-0 flex-col items-start gap-2 px-6 pt-5">
-          <div className="flex w-full items-center justify-between gap-3">
-            <p className="text-xs font-normal text-muted-foreground">
-              {t("recentSessions")}
-            </p>
-            <span className="text-xs font-medium text-primary">
-              {t("seeAll")}
-            </span>
-          </div>
-          <div className="flex w-full shrink-0 flex-col items-start overflow-clip rounded-xl bg-card">
-            {[
-              { avatar: advisor, name: t("e1Name"), meta: t("e1Meta"), amount: t("e1Amount"), status: t("pending") },
-              { avatar: advisor, name: t("e2Name"), meta: t("e2Meta"), amount: t("e2Amount"), status: t("available") },
-            ].map((r, i) => (
-              <div className="w-full" key={r.name}>
-                {i > 0 ? <div className="h-px w-full shrink-0 bg-muted" /> : null}
-                <div className="flex h-16 w-full shrink-0 items-start gap-3 overflow-clip p-3.5">
-                  <Image
-                    alt=""
-                    className="mt-1 size-8 shrink-0 rounded-full object-cover"
-                    height={32}
-                    src={r.avatar}
-                    width={32}
-                  />
-                  <div className="flex min-w-px flex-1 flex-col items-start gap-0.5 overflow-clip">
-                    <p className="w-full text-sm font-medium text-foreground">
-                      {r.name}
-                    </p>
-                    <p className="w-full text-xs font-normal text-muted-foreground">
-                      {r.meta}
-                    </p>
-                  </div>
-                  <div className="flex shrink-0 flex-col items-end gap-0.5">
-                    <p className="font-latin text-sm font-medium whitespace-nowrap text-foreground">
-                      {r.amount}
-                    </p>
-                    <p className="text-xs font-normal whitespace-nowrap text-muted-foreground">
-                      {r.status}
-                    </p>
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        <SettingsSection>
-          <SettingsCard>
-            <SettingsRow
-              href="/earnings/payout-account"
-              icon={Landmark}
-              label={t("payoutAccountRow")}
-              value={t("payoutAccountRowValue")}
-            />
-            <SettingsDivider />
-            <SettingsRow
-              href="/earnings/payout-history"
-              icon={FileText}
-              label={t("payoutHistoryRow")}
-            />
-          </SettingsCard>
-        </SettingsSection>
-      </ScreenBody>
-      <BottomBar role="advisor" selected="earnings" />
-    </MobileScreen>
-  );
+  return <WorkEarningsScreen />;
 }

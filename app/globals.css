@@ -16,6 +16,10 @@
   --font-latin: 'Geist Variable', sans-serif;
   --font-mono: 'Geist Mono Variable', ui-monospace, monospace;
   --font-heading: var(--font-sans);
+  /* The home hero's headline and the line under it: Kanit, chosen against
+     eight other Thai faces for a heavier, more poster-like line than the
+     Noto Sans Thai the rest of the UI is set in. */
+  --font-hero: 'Kanit', var(--font-sans);
 
   /* Thai type scale. Thai stacks vowels/tone marks above and below the baseline, so
      the design gives 12px and 24px copy more leading than Tailwind's Latin defaults.
@@ -24,6 +28,13 @@
      14/20, 16/24 and 20/28 already match the defaults exactly, so they need nothing. */
   --text-xs--line-height: 1.125rem; /* 18px — Tailwind default is 16px */
   --text-2xl--line-height: 2.125rem; /* 34px — Tailwind default is 32px */
+  /* The two steps the screens were missing. Everything between body copy and the
+     28px screen title was being set at 16, so a section head, a card title and a
+     paragraph all carried the same weight. 18/28 is the section head, 20/32 the
+     card or panel title; both take more leading than the Latin defaults because
+     Thai stacks marks above and below. */
+  --text-lg--line-height: 1.75rem; /* 18/28 — Tailwind default is 28px, restated */
+  --text-xl--line-height: 2rem; /* 20/32 — Tailwind default is 28px */
   /* Figma "Heading" — the 28/40 screen title. No default step lands on 28px
      (text-2xl is 24, text-3xl is 30), so it gets a named step of its own. */
   --text-heading: 1.75rem;
@@ -32,10 +43,67 @@
      which is neither the size nor the leading the design asks for. */
   --text-heading-lg: 2rem;
   --text-heading-lg--line-height: 2.75rem;
+  /* Figma "Headline" on the desktop home hero (1564:24868) — 40/60, a step
+     above anything the phone frames ask for, and the widest leading in the
+     scale because the line has to breathe across a 720px column. */
+  --text-display: 2.5rem;
+  --text-display--line-height: 3.75rem;
+  /* The home hero's headline. `display` is 40/60, sized for a 720px column;
+     on a full-bleed band with a ring of cards around it, 40px no longer reads
+     as the thing on the screen, and 64 crowded the ring; at 40 the one-line
+     headline sits inside the ring with room to spare. Thai stacks marks above
+     and below the line, so the leading is 48 rather than the 40 a Latin
+     display would take. */
+  --text-hero: 2.5rem;
+  --text-hero--line-height: 3rem;
+  /* The ring cards' name and role. fastwork sets them at 10 and 7.7px so the
+     photograph is the card; Thai at those sizes stops being legible, so this
+     is the smallest that still reads, 12 over 10. */
+  --text-hero-name: 0.75rem;
+  --text-hero-name--line-height: 1rem;
+  --text-hero-role: 0.625rem;
+  --text-hero-role--line-height: 0.875rem;
+  /* The editorial display size: one line of Thai, as large as the column can
+     carry, fluid between a phone and a 1440 page. It is set by `clamp` rather
+     than by breakpoint steps because a magazine headline is sized to its
+     measure, not to a device.
+
+     The leading is below 1. Thai stacks vowel and tone marks above the
+     consonant line and descenders below it, so a `leading-none` display is
+     already visually generous; at 0.94 the lines knit together the way a
+     printed headline does, and `--text-editorial--mark-safe` is the padding a
+     wrapper needs so the top marks are not clipped. */
+  /* 8vw, capped at 8rem. Sized against the hero's own height budget rather
+     than by eye: at 9.6vw the three lines pushed the opener to 958px against
+     a 900px viewport, which puts the index and the action below the fold. */
+  --text-editorial: clamp(3rem, 8vw, 8rem);
+  --text-editorial--line-height: 0.94;
+  --text-editorial--letter-spacing: -0.03em;
+  /* Nuxt UI's `sm` badge — 10/12. The console's tab counts are that badge. */
+  --text-2xs: 0.625rem;
+  --text-2xs--line-height: 0.75rem;
 
   --color-success: var(--success);
   --color-success-foreground: var(--success-foreground);
   --color-success-surface: var(--success-surface);
+  --color-warning: var(--warning);
+  --color-info: var(--info);
+  /* Nuxt UI's text ramp, which the admin console is ported from: `highlighted`
+     is headings and table heads, `dimmed` is placeholders and resting icons.
+     `accented` is the stronger hairline inputs and outline buttons ring with. */
+  --color-highlighted: var(--highlighted);
+  --color-dimmed: var(--dimmed);
+  --color-accented: var(--accented);
+  /* The console's call-to-action colour — Nuxt UI's `secondary` in Nexus. It is
+     its own token because shadcn's `secondary` already means the neutral fill. */
+  --color-action: var(--action);
+  --color-action-foreground: var(--action-foreground);
+  /* Nexus's `CmsTable` is drawn in Tailwind's gray, not the slate the rest of
+     the console runs on: its card, bands and row rules, its heads, its cells. */
+  --color-table-rule: var(--table-rule);
+  --color-table-head: var(--table-head);
+  --color-table-cell: var(--table-cell);
+  --color-accent-surface: var(--accent-surface);
   --color-brand-image: var(--brand-image);
   /* A `background-image`, not a colour: it paints on its own decorative band in
      the scroll flow, over whatever ground the frame already has. */
@@ -44,15 +112,47 @@
   /* A `background-image` like `--hero-wash` — the bead behind a step number or
      an FAQ toggle. */
   --background-image-marker: var(--marker);
-  /* The only lifted surface in the app. Every other card sits flat on a border
+  /* The ground the story hero is told on. A `background-image` for the same
+     reason `--hero-wash` is one: it paints a whole decorative stage, not a
+     fill. */
+  --color-paper: var(--paper);
+  --color-ink: var(--ink);
+  --color-rule: var(--rule);
+  --color-hero-ground: var(--hero-ground);
+  --color-hero-ink: var(--hero-ink);
+  --color-hero-action: var(--hero-action);
+  --color-hero-action-foreground: var(--hero-action-foreground);
+  /* A `background-image` like `--hero-wash`: the photograph the home hero's
+     ring turns over. */
+  --background-image-hero-photo: var(--hero-photo);  /* The only lifted surface in the app. Every other card sits flat on a border
      hairline; a card that scrolls sideways needs to read as a loose object, and
      a wide soft shadow is what says so. Tinted off `--scrim` rather than a
      literal black so it follows the theme. */
   --shadow-lift: 0 4px 30px color-mix(in srgb, var(--scrim) 12%, transparent);
+  /* The home hero's floating cards and search: one long, faint drop rather
+     than a tight dark one, so the pieces read as lifted off the page and not
+     stuck onto it. */
+  --shadow-hero: 0 24px 48px -20px color-mix(in srgb, var(--scrim) 22%, transparent),
+    0 2px 6px color-mix(in srgb, var(--scrim) 4%, transparent);
+  /* The ring card's own edge, measured off fastwork's `orbit-card`: a 2px
+     shadow at 8% and a cool hairline, nothing heavier. */
+  --shadow-hero-card: 0 2px 4px color-mix(in srgb, var(--scrim) 8%, transparent);
+  --shadow-hero-card-hover: 0 6px 16px color-mix(in srgb, var(--scrim) 10%, transparent);
+  --color-hero-card-border: var(--hero-card-border);
+  /* The elevation the app never had. A card used to be a white box on a
+     near-white page — a 2% value step — so nothing read as an object you could
+     pick up. These are the three tiers everything now uses: `card` at rest,
+     `card-hover` under the pointer, `panel` for the desktop sheets that float
+     over the page ground (two files were carrying that one as a pasted
+     literal). All tinted off `--scrim`, so they follow the theme. */
+  --shadow-card: 0 1px 2px color-mix(in srgb, var(--scrim) 6%, transparent),
+    0 1px 3px color-mix(in srgb, var(--scrim) 4%, transparent);
+  --shadow-card-hover: 0 2px 4px color-mix(in srgb, var(--scrim) 6%, transparent),
+    0 8px 16px -4px color-mix(in srgb, var(--scrim) 10%, transparent);
+  --shadow-panel: 0 8px 24px -4px color-mix(in srgb, var(--scrim) 10%, transparent),
+    0 1px 2px color-mix(in srgb, var(--scrim) 4%, transparent);
   --color-footer-surface: var(--footer-surface);
-  /* A `background-image`, like `--hero-wash`: it paints its own decorative
-     layer over the footer's ground rather than replacing it. */
-  --background-image-footer-glow: var(--footer-glow);
+  --color-footer-surface-deep: var(--footer-surface-deep);
   --color-scrim: var(--scrim);
   --color-sidebar-ring: var(--sidebar-ring);
   --color-sidebar-border: var(--sidebar-border);
@@ -84,6 +184,10 @@
   --color-popover: var(--popover);
   --color-card-foreground: var(--card-foreground);
   --color-card: var(--card);
+  /* 12px sat off the scale and got written as `rounded-[12px]` in 28 places —
+     between `lg` (10) and `xl` (14), where the tab track, the step cards and the
+     popover all wanted to be. It is a step now, so it has a name. */
+  --radius-card: calc(var(--radius) * 1.2);
   --radius-sm: calc(var(--radius) * 0.6);
   --radius-md: calc(var(--radius) * 0.8);
   --radius-lg: var(--radius);
@@ -98,7 +202,11 @@
      background #fafafa, foreground #18181b, surface #ffffff, surface-muted #f4f4f5,
      border #e4e4e7, border-input #a1a1aa, accent #2563eb, destructive #dc2626,
      success #65a30d on success-surface #ecfccb. */
-  --background: #fafafa;
+  /* The page ground used to be #fafafa, two per cent off the white cards sitting
+     on it, so every card dissolved into the page and the whole product read as
+     one flat sheet. It steps down — and slightly cool, to sit under the blue
+     brand — so a white surface is an object again. */
+  --background: #f3f5f8;
   --foreground: #18181b;
   --card: #ffffff;
   --card-foreground: #18181b;
@@ -119,11 +227,14 @@
   --hero-wash:
     radial-gradient(ellipse 100% 35% at -5% 20%, color-mix(in oklab, var(--hero-warm) 38%, transparent), transparent 72%),
     radial-gradient(ellipse 100% 35% at 105% 35%, color-mix(in oklab, var(--brand-image) 38%, transparent), transparent 72%);
-  --secondary: #f4f4f5;
+  --secondary: #eef1f5;
   --secondary-foreground: #18181b;
-  --muted: #f4f4f5;
-  --muted-foreground: #71717a;
-  --accent: #f4f4f5;
+  /* The well inside a card, one step under the page rather than level with it —
+     `#f4f4f5` against the old ground was invisible, which is why insets, tab
+     tracks and disabled fields all read as nothing. */
+  --muted: #eef1f5;
+  --muted-foreground: #667085;
+  --accent: #eef1f5;
   --accent-foreground: #18181b;
   --destructive: #dc2626;
   /* shadcn's own `destructive` button variant is the tinted treatment, so it never
@@ -133,7 +244,21 @@
   --success: #65a30d;
   --success-foreground: #ffffff;
   --success-surface: #ecfccb;
-  --border: #e4e4e7;
+  --warning: #ca8a04;
+  --info: #2563eb;
+  --highlighted: #18181b;
+  --dimmed: #a1a1aa;
+  --accented: #d4d4d8;
+  --action: #2563eb;
+  --action-foreground: #ffffff;
+  /* Figma "accent-surface" — the tinted ground the accent sits on when it is a
+     status rather than an action (the countdown pill on a booking). It pairs with
+     `--primary` the way `--success-surface` pairs with `--success`, which is why
+     it is a token of its own and not `primary/10`: that mix lands on #e9effd and
+     the frame asks for #e0e8f8. */
+  --accent-surface: #e0e8f8;
+  /* Cooled to match the ground it now draws on. */
+  --border: #e2e6ec;
   --input: #a1a1aa;
   --ring: #a1a1aa;
   /* The landing hero and CTA band lay copy over a photograph behind a black
@@ -153,25 +278,73 @@
     color-mix(in oklab, var(--primary) 34%, var(--card)) 100%
   );
 
-  /* Figma 225:10503 draws the footer over a page-wide glow layer (node
-     1213:16952) of gaussian-blurred ellipses. Blurred ellipses are
-     radial-gradients, so they are drawn the way `--hero-wash` draws its two
-     rather than shipping a 10,656px-tall asset to show its bottom 9%.
+  /* The footer's ground — one flat colour, no gradient and no decorative layer.
+     Figma's own footer frame (225:10503) is `rgba(212,194,255,0)`, transparent
+     with white ink, so the dark belongs to the page behind it and this token is
+     that page reduced to a single value.
 
-     Palette and geometry are the author's, tuned by eye on the running page.
-     Absent from `.dark` on purpose — like `--on-media` and `--scrim`, this
-     surface is already dark in both themes and flipping it would invert it. */
-  --footer-surface: #040413;
-  --footer-glow-blue: #278C9D;
-  --footer-glow-purple: #3229A8;
-  --footer-glow-red: #770056;
-  --footer-glow-cyan: #103A48;
-  --footer-glow:
-    radial-gradient(ellipse 84% 58% at 10% -4%, color-mix(in oklab, var(--footer-glow-blue) 35%, transparent), transparent 76%),
-    radial-gradient(ellipse 150% 150% at 120% -30%, color-mix(in oklab, var(--footer-glow-purple) 35%, transparent), transparent 76%),
-    radial-gradient(ellipse 150% 150% at 0% 150%, color-mix(in oklab, var(--footer-glow-red) 35%, transparent), transparent 76%),
-    radial-gradient(ellipse 150% 150% at 80% 120%, color-mix(in oklab, var(--footer-glow-cyan) 55%, transparent), transparent 76%),
-    radial-gradient(ellipse 86% 40% at 104% 35%, color-mix(in oklab, var(--footer-glow-red) 30%, transparent), transparent 76%);
+     A deep navy rather than near-black. It was `#040413`, which is black to the
+     eye — 2% lightness with a trace of blue nobody can see — and a black band is
+     the one ending that makes a page look unfinished rather than closed. This is
+     the brand blue taken down to a ground: the same hue family as
+     `--primary: #2563eb`, dark enough that white body copy clears AAA on it
+     several times over, light enough to read as a colour.
+
+     Dark in both themes on purpose, like `--on-media` and `--scrim`; flipping it
+     in `.dark` would invert it. */
+  --footer-surface: #16213e;
+  /* The deep end of the brand ground. The navigation drawer and the footer open
+     on a vertical ramp from this to `--footer-surface`, the way the reference
+     header's panel does; a flat dark panel over a photographic hero reads as a
+     sheet of card rather than as depth. Dark in both themes, like the ground it
+     belongs to. */
+  --footer-surface-deep: #0d1526;
+
+  /* ── Editorial ───────────────────────────────────────────────────────────
+     A separate, deliberately narrow palette for the magazine-shaped pages.
+     It is not the app's surface set opened up; it is three values and a rule
+     weight, which is the whole point of the style.
+
+     The paper is a cool near-white, not the warm cream that every AI-built
+     "editorial" page reaches for by reflex. The ink is off-black because pure
+     #000 on paper flattens and buzzes at large sizes. The accent is the brand
+     blue and it appears only on rules, numerals and links, never on a fill. */
+  --paper: #f7f7f5;
+  --ink: #111113;
+  --rule: #d7d7d2;
+  /* The home hero's ground: plain white, flat, as the reference's is. The
+     photographs carry all the colour the band needs, and a tinted ground gave
+     them a second colour to argue with.
+
+     `--card`, not a literal `#ffffff`: `.dark` redefines `--card`, so the band
+     follows the theme instead of staying a white strip on a dark page. */
+  --hero-ground: var(--card);
+  /* The hero's headline and its search button, measured off fastwork.com's
+     own: a cool slate grey for the type rather than the near-black the rest
+     of the app sets in, and a near-black navy for the one button. */
+  --hero-ink: #2b313b;
+  --hero-card-border: rgb(228 232 239 / 97%);
+  --hero-action: #131922;
+  --hero-action-foreground: #ffffff;
+  /* A white, nearly empty room with one desk and chair (Unsplash
+     `photo-1449247709967`), sharp: a quiet place to sit down and talk, and
+     so plain that it does not compete with the twelve photographs on the
+     ring. `.dark` takes it away rather than leave a bright photograph on a
+     dark page.
+
+     Fetched at 3200×2000: the band draws it a tenth taller than the screen,
+     which on a 2× display is about 2000 device pixels, and the 1200px copy
+     was being stretched soft.
+
+     Over it, one light falling from the top of the screen: a sky blue from
+     the left and a lavender from the right, each wider than half the band so
+     they meet and blend instead of reading as two spots, all of it gone by
+     the middle so the copy and the room below stay as they are. Two corner
+     glows were tried first and looked like stains. */
+  --hero-photo:
+    radial-gradient(ellipse 70% 45% at 15% 0%, color-mix(in oklab, #8ec5ff 14%, transparent), transparent 70%),
+    radial-gradient(ellipse 70% 45% at 85% 0%, color-mix(in oklab, #c4b5fd 12%, transparent), transparent 70%),
+    url("/hero/ground.jpg");
   --chart-1: oklch(0.809 0.105 251.813);
   --chart-2: oklch(0.623 0.214 259.815);
   --chart-3: oklch(0.546 0.245 262.881);
@@ -188,8 +361,77 @@
   --sidebar-ring: oklch(0.705 0.015 286.067);
 }
 
+/* Admin console — Nexus's black/white CMS theme (`.cms-admin` in Nexus's
+   main.css), mapped onto this project's token names. Scoped to the console's
+   wrapper and to <body> while the console is mounted, so dialogs and menus that
+   portal out of the wrapper still pick it up, and consumer pages never do.
+   Values are Nexus's overrides plus the Nuxt UI defaults it leaves alone
+   (slate neutrals, green/yellow/blue status colours, a 0.25rem base radius that
+   makes 6px controls and 8px cards — this scale's `md` and `lg` at 0.5rem). */
+.cms-admin {
+  /* Tabular figures console-wide: counts, baht and timestamps sit in columns
+     and stat tiles, and proportional digits made them drift between rows. */
+  font-variant-numeric: tabular-nums;
+  --background: #ffffff;
+  --foreground: #334155;
+  --highlighted: #0f172a;
+  --muted: #f1f5f9;
+  --muted-foreground: #64748b;
+  --dimmed: #94a3b8;
+  --accented: #cbd5e1;
+  --card: #ffffff;
+  --card-foreground: #334155;
+  --popover: #ffffff;
+  --popover-foreground: #334155;
+  --primary: #000000;
+  --primary-foreground: #ffffff;
+  --secondary: #f1f5f9;
+  --secondary-foreground: #0f172a;
+  --accent: #f1f5f9;
+  --accent-foreground: #0f172a;
+  --border: #e2e8f0;
+  --input: #cbd5e1;
+  --ring: #000000;
+  --destructive: #ef4444;
+  --destructive-foreground: #ffffff;
+  /* Nuxt UI's own green / yellow / blue at 500, which Nexus leaves alone — the
+     Tailwind v4 values, a shade apart from the v3 hex they replaced. Only
+     `--ui-error` and `--ui-secondary` are pinned to v3 hex by Nexus itself. */
+  --success: oklch(72.3% 0.219 149.579);
+  --success-foreground: #ffffff;
+  --warning: oklch(79.5% 0.184 86.047);
+  --info: oklch(62.3% 0.214 259.815);
+  --action: #3b82f6;
+  --action-foreground: #ffffff;
+  /* Tailwind v4's gray-200 / gray-900 / gray-500, as Nexus's CmsTable names them. */
+  --table-rule: oklch(92.8% 0.006 264.531);
+  --table-head: oklch(21% 0.034 264.665);
+  --table-cell: oklch(55.1% 0.027 264.364);
+  --radius: 0.5rem;
+}
+
+/* Nexus sets its console in Tailwind's Latin line heights — 12/16, 20/28, 24/32
+   — where the consumer app gives Thai copy more leading. The scale is `@theme
+   inline`, so the value is baked into each utility; restating it under the
+   scope is the only way to reach it. `--tw-leading` first, so an explicit
+   `leading-*` still wins. */
+.cms-admin .text-xs {
+  line-height: var(--tw-leading, 1rem);
+}
+.cms-admin .text-xl {
+  line-height: var(--tw-leading, 1.75rem);
+}
+.cms-admin .text-2xl {
+  line-height: var(--tw-leading, 2rem);
+}
+
 .dark {
   --brand-image: oklch(0.623 0.214 259.815);
+  --hero-photo: none;
+  --hero-ink: var(--foreground);
+  --hero-card-border: var(--border);
+  --hero-action: var(--primary);
+  --hero-action-foreground: var(--primary-foreground);
   /* Same geometry, roughly half the strength: on a dark ground the tint reads far
      hotter at the same alpha and starts to look like a colour cast. */
   --hero-warm: oklch(0.852 0.164 87.2);
@@ -215,6 +457,17 @@
   --success: oklch(0.768 0.233 130.85);
   --success-foreground: oklch(0.141 0.005 285.823);
   --success-surface: oklch(0.405 0.101 131.063);
+  --warning: oklch(0.852 0.199 91.936);
+  --info: oklch(0.623 0.214 259.815);
+  --highlighted: oklch(0.985 0 0);
+  --dimmed: oklch(0.552 0.016 285.938);
+  --accented: oklch(1 0 0 / 20%);
+  --action: oklch(0.623 0.214 259.815);
+  --action-foreground: oklch(0.985 0 0);
+  /* The status pills that ride on this were carrying the light `#e0e8f8`
+     against a dark card, which is unreadable. It pairs with `--primary` here
+     the way it does in the light theme, at the strength a dark ground takes. */
+  --accent-surface: oklch(0.35 0.09 262);
   --border: oklch(1 0 0 / 10%);
   --input: oklch(1 0 0 / 15%);
   --ring: oklch(0.552 0.016 285.938);
@@ -251,5 +504,209 @@
   }
   html {
     @apply font-sans;
+  }
+  /* Anchors glide rather than jump. The page's scroller is `ScreenBody`, not
+     the window, so the behaviour has to be set on it as well as on the root —
+     setting it on `html` alone does nothing for an in-page link here.
+     `scroll-padding-top` keeps the target clear of the navigation bar that
+     floats over the top of that scroller. */
+  html,
+  [data-slot="screen-body"] {
+    scroll-behavior: smooth;
+    scroll-padding-top: 6rem;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    html,
+    [data-slot="screen-body"] {
+      scroll-behavior: auto;
+    }
+  }
+}
+/* The home hero's entrance, ported from the team's own
+   `mochiice-fe/app/components/pages/home/SectionHome.vue`.
+
+   Every piece starts stacked at the centre of the band and bursts out to its
+   own place. The curve is the whole character of it: `cubic-bezier(0.34, 1.56,
+   0.64, 1)` overshoots past 1, so each piece arrives, goes a little too far
+   and settles — which is what makes it read as thrown rather than slid.
+
+   The hold at 60% with `opacity: 0` is deliberate and is theirs: the pieces
+   scale up unseen for most of the second and only appear as they fly apart, so
+   the eye never watches a cluster of shapes inflate in the middle.
+
+   The pieces sit on an elliptical track: each is placed at its own `--angle`
+   round the ring's centre and tilted by the same angle, so a card is always
+   leaning along the curve, upright at the top and lying over towards the
+   sides. The ring's centre is a quarter of the screen below the
+   copy, which puts its upper arc around the headline and the rest of it below
+   the fold; nothing on the ring ever passes through the copy. Sizes are in
+   `vh` so the arc fits the band at any height.
+
+   The resting transform lives on `.hero-card`, not in the animation, so with
+   the animation stripped a card is still at its place, visible and legible. */
+/* The turn is an animated angle every card adds to its own, not a rotation of
+   the ring box: the track is an ellipse, and rotating an ellipse would swing
+   its long axis up into the bar. Registered so it interpolates. */
+@property --hero-spin {
+  syntax: "<angle>";
+  inherits: true;
+  initial-value: 0deg;
+}
+
+.hero-ring {
+  position: absolute;
+  left: 50%;
+  /* The copy's centre (the band is pulled up 5.5rem under the bar and padded
+     back by the same, so its content sits half that lower), then 25vh down. */
+  top: calc(50% + 2.75rem + 25vh);
+  animation: hero-ring-spin 120s linear infinite;
+}
+
+.hero-card {
+  /* A circle, both radii the same. An ellipse cleared the search field more
+     easily but spaced the cards unevenly: equal angles are unequal distances
+     round an ellipse, so as the ring turned the gaps opened and closed. On a
+     circle every gap is the same at every moment. 55vh with twelve 208px
+     cards leaves about 48px between neighbours. */
+  --ring-rx: 55vh;
+  --ring-ry: 55vh;
+  --a: calc(var(--angle) + var(--hero-spin));
+  /* The scroll-out, driven 0 → 1 by `HeroShapes` as the hero leaves the
+     screen: each card runs on outward along its own spoke while the whole
+     ring lifts, so every card leaves in the direction it was already leaning,
+     blurring as it goes. 0 everywhere a script never sets it. */
+  /* Strong enough that at 1 every card is clear of the screen: the outward
+     push alone leaves the side cards in view, so the lift does the rest. */
+  --k: calc(1 + var(--hero-exit, 0) * 1.6);
+  --lift: calc(var(--hero-exit, 0) * -90vh);
+  /* The pointer tilt: every card turns towards the cursor about the screen's
+     own axes, up to 8° each way. It sits before `rotate(--a)` so it is the
+     same tilt for every card, whichever way round the ring that card lies. */
+  --tilt:
+    perspective(900px) rotateX(calc(var(--hero-py, 0) * -8deg))
+    rotateY(calc(var(--hero-px, 0) * 8deg));
+  position: absolute;
+  left: 0;
+  top: 0;
+  transform:
+    translate(
+      calc(-50% + sin(var(--a)) * var(--ring-rx) * var(--k)),
+      calc(-50% - cos(var(--a)) * var(--ring-ry) * var(--k) + var(--lift))
+    )
+    var(--tilt) rotate(var(--a));
+  filter: blur(calc(var(--hero-exit, 0) * 16px));
+}
+
+/* Hover: the card comes forward. `scale`, not `transform`, because the
+   transform is the card's place on the ring and is owned by the entrance
+   animation; the individual property composes on top of it. Raised above its
+   neighbours so the enlarged card is never clipped by the one beside it. */
+.hero-card {
+  transition:
+    scale 300ms cubic-bezier(0.16, 1, 0.3, 1),
+    box-shadow 300ms ease;
+}
+
+.hero-card:hover,
+.hero-card:focus-visible {
+  z-index: 1;
+  scale: 1.03;
+  /* Through the token: written inline here, the build reduced the
+     `color-mix` to a bare `var(--scrim)`, a solid black shadow. */
+  box-shadow: var(--shadow-hero-card-hover);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hero-card {
+    transition: none;
+  }
+}
+
+/* One grade over every photograph on the ring: a little less saturation and
+   contrast, a touch more light. Twelve pictures shot in twelve different
+   lights read as one set instead of a pile, which is most of what made the
+   ring look busy rather than composed. */
+.hero-card img {
+  filter: saturate(0.78) contrast(0.95) brightness(1.03);
+}
+
+/* The pointer parallax. `HeroShapes` writes the cursor's place over the band
+   to `--hero-px` / `--hero-py` (-1 → 1, 0 at rest), and each layer moves
+   against it by its depth: the room behind barely, the copy a little, the
+   ring of cards the most. `translate`, not `transform`, so it adds to what
+   each layer already has rather than replacing it. */
+[data-slot="home-hero-photo"] {
+  translate: calc(var(--hero-px, 0) * -6px) calc(var(--hero-py, 0) * -6px);
+}
+
+[data-slot="home-hero-copy"] {
+  translate: calc(var(--hero-px, 0) * -8px) calc(var(--hero-py, 0) * -8px);
+}
+
+.hero-ring {
+  translate: calc(var(--hero-px, 0) * -18px) calc(var(--hero-py, 0) * -18px);
+}@keyframes hero-ring-spin {
+  to {
+    --hero-spin: 360deg;
+  }
+}
+
+/* Hovering a card stops the ring under the cursor so it can be pressed. `:hover`
+   matches an ancestor of the hovered element even where the ancestor is
+   `pointer-events: none`, so this fires from the cards and not from the empty
+   band around the search field. */
+[data-slot="hero-shapes"]:hover .hero-ring {
+  animation-play-state: paused;
+}
+
+/* Thrown out from the ring's centre along its own spoke. */
+@keyframes hero-pop-out {
+  0% {
+    transform: translate(-50%, -50%) rotate(var(--a)) scale(0.2);
+    opacity: 0;
+  }
+  60% {
+    transform:
+      translate(
+        calc(-50% + sin(var(--a)) * var(--ring-rx) * 0.6),
+        calc(-50% - cos(var(--a)) * var(--ring-ry) * 0.6)
+      )
+      rotate(var(--a)) scale(0.6);
+    opacity: 0;
+  }
+  /* The same as `.hero-card`'s own transform, scroll-out terms included: the
+     animation fills forwards and so owns the transform for good, and a 100%
+     that left them out would pin every card in place while the page moved. */
+  100% {
+    transform:
+      translate(
+        calc(-50% + sin(var(--a)) * var(--ring-rx) * var(--k)),
+        calc(-50% - cos(var(--a)) * var(--ring-ry) * var(--k) + var(--lift))
+      )
+      var(--tilt) rotate(var(--a)) scale(1);
+    opacity: calc(1 - var(--hero-exit, 0));
+  }
+}
+
+/* `both`, so the 0% state also fills the delay: the card is hidden from the
+   first painted frame rather than flashing at its place and then snapping back
+   to the centre to be thrown. The end state equals `.hero-card`'s own, so the
+   animation can stay attached; nothing has to hand over afterwards. */
+@utility animate-hero-pop {
+  animation: hero-pop-out 1s cubic-bezier(0.34, 1.56, 0.64, 1) 100ms both;
+}
+
+/* Held on the invisible first frame until `HeroShapes` marks the ring ready
+   (its photographs decoded, or 1.2s gone). */
+.hero-ring:not([data-ready]) .animate-hero-pop {
+  animation-play-state: paused;
+}
+
+/* Nothing is thrown and nothing turns for a reader who has asked for less
+   motion: `.hero-card` already holds the landed state. */
+@media (prefers-reduced-motion: reduce) {
+  .hero-ring,
+  .animate-hero-pop {
+    animation: none;
   }
 }

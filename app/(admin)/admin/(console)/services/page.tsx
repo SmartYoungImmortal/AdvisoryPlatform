@@ -1,4 +1,4 @@
-import { ServicesScreen } from "@/components/admin/services-screen";
+import { ServicesScreen } from "@/components/cms/screens/services";
 
 export default function ServicesPage() {
   return <ServicesScreen />;

@@ -1,5 +1,5 @@
-import { ScreeningRequestsScreen } from "@/components/screening/advisor-screens";
+import { ScreeningRequestsRoute } from "@/components/screening/screening-routes";
 
 export default function ScreeningRequestsPage() {
-  return <ScreeningRequestsScreen />;
+  return <ScreeningRequestsRoute />;
 }

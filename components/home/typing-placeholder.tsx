@@ -109,7 +109,16 @@ export function TypingPlaceholder({
     // `phrases` is a fresh array on every render, and useGSAP hands the
     // dependency list to useLayoutEffect as-is — React then sees the list change
     // size and warns. Its contents are what matter here, so they key it.
-    { scope: root, dependencies: [phrases.join("\u0000"), typeSpeed, hold, deleteRatio] },
+    //
+    // `revertOnUpdate`: when the phrases do change (the reader switches
+    // language), the old loop is torn down before the new one starts. Without
+    // it useGSAP only cleans up on unmount, so both loops kept typing into the
+    // same span and Thai examples interleaved with the English ones.
+    {
+      scope: root,
+      dependencies: [phrases.join("\u0000"), typeSpeed, hold, deleteRatio],
+      revertOnUpdate: true,
+    },
   );
 
   return (

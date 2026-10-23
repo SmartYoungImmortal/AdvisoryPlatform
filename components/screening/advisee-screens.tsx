@@ -1,3 +1,5 @@
+"use client";
+
 import {
   BookOpen,
   Check,
@@ -22,9 +24,10 @@ import {
   ScreenSpacer,
   ScreenTopBar,
 } from "@/components/mobile/screen";
+import { StatusPill } from "@/components/mobile/status-pill";
+import { Surface } from "@/components/mobile/surface";
 import {
   Card,
-  CardDivider,
   DetailRow,
   FootNote,
   StackRow,
@@ -37,9 +40,12 @@ export function ScreeningQuestionsScreen() {
   const c = useTranslations("common");
 
   return (
-    <MobileScreen>
+    // No desktop frame was drawn for this flow, so it follows the rule the
+    // drawn ones set: the canvas opens up and the blocks hold a readable
+    // column rather than a 448px strip stranded on a 1440 page.
+    <MobileScreen wide>
       <ScreenTopBar href="/matching/results" label={c("back")} />
-      <ScreenBody>
+      <ScreenBody className="lg:[&>*]:mx-auto lg:[&>*]:w-full lg:[&>*]:max-w-[720px]">
         {/* Figma "Stage Header": 8px top padding, 10px gap, 20px subtitle. */}
         <div className="flex w-full shrink-0 flex-col items-start gap-2.5 overflow-clip px-6 pt-2">
           <h1 className="w-full text-heading font-semibold text-foreground">
@@ -84,9 +90,12 @@ export function ScreeningSubmittedScreen() {
   const c = useTranslations("common");
 
   return (
-    <MobileScreen>
+    // No desktop frame was drawn for this flow, so it follows the rule the
+    // drawn ones set: the canvas opens up and the blocks hold a readable
+    // column rather than a 448px strip stranded on a 1440 page.
+    <MobileScreen wide>
       <ScreenTopBar href="/screening/questions" label={c("back")} />
-      <ScreenBody>
+      <ScreenBody className="lg:[&>*]:mx-auto lg:[&>*]:w-full lg:[&>*]:max-w-[720px]">
         <StatusHero
           badgeClassName="bg-primary/10"
           icon={Hourglass}
@@ -95,18 +104,32 @@ export function ScreeningSubmittedScreen() {
           title={t("submittedTitle")}
         />
 
-        {/* Figma "Status Card": two completed steps and one in-progress step. */}
+        {/* Figma "Status Card": two completed steps and one in-progress step.
+            All three outcomes were the same 14px ink, with the live one tinted
+            accent and nothing else — so a card whose whole job is "where is this
+            now" had no shape. Each step states its outcome as a pill. */}
         <div className="flex w-full shrink-0 flex-col items-start px-6 pt-8">
-          <div className="flex w-full shrink-0 flex-col items-start gap-3 overflow-clip rounded-xl bg-card p-3.5">
-            <DetailRow icon={Check} label={t("step1")} value={t("done")} />
-            <DetailRow icon={Check} label={t("step2")} value={t("done")} />
+          <Surface className="flex w-full shrink-0 flex-col items-start gap-3 p-3.5">
+            <DetailRow
+              icon={Check}
+              label={t("step1")}
+              value={<StatusPill tone="success">{t("done")}</StatusPill>}
+            />
+            <DetailRow
+              icon={Check}
+              label={t("step2")}
+              value={<StatusPill tone="success">{t("done")}</StatusPill>}
+            />
             <DetailRow
               icon={Hourglass}
               label={t("step3")}
-              value={t("waiting")}
-              valueClassName="text-primary"
+              value={
+                <StatusPill icon={Hourglass} tone="info">
+                  {t("waiting")}
+                </StatusPill>
+              }
             />
-          </div>
+          </Surface>
         </div>
 
         <ScreenSpacer />
@@ -127,9 +150,12 @@ export function ScreeningAcceptedScreen() {
   const c = useTranslations("common");
 
   return (
-    <MobileScreen>
+    // No desktop frame was drawn for this flow, so it follows the rule the
+    // drawn ones set: the canvas opens up and the blocks hold a readable
+    // column rather than a 448px strip stranded on a 1440 page.
+    <MobileScreen wide>
       <ScreenTopBar href="/screening/submitted" label={c("back")} />
-      <ScreenBody>
+      <ScreenBody className="lg:[&>*]:mx-auto lg:[&>*]:w-full lg:[&>*]:max-w-[720px]">
         <StatusHero
           badgeClassName="bg-success-surface"
           icon={CircleCheckBig}
@@ -139,11 +165,18 @@ export function ScreeningAcceptedScreen() {
         />
 
         <div className="flex w-full shrink-0 flex-col items-start px-6 pt-8">
-          <div className="flex w-full shrink-0 flex-col items-start gap-3 overflow-clip rounded-xl bg-card p-3.5">
+          <Surface className="flex w-full shrink-0 flex-col items-start gap-3 p-3.5">
             <DetailRow icon={UserRound} label={t("advisorLabel")} value={t("advisorValue")} />
             <DetailRow icon={BookOpen} label={t("topicLabel")} value={t("topicValue")} />
-            <DetailRow icon={Clock} label={t("trialLabel")} value={t("trialValue")} />
-          </div>
+            {/* The free trial is the offer on this screen, so the one row that
+                states it takes the accent rather than sitting in the same ink as
+                the advisor's name. */}
+            <DetailRow
+              icon={Clock}
+              label={t("trialLabel")}
+              value={<StatusPill tone="accent">{t("trialValue")}</StatusPill>}
+            />
+          </Surface>
         </div>
 
         <ScreenSpacer />
@@ -162,20 +195,30 @@ export function ScreeningDeclinedScreen() {
   const c = useTranslations("common");
 
   return (
-    <MobileScreen>
+    // No desktop frame was drawn for this flow, so it follows the rule the
+    // drawn ones set: the canvas opens up and the blocks hold a readable
+    // column rather than a 448px strip stranded on a 1440 page.
+    <MobileScreen wide>
       <ScreenTopBar href="/screening/submitted" label={c("back")} />
-      <ScreenBody>
+      <ScreenBody className="lg:[&>*]:mx-auto lg:[&>*]:w-full lg:[&>*]:max-w-[720px]">
         <StatusHero
           icon={Clock}
           subtitle={t("declinedSubtitle")}
           title={t("declinedTitle")}
         />
 
-        {/* Figma "Advisor Note": a quoted message from the advisor. */}
+        {/* Figma "Advisor Note": a quoted message from the advisor. A quote
+            belongs *under* the surface it sits on, which is the `well` tier, and
+            the glyph gets the chip every other row in this section now has. */}
         <div className="flex w-full shrink-0 flex-col items-start px-6 pt-8">
-          <div className="flex w-full shrink-0 items-start gap-2.5 overflow-clip rounded-xl bg-card p-3.5">
-            <MessageSquare className="size-4 shrink-0 text-muted-foreground" />
-            <div className="flex min-w-px flex-1 flex-col items-start gap-0.5 overflow-clip">
+          <Surface
+            className="flex w-full shrink-0 items-start gap-3 p-3.5"
+            tier="well"
+          >
+            <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-card">
+              <MessageSquare aria-hidden className="size-4.5 text-muted-foreground" />
+            </span>
+            <div className="flex min-w-px flex-1 flex-col items-start gap-1">
               <p className="w-full text-xs font-normal text-muted-foreground">
                 {t("advisorMessageLabel")}
               </p>
@@ -183,7 +226,7 @@ export function ScreeningDeclinedScreen() {
                 {t("advisorMessage")}
               </p>
             </div>
-          </div>
+          </Surface>
         </div>
 
         <ScreenSpacer />
@@ -202,9 +245,12 @@ export function TrialConsultationScreen() {
   const c = useTranslations("common");
 
   return (
-    <MobileScreen>
+    // No desktop frame was drawn for this flow, so it follows the rule the
+    // drawn ones set: the canvas opens up and the blocks hold a readable
+    // column rather than a 448px strip stranded on a 1440 page.
+    <MobileScreen wide>
       <ScreenTopBar href="/screening/accepted" label={c("back")} />
-      <ScreenBody>
+      <ScreenBody className="lg:[&>*]:mx-auto lg:[&>*]:w-full lg:[&>*]:max-w-[720px]">
         <ScreenHeading
           className="gap-2 pt-4"
           subtitle={t("trialSubtitle")}
@@ -213,11 +259,16 @@ export function TrialConsultationScreen() {
 
         <div className="flex w-full shrink-0 flex-col items-start px-6 pt-3">
           <Card>
-            <StackRow body={t("trialVideoBody")} icon={Video} title={t("trialVideoTitle")} />
-            <CardDivider />
+            <StackRow
+              body={t("trialVideoBody")}
+              icon={Video}
+              iconClassName="bg-accent-surface text-primary"
+              title={t("trialVideoTitle")}
+            />
             <StackRow
               body={t("trialAskBody")}
               icon={MessageSquare}
+              iconClassName="bg-accent-surface text-primary"
               title={t("trialAskTitle")}
             />
           </Card>

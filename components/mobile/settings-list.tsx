@@ -54,7 +54,15 @@ export function SettingsCard({
   readonly className?: string;
 }) {
   return (
-    <Card className={cn("w-full shadow-none ring-0 [--card-spacing:0]", className)}>
+    // The list used to strip the primitive's own ring and shadow and sit as a
+    // white rectangle on a near-white page. It keeps the hairline and the
+    // resting elevation now, so a group of settings reads as one object.
+    <Card
+      className={cn(
+        "w-full overflow-hidden rounded-card border border-border shadow-card ring-0 [--card-spacing:0]",
+        className,
+      )}
+    >
       {children}
     </Card>
   );

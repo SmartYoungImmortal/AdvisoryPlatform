@@ -5,8 +5,14 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Card } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
 
-/** Metrics every banner shares: Figma's 14px radius, 14/12 padding and 12px gap. */
-const bannerShell = "gap-y-0.5 rounded-xl px-3.5 py-3 shadow-none has-[>svg]:gap-x-3";
+/**
+ * Metrics every banner shares: Figma's 14px radius, 14/12 padding and 12px gap.
+ *
+ * A banner is an interruption — it says something went wrong, or landed. It
+ * takes the resting elevation so it reads as laid over the page rather than
+ * printed into it; only the destructive one keeps its ring as the louder signal.
+ */
+const bannerShell = "gap-y-0.5 rounded-card px-3.5 py-3 shadow-card has-[>svg]:gap-x-3";
 
 /**
  * Figma "Alert Banner" — surface card with a 14px radius, a destructive hairline,
@@ -87,7 +93,7 @@ export function InfoCard({
   return (
     <Card
       className={cn(
-        "w-full shrink-0 items-start p-3.5 shadow-none ring-0 [--card-spacing:0]",
+        "w-full shrink-0 items-start rounded-card border border-border p-3.5 shadow-card ring-0 [--card-spacing:0]",
         gap,
         className,
       )}

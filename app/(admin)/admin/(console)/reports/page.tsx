@@ -1,4 +1,4 @@
-import { ReportsScreen } from "@/components/admin/reports-screen";
+import { ReportsScreen } from "@/components/cms/screens/cases";
 
 export default function ReportsPage() {
   return <ReportsScreen />;

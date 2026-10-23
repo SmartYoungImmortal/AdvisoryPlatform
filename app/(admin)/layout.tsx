@@ -1,13 +1,17 @@
 import type { ReactNode } from "react";
 
+import { CmsFeedbackProvider } from "@/components/cms/feedback";
+import { CmsThemeScope } from "@/components/cms/layout";
+
 /**
- * Desktop canvas for the Admin Console (Figma "Admin", 1042:14855). Full-width,
- * unlike the 448px `MobileViewport` the consumer route groups wrap themselves in;
- * `min-w-5xl` keeps the 1440px-designed screens usable on narrow windows via
- * horizontal scroll instead of collapsing.
+ * The admin console — Nexus's CMS ported to React. Full width, unlike the 448px
+ * `MobileViewport` the consumer groups wrap themselves in, and themed with
+ * Nexus's black/white `.cms-admin` tokens (see `app/globals.css`).
  */
 export default function AdminLayout({ children }: Readonly<{ children: ReactNode }>) {
   return (
-    <div className="min-h-dvh w-full min-w-5xl bg-background">{children}</div>
+    <CmsThemeScope>
+      <CmsFeedbackProvider>{children}</CmsFeedbackProvider>
+    </CmsThemeScope>
   );
 }

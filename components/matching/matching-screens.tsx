@@ -1,3 +1,5 @@
+"use client";
+
 import Image, { type StaticImageData } from "next/image";
 import Link from "next/link";
 import { ChevronsUpDown, Wallet } from "lucide-react";
@@ -21,9 +23,12 @@ export function ProblemDescriptionScreen() {
   const c = useTranslations("common");
 
   return (
-    <MobileScreen>
+    // No desktop frame was drawn for this flow, so it follows the rule the
+    // drawn ones set: the canvas opens up and the blocks hold a readable
+    // column rather than a 448px strip stranded on a 1440 page.
+    <MobileScreen wide>
       <ScreenTopBar href="/chat" label={c("back")} />
-      <ScreenBody>
+      <ScreenBody className="lg:[&>*]:mx-auto lg:[&>*]:w-full lg:[&>*]:max-w-[720px]">
         {/* Figma "Stage Header": 8px top padding, 10px gap, 40px subtitle block. */}
         <div className="flex w-full shrink-0 flex-col items-start gap-2.5 overflow-clip px-6 pt-2">
           <h1 className="w-full text-heading font-semibold text-foreground">
@@ -82,8 +87,11 @@ export function MatchingProgressScreen() {
   const t = useTranslations("matching");
 
   return (
-    <MobileScreen className="pt-6">
-      <ScreenBody>
+    // No desktop frame was drawn for this flow, so it follows the rule the
+    // drawn ones set: the canvas opens up and the blocks hold a readable
+    // column rather than a 448px strip stranded on a 1440 page.
+    <MobileScreen className="pt-6" wide>
+      <ScreenBody className="lg:[&>*]:mx-auto lg:[&>*]:w-full lg:[&>*]:max-w-[720px]">
         <div className="w-full flex-1" />
         {/* Figma "Processing": a 44px spinner, 64px gap, then the 34/20 text block. */}
         <div className="flex w-full shrink-0 flex-col items-center px-6">
@@ -124,7 +132,7 @@ function MatchCard({
   readonly rating: string;
 }) {
   return (
-    <div className="flex w-full shrink-0 items-start gap-3 overflow-clip rounded-xl bg-card p-3.5">
+    <div className="flex w-full shrink-0 items-start gap-3 overflow-clip rounded-card bg-card p-3.5">
       <Image
         alt=""
         className="size-12 shrink-0 rounded-full object-cover"
@@ -168,9 +176,12 @@ export function MatchedAdvisorsScreen({
   const empty = state === "no-results";
 
   return (
-    <MobileScreen>
+    // No desktop frame was drawn for this flow, so it follows the rule the
+    // drawn ones set: the canvas opens up and the blocks hold a readable
+    // column rather than a 448px strip stranded on a 1440 page.
+    <MobileScreen wide>
       <ScreenTopBar href="/matching" label={c("back")} />
-      <ScreenBody>
+      <ScreenBody className="lg:[&>*]:mx-auto lg:[&>*]:w-full lg:[&>*]:max-w-[720px]">
         <ScreenHeading
           className="gap-2 pt-4"
           subtitle={empty ? undefined : t("resultsSubtitle")}

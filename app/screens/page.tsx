@@ -43,7 +43,7 @@ const SECTIONS: ReadonlyArray<{
       { href: "/register/validation-errors", label: "Register – Validation errors" },
       { href: "/forgot-password", label: "Forgot password" },
       { href: "/reset-sent", label: "Reset link sent" },
-      { href: "/pdpa", label: "PDPA consent" },
+      { href: "/pdpa", label: "PDPA privacy policy" },
       { href: "/terms", label: "Terms of Service" },
     ],
   },
@@ -72,6 +72,11 @@ const SECTIONS: ReadonlyArray<{
       { href: "/chat/empty", label: "Chat inbox – Empty" },
       { href: "/chat/sarah-jenskins", label: "Chat" },
       { href: "/chat/sarah-jenskins/message-failed", label: "Chat – Message failed" },
+      { href: "/chat/sarah-jenskins/report", label: "Report a conversation" },
+      {
+        href: "/chat/sarah-jenskins/report/submitted",
+        label: "Report – Submitted",
+      },
     ],
   },
   {
@@ -101,6 +106,7 @@ const SECTIONS: ReadonlyArray<{
       { href: "/screening/setup", label: "Advisor – Screening setup" },
       { href: "/screening/requests", label: "Advisor – Screening requests" },
       { href: "/screening/review", label: "Advisor – Review answers" },
+      { href: "/screening/review/decline", label: "Advisor – Review answers – Decline" },
       { href: "/screening/questions", label: "Advisee – Screening questions" },
       { href: "/screening/submitted", label: "Advisee – Screening submitted" },
       { href: "/screening/accepted", label: "Advisee – Screening accepted" },
@@ -166,6 +172,62 @@ const SECTIONS: ReadonlyArray<{
     ],
   },
   {
+    title: "Advisor availability",
+    node: "1594:30832",
+    screens: [
+      { href: "/availability", label: "Global availability – Default" },
+      { href: "/availability/configured", label: "Global availability – Configured" },
+      { href: "/availability/custom", label: "Global availability – Custom values" },
+      { href: "/availability/profiles", label: "Availability profiles" },
+      { href: "/availability/profiles/empty", label: "Availability profiles – Empty" },
+      { href: "/availability/profiles/delete", label: "Availability profiles – Delete confirm" },
+      { href: "/availability/profiles/edit", label: "Profile editor – Weekly" },
+      { href: "/availability/profiles/edit/specific", label: "Profile editor – Specific dates" },
+      { href: "/availability/profiles/edit/blocked", label: "Profile editor – Blocked dates" },
+      { href: "/availability/profiles/edit/error", label: "Profile editor – Weekly validation error" },
+      { href: "/availability/profiles/edit/picker", label: "Profile editor – Time picker" },
+      { href: "/availability/profiles/add-date", label: "Profile editor – Add specific date" },
+      { href: "/availability/profiles/new", label: "Create profile – Weekly" },
+      { href: "/availability/profiles/new/specific", label: "Create profile – Specific dates" },
+      { href: "/availability/profiles/new/blocked", label: "Create profile – Blocked dates" },
+      { href: "/availability/profiles/new/from-list", label: "Create profile – From the list" },
+    ],
+  },
+  {
+    title: "Advisor services",
+    node: "1594:29454",
+    screens: [
+      { href: "/advisor/services", label: "My services" },
+      { href: "/advisor/services/tax-freelance", label: "Service detail – Advisor" },
+      { href: "/advisor/services/tax-freelance/schedule", label: "Service availability" },
+      { href: "/advisor/services/new", label: "Create service" },
+      { href: "/advisor/services/new/no-profile", label: "Create service – No profile yet" },
+      { href: "/advisor/services/new/limit", label: "Create service – Service limit on" },
+      { href: "/advisor/services/tax-freelance/edit", label: "Edit service" },
+      { href: "/advisor/services/tax-freelance/edit/delete", label: "Delete service confirm" },
+    ],
+  },
+  {
+    title: "Advisor home",
+    node: "1374:20712",
+    screens: [
+      { href: "/work", label: "Advisor dashboard – Today" },
+      { href: "/work/calendar", label: "Advisor dashboard – Calendar" },
+      { href: "/work/earnings", label: "Advisor dashboard – Earnings" },
+      { href: "/work/session", label: "Session detail – Advisor" },
+    ],
+  },
+  {
+    title: "Advisor public profile",
+    node: "1564:22619",
+    screens: [
+      { href: "/advisors/sarah-jenskins", label: "Public profile – Services" },
+      { href: "/advisors/sarah-jenskins/about", label: "Public profile – About" },
+      { href: "/advisors/sarah-jenskins/reviews", label: "Public profile – Reviews" },
+      { href: "/advisors/sarah-jenskins/services", label: "Public profile – All services" },
+    ],
+  },
+  {
     title: "Error states",
     node: "995:5918",
     screens: [
@@ -186,7 +248,7 @@ export default function ScreenDirectoryPage() {
       <MobileScreen className="pt-6">
         <ScreenBody className="pb-6">
           <div className="flex w-full shrink-0 flex-col items-center px-6 pt-4">
-            <Image alt="Advisory Platform" className="h-[63px] w-auto" priority src={logo} />
+            <Image alt="Advisory Platform" className="h-10 w-auto" priority src={logo} />
             <p className="mt-3 w-full text-center text-sm font-normal text-muted-foreground">
               {total} หน้าจากดีไซน์ · แตะเพื่อดูแต่ละหน้า
             </p>

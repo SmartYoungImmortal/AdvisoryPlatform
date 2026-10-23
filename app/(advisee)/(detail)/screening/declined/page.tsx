@@ -1,5 +1,5 @@
-import { ScreeningDeclinedScreen } from "@/components/screening/advisee-screens";
+import { ScreeningOutcomeRoute } from "@/components/screening/screening-routes";
 
 export default function ScreeningDeclinedPage() {
-  return <ScreeningDeclinedScreen />;
+  return <ScreeningOutcomeRoute outcome="declined" />;
 }

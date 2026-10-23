@@ -1,5 +1,5 @@
-import { ManageScreen } from "@/components/admin/manage-screen";
+import { CatalogScreen } from "@/components/cms/screens/catalog";
 
 export default function ManagePage() {
-  return <ManageScreen tab="categories" />;
+  return <CatalogScreen />;
 }

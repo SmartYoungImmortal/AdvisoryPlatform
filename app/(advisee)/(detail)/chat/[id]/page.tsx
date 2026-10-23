@@ -5,6 +5,11 @@ export function generateStaticParams() {
   return chatThreadIds.map((id) => ({ id }));
 }
 
-export default function ChatThreadPage() {
-  return <ChatThreadScreen />;
+export default async function ChatThreadPage({
+  params,
+}: {
+  readonly params: Promise<{ id: string }>;
+}) {
+  const { id } = await params;
+  return <ChatThreadScreen threadId={id} />;
 }

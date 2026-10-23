@@ -1,5 +1,5 @@
-import { NotificationCenterScreen } from "@/components/notifications/notification-center-screen";
+import { NotificationsRoute } from "@/components/notifications/notifications-live";
 
 export default function NotificationsPage() {
-  return <NotificationCenterScreen />;
+  return <NotificationsRoute />;
 }

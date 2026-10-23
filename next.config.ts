@@ -17,6 +17,13 @@ const nextConfig: NextConfig = {
     // lib/assets/r2.ts.
     remotePatterns: [
       { protocol: "https", hostname: "pub-07e53481352743c1826a900d773cb1f7.r2.dev" },
+      // Placeholder photography on `/about`, until real imagery replaces it.
+      // Listed even though `unoptimized` above means the host is not checked at
+      // runtime: turning optimisation back on without this would break every
+      // image on that page, and the failure would look like a bad URL.
+      { protocol: "https", hostname: "picsum.photos" },
+      // Stock portraits the API seed writes to demo accounts' `image`.
+      { protocol: "https", hostname: "randomuser.me" },
     ],
   },
 };

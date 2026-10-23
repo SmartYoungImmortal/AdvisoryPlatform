@@ -1,9 +1,9 @@
 import Link from "next/link";
-import { BadgeCheck, Search, SlidersHorizontal, Star } from "lucide-react";
+import { BadgeCheck, Clock, Search, SlidersHorizontal, Star } from "lucide-react";
 import { useFormatter, useTranslations } from "next-intl";
 import type { ComponentProps, ReactNode } from "react";
 
-import { formatDuration } from "@/lib/catalogue/services";
+import { formatDuration, type Slot } from "@/lib/catalogue/services";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -11,6 +11,7 @@ import {
   InputGroupAddon,
   InputGroupInput,
 } from "@/components/ui/input-group";
+import { StatusPill } from "@/components/mobile/status-pill";
 import { cn } from "@/lib/utils";
 
 /**
@@ -25,20 +26,33 @@ import { cn } from "@/lib/utils";
  */
 export function SearchField({
   href,
+  groupClassName,
   iconClassName = "size-4.5",
+  inputClassName,
   linkLabel,
   overlay,
+  trailing,
   ...inputProps
 }: {
   readonly href?: string;
+  /** The box itself — how the desktop hero grows it to its 64px field. */
+  readonly groupClassName?: string;
   readonly iconClassName?: string;
+  readonly inputClassName?: string;
   readonly linkLabel?: string;
   /** Drawn over the control's own box — see `TypingPlaceholder`. */
   readonly overlay?: ReactNode;
+  /** Sits inside the box at its trailing edge — the hero's search button. */
+  readonly trailing?: ReactNode;
 } & ComponentProps<"input">) {
   return (
     <div className="relative flex min-w-px flex-1 items-start">
-      <InputGroup className="h-11 gap-2 rounded-lg border-input bg-card px-3 shadow-none">
+      <InputGroup
+        className={cn(
+          "h-11 gap-2 rounded-lg border-input bg-card px-3 shadow-none",
+          groupClassName,
+        )}
+      >
         <InputGroupAddon className="p-0 text-muted-foreground">
           <Search className={iconClassName} />
         </InputGroupAddon>
@@ -46,12 +60,21 @@ export function SearchField({
           // The overlay is positioned against the control rather than the group,
           // so it starts where the placeholder starts, past the icon.
           <div className="relative flex min-w-px flex-1 items-center">
-            <InputGroupInput className="px-0 text-sm" type="search" {...inputProps} />
+            <InputGroupInput
+              className={cn("px-0 text-sm", inputClassName)}
+              type="search"
+              {...inputProps}
+            />
             {overlay}
           </div>
         ) : (
-          <InputGroupInput className="px-0 text-sm" type="search" {...inputProps} />
+          <InputGroupInput
+            className={cn("px-0 text-sm", inputClassName)}
+            type="search"
+            {...inputProps}
+          />
         )}
+        {trailing}
       </InputGroup>
       {href ? (
         <Link
@@ -73,15 +96,20 @@ export function SearchField({
  */
 export function FilterButton({
   label,
+  className,
   iconClassName = "size-4.5",
 }: {
   readonly label: string;
+  readonly className?: string;
   readonly iconClassName?: string;
 }) {
   return (
     <Button
       aria-label={label}
-      className="size-11 shrink-0 rounded-lg border-input bg-card shadow-none"
+      className={cn(
+        "size-11 shrink-0 rounded-lg border-input bg-card shadow-none",
+        className,
+      )}
       size="icon"
       variant="outline"
     >
@@ -109,8 +137,10 @@ export function FilterChip({
   return (
     <Badge
       className={cn(
-        "h-auto shrink-0 rounded-full px-2.5 py-1 font-normal",
-        active ? "border-0" : "bg-card text-muted-foreground",
+        "h-auto shrink-0 rounded-full px-2.5 py-1 font-normal transition-colors",
+        active
+          ? "border-0"
+          : "bg-card text-muted-foreground hover:border-accented hover:text-foreground",
       )}
       variant={active ? "default" : "outline"}
     >
@@ -119,7 +149,13 @@ export function FilterChip({
   );
 }
 
-/** Figma "Section Head" — a 16/24 title with the accent "see all" link trailing. */
+/**
+ * Figma "Section Head" — a 16/24 title with the accent "see all" link trailing.
+ *
+ * The desktop frames (e.g. 1564:24890) set the same head at 24/34 over a 1200
+ * column, so the title carries a second size from `lg` rather than the page
+ * having a head of its own.
+ */
 export function SectionHead({
   title,
   action,
@@ -138,11 +174,11 @@ export function SectionHead({
         className,
       )}
     >
-      <p className="min-w-px flex-1 text-base font-semibold text-foreground">
+      <p className="min-w-px flex-1 text-base font-semibold text-foreground lg:text-2xl">
         {title}
       </p>
       <Link
-        className="shrink-0 text-sm font-medium whitespace-nowrap text-primary"
+        className="shrink-0 text-sm font-medium whitespace-nowrap text-primary transition-colors hover:text-primary/75"
         href={href}
       >
         {action}
@@ -160,6 +196,11 @@ export function SectionHead({
  * The star is filled rather than outlined. A hollow star reads as a "save this"
  * control; a rating is a filled one, and at 14px the outline was mostly the
  * accent hairline anyway.
+ *
+ * The score is the one number in the line, so it is set in the Latin face with
+ * tabular figures and a weight above the words around it. Before this a 4.9 and
+ * the word "รีวิว" beside it were the same 12px grey, and a column of cards had
+ * its scores landing a pixel apart per digit.
  */
 export function ServiceProof({
   rating,
@@ -178,7 +219,7 @@ export function ServiceProof({
   return (
     <div className="flex w-full shrink-0 items-center gap-1 overflow-clip">
       <Star className={cn("shrink-0 fill-primary text-primary", starClassName)} />
-      <span className="shrink-0 text-xs font-normal whitespace-nowrap text-foreground">
+      <span className="font-latin shrink-0 text-sm font-semibold tabular-nums whitespace-nowrap text-foreground">
         {rating}
       </span>
       <span className="shrink-0 text-xs font-normal whitespace-nowrap text-muted-foreground">
@@ -194,9 +235,41 @@ export function ServiceProof({
 }
 
 /**
+ * "Free today", where it is true.
+ *
+ * `slots[].day` has been in the catalogue since the home rail shipped and only
+ * the detail page ever read it, so a card could not say the one thing that
+ * decides a marketplace click: whether you can have this today. Two of the seven
+ * services can, which is what makes the pill worth printing — a badge every card
+ * carries is decoration.
+ */
+export function AvailabilityPill({
+  slots,
+  className,
+}: {
+  readonly slots: readonly Slot[];
+  readonly className?: string;
+}) {
+  const t = useTranslations("search");
+
+  if (!slots.some((slot) => slot.day === "today")) return null;
+
+  return (
+    <StatusPill className={className} icon={Clock} tone="success">
+      {t("filterToday")}
+    </StatusPill>
+  );
+}
+
+/**
  * The offer line: how long the consultation runs, and what it costs. Duration is
  * the half that kept going missing — the catalogue sells hours, so a bare
  * "฿1,200" cannot be read as expensive or cheap.
+ *
+ * The price was set at the same 14px as the duration beside it, which on a card
+ * whose whole job is to sell an hour is the one thing that must not be a tie. It
+ * leads the line now — 16px semibold, Latin face, tabular figures — and the
+ * duration drops to the 12px every other meta line on the card uses.
  */
 export function ServicePrice({
   minutes,
@@ -231,7 +304,7 @@ export function ServicePrice({
           {t("priceFrom")}
         </span>
       ) : null}
-      <span className="font-latin shrink-0 text-sm font-semibold whitespace-nowrap text-foreground">
+      <span className="font-latin shrink-0 text-base font-semibold tabular-nums whitespace-nowrap text-foreground">
         {format.number(price, "baht")}
       </span>
     </div>

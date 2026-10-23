@@ -1,27 +1,34 @@
-import Image from "next/image";
 import Link from "next/link";
 import { UserRoundCog } from "lucide-react";
+import type { ReactNode } from "react";
 
+import { AccountAvatar } from "@/components/session/account-bits";
 import { arayaS as araya } from "@/lib/assets/r2";
 import { cn } from "@/lib/utils";
 
-type Stat = { readonly value: string; readonly label: string };
+type Stat = { readonly value: ReactNode; readonly label: string };
 
 /**
  * Figma "Identity Card" — surface, 14px radius, 14px padding, 12px gaps: a 56px
  * avatar row with a 36px edit affordance, a hairline divider, then evenly split stats.
+ *
+ * `avatar` is a slot so the profile can hand it `OwnAvatar`, which reads the
+ * presigned URL behind `GET /users/me/avatar`. Left off, it keeps the
+ * session-backed portrait the static frames use.
  */
 export function IdentityCard({
   name,
   subtitle,
   stats,
+  avatar,
   editHref,
   editLabel,
   className,
 }: {
-  readonly name: string;
-  readonly subtitle: string;
+  readonly name: ReactNode;
+  readonly subtitle: ReactNode;
   readonly stats: readonly Stat[];
+  readonly avatar?: ReactNode;
   readonly editHref: string;
   readonly editLabel: string;
   readonly className?: string;
@@ -29,18 +36,12 @@ export function IdentityCard({
   return (
     <div
       className={cn(
-        "flex w-full shrink-0 flex-col items-start gap-3 overflow-clip rounded-xl bg-card p-3.5",
+        "flex w-full shrink-0 flex-col items-start gap-3 overflow-clip rounded-card bg-card p-3.5",
         className,
       )}
     >
       <div className="flex w-full shrink-0 items-center gap-3 overflow-clip">
-        <Image
-          alt=""
-          className="size-14 shrink-0 rounded-full object-cover"
-          height={56}
-          src={araya}
-          width={56}
-        />
+        {avatar ?? <AccountAvatar className="size-14" fallback={araya} size={56} />}
         <div className="flex min-w-px flex-1 flex-col items-start gap-0.5 overflow-clip">
           <p className="w-full text-base font-medium text-foreground">
             {name}

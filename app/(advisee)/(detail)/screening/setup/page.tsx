@@ -1,5 +1,5 @@
-import { ScreeningSetupScreen } from "@/components/screening/advisor-screens";
+import { ScreeningSetupRoute } from "@/components/screening/screening-routes";
 
 export default function ScreeningSetupPage() {
-  return <ScreeningSetupScreen />;
+  return <ScreeningSetupRoute />;
 }
