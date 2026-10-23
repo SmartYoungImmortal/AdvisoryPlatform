@@ -121,7 +121,7 @@ export function SiteFooter({ className }: { readonly className?: string }) {
   ];
 
   const legal = [
-    { label: t("footerLinkPrivacy"), href: "/pdpa" },
+    { label: t("footerLinkPrivacy"), href: "/privacy-policy" },
     { label: t("footerLinkTerms"), href: "/terms" },
   ];
 

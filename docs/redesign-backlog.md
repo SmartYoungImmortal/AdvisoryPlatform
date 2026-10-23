@@ -20,7 +20,7 @@
 - [x] `/` home: hero วงการ์ด ช่องค้นหา ย่อขยายตามจอ 1710
 - [x] `/login`, `/login/wrong-password`, `/login/account-locked`
 - [x] `/register`, `/register/email-in-use`, `/register/validation-errors`
-- [x] `/terms`, `/pdpa`
+- [x] `/terms`, `/privacy-policy` (เดิม `/pdpa` ยังพาไปหน้าใหม่ให้)
 - [x] `/forgot-password`, `/reset-sent`
 - [x] ของที่ใช้ร่วมกัน: navbar, เมนูมือถือ, ปุ่ม TH/EN
 
@@ -138,7 +138,7 @@
 
 - [ ] หน้า home ยังกระตุกนิดหน่อยตอนเลื่อน
 - [ ] Google / Facebook / Apple login: ต้องสร้าง OAuth client แล้วใส่ `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` ฯลฯ ใน `.env` ของ API (โค้ดทั้งสองฝั่งพร้อมแล้ว)
-- [ ] ให้ทนายไทยตรวจ `/terms` และ `/pdpa` ก่อนเปิดใช้กับลูกค้าจริง
+- [ ] ให้ทนายไทยตรวจ `/terms` และ `/privacy-policy` ก่อนเปิดใช้กับลูกค้าจริง
 - [ ] เปิดแถบ dock แบบ Systronic/mochiice ในหน้าอื่นที่ควรมี (`TopBar dock`)
 - [ ] ปุ่มบน topbar มือถือสองปุ่มสูงแค่ 36px และ 24px (ต่ำกว่า 44px)
 - [ ] เพิ่มลิงก์ "เข้าสู่ระบบ" ข้างปุ่ม Get started บน desktop

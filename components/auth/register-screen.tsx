@@ -296,7 +296,7 @@ export function RegisterScreen({
                 {t("consentTerms")}
               </Link>
               {t("consentAnd")}{" "}
-              <Link className={AUTH_LINK} href="/pdpa">
+              <Link className={AUTH_LINK} href="/privacy-policy">
                 {t("consentPrivacy")}
               </Link>
               {t("consentSuffix")}
