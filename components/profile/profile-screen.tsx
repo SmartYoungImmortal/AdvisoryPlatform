@@ -34,9 +34,12 @@ import { Button } from "@/components/ui/button";
 import type { Paginated } from "@/lib/api/client";
 import { listAdvisors, listMyBookings, listServices } from "@/lib/api/resources";
 import type { ApiBooking, ApiPublicAdvisor, ApiPublicService } from "@/lib/api/types";
-import { useResource } from "@/lib/api/use-resource";
+import { useResource, type Resource } from "@/lib/api/use-resource";
 import { PAGE } from "@/lib/layout";
 import { cn } from "@/lib/utils";
+
+/** Holds a line's height while its text has not arrived. */
+const BLANK = " ";
 
 /**
  * fastwork's pill: 40px, fully round, 16/500, the icon 12px in from the left.
@@ -69,6 +72,132 @@ function PillLink({
       <Icon aria-hidden />
       {children}
     </Button>
+  );
+}
+
+type PanelProps = {
+  readonly bookings: Resource<Paginated<ApiBooking>>;
+  readonly next: ApiBooking | undefined;
+  readonly services: readonly ApiPublicService[] | undefined;
+  readonly advisors: readonly ApiPublicAdvisor[] | undefined;
+};
+
+/**
+ * fastwork's tall soft panel (their show reel): grey fading out to the page,
+ * 18px corners (`rounded-2xl` on this theme's scale). Here it is the next
+ * booking, in one of four states: failed, loading, a booking, or none.
+ */
+function NextBookingPanel(props: PanelProps) {
+  const t = useTranslations("profile");
+  const b = useTranslations("bookings");
+  const p = useTranslations("payment");
+  const { next } = props;
+
+  return (
+    <section
+      aria-labelledby="profile-next"
+      className="flex w-full flex-col justify-center gap-5 rounded-2xl bg-linear-to-b from-muted to-transparent px-6 py-8 lg:min-h-[383px] lg:px-10 lg:py-7"
+    >
+      <div className="flex items-center justify-between gap-3">
+        <h2 className="text-lg font-medium text-muted-foreground" id="profile-next">
+          {t("nextTitle")}
+        </h2>
+        {next ? (
+          <StatusPill tone={BOOKING_TONE[next.state]}>
+            {next.state === "PENDING_PAYMENT" ? p("bookingUnconfirmed") : b("tabUpcoming")}
+          </StatusPill>
+        ) : null}
+      </div>
+      <NextBookingBody {...props} />
+    </section>
+  );
+}
+
+/** The panel's body: one early return per state, in the order they win. */
+function NextBookingBody({ bookings, next, services, advisors }: PanelProps) {
+  const t = useTranslations("profile");
+  const s = useTranslations("search");
+  const format = useFormatter();
+  const time = (iso: string) => format.dateTime(new Date(iso), { hour: "2-digit", minute: "2-digit" });
+
+  // A failed list is not an empty one: saying "no upcoming bookings" here
+  // would be the one false sentence on the page.
+  if (bookings.error) {
+    return (
+      <>
+        <div className="flex flex-col gap-1">
+          <p className="text-heading font-semibold text-foreground">{s("loadFailedTitle")}</p>
+          <p className="text-sm text-muted-foreground">{bookings.error.message}</p>
+        </div>
+        <div>
+          <Button className={pill()} onClick={bookings.reload}>
+            <RotateCw aria-hidden />
+            {s("retry")}
+          </Button>
+        </div>
+      </>
+    );
+  }
+
+  // The loaded layout's own shape, so nothing shifts when it lands.
+  if (!bookings.data) {
+    return (
+      <div aria-hidden className="flex flex-col gap-3">
+        <span className="h-8 w-3/5 animate-pulse rounded-md bg-card" />
+        <span className="h-4 w-1/4 animate-pulse rounded-md bg-card" />
+        <span className="mt-2 h-4 w-2/5 animate-pulse rounded-md bg-card" />
+        <span className="mt-3 h-10 w-52 animate-pulse rounded-full bg-card" />
+      </div>
+    );
+  }
+
+  if (!next) {
+    return (
+      <>
+        <div className="flex flex-col gap-1">
+          <p className="text-heading font-semibold text-foreground">{t("noUpcomingTitle")}</p>
+          <p className="text-sm text-muted-foreground">{t("noUpcomingBody")}</p>
+        </div>
+        <div className="flex flex-wrap items-center gap-3">
+          <PillLink dark href="/search" icon={Search}>
+            {t("findAdvisor")}
+          </PillLink>
+          {bookings.data.items.length > 0 ? (
+            <PillLink href="/bookings" icon={CalendarDays}>
+              {t("allBookings")}
+            </PillLink>
+          ) : null}
+        </div>
+      </>
+    );
+  }
+
+  const service = services?.find((item) => item.id === next.serviceId);
+  const advisor = advisors?.find((item) => item.id === next.advisorId);
+
+  return (
+    <>
+      <div className="flex flex-col gap-1">
+        <p className="text-heading font-semibold text-foreground">
+          {format.dateTime(new Date(next.startTime), { weekday: "long", day: "numeric", month: "long" })}
+        </p>
+        <p className="font-latin text-base text-muted-foreground tabular-nums">
+          {time(next.startTime)} - {time(next.endTime)}
+        </p>
+      </div>
+      <div className="flex flex-col gap-0.5">
+        <p className="text-base font-semibold text-foreground">{service?.name ?? BLANK}</p>
+        <p className="text-sm text-muted-foreground">{advisor?.displayName ?? BLANK}</p>
+      </div>
+      <div className="flex flex-wrap items-center gap-3">
+        <PillLink dark href={`/chat/${next.advisorId}`} icon={MessageSquare}>
+          {t("chatAdvisor")}
+        </PillLink>
+        <PillLink href="/bookings" icon={CalendarDays}>
+          {t("allBookings")}
+        </PillLink>
+      </div>
+    </>
   );
 }
 
@@ -110,9 +239,6 @@ export function ProfileScreen({
   readonly overlay?: ReactNode;
 }) {
   const t = useTranslations("profile");
-  const b = useTranslations("bookings");
-  const p = useTranslations("payment");
-  const s = useTranslations("search");
   const format = useFormatter();
   const now = useMountTime();
   const profile = useOwnProfile();
@@ -141,13 +267,6 @@ export function ProfileScreen({
         BOOKING_BUCKET[booking.state] === "upcoming" && Date.parse(booking.startTime) > now,
     )
     .toSorted((x, y) => Date.parse(x.startTime) - Date.parse(y.startTime));
-  const next = upcoming[0];
-  const nextService = next
-    ? services.data?.items.find((service) => service.id === next.serviceId)
-    : undefined;
-  const nextAdvisor = next
-    ? advisors.data?.items.find((advisor) => advisor.id === next.advisorId)
-    : undefined;
 
   // `null` until the list lands, drawn as a skeleton bar, so nothing reads a
   // confident 0 it does not have.
@@ -173,7 +292,6 @@ export function ProfileScreen({
   const joined = profile.data?.createdAt
     ? format.dateTime(new Date(profile.data.createdAt), { month: "short", year: "numeric" })
     : null;
-  const time = (iso: string) => format.dateTime(new Date(iso), { hour: "2-digit", minute: "2-digit" });
 
   return (
     <MobileScreen className="pb-0" wide>
@@ -241,95 +359,12 @@ export function ProfileScreen({
               </div>
             </div>
 
-            {/* fastwork's tall soft panel (their show reel): grey fading out
-                to the page, 18px corners (`rounded-2xl` on this theme's
-                scale). Here it is the next booking. */}
-            <section
-              aria-labelledby="profile-next"
-              className="flex w-full flex-col justify-center gap-5 rounded-2xl bg-linear-to-b from-muted to-transparent px-6 py-8 lg:min-h-[383px] lg:px-10 lg:py-7"
-            >
-              <div className="flex items-center justify-between gap-3">
-                <h2 className="text-lg font-medium text-muted-foreground" id="profile-next">
-                  {t("nextTitle")}
-                </h2>
-                {next ? (
-                  <StatusPill tone={BOOKING_TONE[next.state]}>
-                    {next.state === "PENDING_PAYMENT" ? p("bookingUnconfirmed") : b("tabUpcoming")}
-                  </StatusPill>
-                ) : null}
-              </div>
-
-              {bookings.error ? (
-                // A failed list is not an empty one: saying "no upcoming
-                // bookings" here would be the one false sentence on the page.
-                <>
-                  <div className="flex flex-col gap-1">
-                    <p className="text-heading font-semibold text-foreground">{s("loadFailedTitle")}</p>
-                    <p className="text-sm text-muted-foreground">{bookings.error.message}</p>
-                  </div>
-                  <div>
-                    <Button className={pill()} onClick={bookings.reload}>
-                      <RotateCw aria-hidden />
-                      {s("retry")}
-                    </Button>
-                  </div>
-                </>
-              ) : !bookings.data ? (
-                // The loaded layout's own shape, so nothing shifts when it lands.
-                <div aria-hidden className="flex flex-col gap-3">
-                  <span className="h-8 w-3/5 animate-pulse rounded-md bg-card" />
-                  <span className="h-4 w-1/4 animate-pulse rounded-md bg-card" />
-                  <span className="mt-2 h-4 w-2/5 animate-pulse rounded-md bg-card" />
-                  <span className="mt-3 h-10 w-52 animate-pulse rounded-full bg-card" />
-                </div>
-              ) : next ? (
-                <>
-                  <div className="flex flex-col gap-1">
-                    <p className="text-heading font-semibold text-foreground">
-                      {format.dateTime(new Date(next.startTime), {
-                        weekday: "long",
-                        day: "numeric",
-                        month: "long",
-                      })}
-                    </p>
-                    <p className="font-latin text-base text-muted-foreground tabular-nums">
-                      {time(next.startTime)} - {time(next.endTime)}
-                    </p>
-                  </div>
-                  <div className="flex flex-col gap-0.5">
-                    <p className="text-base font-semibold text-foreground">
-                      {nextService?.name ?? " "}
-                    </p>
-                    <p className="text-sm text-muted-foreground">{nextAdvisor?.displayName ?? " "}</p>
-                  </div>
-                  <div className="flex flex-wrap items-center gap-3">
-                    <PillLink dark href={`/chat/${next.advisorId}`} icon={MessageSquare}>
-                      {t("chatAdvisor")}
-                    </PillLink>
-                    <PillLink href="/bookings" icon={CalendarDays}>
-                      {t("allBookings")}
-                    </PillLink>
-                  </div>
-                </>
-              ) : (
-                <>
-                  <div className="flex flex-col gap-1">
-                    <p className="text-heading font-semibold text-foreground">{t("noUpcomingTitle")}</p>
-                    <p className="text-sm text-muted-foreground">{t("noUpcomingBody")}</p>
-                  </div>
-                  <div className="flex flex-wrap items-center gap-3">
-                    <PillLink dark href="/search" icon={Search}>
-                      {t("findAdvisor")}
-                    </PillLink>
-                    {all.length > 0 ? (
-                      <PillLink href="/bookings" icon={CalendarDays}>
-                        {t("allBookings")}
-                      </PillLink>
-                    ) : null}
-                  </div>
-                </>
-              )}
-            </section>
+            <NextBookingPanel
+              advisors={advisors.data?.items}
+              bookings={bookings}
+              next={upcoming[0]}
+              services={services.data?.items}
+            />
           </div>
 
           {/* The ruled heading fastwork draws its tab bar as: one 16/600

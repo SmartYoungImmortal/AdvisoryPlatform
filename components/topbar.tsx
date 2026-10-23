@@ -516,6 +516,9 @@ export function TopBar({
               "lg:h-16 lg:justify-start lg:rounded-[2rem] lg:py-2 lg:pr-2 lg:pl-6 lg:backdrop-blur-[20px]",
               "lg:mx-[max(0px,calc((100%-984px)/2))]",
               "lg:transition-[margin,padding,height,border-radius,background-color] lg:duration-500 lg:ease-out motion-reduce:lg:transition-none",
+              // The glass deepens as content passes under the floating pill;
+              // a docked bar replaces the fill entirely (below, merged last).
+              frosted ? "lg:bg-card/55" : "lg:bg-card/25",
               dock && frosted
                 ? // Docked: the margin each side becomes padding of the same
                   // width (a percentage in either resolves against the same
@@ -530,9 +533,7 @@ export function TopBar({
                   // so the band dissolves into the page instead of ending
                   // on a hard edge.
                   "lg:mx-0 lg:h-18 lg:rounded-none lg:border-b lg:border-on-media/20 lg:bg-transparent lg:bg-[image:var(--bar-wash)] lg:backdrop-blur-sm lg:pr-[calc(max(0px,calc((100%-984px)/2))+0.5rem)] lg:pl-[calc(max(0px,calc((100%-984px)/2))+1.5rem)]"
-                : frosted
-                  ? "lg:bg-card/55"
-                  : "lg:bg-card/25",
+                : undefined,
             )}
           >
             <div

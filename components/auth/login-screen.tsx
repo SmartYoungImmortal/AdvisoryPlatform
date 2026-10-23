@@ -32,6 +32,24 @@ type Failure =
 
 type Step = "email" | "password";
 
+/**
+ * The legal line's tags, at module level so they are not redefined on every
+ * render of the screen.
+ */
+const LEGAL_TAGS = {
+  br: () => <br />,
+  terms: (chunks: ReactNode) => (
+    <Link className={AUTH_LINK} href="/terms">
+      {chunks}
+    </Link>
+  ),
+  privacy: (chunks: ReactNode) => (
+    <Link className={AUTH_LINK} href="/pdpa">
+      {chunks}
+    </Link>
+  ),
+};
+
 /** The shape every `?next=` is read in, at the moment it is needed. */
 function nextPath(): string | null {
   return new URLSearchParams(window.location.search).get("next");
@@ -222,19 +240,7 @@ export function LoginScreen({
             </Link>
           </p>
           <p className="text-center text-xs leading-5 text-muted-foreground">
-            {t.rich("legal", {
-              br: () => <br />,
-              terms: (chunks) => (
-                <Link className={AUTH_LINK} href="/terms">
-                  {chunks}
-                </Link>
-              ),
-              privacy: (chunks) => (
-                <Link className={AUTH_LINK} href="/pdpa">
-                  {chunks}
-                </Link>
-              ),
-            })}
+            {t.rich("legal", LEGAL_TAGS)}
           </p>
         </>
       ) : (
