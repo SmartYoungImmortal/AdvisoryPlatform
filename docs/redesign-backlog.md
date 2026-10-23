@@ -20,7 +20,7 @@
 - [x] `/` home: hero วงการ์ด ช่องค้นหา ย่อขยายตามจอ 1710
 - [x] `/login`, `/login/wrong-password`, `/login/account-locked`
 - [x] `/register`, `/register/email-in-use`, `/register/validation-errors`
-- [x] `/terms`, `/privacy-policy` (เดิม `/pdpa` ยังพาไปหน้าใหม่ให้)
+- [x] `/terms`, `/privacy-policy`
 - [x] `/forgot-password`, `/reset-sent`
 - [x] ของที่ใช้ร่วมกัน: navbar, เมนูมือถือ, ปุ่ม TH/EN
 

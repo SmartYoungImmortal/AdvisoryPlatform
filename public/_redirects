@@ -1,4 +1,0 @@
-# Permanent moves, answered by Cloudflare's static-asset server before any page
-# is served. Next copies public/ into out/, where Workers Assets reads it.
-
-/pdpa /privacy-policy 301
