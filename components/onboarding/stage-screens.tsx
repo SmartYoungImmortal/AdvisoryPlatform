@@ -1,6 +1,7 @@
 "use client";
 
 import Image from "next/image";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
   BadgeCheck,
@@ -17,7 +18,7 @@ import {
   Wallet,
 } from "lucide-react";
 import { useTranslations } from "next-intl";
-import { useId, useState } from "react";
+import { useCallback, useEffect, useId, useMemo, useState } from "react";
 
 import { thaiNationalId as idCard } from "@/lib/assets/r2";
 import { Button } from "@/components/ui/button";
@@ -39,12 +40,25 @@ import { BulletLine, CheckLine, DropZone, StageHeader } from "@/components/onboa
 import { Surface, SurfaceList } from "@/components/mobile/surface";
 import { StackRow } from "@/components/screening/parts";
 import { TopBar } from "@/components/topbar";
+import { ApiError, type Paginated } from "@/lib/api/client";
+import type { ApiNamedRecord } from "@/lib/api/types";
+import {
+  createAdvisorProfile,
+  getOwnAdvisorProfile,
+  submitIdentityDocument,
+  submitSkillProof,
+  updateAdvisorProfile,
+  type ApiOwnAdvisorProfile,
+} from "@/lib/api/onboarding";
+import { listSkills } from "@/lib/api/resources";
+import { invalidate, useResource } from "@/lib/api/use-resource";
 import { PAGE, READING_COLUMN } from "@/lib/layout";
-import { submitAdvisorApplication } from "@/lib/mock-db/actions";
-import { useDatabase } from "@/lib/mock-db/store";
 import { useSession } from "@/lib/session";
 import {
   clearDraft,
+  dropFile,
+  heldFile,
+  holdFile,
   isThaiPhone,
   parseBirthDate,
   updateDraft,
@@ -92,13 +106,39 @@ const FORM_CARD = cn(
 const CARD_ACTIONS = "lg:items-end lg:px-0 lg:pt-2 lg:pb-0";
 const CARD_ACTION_BUTTON = "lg:h-11 lg:w-50";
 
-/** The signed-in account's latest application, if it has one. */
-function useLatestApplication() {
-  const session = useSession();
-  const accountId = session.status === "authenticated" ? session.account.id : null;
-  return useDatabase((db) =>
-    accountId ? db.identityRequests.find((r) => r.accountId === accountId) : undefined,
+/**
+ * The signed-in account's application (`GET /advisors/me`), counted only once
+ * an ID card is in: a profile left at `NONE` is an application still being
+ * filled in, so "start" carries on with it rather than showing a status.
+ */
+function useLatestApplication(): ApiOwnAdvisorProfile | null {
+  const own = useResource<ApiOwnAdvisorProfile | null>("advisors/me", getOwnAdvisorProfile);
+  return own.data && own.data.verificationStatus !== "NONE" ? own.data : null;
+}
+
+/** The ID card's file size, as the uploaded chip shows it. */
+function formatSize(bytes: number): string {
+  return bytes >= 1024 * 1024
+    ? `${(bytes / (1024 * 1024)).toFixed(1)} MB`
+    : `${Math.max(1, Math.round(bytes / 1024))} KB`;
+}
+
+/** "JPG · 2.4 MB", the line under the uploaded ID card's name. */
+function describeFile(file: File): string {
+  const kind = file.type === "image/png" ? "PNG" : "JPG";
+  return `${kind} · ${formatSize(file.size)}`;
+}
+
+/** A preview URL for a picked image, revoked when it changes or the screen goes. */
+function usePreview(file: File | undefined): string | null {
+  const url = useMemo(() => (file ? URL.createObjectURL(file) : null), [file]);
+  useEffect(
+    () => () => {
+      if (url) URL.revokeObjectURL(url);
+    },
+    [url],
   );
+  return url;
 }
 
 /**
@@ -110,7 +150,9 @@ export function BecomeAdvisorScreen() {
   const c = useTranslations("common");
   const session = useSession();
   const application = useLatestApplication();
-  const isAdvisor = session.status === "authenticated" && session.account.role === "advisor";
+  const isAdvisor =
+    (session.status === "authenticated" && session.account.role === "advisor") ||
+    application?.verificationStatus === "VERIFIED";
   const startHref = application ? "/advisor-onboarding/pending" : "/advisor-onboarding/stage-1";
 
   // One list, drawn twice: as the phone's hairline-separated card rows, and as
@@ -368,20 +410,35 @@ export function OnboardingStage2Screen({
   const t = useTranslations("advisorOnboarding");
   const c = useTranslations("common");
   const router = useRouter();
-  const draft = useOnboardingDraft();
   const [rejected, setRejected] = useState(state === "rejected");
-  const fileName = draft.idFileName ?? (state === "uploaded" ? t("fileName") : null);
+  // The file itself lives in memory (`holdFile`); after a reload only its name
+  // is left, which is not something to send, so it counts as not uploaded.
+  const [file, setFile] = useState<File | undefined>(() => heldFile("id"));
+  const preview = usePreview(file);
+  const sample = state === "uploaded" && !file;
+  const fileName = file?.name ?? (sample ? t("fileName") : null);
   const uploaded = fileName !== null;
 
-  function pick(name: string) {
+  function pick(picked: File) {
     // The frame's rejection is about format; anything but JPG/PNG gets it.
-    if (!/\.(jpe?g|png)$/i.test(name)) {
+    // The API holds the same line, and 50 MB besides.
+    if (!/\.(jpe?g|png)$/i.test(picked.name) || picked.size > 50 * 1024 * 1024) {
       setRejected(true);
+      dropFile("id");
+      setFile(undefined);
       updateDraft({ idFileName: null });
       return;
     }
     setRejected(false);
-    updateDraft({ idFileName: name });
+    holdFile("id", picked);
+    setFile(picked);
+    updateDraft({ idFileName: picked.name });
+  }
+
+  function remove() {
+    dropFile("id");
+    setFile(undefined);
+    updateDraft({ idFileName: null });
   }
 
   const browse = (
@@ -428,11 +485,22 @@ export function OnboardingStage2Screen({
             /* Figma "Uploaded Document" (402 x 262): a 354 x 208 preview, a 10px
                gap, then the 36px file-info row; the actions row follows 12px down. */
             <>
-              <Image
-                alt={fileName}
-                className="h-[208px] w-full shrink-0 rounded-card border border-border object-cover"
-                src={idCard}
-              />
+              {preview ? (
+                // A blob URL of the applicant's own file: nothing for next/image
+                // to optimise, and it never leaves the browser until submit.
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  alt={fileName}
+                  className="h-[208px] w-full shrink-0 rounded-card border border-border object-cover"
+                  src={preview}
+                />
+              ) : (
+                <Image
+                  alt={fileName}
+                  className="h-[208px] w-full shrink-0 rounded-card border border-border object-cover"
+                  src={idCard}
+                />
+              )}
               {/* The file's name, size and accepted-ness, as one chip in a well
                   rather than three loose elements under the preview. The check
                   goes green: it is a status, and it was the accent blue — the
@@ -443,7 +511,7 @@ export function OnboardingStage2Screen({
                     {fileName}
                   </p>
                   <p className="font-latin w-full text-xs font-normal tabular-nums text-muted-foreground">
-                    {t("fileMeta")}
+                    {file ? describeFile(file) : t("fileMeta")}
                   </p>
                 </div>
                 <CircleCheck className="size-5 shrink-0 text-success" />
@@ -455,7 +523,7 @@ export function OnboardingStage2Screen({
                 </FilePickButton>
                 <NeutralButton
                   className="min-w-px flex-1 border-destructive text-destructive"
-                  onClick={() => updateDraft({ idFileName: null })}
+                  onClick={remove}
                 >
                   <Trash2 className="size-4" />
                   {t("remove")}
@@ -503,10 +571,7 @@ export function OnboardingStage2Screen({
           <PrimaryButton
             className={cn("disabled:opacity-40", CARD_ACTION_BUTTON)}
             disabled={!uploaded}
-            onClick={() => {
-              if (!draft.idFileName && fileName) updateDraft({ idFileName: fileName });
-              router.push("/advisor-onboarding/stage-3");
-            }}
+            onClick={() => router.push("/advisor-onboarding/stage-3")}
           >
             {t("continue")}
           </PrimaryButton>
@@ -521,6 +586,103 @@ export function OnboardingStage2Screen({
 
 const PROOF_TYPES = "image/jpeg,image/png,application/pdf";
 
+/** What stopped an application from going out, as the banner explains it. */
+type SubmitProblem =
+  | { readonly kind: "missing" }
+  | { readonly kind: "unknown"; readonly skill: string }
+  | { readonly kind: "id" }
+  | { readonly kind: "failed"; readonly message: string };
+
+type Draft = ReturnType<typeof useOnboardingDraft>;
+
+/**
+ * Checks the draft against the catalogue and the files in memory, and returns
+ * each skill's id and proof, or the first thing wrong with it.
+ */
+function readyToSend(
+  draft: Draft,
+  catalogue: readonly ApiNamedRecord[],
+): { readonly proofs: ReadonlyArray<{ skillId: string; file: File }> } | SubmitProblem {
+  const filled = draft.skills.filter((s) => s.skill.trim());
+  if (filled.length === 0) return { kind: "missing" };
+  const proofs: { skillId: string; file: File }[] = [];
+  for (const entry of filled) {
+    const name = entry.skill.trim();
+    const known = catalogue.find((skill) => skill.name === name);
+    if (!known) return { kind: "unknown", skill: name };
+    const file = heldFile(entry.id);
+    if (!file) return { kind: "missing" };
+    proofs.push({ skillId: known.id, file });
+  }
+  return { proofs };
+}
+
+/**
+ * Sends the application in the order the API needs it (docs/api-spec.md,
+ * "Advisor onboarding"): the profile, the ID card, then one proof per skill.
+ *
+ * Safe to press again after a failure part-way: an existing profile is updated
+ * rather than created twice, and an ID card already under review is not sent
+ * again. The name, phone and birth date stay in this browser: the API takes
+ * none of them, the reviewer reads the name off the card.
+ */
+async function sendApplication(draft: Draft, catalogue: readonly ApiNamedRecord[]): Promise<SubmitProblem | null> {
+  const ready = readyToSend(draft, catalogue);
+  if ("kind" in ready) return ready;
+  try {
+    const headline = draft.skills.find((s) => s.skill.trim())?.skill.trim() ?? "";
+    const bio = draft.bio.trim() || undefined;
+    const existing = await getOwnAdvisorProfile();
+    const profile = existing
+      ? await updateAdvisorProfile({ bio })
+      : await createAdvisorProfile({ headline, bio });
+    if (profile.verificationStatus === "NONE" || profile.verificationStatus === "REJECTED") {
+      const id = heldFile("id");
+      if (!id) return { kind: "id" };
+      await submitIdentityDocument(id);
+    }
+    await Promise.all(ready.proofs.map((proof) => submitSkillProof(proof.skillId, proof.file)));
+    return null;
+  } catch (error) {
+    return { kind: "failed", message: error instanceof ApiError ? error.message : String(error) };
+  }
+}
+
+/** The banner over the skill cards for whatever stopped the application. */
+function SubmitBanner({ problem }: { readonly problem: SubmitProblem }) {
+  const t = useTranslations("advisorOnboarding");
+  const banner = { className: "lg:px-0 lg:pt-0", icon: TriangleAlert };
+  switch (problem.kind) {
+    case "missing":
+      return <AlertBanner {...banner} body={t("s3ErrorBody")} title={t("s3ErrorTitle")} />;
+    case "unknown":
+      return (
+        <AlertBanner
+          {...banner}
+          body={t("unknownSkillBody", { skill: problem.skill })}
+          title={t("unknownSkillTitle")}
+        />
+      );
+    case "id":
+      return (
+        <AlertBanner
+          {...banner}
+          body={
+            <>
+              {t("idMissingBody")}{" "}
+              <Link className="font-semibold underline underline-offset-2" href="/advisor-onboarding/stage-2">
+                {t("backToStage2")}
+              </Link>
+            </>
+          }
+          title={t("idMissingTitle")}
+        />
+      );
+    case "failed":
+      return <AlertBanner {...banner} body={problem.message} title={t("submitFailedTitle")} />;
+  }
+}
+
 /** Figma "Advisor Onboarding - Stage 3" (995:6341) and its missing-proof state (995:6544). */
 export function OnboardingStage3Screen({
   state = "default",
@@ -530,40 +692,32 @@ export function OnboardingStage3Screen({
   const t = useTranslations("advisorOnboarding");
   const c = useTranslations("common");
   const router = useRouter();
-  const session = useSession();
   const draft = useOnboardingDraft();
-  const skillOptions = useDatabase((db) => db.skills);
-  const categories = useDatabase((db) => db.categories);
+  const skills = useResource<Paginated<ApiNamedRecord>>(
+    "skills",
+    useCallback((signal: AbortSignal) => listSkills(signal), []),
+  );
+  const skillOptions = skills.data?.items ?? [];
   const listId = useId();
-  const [missing, setMissing] = useState(state === "missing-proof");
+  const [problem, setProblem] = useState<SubmitProblem | null>(
+    state === "missing-proof" ? { kind: "missing" } : null,
+  );
+  const [busy, setBusy] = useState(false);
+  const missing = problem?.kind === "missing";
 
   function setSkill(id: string, patch: Partial<{ skill: string; proof: string | null }>) {
     updateDraft({ skills: draft.skills.map((s) => (s.id === id ? { ...s, ...patch } : s)) });
-    setMissing(false);
+    setProblem(null);
   }
 
-  function submit() {
-    const filled = draft.skills.filter((s) => s.skill.trim());
-    if (filled.length === 0 || filled.some((s) => !s.proof)) {
-      setMissing(true);
-      return;
-    }
-    if (session.status !== "authenticated") return;
-    const account = session.account;
-    const lead = filled[0]?.skill.trim() ?? "";
-    // The field is the lead skill's category when it is one the catalogue knows.
-    const known = skillOptions.find((s) => s.name === lead);
-    const field = categories.find((cat) => cat.id === known?.categoryId)?.name ?? lead;
-    submitAdvisorApplication(account.id, {
-      fullName: draft.legalName.trim() || account.fullName,
-      phone: draft.phone.trim(),
-      birthDate: parseBirthDate(draft.birthDate) ?? "1990-01-01",
-      // The number is read off the uploaded card during review; the form never asks.
-      nationalIdLast4: "",
-      field,
-      credential: lead,
-      skills: filled.map((s) => ({ skill: s.skill.trim(), documentName: s.proof ?? "" })),
-    });
+  async function submit() {
+    if (busy) return;
+    setBusy(true);
+    const found = await sendApplication(draft, skillOptions);
+    setBusy(false);
+    setProblem(found);
+    if (found) return;
+    invalidate("advisors/me");
     clearDraft();
     router.push("/advisor-onboarding/thank-you");
   }
@@ -589,14 +743,7 @@ export function OnboardingStage3Screen({
         </div>
 
         <div className={FORM_CARD}>
-        {missing ? (
-          <AlertBanner
-            body={t("s3ErrorBody")}
-            className="lg:px-0 lg:pt-0"
-            icon={TriangleAlert}
-            title={t("s3ErrorTitle")}
-          />
-        ) : null}
+        {problem ? <SubmitBanner problem={problem} /> : null}
 
         {/* The desktop step band already carries this line. */}
         <div className="flex w-full shrink-0 flex-col items-start px-6 pt-2 lg:hidden">
@@ -614,7 +761,9 @@ export function OnboardingStage3Screen({
         {/* Figma "Skill Card": skill picker plus a proof drop zone, one per skill. */}
         <div className="flex w-full shrink-0 flex-col items-start gap-3 px-6 pt-4 lg:px-0 lg:pt-0 lg:pb-1">
           {draft.skills.map((entry, index) => {
-            const invalid = missing && (!entry.proof || !entry.skill.trim());
+            // A name with no file behind it (the tab was reloaded) is no proof.
+            const proof = entry.proof && heldFile(entry.id) ? entry.proof : null;
+            const invalid = missing && (!proof || !entry.skill.trim());
             return (
               // It was a `border-transparent` card on the surface it sat on —
               // that is, nothing at all, on the phone and inside the form card
@@ -636,9 +785,10 @@ export function OnboardingStage3Screen({
                     aria-label={t("removeSkill")}
                     className="size-7 text-muted-foreground"
                     disabled={draft.skills.length === 1}
-                    onClick={() =>
-                      updateDraft({ skills: draft.skills.filter((s) => s.id !== entry.id) })
-                    }
+                    onClick={() => {
+                      dropFile(entry.id);
+                      updateDraft({ skills: draft.skills.filter((s) => s.id !== entry.id) });
+                    }}
                     size="icon"
                     variant="ghost"
                   >
@@ -658,7 +808,7 @@ export function OnboardingStage3Screen({
                   <p className="w-full text-sm font-medium text-foreground">
                     {t("proofLabel")}
                   </p>
-                  {entry.proof ? (
+                  {proof ? (
                     /* A file inside the skill card belongs under its surface, not
                        level with it — and the check is a status, so it is green. */
                     <Surface
@@ -667,12 +817,15 @@ export function OnboardingStage3Screen({
                     >
                       <FileCheck className="size-5 shrink-0 text-success" />
                       <p className="min-w-px flex-1 truncate font-latin text-sm text-foreground">
-                        {entry.proof}
+                        {proof}
                       </p>
                       <Button
                         aria-label={t("remove")}
                         className="size-7 text-muted-foreground"
-                        onClick={() => setSkill(entry.id, { proof: null })}
+                        onClick={() => {
+                          dropFile(entry.id);
+                          setSkill(entry.id, { proof: null });
+                        }}
                         size="icon"
                         variant="ghost"
                       >
@@ -685,7 +838,10 @@ export function OnboardingStage3Screen({
                         <FilePickButton
                           accept={PROOF_TYPES}
                           className="mt-2"
-                          onPick={(name) => setSkill(entry.id, { proof: name })}
+                          onPick={(file) => {
+                            holdFile(entry.id, file);
+                            setSkill(entry.id, { proof: file.name });
+                          }}
                         >
                           <ImageUp className="size-4" />
                           {t("proofBrowse")}
@@ -718,10 +874,11 @@ export function OnboardingStage3Screen({
         <div className={cn("flex w-full shrink-0 flex-col items-center px-6 pt-4 pb-2", CARD_ACTIONS)}>
           <PrimaryButton
             className={cn("disabled:opacity-40", CARD_ACTION_BUTTON)}
-            disabled={!draft.skills.some((s) => s.skill.trim())}
-            onClick={submit}
+            aria-busy={busy || undefined}
+            disabled={busy || !draft.skills.some((s) => s.skill.trim())}
+            onClick={() => void submit()}
           >
-            {t("submitReview")}
+            {busy ? t("submitting") : t("submitReview")}
           </PrimaryButton>
         </div>
         </div>

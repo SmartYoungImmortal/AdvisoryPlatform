@@ -63,7 +63,30 @@ export function updateDraft(patch: Partial<OnboardingDraft>): void {
 }
 
 export function clearDraft(): void {
+  files.clear();
   write(EMPTY);
+}
+
+/**
+ * The picked files themselves, which session storage cannot hold: only their
+ * names go in the draft. Kept in memory for as long as the tab stays on the
+ * app, so they survive moving between the stage routes but not a reload; a
+ * name with no file behind it asks for the file again on submit.
+ *
+ * Keys: `"id"` for the ID card, a skill entry's `id` for its proof.
+ */
+const files = new Map<string, File>();
+
+export function holdFile(key: string, file: File): void {
+  files.set(key, file);
+}
+
+export function heldFile(key: string): File | undefined {
+  return files.get(key);
+}
+
+export function dropFile(key: string): void {
+  files.delete(key);
 }
 
 /** Thai mobile and landline numbers, with or without dashes. */

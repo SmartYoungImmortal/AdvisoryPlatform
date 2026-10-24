@@ -65,7 +65,7 @@ export function AuthFooter({ className }: { readonly className?: string }) {
 
   const links = [
     { label: t("termsOfService"), href: "/terms" },
-    { label: t("privacy"), href: "/pdpa" },
+    { label: t("privacy"), href: "/privacy-policy" },
     { label: t("help"), href: "/landing#faq" },
   ];
 

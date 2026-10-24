@@ -2,7 +2,7 @@
 
 import { useSearchParams } from "next/navigation";
 
-import { SearchResultsScreen } from "@/components/home/search-results-screen";
+import { SearchScreen } from "@/components/search/search-screen";
 
 /**
  * `/search` with the query read off the URL. The site is a static export, so
@@ -12,5 +12,5 @@ import { SearchResultsScreen } from "@/components/home/search-results-screen";
  */
 export function SearchQueryResults() {
   const query = useSearchParams().get("q") ?? undefined;
-  return <SearchResultsScreen query={query} />;
+  return <SearchScreen query={query} />;
 }

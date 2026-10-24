@@ -1,5 +1,5 @@
 import { PdpaScreen } from "@/components/legal/pdpa-screen";
 
-export default function PdpaPage() {
+export default function PrivacyPolicyPage() {
   return <PdpaScreen />;
 }

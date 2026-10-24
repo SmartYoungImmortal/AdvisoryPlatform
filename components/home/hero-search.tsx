@@ -16,9 +16,41 @@ import {
 
 import { SearchField, ServicePrice } from "@/components/home/parts";
 import { TypingPlaceholder } from "@/components/home/typing-placeholder";
-import { matchAdvisors, matchServices, normalise } from "@/lib/catalogue/search";
-import { leadService } from "@/lib/catalogue/services";
+import { matchQuery } from "@/lib/catalogue/filters";
+import { useLiveCatalogue, type LiveService } from "@/lib/catalogue/live";
+import { normalise } from "@/lib/catalogue/search";
 import { cn } from "@/lib/utils";
+
+/** One advisor in the suggestions, read off their services in the live catalogue. */
+type LiveAdvisor = {
+  readonly id: string;
+  readonly name: string;
+  readonly headline: string;
+  readonly face: LiveService["face"];
+  /** Their first service, which is where choosing them goes. */
+  readonly href: string;
+};
+
+/** Services and advisors whose text holds the query, from `GET /services`. */
+function matchLive(items: readonly LiveService[], query: string) {
+  const q = normalise(query);
+  const advisors = new Map<string, LiveAdvisor>();
+  for (const item of items) {
+    if (advisors.has(item.advisorId)) continue;
+    if (![item.advisorName, item.advisorHeadline].some((field) => normalise(field).includes(q))) continue;
+    advisors.set(item.advisorId, {
+      id: item.advisorId,
+      name: item.advisorName,
+      headline: item.advisorHeadline,
+      face: item.face,
+      href: item.href,
+    });
+  }
+  return {
+    services: matchQuery(items, query).slice(0, GROUP_MAX),
+    advisors: [...advisors.values()].slice(0, GROUP_MAX),
+  };
+}
 
 /** Where the last few searches are kept: this browser only, never sent. */
 const RECENT_KEY = "advisory.recentSearches";
@@ -122,26 +154,25 @@ export function HeroSearch({
     () => examples.map((e) => e.replace(/[.…]+$/u, "")).slice(0, 4),
     [examples],
   );
+  // The same live catalogue `/search` and the hero's ring read (one cached
+  // request), so a suggestion always opens a service that exists.
+  const catalogue = useLiveCatalogue();
   const typed = useMemo(() => {
     if (!query) return null;
     const q = normalise(query);
     return {
       categories: categories.filter((c) => normalise(c).includes(q)).slice(0, GROUP_MAX),
-      services: matchServices(query).slice(0, GROUP_MAX),
-      advisors: matchAdvisors(query).slice(0, GROUP_MAX),
+      ...matchLive(catalogue.items, query),
     };
-  }, [categories, query]);
+  }, [categories, catalogue.items, query]);
 
   // Every row the arrow keys can land on, in the order they are drawn.
   const options: Option[] = typed
     ? [
         { key: "search", href: searchHref(query), q: query },
         ...typed.categories.map((c) => ({ key: `c:${c}`, href: searchHref(c), q: c })),
-        ...typed.services.map((s) => ({ key: `s:${s.id}`, href: `/service/${s.id}` })),
-        ...typed.advisors.map((a) => {
-          const lead = leadService(a.id);
-          return { key: `a:${a.id}`, href: lead ? `/service/${lead.id}` : searchHref(a.name) };
-        }),
+        ...typed.services.map((s) => ({ key: `s:${s.id}`, href: s.href })),
+        ...typed.advisors.map((a) => ({ key: `a:${a.id}`, href: a.href })),
       ]
     : [
         ...recent.map((r) => ({ key: `r:${r}`, href: searchHref(r), q: r })),
@@ -362,7 +393,7 @@ export function HeroSearch({
                           </span>
                           <ServicePrice price={s.price} />
                         </>,
-                        `/service/${s.id}`,
+                        s.href,
                       ),
                     ),
                   )
@@ -370,30 +401,38 @@ export function HeroSearch({
               {typed.advisors.length > 0
                 ? group(
                     t("suggestAdvisors"),
-                    typed.advisors.map((a) => {
-                      const lead = leadService(a.id);
-                      return row(
+                    typed.advisors.map((a) =>
+                      row(
                         `a:${a.id}`,
                         <>
-                          <Image
-                            alt=""
-                            className="size-9 shrink-0 rounded-full object-cover"
-                            height={72}
-                            src={a.avatar}
-                            width={72}
-                          />
+                          {a.face ? (
+                            <Image
+                              alt=""
+                              className="size-9 shrink-0 rounded-full object-cover"
+                              height={72}
+                              src={a.face}
+                              width={72}
+                            />
+                          ) : (
+                            <span
+                              aria-hidden
+                              className="flex size-9 shrink-0 items-center justify-center rounded-full bg-muted text-sm font-semibold text-muted-foreground"
+                            >
+                              {a.name.slice(0, 1)}
+                            </span>
+                          )}
                           <span className="flex min-w-px flex-1 flex-col">
                             <span className="truncate text-muted-foreground">
                               {highlight(a.name, query)}
                             </span>
                             <span className="truncate text-xs text-muted-foreground">
-                              {highlight(a.field, query)}
+                              {highlight(a.headline, query)}
                             </span>
                           </span>
                         </>,
-                        lead ? `/service/${lead.id}` : searchHref(a.name),
-                      );
-                    }),
+                        a.href,
+                      ),
+                    ),
                   )
                 : null}
             </>

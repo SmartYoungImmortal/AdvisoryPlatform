@@ -67,7 +67,7 @@ export function LegalDocument({
 
   const tabs = [
     { id: "terms", href: "/terms", label: chrome.terms },
-    { id: "privacy", href: "/pdpa", label: chrome.privacy },
+    { id: "privacy", href: "/privacy-policy", label: chrome.privacy },
   ] as const;
 
   return (
