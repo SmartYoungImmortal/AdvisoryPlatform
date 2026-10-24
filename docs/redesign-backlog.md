@@ -23,6 +23,7 @@
 - [x] `/terms`, `/privacy-policy`
 - [x] `/forgot-password`, `/reset-sent`
 - [x] ของที่ใช้ร่วมกัน: navbar, เมนูมือถือ, ปุ่ม TH/EN
+- [x] `/search` และ `/search/no-results` (ใช้หน้าเดียวกัน)
 
 ## ทำแล้วแต่ยังไม่ผ่าน
 
@@ -48,9 +49,7 @@
 หน้าที่ลูกค้าใช้ตัดสินใจจอง ควรมี: รูป ชื่อ badge ยืนยันตัวตนที่บอกชัดว่าตรวจอะไร คะแนน เวลาตอบ ราคาเริ่มต้น ปุ่มจองติดตลอด เวลาว่างถัดไป บริการ คุณวุฒิ รีวิว
 
 ### RD-03 · ค้นหาและบริการ
-- [ ] `/search` — ทำรอบแรกแล้ว ยังไม่ผ่าน (ข้อมูลจริงจาก API, ตัด gradient แล้ว, รูปปกไม่ซ้ำกัน)
 - [ ] `/search/browse`
-- [ ] `/search/no-results` — ใช้หน้าเดียวกับ `/search` แล้ว
 - [ ] `/service/[id]`
 - [ ] `/matching`, `/matching/searching`, `/matching/results`, `/matching/results/no-results`
 

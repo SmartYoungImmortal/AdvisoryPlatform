@@ -47,66 +47,10 @@ gsap.registerPlugin(useGSAP);
  * raw declaration — still driven off the token rather than a literal white.
  */
 /**
- * The wordmark, with a light sweeping across it.
- *
- * The lockup reads as flat ink on a flat bar, and it is the one piece of brand
- * on every screen. A specular sweep is what makes a surface look coated: a
- * narrow bright band raked at 105° that crosses the mark and leaves, then waits
- * long enough (3.6s) that it registers as a glint rather than as a loop.
- *
- * The band is a second copy of the mark, flattened to white and revealed through
- * a moving gradient mask, so the light only ever lands on the glyphs — a
- * gradient painted over the box would put a white bar across the whole nav.
- *
- * It is built this way round because the obvious way round does not work: the
- * logo is an SVG served from R2, and a cross-origin image used as `mask-image`
- * is blocked, which silently masks the element out entirely — the sweep renders
- * nothing at all. A gradient mask has no origin to fail on.
- *
- * The mask position rides on a custom property rather than being tweened
- * directly, because it has to drive the `-webkit-` alias in the same frame.
- *
- * The mask is deliberately *narrower* than the mark (60%). A percentage
- * `mask-position` resolves against `container − mask`, so an oversized mask
- * gives a negative basis: the first cut of this animated a 260%-wide mask, which
- * ran the light right-to-left and kept it off the glyphs for most of the tween —
- * technically animating, effectively invisible. At 60% the basis is +40%, so
- * −60% → 260% carries the band from just off the left edge to just off the
- * right, once, in the direction it is supposed to travel.
- *
- * Reversed, the mark is already white and there is nothing brighter to light it
- * with, so the sweep is left off rather than faked with a dark streak — that
- * reads as a smear, not a shine.
+ * The wordmark. The light that used to sweep only across it now crosses the
+ * whole capsule (`BarSheen`).
  */
 function Lockup({ reversed }: { readonly reversed: boolean }) {
-  const sheen = useRef<HTMLSpanElement>(null);
-
-  useGSAP(
-    () => {
-      const el = sheen.current;
-      if (!el) return;
-
-      const mm = gsap.matchMedia();
-
-      mm.add("(prefers-reduced-motion: no-preference)", () => {
-        gsap.fromTo(
-          el,
-          { "--sheen-x": "-60%" },
-          {
-            "--sheen-x": "260%",
-            duration: 1.2,
-            ease: "power2.inOut",
-            repeat: -1,
-            repeatDelay: 2.6,
-          },
-        );
-      });
-
-      return () => mm.revert();
-    },
-    { dependencies: [reversed] },
-  );
-
   return (
     // The ink sits 3px below the middle of its own box — the PLATFORM line and
     // the script's descenders weight the lower half — so centring the box leaves
@@ -126,33 +70,45 @@ function Lockup({ reversed }: { readonly reversed: boolean }) {
         priority
         src={logo}
       />
-      {reversed ? null : (
-        <span
-          aria-hidden
-          className="pointer-events-none absolute inset-0"
-          ref={sheen}
-          style={
-            {
-              "--sheen-x": "-60%",
-              maskImage: SHEEN_BAND,
-              maskPosition: "var(--sheen-x) 0%",
-              maskRepeat: "no-repeat",
-              maskSize: "60% 70%",
-              WebkitMaskImage: SHEEN_BAND,
-              WebkitMaskPosition: "var(--sheen-x) 0%",
-              WebkitMaskRepeat: "no-repeat",
-              WebkitMaskSize: "60% 70%",
-            } as CSSProperties
-          }
-        >
-          <Image
-            alt=""
-            className="h-6 w-auto brightness-0 invert"
-            priority
-            src={logo}
-          />
-        </span>
-      )}
+    </span>
+  );
+}
+
+/**
+ * A light sweeping across the whole capsule: a narrow bright band raked like a
+ * reflection on glass, crossing the bar once and then waiting long enough
+ * (8s) that it registers as a glint rather than as a loop. It moves by
+ * transform only, clipped to the capsule's own corners, and is left out for a
+ * reader who has asked for less motion.
+ */
+function BarSheen() {
+  const band = useRef<HTMLSpanElement>(null);
+
+  useGSAP(() => {
+    const mm = gsap.matchMedia();
+    mm.add("(prefers-reduced-motion: no-preference)", () => {
+      // GSAP owns the whole transform, slant included: a starting translate
+      // written in the markup was read back as a pixel offset and added to
+      // every pass, which stopped some of them short of the right edge. The
+      // band is a fifth of the bar, so -150% parks it off the left and 650%
+      // clear of the right.
+      gsap.set(band.current, { x: 0, skewX: -12, autoAlpha: 1 });
+      gsap.fromTo(
+        band.current,
+        { xPercent: -150 },
+        { xPercent: 650, duration: 1.5, ease: "power2.inOut", repeat: -1, repeatDelay: 8 },
+      );
+    });
+    return () => mm.revert();
+  });
+
+  return (
+    <span aria-hidden className="pointer-events-none absolute inset-0 overflow-hidden rounded-[inherit]">
+      {/* Hidden until the animation places it, and for good without motion. */}
+      <span
+        className="invisible absolute inset-y-0 left-0 w-1/5 bg-linear-to-r from-transparent via-on-media/60 to-transparent"
+        ref={band}
+      />
     </span>
   );
 }
@@ -199,10 +155,6 @@ export function LanguageSwitch({ className }: { readonly className?: string }) {
     </span>
   );
 }
-
-/** The light itself: a narrow band raked at 105°, opaque only where it lands. */
-const SHEEN_BAND =
-  "linear-gradient(105deg, transparent 8%, rgb(0 0 0 / 35%) 32%, #000 50%, rgb(0 0 0 / 35%) 68%, transparent 92%)";
 
 /**
  * Figma "Avatar" (1564:24865) — the 36px portrait at the right of the desktop
@@ -263,7 +215,6 @@ const FROSTED = (() => {
 
 export function TopBar({
   unreadNotifications = false,
-  login = false,
   backHref,
   overlay = false,
   dock = false,
@@ -278,17 +229,6 @@ export function TopBar({
    * the change. Off by default: the home hero wants the floating pill.
    */
   readonly dock?: boolean;
-  /**
-   * This page is reachable by a guest, so the trailing slot falls back to a
-   * sign-in link **when there is no session**.
-   *
-   * It is not "always show sign in". It used to be, and because `NavAvatar`
-   * renders on its own whenever a session exists, a signed-in reader on one of
-   * these pages got a sign-in link and their own portrait side by side — two
-   * controls stating the opposite thing. A signed-in reader now gets the bell and
-   * the portrait here exactly as they do everywhere else.
-   */
-  readonly login?: boolean;
   /** Swaps the leading menu glyph for a back chevron pointing here. */
   readonly backHref?: string;
   /**
@@ -355,7 +295,14 @@ export function TopBar({
             // phone, the desktop's 24px from `md`. It keeps that gutter in both
             // states; the capsule is what cancels it when docking, which is the
             // only way the lockup stays on the same x through the change.
-            "flex w-full items-center px-3 py-3 md:px-6",
+            //
+            // Its height is fixed (12 + the 56/64 capsule + 12) and never
+            // animates. It used to give up its vertical padding when docking,
+            // which changed its height mid-scroll: everything under it was laid
+            // out again on every frame of the transition and the scroll
+            // stalled for half a second. The capsule's own top margin does that
+            // job now, inside a box whose size does not move.
+            "flex h-20 w-full items-start px-3 md:h-22 md:px-6",
             // From `lg` the bar shrinks with the page it sits on (the 1710 frame
             // zoomed down on a landscape tablet), instead of staying full size
             // above a content column that is not.
@@ -363,8 +310,8 @@ export function TopBar({
             "transition-[padding] duration-500 ease-in-out",
             // The capsule floats clear of the top edge at every scroll
             // position, unless the page docks it (`dock`), when the row gives
-            // up its gutters so the band can meet the top and both edges.
-            dock && frosted && "px-0 py-0 md:px-0",
+            // up its side gutters so the band can meet both edges.
+            dock && frosted && "px-0 md:px-0",
             className,
           )}
           style={frosted ? ({ "--bar-wash": FROSTED } as CSSProperties) : undefined}
@@ -403,7 +350,7 @@ export function TopBar({
               // as wide as the screen allows below that. The capsule keeps that
               // box at every scroll position; only the glass behind it deepens
               // as content passes under, which is what the reference does too.
-              "h-14 rounded-[2rem] py-2 pr-2 pl-4 backdrop-blur-[20px] md:h-16 md:pl-6",
+              "mt-3 h-14 rounded-[2rem] py-2 pr-2 pl-4 backdrop-blur-[20px] md:h-16 md:pl-6",
               "mx-[max(0px,calc((100%-984px)/2))]",
               "transition-[margin,padding,height,border-radius,background-color] duration-500 ease-out motion-reduce:transition-none",
               // The glass deepens as content passes under the floating pill;
@@ -422,7 +369,7 @@ export function TopBar({
                   // 45% veil) on a light `blur-sm`, with a faint white rule,
                   // so the band dissolves into the page instead of ending
                   // on a hard edge.
-                  "mx-0 h-16 rounded-none border-b border-on-media/20 bg-transparent bg-[image:var(--bar-wash)] pr-[calc(max(0px,calc((100%-984px)/2))+0.5rem)] pl-[calc(max(0px,calc((100%-984px)/2))+1rem)] backdrop-blur-sm md:h-18 md:pl-[calc(max(0px,calc((100%-984px)/2))+1.5rem)]"
+                  "mx-0 mt-0 h-16 rounded-none border-b border-on-media/20 bg-transparent bg-[image:var(--bar-wash)] pr-[calc(max(0px,calc((100%-984px)/2))+0.5rem)] pl-[calc(max(0px,calc((100%-984px)/2))+1rem)] backdrop-blur-sm md:h-18 md:pl-[calc(max(0px,calc((100%-984px)/2))+1.5rem)]"
                 : undefined,
             )}
           >
@@ -440,6 +387,9 @@ export function TopBar({
                 </Button>
               </div>
             ) : null}
+            {/* Only on the floating pill: docked, the bar is a full-width band
+                and a glint running the width of the screen reads as a flash. */}
+            {dock && frosted ? null : <BarSheen />}
             {/* The lockup is the way home from anywhere. */}
             <Link className="shrink-0" href="/">
               <Lockup reversed={false} />
@@ -452,7 +402,10 @@ export function TopBar({
                   The bar's height does not depend on what is in it, so nothing
                   moves when the answer lands. */}
               <LanguageSwitch />
-              {!sessionKnown && login ? null : login && !signedIn ? (
+              {/* Decided by the session alone. It used to need a `login` prop
+                  per page, and every page without it showed a guest the bell
+                  to notifications they cannot have. */}
+              {!sessionKnown ? null : !signedIn ? (
                 /* fastwork's "Get started": a black pill with white type that
                    opens sign-up, the one thing on the bar for a guest to press.
                    Signing in is a tap away on the register screen itself. */

@@ -80,7 +80,7 @@ export function LegalDocument({
           would stay pinned to the top of the window instead of scrolling
           away with the page's first screen. */}
       <ScreenBody className="bg-card bg-legal-wash bg-local bg-no-repeat">
-        <TopBar dock login />
+        <TopBar dock />
 
         {/* `doc-scale` (`app/globals.css`): on a landscape tablet the whole
             document is the 1710 desktop page made smaller, not desktop-sized

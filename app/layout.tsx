@@ -6,6 +6,8 @@ import '@fontsource-variable/geist/wght.css';
 // Kanit sets the home hero's headline and the line under it (`font-hero`).
 import '@fontsource/kanit/400.css';
 import '@fontsource/kanit/500.css';
+// Sriracha sets the handwritten word in the home and `/search` headings (`font-hand`).
+import '@fontsource/sriracha/400.css';
 import "./globals.css";
 import { cn } from "@/lib/utils";
 import { TooltipProvider } from "@/components/ui/tooltip";
