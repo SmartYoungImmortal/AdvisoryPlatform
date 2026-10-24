@@ -123,6 +123,12 @@ function formatSize(bytes: number): string {
     : `${Math.max(1, Math.round(bytes / 1024))} KB`;
 }
 
+/** "JPG · 2.4 MB", the line under the uploaded ID card's name. */
+function describeFile(file: File): string {
+  const kind = file.type === "image/png" ? "PNG" : "JPG";
+  return `${kind} · ${formatSize(file.size)}`;
+}
+
 /** A preview URL for a picked image, revoked when it changes or the screen goes. */
 function usePreview(file: File | undefined): string | null {
   const url = useMemo(() => (file ? URL.createObjectURL(file) : null), [file]);
@@ -505,9 +511,7 @@ export function OnboardingStage2Screen({
                     {fileName}
                   </p>
                   <p className="font-latin w-full text-xs font-normal tabular-nums text-muted-foreground">
-                    {file
-                      ? `${file.type === "image/png" ? "PNG" : "JPG"} · ${formatSize(file.size)}`
-                      : t("fileMeta")}
+                    {file ? describeFile(file) : t("fileMeta")}
                   </p>
                 </div>
                 <CircleCheck className="size-5 shrink-0 text-success" />
@@ -637,7 +641,7 @@ async function sendApplication(draft: Draft, catalogue: readonly ApiNamedRecord[
       if (!id) return { kind: "id" };
       await submitIdentityDocument(id);
     }
-    for (const proof of ready.proofs) await submitSkillProof(proof.skillId, proof.file);
+    await Promise.all(ready.proofs.map((proof) => submitSkillProof(proof.skillId, proof.file)));
     return null;
   } catch (error) {
     return { kind: "failed", message: error instanceof ApiError ? error.message : String(error) };

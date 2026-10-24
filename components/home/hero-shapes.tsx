@@ -196,6 +196,7 @@ export function HeroShapes({ className }: { readonly className?: string }) {
         {CARDS.map((n, i) => {
           const name = t(`card${n}Name`);
           const role = t(`card${n}Role`);
+          const topic = encodeURIComponent(t(`card${n}Topic`));
           return (
             <Link
               aria-label={`${name}, ${role}`}
@@ -208,7 +209,7 @@ export function HeroShapes({ className }: { readonly className?: string }) {
                 // with, from `components/ui/button.tsx`.
                 "focus-visible:ring-3 focus-visible:ring-ring/50",
               )}
-              href={serviceHref.get(n) ?? `/search?q=${encodeURIComponent(t(`card${n}Topic`))}`}
+              href={serviceHref.get(n) ?? `/search?q=${topic}`}
               key={n}
               // Index 0 sits at the top of the ring; the rest follow
               // clockwise.
