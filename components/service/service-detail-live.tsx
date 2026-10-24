@@ -99,6 +99,51 @@ function Face({ item, name, className }: { readonly item?: LiveService; readonly
 /* ---------------------------------------------------------------- booking */
 
 /**
+ * What the booking tab shows instead of times: loading, and each answer the
+ * slots route gives other than a list. Signed out (401) asks to sign in, a
+ * screened service (400) points at its questions, anything else can retry.
+ */
+function SlotsNotice({
+  error,
+  onRetry,
+  serviceId,
+}: {
+  readonly error: Error | null;
+  readonly onRetry: () => void;
+  readonly serviceId: string;
+}) {
+  const t = useTranslations("service");
+  const sc = useTranslations("screening");
+  const pill = cn(authPill(true), "w-full sm:w-auto sm:px-8");
+  if (!error) {
+    return (
+      <div aria-hidden className="flex flex-col gap-3">
+        <span className="h-14 animate-pulse rounded-xl bg-muted" />
+        <span className="h-24 animate-pulse rounded-xl bg-muted" />
+      </div>
+    );
+  }
+  if (error instanceof ApiError && error.status === 401) {
+    return (
+      <div className="flex flex-col gap-3">
+        <p className="text-sm text-muted-foreground">{t("signInForSlots")}</p>
+        <Button className={pill} nativeButton={false} render={<Link href="/login" />}>
+          {t("signIn")}
+        </Button>
+      </div>
+    );
+  }
+  if (error instanceof ApiError && error.status === 400) {
+    return (
+      <Button className={pill} nativeButton={false} render={<Link href={`/screening/questions?serviceId=${serviceId}`} />}>
+        {sc("answerTitle")}
+      </Button>
+    );
+  }
+  return <ApiErrorCard error={error} onRetry={onRetry} title={t("slotsTitle")} />;
+}
+
+/**
  * The week as seven days (a day with nothing open is shown, and cannot be
  * chosen, so the week reads as a week), that day's times, and the button that
  * books the chosen one. The API's other answers each get their own state:
@@ -107,7 +152,6 @@ function Face({ item, name, className }: { readonly item?: LiveService; readonly
  */
 function BookingPicker({ serviceId }: { readonly serviceId: string }) {
   const t = useTranslations("service");
-  const sc = useTranslations("screening");
   const format = useFormatter();
   const router = useRouter();
   const [day, setDay] = useState<string | null>(null);
@@ -159,37 +203,14 @@ function BookingPicker({ serviceId }: { readonly serviceId: string }) {
       .finally(() => setBooking(false));
   };
 
-  if (slots.loading) {
-    return (
-      <div aria-hidden className="flex flex-col gap-3">
-        <span className="h-14 animate-pulse rounded-xl bg-muted" />
-        <span className="h-24 animate-pulse rounded-xl bg-muted" />
-      </div>
-    );
+  if (slots.loading || slots.error) {
+    return <SlotsNotice error={slots.error} onRetry={slots.reload} serviceId={serviceId} />;
   }
-  if (slots.error instanceof ApiError && slots.error.status === 401) {
-    return (
-      <div className="flex flex-col gap-3">
-        <p className="text-sm text-muted-foreground">{t("signInForSlots")}</p>
-        <Button className={cn(authPill(true), "w-full sm:w-auto sm:px-8")} nativeButton={false} render={<Link href="/login" />}>
-          {t("signIn")}
-        </Button>
-      </div>
-    );
-  }
-  if (slots.error instanceof ApiError && slots.error.status === 400) {
-    return (
-      <Button
-        className={cn(authPill(true), "w-full sm:w-auto sm:px-8")}
-        nativeButton={false}
-        render={<Link href={`/screening/questions?serviceId=${serviceId}`} />}
-      >
-        {sc("answerTitle")}
-      </Button>
-    );
-  }
-  if (slots.error) return <ApiErrorCard error={slots.error} onRetry={slots.reload} title={t("slotsTitle")} />;
   if (selected === null) return <p className="text-sm text-muted-foreground">{t("noSlots")}</p>;
+
+  let label = t("pickTimeFirst");
+  if (booking) label = t("booking");
+  else if (time) label = t("bookAt", { time: hour(time) });
 
   return (
     <div className="flex flex-col gap-5">
@@ -259,7 +280,7 @@ function BookingPicker({ serviceId }: { readonly serviceId: string }) {
           onClick={book}
           type="button"
         >
-          {booking ? t("booking") : time ? t("bookAt", { time: hour(time) }) : t("pickTimeFirst")}
+          {label}
         </Button>
         <p className="text-center text-xs text-muted-foreground sm:text-left">{t("pickTimeHint")}</p>
       </div>
@@ -452,6 +473,7 @@ export function LiveServiceDetailScreen({ serviceId }: { readonly serviceId: str
   const price = format.number(baht(live.priceSatang), "baht");
   const name = item?.advisorName ?? advisor?.displayName ?? "";
   const tags = [...new Set([item?.category, ...(advisor?.skills ?? [])].filter(Boolean))].slice(0, 4);
+  const reviewsLabel = rating?.total ? `${t("tabReviews")} (${rating.total})` : t("tabReviews");
   const openBooking = () => {
     setTab("book");
     document.getElementById("service-tabs")?.scrollIntoView({ behavior: "smooth", block: "start" });
@@ -534,7 +556,7 @@ export function LiveServiceDetailScreen({ serviceId }: { readonly serviceId: str
             {(
               [
                 ["book", t("tabBook")],
-                ["reviews", `${t("tabReviews")}${rating?.total ? ` (${rating.total})` : ""}`],
+                ["reviews", reviewsLabel],
                 ["about", t("tabAbout")],
               ] as const
             ).map(([value, label]) => (
