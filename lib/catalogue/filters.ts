@@ -88,8 +88,19 @@ export function activeCount(filters: Filters): number {
 }
 
 /** The categories the list actually holds, in the order it first names them. */
+/**
+ * The categories the list holds, the busiest first (most services, then by
+ * name), so a row of chips cut short still leads with where most of the
+ * catalogue is.
+ */
 export function categoriesOf(list: readonly { readonly category: string }[]): readonly string[] {
-  return [...new Set(list.map((item) => item.category).filter(Boolean))];
+  const counts = new Map<string, number>();
+  for (const { category } of list) {
+    if (category) counts.set(category, (counts.get(category) ?? 0) + 1);
+  }
+  return [...counts.entries()]
+    .toSorted(([a, x], [b, y]) => y - x || a.localeCompare(b, "th"))
+    .map(([category]) => category);
 }
 
 /**

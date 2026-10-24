@@ -24,12 +24,28 @@ import {
   serviceBusinessBoard,
   serviceCareerNotes,
   serviceCompanyBooks,
-  serviceContractReview,
+  serviceCondoRoom,
+  serviceContractMeeting,
+  serviceCreditCard,
+  serviceExcelNumbers,
+  serviceFirstHome,
+  serviceFreelanceDeal,
+  serviceFreelanceRate,
+  serviceHiringTable,
+  serviceLoanPapers,
+  servicePayStructure,
+  servicePriceTags,
+  serviceRefinance,
+  serviceResumeRead,
+  serviceShopParcel,
+  serviceSocialAds,
+  serviceTechPortfolio,
+  serviceYearEndBinders,
   serviceFreelanceCalculator,
   serviceInterviewPractice,
   serviceLaptopCode,
   serviceShopOwner,
-  serviceTaxForms,
+  serviceTaxReview,
 } from "@/lib/assets/r2";
 import th from "@/messages/th.json";
 
@@ -81,19 +97,35 @@ export function heroCardFor(displayName: string): number | null {
  * A picture of what the service is about, for the seeded services whose
  * advisor is not on the ring, keyed by the seed's Thai service name
  * (`AdvisoryPlatformAPI/src/database/seed.ts`). With the twelve ring photos
- * every one of the seed's 22 services has its own.
+ * every one of the seed's services has its own.
  */
 const COVER_BY_TITLE = new Map<string, StaticImageData>([
   ["วางแผนภาษีสำหรับฟรีแลนซ์", serviceFreelanceCalculator],
-  ["ตรวจแผนภาษีก่อนยื่น", serviceTaxForms],
+  ["ตรวจแผนภาษีก่อนยื่น", serviceTaxReview],
   ["ปิดงบบริษัทเล็กครั้งแรก", serviceCompanyBooks],
   ["ทบทวนเส้นทางอาชีพ", serviceCareerNotes],
   ["ตรวจสุขภาพการตลาดของร้าน", serviceShopOwner],
   ["คุยเรื่องความเครียดจากงาน", deskPhoto],
   ["วางแผนเปิดธุรกิจใหม่", serviceBusinessBoard],
   ["เลือกสแตกให้โปรเจกต์แรก", serviceLaptopCode],
-  ["ตรวจสัญญาก่อนเซ็น", serviceContractReview],
+  ["ตรวจสัญญาก่อนเซ็น", serviceContractMeeting],
   ["ซ้อมสัมภาษณ์งานสายเทค", serviceInterviewPractice],
+  ["วางแผนซื้อบ้านหลังแรก", serviceFirstHome],
+  ["ปลดหนี้บัตรเครดิตอย่างมีแผน", serviceCreditCard],
+  ["รีไฟแนนซ์บ้านให้ดอกเบี้ยลด", serviceRefinance],
+  ["เตรียมเอกสารขอสินเชื่อบ้าน", serviceLoanPapers],
+  ["ตรวจสัญญาเช่าคอนโดก่อนเซ็น", serviceCondoRoom],
+  ["ร่างสัญญาจ้างงานฟรีแลนซ์", serviceFreelanceDeal],
+  ["ออกแบบโครงสร้างเงินเดือนพนักงาน", servicePayStructure],
+  ["เขียน JD และวางขั้นตอนสัมภาษณ์", serviceHiringTable],
+  ["เตรียมเอกสารก่อนปิดงบปี", serviceYearEndBinders],
+  ["วางระบบบัญชีร้านเล็กด้วย Excel", serviceExcelNumbers],
+  ["ตั้งราคางานฟรีแลนซ์ให้คุ้ม", serviceFreelanceRate],
+  ["เปิดร้านออนไลน์ให้ถูกภาษี", serviceShopParcel],
+  ["ยิงแอดร้านออนไลน์ให้คุ้มงบ", serviceSocialAds],
+  ["ตั้งราคาสินค้าและคำนวณกำไรต่อชิ้น", servicePriceTags],
+  ["ทำพอร์ตให้ได้งานสายเทค", serviceTechPortfolio],
+  ["รีวิวเรซูเม่ภาษาอังกฤษ", serviceResumeRead],
 ]);
 
 /**
@@ -114,27 +146,42 @@ const SPARE_COVERS: readonly StaticImageData[] = [
 ];
 
 /**
- * Gives each service its picture: the ring card's photo for the first service
- * of an advisor on the ring, then the seed's own picture for the service,
- * and the next spare for anything else.
+ * Gives each service its picture, in three passes so no two cards share one:
+ * the picture chosen for that service, then the ring card's photo for one
+ * service of each advisor on the ring, then a spare nobody has yet (cycling
+ * only once every spare is in use).
  * Ordered by id first, so a service keeps its picture from one load to the next.
  */
 function assignCovers(items: readonly LiveService[]): readonly LiveService[] {
+  const sorted = items.toSorted((a, b) => a.id.localeCompare(b.id));
+  const covers = new Map<string, StaticImageData>();
+  for (const item of sorted) {
+    const own = COVER_BY_TITLE.get(item.title);
+    if (own) covers.set(item.id, own);
+  }
   const cardUsed = new Set<number>();
-  let spare = 0;
-  return items
-    .toSorted((a, b) => a.id.localeCompare(b.id))
-    .map((item) => {
-      if (item.card && !cardUsed.has(item.card)) {
-        cardUsed.add(item.card);
-        return { ...item, cover: heroCards[item.card].photo };
-      }
-      const own = COVER_BY_TITLE.get(item.title);
-      if (own) return { ...item, cover: own };
-      const cover = SPARE_COVERS[spare % SPARE_COVERS.length];
-      spare += 1;
-      return { ...item, cover };
-    });
+  for (const item of sorted) {
+    if (covers.has(item.id) || !item.card || cardUsed.has(item.card)) continue;
+    cardUsed.add(item.card);
+    covers.set(item.id, heroCards[item.card].photo);
+  }
+  const taken = new Set(covers.values());
+  const spares = [...SPARE_COVERS.filter((cover) => !taken.has(cover)), ...SPARE_COVERS];
+  let next = 0;
+  for (const item of sorted) {
+    if (covers.has(item.id)) continue;
+    covers.set(item.id, spares[next % spares.length]);
+    next += 1;
+  }
+  return sorted.map((item) => ({ ...item, cover: covers.get(item.id) ?? item.cover }));
+}
+
+/**
+ * The advisor's own portrait from the API, sized for the 32px face it fills.
+ * The ring's advisors keep the photo their card shows, so one person has one face.
+ */
+function portrait(image: string | null | undefined): StaticImageData | null {
+  return image ? { src: image, width: 128, height: 128 } : null;
 }
 
 function join(
@@ -161,7 +208,7 @@ function join(
     card,
     // Placeholder; `assignCovers` sets the real one once the whole list is in.
     cover: serviceAdvisorsReview,
-    face: card ? heroCards[card].face : null,
+    face: card ? heroCards[card].face : portrait(advisor.image),
     rating: ratings ? (summary?.average ?? 0) : null,
     reviews: summary?.total ?? 0,
     href: liveServiceHref(service.id),

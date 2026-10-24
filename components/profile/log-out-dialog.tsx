@@ -51,11 +51,11 @@ export function LogOutDialog({ cancelHref = "/profile" }: { readonly cancelHref?
           <DestructiveButton
             className="lg:w-auto"
             onClick={() => {
-              signOut();
               // A full load rather than `router.replace`: the gate on this guarded
               // route reacts to the sign-out too, and its soft redirect would add a
-              // `?next=` pointing back at this dialog.
-              window.location.replace("/login");
+              // `?next=` pointing back at this dialog. After the API has dropped
+              // the cookie, not before: leaving cancels the request that drops it.
+              void signOut().then(() => window.location.replace("/login"));
             }}
           >
             {t("confirm")}

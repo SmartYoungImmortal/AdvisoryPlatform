@@ -168,9 +168,12 @@ export const serviceFreelanceCalculator: StaticImageData = {
   height: 600,
 };
 
-/** `assets/services/tax-forms` — 960x600. Unsplash photo-1554224155-cfa08c2a758f. */
-export const serviceTaxForms: StaticImageData = {
-  src: `${R2_BASE}/services/tax-forms.d727eb9a.jpg`,
+/**
+ * `assets/services/tax-review` — 960x600. Unsplash photo-1586486855514. Not the
+ * coffee-and-forms shot: that one is the hero ring's `q2`.
+ */
+export const serviceTaxReview: StaticImageData = {
+  src: `${R2_BASE}/services/tax-review.41ca15a7.jpg`,
   width: 960,
   height: 600,
 };
@@ -203,9 +206,12 @@ export const serviceBusinessBoard: StaticImageData = {
   height: 600,
 };
 
-/** `assets/services/contract-review` — 960x600. Unsplash photo-1450101499163. */
-export const serviceContractReview: StaticImageData = {
-  src: `${R2_BASE}/services/contract-review.aba0eeaf.jpg`,
+/**
+ * `assets/services/contract-meeting` — 960x600. Unsplash photo-1758518730327. Not
+ * the pen-on-paper shot: that one is the hero ring's `q3`.
+ */
+export const serviceContractMeeting: StaticImageData = {
+  src: `${R2_BASE}/services/contract-meeting.1125b345.jpg`,
   width: 960,
   height: 600,
 };
@@ -216,6 +222,50 @@ export const serviceInterviewPractice: StaticImageData = {
   width: 960,
   height: 600,
 };
+
+/*
+ * The second batch, one per service the seed's `MORE_SERVICES` adds. Same source,
+ * licence and crop as above; each chosen so that it repeats neither another
+ * cover nor a hero ring photo.
+ */
+const cover = (file: string): StaticImageData => ({
+  src: `${R2_BASE}/services/${file}`,
+  width: 960,
+  height: 600,
+});
+
+/** Unsplash photo-1759428679273. */
+export const serviceFirstHome = cover("first-home.08893a24.jpg");
+/** Unsplash photo-1589758438368. */
+export const serviceCreditCard = cover("credit-card.f91bfee4.jpg");
+/** Unsplash photo-1634757439914. */
+export const serviceRefinance = cover("refinance.5cd00f94.jpg");
+/** Unsplash photo-1635859890085. */
+export const serviceLoanPapers = cover("loan-papers.da51032f.jpg");
+/** Unsplash photo-1522708323590. */
+export const serviceCondoRoom = cover("condo-room.c82c3d48.jpg");
+/** Unsplash photo-1672380135241. */
+export const serviceFreelanceDeal = cover("freelance-deal.afdaa8a2.jpg");
+/** Unsplash photo-1551836022. */
+export const servicePayStructure = cover("pay-structure.ed33546f.jpg");
+/** Unsplash photo-1686771416537. */
+export const serviceHiringTable = cover("hiring-table.fe7bf719.jpg");
+/** Unsplash photo-1544396821. */
+export const serviceYearEndBinders = cover("year-end-binders.f80e841b.jpg");
+/** Unsplash photo-1529078155058. */
+export const serviceExcelNumbers = cover("excel-numbers.e5529469.jpg");
+/** Unsplash photo-1790749871388. */
+export const serviceFreelanceRate = cover("freelance-rate.8026fa4b.jpg");
+/** Unsplash photo-1595246135406. */
+export const serviceShopParcel = cover("shop-parcel.9e07a997.jpg");
+/** Unsplash photo-1611926653458. */
+export const serviceSocialAds = cover("social-ads.6acd9b9d.jpg");
+/** Unsplash photo-1571907483086. */
+export const servicePriceTags = cover("price-tags.898bc6ee.jpg");
+/** Unsplash photo-1609921212029. */
+export const serviceTechPortfolio = cover("tech-portfolio.e8bb9a7f.jpg");
+/** Unsplash photo-1698047681432. */
+export const serviceResumeRead = cover("resume-read.4df77d7a.jpg");
 
 /** `assets/onboarding/thai-national-id` — 700x466. */
 export const thaiNationalId: StaticImageData = {
