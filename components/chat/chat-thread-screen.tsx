@@ -45,6 +45,7 @@ import {
   useReadMarks,
   useRoomLiveMessages,
   useRoomSubscriptions,
+  type PendingSend,
   type SendFailure,
 } from "@/components/chat/chat-live";
 import {
@@ -470,6 +471,74 @@ function useUploads(roomId: string) {
 }
 
 /**
+ * What sits under the history, mine and not yet in it: the failed-line frame,
+ * lines on their way (or that did not go), and files going up.
+ */
+function ThreadTail({
+  roomId,
+  failedLine,
+  onDismissFailed,
+  onRetryFailed,
+  pending,
+  failureText,
+  outgoing,
+  onDismissUpload,
+  onRetryUpload,
+}: {
+  readonly roomId: string;
+  readonly failedLine: boolean;
+  readonly onDismissFailed: () => void;
+  readonly onRetryFailed: () => void;
+  readonly pending: readonly PendingSend[];
+  readonly failureText: (failure: SendFailure | null) => string | null;
+  readonly outgoing: readonly Outgoing[];
+  readonly onDismissUpload: (key: number) => void;
+  readonly onRetryUpload: (item: Outgoing) => void;
+}) {
+  const t = useTranslations("chat");
+  return (
+    <>
+      {failedLine ? (
+        <div className="pt-4">
+          <PendingTextBubble
+            onDismiss={onDismissFailed}
+            onRetry={onRetryFailed}
+            status="failed"
+            text={t("thread.failedText")}
+          />
+        </div>
+      ) : null}
+
+      {pending.map((item) => (
+        <div className="pt-4" key={item.key}>
+          <PendingTextBubble
+            onDismiss={() => dismissChatMessage(roomId, item.key)}
+            onRetry={() => retryChatMessage(roomId, item.key)}
+            reason={failureText(item.failure)}
+            status={item.status}
+            text={item.text}
+          />
+        </div>
+      ))}
+
+      {outgoing.map((item) => (
+        <div className="pt-4" key={item.key}>
+          <OutgoingBubble
+            image={item.file.type.startsWith("image/")}
+            meta={fileSize(item.file.size)}
+            name={item.file.name}
+            onDismiss={() => onDismissUpload(item.key)}
+            onRetry={() => onRetryUpload(item)}
+            reason={item.reason}
+            status={item.status}
+          />
+        </div>
+      ))}
+    </>
+  );
+}
+
+/**
  * The read marker, written once per (room, newest line), only while `due`:
  * something here is unread and the page is in front of the reader, so a line
  * that arrives as they read is read and one that arrives in a background tab
@@ -504,7 +573,6 @@ function ThreadPane({ roomId, state }: { readonly roomId: string; readonly state
   const pending = usePendingSends(roomId);
   const sent = useSentFiles(roomId);
   const [detailsOpen, setDetailsOpen] = useState(false);
-  const desktop = useDesktop();
   const [draft, setDraft] = useState("");
   const log = useRef<HTMLDivElement>(null);
   useRoomSubscriptions([roomId]);
@@ -573,8 +641,9 @@ function ThreadPane({ roomId, state }: { readonly roomId: string; readonly state
       <div className="flex flex-col pb-2">
         {/* With the whole history here, the top of it is the start of the
             conversation, and says so; otherwise it is the way further back. */}
-        {complete ? <ThreadIntro counterpart={counterpart} openedAt={room?.createdAt} /> : null}
-        {complete ? null : (
+        {complete ? (
+          <ThreadIntro counterpart={counterpart} openedAt={room?.createdAt} />
+        ) : (
           <LoadEarlier busy={earlier.busy} failed={earlier.failed} onLoad={() => void loadEarlier()} />
         )}
         {days.map((day) => (
@@ -585,46 +654,20 @@ function ThreadPane({ roomId, state }: { readonly roomId: string; readonly state
             ))}
           </Fragment>
         ))}
-
-        {failedLine ? (
-          <div className="pt-4">
-            <PendingTextBubble
-              onDismiss={() => setFailedLine(false)}
-              onRetry={() => {
-                setDraft(t("thread.failedText"));
-                setFailedLine(false);
-              }}
-              status="failed"
-              text={t("thread.failedText")}
-            />
-          </div>
-        ) : null}
-
-        {pending.map((item) => (
-          <div className="pt-4" key={item.key}>
-            <PendingTextBubble
-              onDismiss={() => dismissChatMessage(roomId, item.key)}
-              onRetry={() => retryChatMessage(roomId, item.key)}
-              reason={failureText(item.failure)}
-              status={item.status}
-              text={item.text}
-            />
-          </div>
-        ))}
-
-        {outgoing.map((item) => (
-          <div className="pt-4" key={item.key}>
-            <OutgoingBubble
-              image={item.file.type.startsWith("image/")}
-              meta={fileSize(item.file.size)}
-              name={item.file.name}
-              onDismiss={() => dismissUpload(item.key)}
-              onRetry={() => void send(item.file, item.key)}
-              reason={item.reason}
-              status={item.status}
-            />
-          </div>
-        ))}
+        <ThreadTail
+          failedLine={failedLine}
+          failureText={failureText}
+          onDismissFailed={() => setFailedLine(false)}
+          onDismissUpload={dismissUpload}
+          onRetryFailed={() => {
+            setDraft(t("thread.failedText"));
+            setFailedLine(false);
+          }}
+          onRetryUpload={(item) => void send(item.file, item.key)}
+          outgoing={outgoing}
+          pending={pending}
+          roomId={roomId}
+        />
       </div>
     );
   }
@@ -676,8 +719,32 @@ function ThreadPane({ roomId, state }: { readonly roomId: string; readonly state
         />
       </section>
 
-      {/* Closed until asked for: the conversation has the room. */}
-      {detailsOpen && desktop ? (
+      <ThreadDetailsPanel details={details} naming={naming} onOpenChange={setDetailsOpen} open={detailsOpen} />
+    </>
+  );
+}
+
+/**
+ * The details beside the thread: a column on a desktop, a sheet on a phone,
+ * closed until asked for (the conversation has the room); a skeleton while
+ * the person is still being named.
+ */
+function ThreadDetailsPanel({
+  open,
+  onOpenChange,
+  naming,
+  details,
+}: {
+  readonly open: boolean;
+  readonly onOpenChange: (open: boolean) => void;
+  readonly naming: boolean;
+  readonly details: ReactNode;
+}) {
+  const t = useTranslations("chat");
+  const desktop = useDesktop();
+  return (
+    <>
+      {open && desktop ? (
         <aside
           aria-label={t("details")}
           className="flex w-80 shrink-0 flex-col overflow-y-auto overscroll-contain border-l border-border px-5 py-8"
@@ -687,7 +754,7 @@ function ThreadPane({ roomId, state }: { readonly roomId: string; readonly state
         </aside>
       ) : null}
 
-      <DetailsSheet onOpenChange={setDetailsOpen} open={detailsOpen && !desktop}>
+      <DetailsSheet onOpenChange={onOpenChange} open={open && !desktop}>
         {details}
       </DetailsSheet>
     </>
