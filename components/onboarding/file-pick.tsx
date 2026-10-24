@@ -7,9 +7,8 @@ import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 
 /**
- * A button that opens the device's file picker. The prototype keeps only the
- * chosen file's name — there is nowhere to upload to yet — which is enough for
- * the application to carry a document the console can list.
+ * A button that opens the device's file picker and hands back the chosen file,
+ * which the onboarding stages hold until the application is sent.
  */
 export function FilePickButton({
   accept,
@@ -18,7 +17,7 @@ export function FilePickButton({
   children,
 }: {
   readonly accept: string;
-  readonly onPick: (fileName: string) => void;
+  readonly onPick: (file: File) => void;
   readonly className?: string;
   readonly children: ReactNode;
 }) {
@@ -31,7 +30,7 @@ export function FilePickButton({
         className="sr-only"
         onChange={(event) => {
           const file = event.target.files?.[0];
-          if (file) onPick(file.name);
+          if (file) onPick(file);
           event.target.value = "";
         }}
         ref={input}

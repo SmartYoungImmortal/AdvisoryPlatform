@@ -4,8 +4,12 @@ import { Check, CircleAlert, CircleCheckBig, Hourglass } from "lucide-react";
 import { useTranslations } from "next-intl";
 
 import { NeutralButton, PrimaryButton } from "@/components/mobile/buttons";
+import {
+  getOwnIdentityVerification,
+  type ApiOwnIdentityVerification,
+} from "@/lib/api/onboarding";
+import { useResource } from "@/lib/api/use-resource";
 import { formatDate } from "@/lib/mock-db/format";
-import { useDatabase } from "@/lib/mock-db/store";
 import { advisorLevelTitles } from "@/lib/mock-db/types";
 import { useSession } from "@/lib/session";
 import {
@@ -37,13 +41,32 @@ const STATUS_CARD =
 const STATUS_ACTIONS = "lg:mx-auto lg:w-[360px] lg:px-0 lg:pt-8 lg:pb-0";
 const STATUS_BUTTON = "lg:h-11";
 
-/** The signed-in account's most recent advisor application. */
-function useLatestApplication() {
-  const session = useSession();
-  const accountId = session.status === "authenticated" ? session.account.id : null;
-  return useDatabase((db) =>
-    accountId ? db.identityRequests.find((r) => r.accountId === accountId) : undefined,
+/**
+ * The review of the signed-in account's ID card
+ * (`GET /advisors/me/identity-verification`), which is what decides the
+ * outcome; `null` before one has been sent.
+ */
+function useLatestApplication(): ApiOwnIdentityVerification | null {
+  return (
+    useResource<ApiOwnIdentityVerification | null>(
+      "advisors/me/identity-verification",
+      getOwnIdentityVerification,
+    ).data ?? null
   );
+}
+
+/** Where the review stands, or `null` with nothing on file. */
+function outcomeOf(application: ApiOwnIdentityVerification | null) {
+  switch (application?.verificationStatus) {
+    case "SUBMITTED":
+      return "pending";
+    case "REJECTED":
+      return "failed";
+    case "VERIFIED":
+      return "approved";
+    default:
+      return null;
+  }
 }
 
 /** Figma "Thank You (Light)" — 995:6579. */
@@ -72,7 +95,7 @@ export function OnboardingThankYouScreen() {
             title={t("thanksTitle")}
           />
           <p className="w-full px-6 pt-3 text-center text-xs font-normal text-muted-foreground lg:px-0">
-            {application
+            {application?.submittedAt
               ? t("thanksMetaAt", { date: formatDate(application.submittedAt) })
               : t("thanksMeta")}
           </p>
@@ -109,13 +132,7 @@ export function VerificationStatusScreen({
   const c = useTranslations("common");
   const session = useSession();
   const application = useLatestApplication();
-  const outcome = application
-    ? application.status === "submitted"
-      ? "pending"
-      : application.status === "rejected"
-        ? "failed"
-        : "approved"
-    : state;
+  const outcome = outcomeOf(application) ?? state;
   const failed = outcome === "failed";
 
   if (outcome === "approved") {
@@ -258,7 +275,7 @@ export function VerificationStatusScreen({
                   {t("reviewerNote")}
                 </p>
                 <p className="w-full text-sm font-normal text-foreground">
-                  {application?.decision?.note ?? t("reviewerReason")}
+                  {application?.rejectionReason ?? t("reviewerReason")}
                 </p>
               </div>
             </Surface>

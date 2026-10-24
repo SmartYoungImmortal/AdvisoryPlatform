@@ -44,7 +44,7 @@ const LEGAL_TAGS = {
     </Link>
   ),
   privacy: (chunks: ReactNode) => (
-    <Link className={AUTH_LINK} href="/pdpa">
+    <Link className={AUTH_LINK} href="/privacy-policy">
       {chunks}
     </Link>
   ),

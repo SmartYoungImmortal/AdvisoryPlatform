@@ -1,5 +1,5 @@
-import { SearchResultsScreen } from "@/components/home/search-results-screen";
+import { SearchScreen } from "@/components/search/search-screen";
 
 export default function SearchNoResultsPage() {
-  return <SearchResultsScreen state="no-results" />;
+  return <SearchScreen state="no-results" />;
 }

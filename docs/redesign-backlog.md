@@ -20,7 +20,7 @@
 - [x] `/` home: hero วงการ์ด ช่องค้นหา ย่อขยายตามจอ 1710
 - [x] `/login`, `/login/wrong-password`, `/login/account-locked`
 - [x] `/register`, `/register/email-in-use`, `/register/validation-errors`
-- [x] `/terms`, `/pdpa`
+- [x] `/terms`, `/privacy-policy`
 - [x] `/forgot-password`, `/reset-sent`
 - [x] ของที่ใช้ร่วมกัน: navbar, เมนูมือถือ, ปุ่ม TH/EN
 
@@ -48,9 +48,9 @@
 หน้าที่ลูกค้าใช้ตัดสินใจจอง ควรมี: รูป ชื่อ badge ยืนยันตัวตนที่บอกชัดว่าตรวจอะไร คะแนน เวลาตอบ ราคาเริ่มต้น ปุ่มจองติดตลอด เวลาว่างถัดไป บริการ คุณวุฒิ รีวิว
 
 ### RD-03 · ค้นหาและบริการ
-- [ ] `/search`
+- [ ] `/search` — ทำรอบแรกแล้ว ยังไม่ผ่าน (ข้อมูลจริงจาก API, ตัด gradient แล้ว, รูปปกไม่ซ้ำกัน)
 - [ ] `/search/browse`
-- [ ] `/search/no-results`
+- [ ] `/search/no-results` — ใช้หน้าเดียวกับ `/search` แล้ว
 - [ ] `/service/[id]`
 - [ ] `/matching`, `/matching/searching`, `/matching/results`, `/matching/results/no-results`
 
@@ -108,8 +108,8 @@
 
 ### RD-13 · หน้า auth ที่เหลือ (เร็ว ใช้ `AuthSplit` ได้เลย)
 - [ ] `/reset-password`
-- [ ] `/verification-sent`
-- [ ] `/email-verified`
+- [ ] `/verification-sent`: ทำแล้วบน `AuthSplit` รอพี่ดู (อีเมลยังไม่ถูกส่งจริง เพราะ API ยังไม่มีบริการส่งเมล)
+- [ ] `/email-verified`: ทำแล้วบน `AuthSplit` รอพี่ดู
 
 ### RD-14 · หน้าการตลาด
 - [ ] `/about`
@@ -138,7 +138,7 @@
 
 - [ ] หน้า home ยังกระตุกนิดหน่อยตอนเลื่อน
 - [ ] Google / Facebook / Apple login: ต้องสร้าง OAuth client แล้วใส่ `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` ฯลฯ ใน `.env` ของ API (โค้ดทั้งสองฝั่งพร้อมแล้ว)
-- [ ] ให้ทนายไทยตรวจ `/terms` และ `/pdpa` ก่อนเปิดใช้กับลูกค้าจริง
+- [ ] ให้ทนายไทยตรวจ `/terms` และ `/privacy-policy` ก่อนเปิดใช้กับลูกค้าจริง
 - [ ] เปิดแถบ dock แบบ Systronic/mochiice ในหน้าอื่นที่ควรมี (`TopBar dock`)
 - [ ] ปุ่มบน topbar มือถือสองปุ่มสูงแค่ 36px และ 24px (ต่ำกว่า 44px)
 - [ ] เพิ่มลิงก์ "เข้าสู่ระบบ" ข้างปุ่ม Get started บน desktop

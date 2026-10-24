@@ -6,7 +6,7 @@ import { AboutScreen } from "@/components/about/about-screen";
 /**
  * The route group is `(marketing)`, beside `/landing`: both are public pages a
  * guest lands on, and that group's layout is the bare `MobileViewport` with no
- * `AccessGate` in front of it. `/terms` and `/pdpa` sit in `(auth)` for
+ * `AccessGate` in front of it. `/terms` and `/privacy-policy` sit in `(auth)` for
  * historical reasons and pass the gate for nothing; this one does not repeat it.
  *
  * The title and description are the page's own rather than the root layout's

@@ -143,7 +143,30 @@
     "browsePlaceholder": "ค้นหาบริการหรือผู้เชี่ยวชาญ",
     "popularCategories": "หมวดหมู่ยอดนิยม",
     "browseCount": "บริการทั้งหมด {count} รายการ",
-    "browseShowing": "แสดง 1–{count} จาก {count} รายการ"
+    "browseShowing": "แสดง 1–{count} จาก {count} รายการ",
+    "pageTitle": "ค้นหาผู้เชี่ยวชาญ",
+    "pageSubtitle": "เลือกหมวดหมู่ หรือพิมพ์เรื่องที่อยากปรึกษา",
+    "resultsTitle": "ผลการค้นหา “{query}”",
+    "allCategories": "ทั้งหมด",
+    "sortLabel": "เรียงตาม",
+    "sortRecommended": "แนะนำ",
+    "sortPriceLow": "ราคาต่ำไปสูง",
+    "sortPriceHigh": "ราคาสูงไปต่ำ",
+    "sortRating": "คะแนนสูงสุด",
+    "priceAll": "ทุกราคา",
+    "priceUnder": "ไม่เกิน ฿800",
+    "priceMid": "฿800 - 1,500",
+    "priceOver": "มากกว่า ฿1,500",
+    "durationTitle": "ระยะเวลา",
+    "durationAll": "ทั้งหมด",
+    "durationShort": "ไม่เกิน 45 นาที",
+    "durationHour": "1 ชั่วโมง",
+    "durationLong": "มากกว่า 1 ชั่วโมง",
+    "rating48": "4.8 ขึ้นไป",
+    "filtersCount": "ตัวกรอง ({count})",
+    "showResults": "ดูผลลัพธ์ {count} รายการ",
+    "removeFilter": "เอาตัวกรอง {label} ออก",
+    "newListing": "ใหม่"
   },
   "bookings": {
     "title": "การจองของฉัน",
@@ -1378,7 +1401,8 @@
     "verifiedBody": "อีเมลของคุณได้รับการยืนยันเรียบร้อยแล้ว",
     "expiredTitle": "ลิงก์ยืนยันใช้ไม่ได้",
     "expiredBody": "ลิงก์นี้หมดอายุหรือไม่ถูกต้อง ขอรับลิงก์ยืนยันใหม่ได้",
-    "resendLink": "ขอลิงก์ยืนยันใหม่"
+    "resendLink": "ขอลิงก์ยืนยันใหม่",
+    "spamHint": "ไม่เห็นอีเมล? ลองดูในโฟลเดอร์สแปมหรือจดหมายขยะ แล้วกดส่งอีกครั้งได้"
   },
   "pdpa": {
     "title": "Privacy Policy",
@@ -1936,7 +1960,14 @@
     "approvedSubtitle": "คุณเป็นผู้ให้คำปรึกษาระดับ {level} · {title} แล้ว เริ่มสร้างบริการแรกได้เลย",
     "approvedSubtitleShort": "คุณเป็นผู้ให้คำปรึกษาแล้ว เริ่มสร้างบริการแรกได้เลย",
     "createService": "สร้างบริการแรก",
-    "goToWork": "ไปที่งานของฉัน"
+    "goToWork": "ไปที่งานของฉัน",
+    "submitting": "กำลังส่ง…",
+    "submitFailedTitle": "ส่งใบสมัครไม่สำเร็จ",
+    "unknownSkillTitle": "เลือกทักษะจากรายการ",
+    "unknownSkillBody": "ทักษะ \"{skill}\" ไม่อยู่ในรายการของเรา พิมพ์แล้วเลือกจากรายการที่ขึ้นมา",
+    "idMissingTitle": "ต้องแนบบัตรประชาชนอีกครั้ง",
+    "idMissingBody": "ไฟล์บัตรประชาชนหายไปหลังรีเฟรชหน้า กลับไปขั้นที่ 2 แล้วแนบใหม่",
+    "backToStage2": "กลับไปขั้นที่ 2"
   },
   "advisor": {
     "name": "Sarah Jenskins",

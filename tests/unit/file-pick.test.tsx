@@ -3,7 +3,7 @@ import { describe, expect, it, vi } from "vitest";
 import { FilePickButton } from "@/components/onboarding/file-pick";
 
 describe("FilePickButton", () => {
-  it("opens the matching file picker and reports only the selected file name", () => {
+  it("opens the matching file picker and hands back the selected file", () => {
     const onPick = vi.fn();
     const { container } = render(
       <FilePickButton accept="image/*" onPick={onPick}>Choose file</FilePickButton>,
@@ -18,7 +18,7 @@ describe("FilePickButton", () => {
     const file = new File(["proof"], "license.png", { type: "image/png" });
     fireEvent.change(input!, { target: { files: [file] } });
     expect(onPick).toHaveBeenCalledOnce();
-    expect(onPick).toHaveBeenCalledWith("license.png");
+    expect(onPick).toHaveBeenCalledWith(file);
     expect(input!.value).toBe("");
   });
 });

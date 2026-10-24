@@ -234,8 +234,7 @@ type Row = {
 export function ProfileScreen({
   overlay,
 }: {
-  /** Kept for the log-out route, which renders this page under its dialog. */
-  readonly variant?: "view" | "logout";
+  /** The log-out route renders this page under its dialog. */
   readonly overlay?: ReactNode;
 }) {
   const t = useTranslations("profile");
