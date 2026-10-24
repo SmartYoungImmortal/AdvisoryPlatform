@@ -289,7 +289,9 @@ export function HeroSearch({
         // the cards float on.
         groupClassName={
           variant === "page"
-            ? "h-12 rounded-full border-border bg-card pr-1.5 pl-4 shadow-card"
+            ? // 16px on the right where there is no submit pill (below `md`),
+              // so the field's clear cross sits off the curve rather than on it.
+              "h-11 rounded-full border-border bg-card pr-4 pl-4 shadow-card md:h-12 md:pr-1.5"
             : "shadow-panel lg:h-12 lg:rounded-full lg:border-transparent lg:pl-4 lg:pr-1.5 lg:shadow-hero"
         }
         inputClassName={variant === "page" ? "text-base md:text-sm" : "lg:text-sm"}
@@ -486,6 +488,8 @@ export function HeroSearch({
                     </button>,
                   )
                 : null}
+              {/* A page that already shows its categories passes none. */}
+              {categories.length > 0 ? (
               <div className="flex flex-col gap-2 px-3 py-2">
                 <span className="text-xs font-medium text-muted-foreground">
                   {t("suggestPopular")}
@@ -517,6 +521,7 @@ export function HeroSearch({
                   ))}
                 </ul>
               </div>
+              ) : null}
               {group(
                 t("suggestQuestions"),
                 questions.map((x) =>

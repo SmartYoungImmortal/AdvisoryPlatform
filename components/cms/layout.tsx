@@ -393,10 +393,10 @@ function UserMenu() {
           <DropdownMenuItem
             className="rounded-md p-1.5"
             onClick={() => {
-              signOut();
               // A full load: the console gate reacts to the sign-out as well, and
               // its soft redirect would carry a `?next=` back into the console.
-              window.location.replace("/admin/login");
+              // After the API has dropped the cookie: leaving cancels that request.
+              void signOut().then(() => window.location.replace("/admin/login"));
             }}
             variant="destructive"
           >
