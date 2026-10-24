@@ -54,9 +54,8 @@ function useSmoothScroll(ref: React.RefObject<HTMLDivElement | null>) {
         // In-page links glide too, clear of the bar floating over the top.
         anchors: { offset: -96 },
         // How much of the remaining distance each frame covers: lower glides
-        // longer. Tried 0.09 → 0.16 while the navbar's docking was stalling the
-        // scroll; with that fixed, the longer glide is the one that felt right.
-        lerp: 0.08,
+        // longer. 0.08 felt sluggish; 0.12 keeps the glide but keeps up.
+        lerp: 0.12,
       });
       lenis = instance;
       instance.on("scroll", ScrollTrigger.update);
