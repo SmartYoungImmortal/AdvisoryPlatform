@@ -108,6 +108,10 @@ export function AccountBackBar({
  *
  * `TopBar` is a client component that observes `ScreenBody`; wrapping rather
  * than hiding it from the inside keeps that wiring intact and out of the phone
- * layout.
+ * layout. `contents`, not `block`: a block exactly as tall as the bar became
+ * the sticky bar's containing block, so the bar scrolled away with it.
+ *
+ * The settings pages no longer use it: they sit in the app frame
+ * (`AppFrame`), which has no top bar on a desktop at all.
  */
-export const ACCOUNT_NAV = "hidden w-full lg:block";
+export const ACCOUNT_NAV = "hidden lg:contents";

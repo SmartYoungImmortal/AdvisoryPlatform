@@ -104,7 +104,7 @@ export function SiteFooter({ className }: { readonly className?: string }) {
   const menu = [
     { label: t("footerHome"), href: "/" },
     { label: t("footerSearch"), href: "/search" },
-    { label: t("footerCategories"), href: "/search/browse" },
+    { label: t("footerCategories"), href: "/search" },
     { label: t("footerHowItWorks"), href: "/landing#how-it-works" },
     { label: t("footerAbout"), href: "/landing#about" },
   ];

@@ -26,7 +26,7 @@ gsap.registerPlugin(useGSAP, ScrollTrigger);
  * The geometry and both animations live in `.hero-ring` / `.hero-card` in
  * `app/globals.css`; all this file sets is each card's angle.
  *
- * The card is fastwork's: a photograph of the work, the person's portrait laid
+ * The card: a photograph of the work, the person's portrait laid
  * over its bottom edge, and their name over what they do and where. Each card
  * is a real search for its topic.
  */
@@ -201,8 +201,7 @@ export function HeroShapes({ className }: { readonly className?: string }) {
             <Link
               aria-label={`${name}, ${role}`}
               className={cn(
-                // fastwork's `orbit-card`, to the pixel where Thai allows: 208
-                // wide, 12px corners, a cool hairline and a 2px shadow. The
+                // 208 wide, 12px corners, a cool hairline and a 2px shadow. The
                 // photograph is the card; the type under it is small on purpose.
                 // The link is the still hit area; the face inside it is what
                 // grows on hover (see `.hero-card-face`).

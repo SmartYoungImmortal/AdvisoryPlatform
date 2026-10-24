@@ -2,8 +2,10 @@
 
 import Image from "next/image";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { BadgeCheck, MessageSquare, ShieldCheck, Star } from "lucide-react";
 import { useFormatter, useTranslations } from "next-intl";
+import { Suspense } from "react";
 
 import {
   formatDuration,
@@ -46,9 +48,12 @@ import {
   StepList,
   TopicChip,
 } from "@/components/service/parts";
-import { LiveServiceDetailScreen } from "@/components/service/service-detail-live";
+import {
+  LiveServiceDetailScreen,
+  LiveServiceDetailSkeleton,
+} from "@/components/service/service-detail-live";
 import { ServiceGallery } from "@/components/service/service-gallery";
-import { asUuid, useQueryValue } from "@/components/bookings/booking-flow";
+import { LIVE_SERVICE_PATH, asUuid } from "@/components/bookings/booking-flow";
 import { TopBar } from "@/components/topbar";
 import { PAGE, PAGE_INSET_BLOCKS, SPLIT_WITH_ASIDE } from "@/lib/layout";
 import { cn } from "@/lib/utils";
@@ -260,21 +265,54 @@ function RelatedCard({ service }: { readonly service: Service }) {
  * do next.
  */
 export function ServiceDetailScreen({ serviceId }: { readonly serviceId: string }) {
+  // The query is only known in the browser, so the prerendered HTML is this
+  // fallback. On the slug the live pages hang on it is the live page's
+  // skeleton: as the fixture, a cold load of any live service first painted
+  // this slug's sample service, price and all. Every other slug keeps its
+  // fixture.
+  return (
+    <Suspense
+      fallback={
+        `/service/${serviceId}` === LIVE_SERVICE_PATH ? (
+          <LiveServiceDetailSkeleton />
+        ) : (
+          <FixtureServiceDetail serviceId={serviceId} />
+        )
+      }
+    >
+      <ServiceDetailHandoff serviceId={serviceId} />
+    </Suspense>
+  );
+}
+
+/**
+ * The API keys services on uuid and this route prerenders slugs, so the uuid
+ * arrives as `?serviceId=` on one of those slugs — see
+ * `components/bookings/booking-flow.ts`. A uuid in the path is honoured too,
+ * for the day `generateStaticParams` can produce them. Without one the screen
+ * is exactly what it was: the fixture for this slug.
+ *
+ * `useSearchParams`, not `useQueryValue`: moving from one live service to
+ * another (the advisor's other services, the similar ones) keeps the path and
+ * changes only the query, and Next's router announces that through this hook
+ * alone. Read through `location`, the page kept the service it opened on.
+ * Keyed by the id, so the next service starts from its own clean state.
+ */
+function ServiceDetailHandoff({ serviceId }: { readonly serviceId: string }) {
+  const query = useSearchParams();
+  const live = asUuid(query.get("serviceId")) ?? asUuid(serviceId);
+  if (live) return <LiveServiceDetailScreen key={live} serviceId={live} />;
+  return <FixtureServiceDetail serviceId={serviceId} />;
+}
+
+/** The slug's fixture, unchanged from before the API existed. */
+function FixtureServiceDetail({ serviceId }: { readonly serviceId: string }) {
   const t = useTranslations("service");
   const c = useTranslations("common");
   const format = useFormatter();
 
-  // The API keys services on uuid and this route prerenders slugs, so the uuid
-  // arrives as `?serviceId=` on one of those slugs — see
-  // `components/bookings/booking-flow.ts`. A uuid in the path is honoured too,
-  // for the day `generateStaticParams` can produce them. Without one the screen
-  // is exactly what it was: the fixture for this slug.
-  const live = asUuid(useQueryValue("serviceId")) ?? asUuid(serviceId);
-
   const service = getService(serviceId);
   const advisor = service ? getAdvisor(service.advisorId) : undefined;
-
-  if (live) return <LiveServiceDetailScreen serviceId={live} />;
 
   // A prerendered route can only be reached for an id in `generateStaticParams`,
   // so this is a type guard rather than a state the reader meets. It still gets

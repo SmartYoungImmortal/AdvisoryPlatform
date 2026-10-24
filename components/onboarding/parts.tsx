@@ -1,204 +1,286 @@
-import { CircleCheck } from "lucide-react";
-import type { LucideIcon } from "lucide-react";
-import type { ReactNode } from "react";
+"use client";
 
-import { StatusPill, type StatusTone } from "@/components/mobile/status-pill";
+import { CircleCheck, ImageUp, TriangleAlert, type LucideIcon } from "lucide-react";
+import { useTranslations } from "next-intl";
+import { useState, type ComponentProps, type DragEvent, type ReactNode } from "react";
+
+import { authPill } from "@/components/auth/auth-split";
+import { FilePickButton } from "@/components/onboarding/file-pick";
+import { Field as FieldRoot, FieldDescription, FieldError, FieldLabel } from "@/components/ui/field";
+import { InputGroup, InputGroupAddon, InputGroupInput } from "@/components/ui/input-group";
+import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
 
-/** The three stages, so the track can be drawn as steps rather than a ratio. */
-const STAGES = [1, 2, 3] as const;
+/*
+ * Every size here is the sign-in and sign-up pages' own (`Field outline`,
+ * `authPill`, `AuthHeading`), measured on them: the application sits in the
+ * same frame and should read at the same scale.
+ */
+
+/** The sign-up page's label: grey, 500, 14px on the phone and 16 from the tablet. */
+const LABEL = "gap-1.5 text-sm font-medium text-muted-foreground md:text-base";
 
 /**
- * Figma "Stage Header" — a 354x8 progress track with a proportional fill, the
- * "ขั้นตอนที่ n จาก 3" caption and the 28/40 stage title.
- *
- * The desktop frames keep every part of it and only change the measure and the
- * title's step: Figma "Step Band" (1787:24450) is the same track over the same
- * caption in an 800px column, with the title at 40/60. Callers pass those as
- * `lg:` classes rather than the band being a second component.
- *
- * The track is three segments, not one bar with a 33%/67%/100% fill. A
- * continuous fill says "two thirds of something"; the caption underneath says
- * "ขั้นตอนที่ 2 จาก 3", and the eye should be able to read that count off the
- * track without the caption. The unfilled segments also carry a hairline — on
- * the phone they sit on the page ground, where `bg-muted` alone was a per-cent
- * away from invisible.
- *
- * The segments are decorative: the caption is the accessible statement of where
- * the applicant is, which is why the track is `aria-hidden` rather than a second
- * voice saying the same thing.
+ * The sign-up page's box: 40px, 12px corners, the stronger hairline. 16px type
+ * on the phone, so iOS never zooms into it; the input primitive takes it to 14
+ * from the tablet, as it does on that page.
  */
-export function StageHeader({
-  step,
+const BOX = "h-10 gap-2 rounded-xl border-accented bg-card px-3 shadow-none";
+
+/** The line under a field, and every note of that weight on these screens: 12px. */
+export const NOTE = "text-xs";
+
+/** "(ไม่บังคับ)" after a label, lighter than the label itself. */
+function OptionalMark({ children }: { readonly children?: string }) {
+  return children ? <span className="font-normal text-muted-foreground/80">({children})</span> : null;
+}
+
+/** The line under a field: the error when there is one, otherwise the hint. */
+function Footnote({ id, error, hint }: { readonly id: string; readonly error?: ReactNode; readonly hint?: ReactNode }) {
+  if (error) {
+    return (
+      <FieldError className={NOTE} id={`${id}-error`}>
+        {error}
+      </FieldError>
+    );
+  }
+  if (hint) {
+    return (
+      <FieldDescription className={NOTE} id={`${id}-hint`}>
+        {hint}
+      </FieldDescription>
+    );
+  }
+  return null;
+}
+
+/** Which footnote the control is described by, if any. */
+function describedBy(id: string, error?: ReactNode, hint?: ReactNode): string | undefined {
+  if (error) return `${id}-error`;
+  if (hint) return `${id}-hint`;
+  return undefined;
+}
+
+/**
+ * One answer on the application: label above, box, then the error or the hint
+ * below it. The error replaces the hint rather than stacking under it, and the
+ * box is described by whichever is showing, so a screen reader hears it on
+ * focus.
+ */
+export function ApplicationField({
+  id,
   label,
-  title,
+  hint,
+  error,
+  icon: Icon,
+  optional,
+  latin = false,
   className,
-  subtitle,
+  ...inputProps
 }: {
-  readonly step: 1 | 2 | 3;
-  readonly label: string;
-  readonly title: string;
-  readonly className?: string;
-  /** Figma's stage 3 hangs its intro line under the title, inside the band. */
-  readonly subtitle?: ReactNode;
-}) {
+  readonly id: string;
+  readonly label: ReactNode;
+  readonly hint?: ReactNode;
+  readonly error?: ReactNode;
+  readonly icon?: LucideIcon;
+  /** The word for "optional", when the answer is. */
+  readonly optional?: string;
+  /** Latin-only answers (a phone number, a date) take Geist. */
+  readonly latin?: boolean;
+} & Omit<ComponentProps<"input">, "id">) {
   return (
-    // 88px total: 8 top padding + 8 track + 10 + 18 caption + 4 + 40 title.
-    <div
-      className={cn(
-        "flex w-full shrink-0 flex-col items-start overflow-clip px-6 pt-2",
-        className,
-      )}
-    >
-      <div aria-hidden className="flex w-full shrink-0 items-center gap-1.5">
-        {STAGES.map((stage) => (
-          <span
-            className={cn(
-              "h-2 min-w-px flex-1 rounded-full transition-colors duration-200 motion-reduce:transition-none",
-              stage <= step ? "bg-primary" : "border border-border bg-muted",
-            )}
-            key={stage}
-          />
-        ))}
-      </div>
-      <p className="mt-2.5 w-full text-xs font-normal text-muted-foreground">
+    <FieldRoot className="gap-1.5">
+      <FieldLabel className={LABEL} htmlFor={id}>
         {label}
-      </p>
-      <h1 className="mt-1 w-full text-heading font-semibold text-foreground lg:text-display">
-        {title}
-      </h1>
-      {subtitle ? (
-        <p className="hidden w-full pt-2 text-sm font-normal text-muted-foreground lg:block">
-          {subtitle}
-        </p>
-      ) : null}
+        <OptionalMark>{optional}</OptionalMark>
+      </FieldLabel>
+      <InputGroup className={BOX}>
+        {Icon ? (
+          <InputGroupAddon className="p-0">
+            <Icon aria-hidden className="size-4" />
+          </InputGroupAddon>
+        ) : null}
+        <InputGroupInput
+          aria-describedby={describedBy(id, error, hint)}
+          aria-invalid={error ? true : undefined}
+          className={cn("px-0 text-base", latin && "font-latin", className)}
+          id={id}
+          {...inputProps}
+        />
+      </InputGroup>
+      <Footnote error={error} hint={hint} id={id} />
+    </FieldRoot>
+  );
+}
+
+/** The same answer, as a few lines of prose: it grows with what is typed. */
+export function ApplicationTextarea({
+  id,
+  label,
+  hint,
+  optional,
+  className,
+  ...props
+}: {
+  readonly id: string;
+  readonly label: ReactNode;
+  readonly hint?: ReactNode;
+  readonly optional?: string;
+} & Omit<ComponentProps<"textarea">, "id">) {
+  return (
+    <FieldRoot className="gap-1.5">
+      <FieldLabel className={LABEL} htmlFor={id}>
+        {label}
+        <OptionalMark>{optional}</OptionalMark>
+      </FieldLabel>
+      <Textarea
+        aria-describedby={describedBy(id, undefined, hint)}
+        className={cn(
+          "max-h-56 min-h-24 resize-none rounded-xl border-accented bg-card px-3 py-2 text-base shadow-none",
+          className,
+        )}
+        id={id}
+        {...props}
+      />
+      <Footnote hint={hint} id={id} />
+    </FieldRoot>
+  );
+}
+
+/**
+ * What stopped the stage, above its form, at the sign-up page's banner scale:
+ * the destructive hairline over its tint, a 14px title and a 12px reason, and
+ * `role="alert"` so it is read out the moment it appears.
+ */
+export function NoticeBanner({ title, children }: { readonly title: ReactNode; readonly children: ReactNode }) {
+  return (
+    <div className="flex items-start gap-3 rounded-card border border-destructive/40 bg-destructive/5 px-3.5 py-3" role="alert">
+      <TriangleAlert aria-hidden className="mt-0.5 size-4.5 shrink-0 text-destructive" />
+      <div className="flex min-w-0 flex-col gap-0.5">
+        <p className="text-sm font-medium text-foreground">{title}</p>
+        <div className={cn("text-muted-foreground", NOTE)}>{children}</div>
+      </div>
     </div>
   );
 }
 
-/** Figma upload drop zone — dashed border turns destructive when a file is rejected. */
-export function DropZone({
+/**
+ * The picker's button: the white capsule every secondary action on the site
+ * is, sized to its label, since it sits inside a well or under a preview.
+ */
+export const PICK = cn(authPill(), "w-auto");
+
+/** Whether a drag carries files, rather than text or a link moved about the page. */
+function carriesFiles(event: DragEvent<HTMLElement>): boolean {
+  return Array.from(event.dataTransfer.types).includes("Files");
+}
+
+/**
+ * Where a document goes before it is attached: a dashed well with the file
+ * rule in it and the one button that opens the picker (or the camera, on a
+ * phone). With a mouse a file can also be dropped on it; the well turns the
+ * accent while one is held over it and says so.
+ *
+ * Dropping hands the file to the same `onPick` as the picker, so whatever the
+ * screen checks a picked file for, a dropped one is checked for too: the
+ * picker's `accept` does not reach a drop.
+ */
+export function DocumentDrop({
   icon: Icon,
   title,
-  subtitle,
-  action,
+  rule,
+  accept,
+  pickLabel,
+  onPick,
   invalid = false,
   compact = false,
 }: {
   readonly icon: LucideIcon;
   readonly title: ReactNode;
-  readonly subtitle?: ReactNode;
-  readonly action: ReactNode;
+  /** The file types and size, under the title. */
+  readonly rule: ReactNode;
+  readonly accept: string;
+  readonly pickLabel: ReactNode;
+  readonly onPick: (file: File) => void;
   readonly invalid?: boolean;
+  /** The proof well inside a skill card: one line shorter, a smaller mark. */
   readonly compact?: boolean;
 }) {
+  const t = useTranslations("advisorOnboarding");
+  const [over, setOver] = useState(false);
+
   return (
-    // Figma "Upload Dropzone" is 354 x 218: 28 padding, a 56px glyph, 12 gap,
-    // a 16/24 title, 4 gap, a 12/18 subtitle, 12 gap, then the 36px browse button.
     <div
       className={cn(
-        "flex w-full shrink-0 flex-col items-center justify-center overflow-clip rounded-card border border-dashed bg-card",
-        compact ? "px-4 py-4" : "px-5 py-7",
-        invalid ? "border-destructive" : "border-input",
+        "flex w-full flex-col items-center justify-center rounded-card border border-dashed text-center",
+        compact ? "px-4 py-4" : "px-5 py-6",
+        over && "border-primary bg-accent-surface",
+        !over && invalid && "border-destructive bg-destructive/5",
+        !over && !invalid && "border-accented bg-muted/40",
       )}
+      onDragEnter={(event) => {
+        if (!carriesFiles(event)) return;
+        event.preventDefault();
+        setOver(true);
+      }}
+      onDragLeave={(event) => {
+        // Leaving for a child of the well is not leaving the well.
+        if (!event.currentTarget.contains(event.relatedTarget as Node | null)) setOver(false);
+      }}
+      onDragOver={(event) => {
+        if (!carriesFiles(event)) return;
+        event.preventDefault();
+        event.dataTransfer.dropEffect = "copy";
+      }}
+      onDrop={(event) => {
+        if (!carriesFiles(event)) return;
+        event.preventDefault();
+        setOver(false);
+        const file = event.dataTransfer.files[0];
+        if (file) onPick(file);
+      }}
     >
-      {/* The frame draws a bare 56px glyph, which at that size reads as clip-art
-          dropped on an empty box. It goes in a bead instead — the same shape the
-          empty states and the stat tiles use for a mark — so the zone has one
-          object at its centre rather than a large grey outline. The compact form
-          keeps the inline glyph: it sits in a 3-line box with no room for one. */}
-      {compact ? (
-        <Icon className="size-5 shrink-0 text-muted-foreground" />
-      ) : (
-        <span className="flex size-14 shrink-0 items-center justify-center rounded-full bg-muted">
-          <Icon className="size-7 text-muted-foreground" />
-        </span>
-      )}
-      <p
+      <span
         className={cn(
-          "w-full text-center font-medium text-foreground",
-          compact ? "mt-2 text-sm" : "mt-3 text-base",
+          "flex shrink-0 items-center justify-center rounded-full bg-card shadow-hero-card",
+          compact ? "size-9" : "size-11",
         )}
       >
-        {title}
+        <Icon
+          aria-hidden
+          className={cn(compact ? "size-4.5" : "size-5", invalid && !over ? "text-destructive" : "text-muted-foreground")}
+        />
+      </span>
+      <p className={cn("text-sm font-medium text-foreground", compact ? "mt-2" : "mt-2.5 md:text-base")}>
+        {over ? t("dropRelease") : title}
       </p>
-      {subtitle ? (
-        <p className="mt-1 w-full text-center text-xs font-normal text-muted-foreground">
-          {subtitle}
-        </p>
-      ) : null}
-      {action}
+      <p className={cn("mt-0.5 text-muted-foreground", NOTE)}>{rule}</p>
+      <FilePickButton accept={accept} className={cn(PICK, "mt-3")} onPick={onPick}>
+        <ImageUp aria-hidden />
+        {pickLabel}
+      </FilePickButton>
+      {/* A drop needs a pointer that can drag; on touch there is nothing to drop. */}
+      <p className={cn("mt-2 hidden text-muted-foreground pointer-fine:block", NOTE)}>{t("dropHint")}</p>
     </div>
   );
 }
 
-/** Figma guidance list — a 14px circle-check beside a 14/20 line. */
+/** A guidance line: a check in the success ink beside the sentence. */
 export function CheckLine({ children }: { readonly children: ReactNode }) {
   return (
-    <div className="flex w-full shrink-0 items-start gap-2 overflow-clip">
-      <CircleCheck className="mt-[3px] size-3.5 shrink-0 text-muted-foreground" />
-      <p className="min-w-px flex-1 text-sm font-normal text-foreground">
-        {children}
-      </p>
-    </div>
+    <li className="flex w-full items-start gap-2">
+      <CircleCheck aria-hidden className="mt-0.5 size-4 shrink-0 text-success" />
+      <span className="min-w-px flex-1 text-sm text-foreground">{children}</span>
+    </li>
   );
 }
 
-/**
- * Figma "Next Row" — the uploaded state lists next steps with a 4px bullet dot
- * (not the circle-check used by the photo-guidance list), label inset 12px.
- */
-export function BulletLine({ children }: { readonly children: ReactNode }) {
-  return (
-    <div className="flex h-5 w-full shrink-0 items-start gap-2 overflow-clip">
-      <span className="mt-[7px] size-1 shrink-0 rounded-full bg-muted-foreground" />
-      <p className="min-w-px flex-1 text-sm font-normal text-foreground">
-        {children}
-      </p>
-    </div>
-  );
-}
-
-/** The step's own ink, and the pill its status is said in. */
-const STEP_TONES = {
-  muted: { ink: "text-muted-foreground", pill: "neutral" },
-  primary: { ink: "text-primary", pill: "info" },
-  destructive: { ink: "text-destructive", pill: "danger" },
-  success: { ink: "text-success", pill: "success" },
-} as const satisfies Record<string, { ink: string; pill: StatusTone }>;
-
-/**
- * Figma verification step — glyph, label, right-aligned status.
- *
- * The status was 12px text tinted with the same class as the glyph, which meant
- * "อนุมัติแล้ว" and "ต้องแก้ไข" were told apart by a hue of grey-versus-red at the
- * smallest size on the screen. It is a `StatusPill` now: the outcome of each
- * step is the one thing an applicant is on this screen to read.
- *
- * The row also stops being 20px tall. It was a bare line in a `gap-3` stack, so
- * the list had no rows to speak of; it carries its own 14/12 inset and the list
- * around it draws the hairlines.
- */
-export function StepRow({
-  icon: Icon,
-  label,
-  status,
-  tone = "muted",
-}: {
-  readonly icon: LucideIcon;
-  readonly label: string;
-  readonly status: string;
-  readonly tone?: keyof typeof STEP_TONES;
-}) {
-  const { ink, pill } = STEP_TONES[tone];
-
-  return (
-    <div className="flex w-full shrink-0 items-center gap-2.5 px-3.5 py-3">
-      <Icon className={cn("size-4.5 shrink-0", ink)} />
-      <span className="min-w-px flex-1 text-sm font-medium text-foreground">
-        {label}
-      </span>
-      <StatusPill tone={pill}>{status}</StatusPill>
-    </div>
-  );
+/** "JPG · 2.4 MB": what a picked file is, the line under its name. */
+export function describeFile(file: File): string {
+  const extension = /\.([a-z0-9]+)$/i.exec(file.name)?.[1]?.toUpperCase();
+  const size =
+    file.size >= 1024 * 1024
+      ? `${(file.size / (1024 * 1024)).toFixed(1)} MB`
+      : `${Math.max(1, Math.round(file.size / 1024))} KB`;
+  return extension ? `${extension} · ${size}` : size;
 }

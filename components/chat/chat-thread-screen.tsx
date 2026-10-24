@@ -1,389 +1,680 @@
 "use client";
 
-import { useTranslations } from "next-intl";
-import { useCallback, useEffect, useRef } from "react";
+import Link from "next/link";
+import { useSearchParams } from "next/navigation";
+import { ChevronLeft, LoaderCircle, MessageCircleOff, MessagesSquare } from "lucide-react";
+import { useFormatter, useTimeZone, useTranslations } from "next-intl";
+import { Fragment, Suspense, useEffect, useRef, useState, type ReactNode } from "react";
 
-import { CHAT_PANE, ChatFooter, ChatHeader } from "@/components/chat/chat-chrome";
+import { authPill } from "@/components/auth/auth-split";
+import { liveAdvisorHref, useMountTime } from "@/components/bookings/booking-flow";
+import { Button } from "@/components/ui/button";
+import { PersonAvatar } from "@/components/chat/chat-avatar";
+import { ChatError, ChatFrame, Composer, counterpartName, ThreadHeader } from "@/components/chat/chat-chrome";
 import {
+  chatReportHref,
   isChatRoomId,
-  listChatFiles,
   listChatMessages,
-  markChatRead,
-  pendingCopy,
-  type ApiChatFile,
+  MAX_CHAT_FILE_BYTES,
+  uploadChatFile,
   type ApiChatMessage,
 } from "@/components/chat/chat-data";
-import type { CursorPage } from "@/lib/api/client";
-import { ChatList } from "@/components/chat/chat-inbox-screen";
+import { DetailsSheet, ThreadDetails } from "@/components/chat/chat-details";
+import {
+  counterpartFor,
+  newestRoomId,
+  noteFileSent,
+  roomWith,
+  useChatPeople,
+  useClock,
+  useDesktop,
+  useInbox,
+  useRoomTimeline,
+  useSentFiles,
+} from "@/components/chat/chat-hooks";
+import { CHAT_LIST_PANE, ChatList } from "@/components/chat/chat-inbox-screen";
+import {
+  dismissChatMessage,
+  markRoomRead,
+  retryChatMessage,
+  sendChatMessage,
+  useDocumentVisible,
+  usePendingSends,
+  useReadMarks,
+  useRoomLiveMessages,
+  useRoomSubscriptions,
+  type SendFailure,
+} from "@/components/chat/chat-live";
+import {
+  dayKey,
+  daysBetween,
+  findOffPlatform,
+  groupThread,
+  mergeMessages,
+  newestOf,
+  NO_COUNTERPART,
+  toTimeline,
+  type Counterpart,
+  type SenderRun,
+} from "@/components/chat/chat-logic";
 import {
   DayDivider,
-  FileBody,
-  MyMessage,
-  MyText,
-  PartnerMessage,
-  PartnerText,
+  FileBubble,
+  fileSize,
+  OffPlatformNotice,
+  OutgoingBubble,
+  PendingTextBubble,
+  TextBubble,
+  ThreadSkeleton,
 } from "@/components/chat/messages";
-import { NeutralButton } from "@/components/mobile/buttons";
-import { EmptyState } from "@/components/mobile/empty-state";
-import { MobileScreen, ScreenBody } from "@/components/mobile/screen";
-import { surfaceClass } from "@/components/mobile/surface";
-import { getOwnProfile } from "@/lib/api/resources";
-import type { ApiOwnProfile } from "@/lib/api/types";
-import { invalidate, useResource } from "@/lib/api/use-resource";
-import { TopBar } from "@/components/topbar";
 import { cn } from "@/lib/utils";
-import { MessageSquare } from "lucide-react";
 
 /**
- * Figma "Chat" (995:8152), read from the API.
+ * `/chat/room?id=<uuid>`, and the `/message-failed` frame of it.
+ *
+ * ## Where the room comes from
+ *
+ * The uuid rides on the query (`chatHref` in `./chat-data` says why), read
+ * through `useSearchParams` rather than the app's `useQueryValue`: moving
+ * between rooms is a Link to the same path with another `?id=`, which the
+ * router reports and a `popstate` subscription never hears. `?with=<user>`
+ * opens the newest room with that person, for a button that knows the advisor
+ * and not the room. A uuid in the path is honoured too, for the day the export
+ * can prerender them. Anything else (the three prototype slugs) is not one of
+ * your conversations, and the screen says so.
  *
  * ## What it reads
  *
- * Three requests, and each is needed for a different reason.
+ * The room's messages and files (`useRoomTimeline`), interleaved by time, with
+ * whatever has arrived live since (`./chat-live`, merged by id); the inbox, for
+ * the room itself and the list beside it; and the people lookups that name the
+ * other side (`resolveCounterpart`). `GET /users/me` is still the only way to
+ * tell my lines from theirs.
  *
- * `GET /chat/rooms/:id/messages` is the thread. It is keyset-paginated **newest
- * first**, so the page is reversed here to read downwards.
+ * ## What it writes
  *
- * `GET /users/me` is the only way to tell my bubble from theirs.
- * `ChatMessageResponseDto` carries a `senderUserId` and nothing else about the
- * author — no name, no avatar — so "mine" is `senderUserId === me.id` and there
- * is no third possibility to render.
- *
- * `GET /chat/rooms/:id/files` is the attachments. A file is a separate resource
- * from a message: `POST .../files` writes a `chat_files` row and never touches
- * `chat_messages`, so an attachment would be invisible in this thread if it were
- * not read separately and interleaved by `createdAt`.
- *
- * ## What it cannot show
- *
- * No names, so the header says "a conversation" and the partner's bubble takes a
- * glyph rather than a fixture's portrait. No image bubbles either: an image
- * attachment's bytes are behind a presigned URL that has to be fetched per file
- * and expires in five minutes, so every attachment is a file row with a size and
- * an expiry — which is true of a PNG as much as of a PDF.
- *
- * ## A thread id that is not a room
- *
- * `/chat/sarah-jenskins` and the other two ids in `lib/chat/threads.ts` predate
- * the API and are not UUIDs. `ParseUUIDPipe` would answer them with a 400, so
- * they are caught before the request and the screen says the room does not
- * exist — rather than firing a call it knows will fail and reporting the
- * validator's sentence as a chat failure.
- *
- * `generateStaticParams` still emits only those three ids. Under `next dev` any
- * id renders, so a real room UUID works; in the exported build (`output:
- * "export"`) `/chat/<uuid>` has no emitted HTML and 404s. Nothing breaks today —
- * the seed has zero rooms, so the inbox links nowhere — but `lib/chat/threads.ts`
- * has to stop being the source of that list before real rooms are reachable in a
- * deploy.
+ * Lines of text (`chat:send`, drawn at once as sending, then sent or not sent
+ * with a way to try again), the files you attach, and the read marker: once per
+ * newest line, only while the room still counts unread lines and the page is
+ * in front of the reader.
  */
-
-/** A message or a file, on one timeline. */
-type Entry =
-  | { readonly kind: "message"; readonly at: number; readonly message: ApiChatMessage }
-  | { readonly kind: "file"; readonly at: number; readonly file: ApiChatFile };
-
-/** Figma's stamp is `23.53` — a dot, not a colon, and 24-hour. */
-function clock(iso: string): string {
-  const at = new Date(iso);
-  const pad = (n: number) => String(n).padStart(2, "0");
-  return `${pad(at.getHours())}.${pad(at.getMinutes())}`;
-}
-
-/** The local calendar day, so two messages either side of midnight split. */
-function dayKey(iso: string): string {
-  const at = new Date(iso);
-  return `${at.getFullYear()}-${at.getMonth()}-${at.getDate()}`;
-}
-
-/** `kB`/`MB` with no decimals — a file size is a magnitude, not a measurement. */
-function bytes(size: number): string {
-  if (size >= 1024 * 1024) return `${Math.round(size / (1024 * 1024))} MB`;
-  if (size >= 1024) return `${Math.round(size / 1024)} kB`;
-  return `${size} B`;
-}
-
-function shortDateTime(iso: string): string {
-  return `${new Date(iso).toLocaleDateString("th-TH", {
-    day: "numeric",
-    month: "short",
-  })} ${clock(iso)}`;
-}
 
 export function ChatThreadScreen({
   threadId,
   state = "default",
 }: {
-  /** The room id from the route. A UUID for a real room. */
+  /** The route segment: `room`, a prototype slug, or one day a uuid. */
   readonly threadId: string;
-  /** Kept for `/chat/[id]/message-failed`, which is a frame and not a state the API has. */
+  /** `/chat/[id]/message-failed` draws the failed line; the API has no such state. */
   readonly state?: "default" | "message-failed";
 }) {
-  const t = useTranslations("chat");
-  const isRoom = isChatRoomId(threadId);
-
-  // A hook cannot be skipped, so an id that is not a room reads a key of its own
-  // whose fetcher rejects with the reason. That settles the cache entry instead
-  // of leaving a request nothing will ever resolve, and the notice below picks
-  // the wording — this message is the fallback if it ever surfaces raw.
-  const absent = useCallback(
-    () => Promise.reject(new Error(`${threadId} is not a chat room id`)),
-    [threadId],
-  );
-  const messagesFetcher = useCallback(
-    (signal: AbortSignal) => listChatMessages(threadId, { limit: 50 }, signal),
-    [threadId],
-  );
-  const filesFetcher = useCallback(
-    (signal: AbortSignal) => listChatFiles(threadId, { limit: 50 }, signal),
-    [threadId],
-  );
-
-  const messages = useResource<CursorPage<ApiChatMessage>>(
-    isRoom ? `chat/rooms/${threadId}/messages?limit=50` : `chat/absent/${threadId}/messages`,
-    isRoom ? messagesFetcher : absent,
-  );
-  const files = useResource<CursorPage<ApiChatFile>>(
-    isRoom ? `chat/rooms/${threadId}/files?limit=50` : `chat/absent/${threadId}/files`,
-    isRoom ? filesFetcher : absent,
-  );
-  const me = useResource<ApiOwnProfile>("users/me", getOwnProfile);
-
-  const reloadFiles = useCallback(() => {
-    invalidate(`chat/rooms/${threadId}/files`);
-    files.reload();
-  }, [files, threadId]);
-
-  /**
-   * Move this member's read marker to the newest message.
-   *
-   * A write — `PATCH /chat/rooms/:id/read` — and the only thing that clears
-   * `unreadCount` on the inbox row, so reading a thread has to perform it. Fired
-   * once per (room, newest message): the ref is what stops the inbox
-   * invalidation below from re-triggering it in a loop.
-   */
-  const marked = useRef<string | null>(null);
-  const newest = messages.data?.items[0];
-  useEffect(() => {
-    if (!isRoom || !newest) return;
-    const stamp = `${threadId}:${newest.id}`;
-    if (marked.current === stamp) return;
-    marked.current = stamp;
-    markChatRead(threadId, newest.id)
-      .then(() => {
-        // The inbox's unread count is now stale wherever it is mounted.
-        invalidate("chat/rooms?");
-      })
-      .catch(() => {
-        // Failing to mark read is not worth a banner: the thread is on screen
-        // and readable, and the next mount tries again.
-        marked.current = null;
-      });
-  }, [isRoom, newest, threadId]);
-
-  // Oldest first, messages and files on one timeline. `slice()` because the
-  // resource's array is the cache's own.
-  const entries: Entry[] = [
-    ...(messages.data?.items ?? []).map(
-      (message): Entry => ({
-        kind: "message",
-        at: Date.parse(message.createdAt),
-        message,
-      }),
-    ),
-    ...(files.data?.items ?? []).map(
-      (file): Entry => ({ kind: "file", at: Date.parse(file.createdAt), file }),
-    ),
-  ].sort((a, b) => a.at - b.at);
-
-  let body: React.ReactNode;
-  if (!isRoom) {
-    body = (
-      <ThreadNotice
-        body={`${threadId} — ${pendingCopy(t, "notARoomBody", "ไอดีนี้เป็นของต้นแบบก่อนต่อ API ไม่ใช่ห้องแชทจริง")}`}
-        title={pendingCopy(t, "notARoomTitle", "ไม่พบห้องแชทนี้")}
-      />
-    );
-  } else if (messages.loading || me.loading) {
-    body = <ThreadSkeleton />;
-  } else if (messages.error) {
-    body = (
-      <ThreadNotice
-        body={messages.error.message}
-        onRetry={messages.reload}
-        retryLabel={pendingCopy(t, "retry", "ลองอีกครั้ง")}
-        title={pendingCopy(t, "threadLoadFailedTitle", "โหลดข้อความไม่สำเร็จ")}
-      />
-    );
-  } else if (entries.length === 0) {
-    body = (
-      <div className="flex w-full flex-1 flex-col items-center justify-center">
-        <EmptyState
-          body={pendingCopy(
-            t,
-            "threadEmptyBody",
-            "ห้องแชทนี้เปิดแล้ว แต่ยังไม่มีใครส่งข้อความ",
-          )}
-          icon={MessageSquare}
-          title={pendingCopy(t, "threadEmptyTitle", "ยังไม่มีข้อความ")}
-        />
-      </div>
-    );
-  } else {
-    let lastDay = "";
-    body = entries.map((entry) => {
-      const iso = entry.kind === "message" ? entry.message.createdAt : entry.file.createdAt;
-      const day = dayKey(iso);
-      const divider =
-        day === lastDay ? null : (
-          <DayDivider key={`day-${day}`}>
-            {new Date(iso).toLocaleDateString("th-TH", {
-              day: "numeric",
-              month: "short",
-              year: "numeric",
-            })}
-          </DayDivider>
-        );
-      lastDay = day;
-
-      const senderId =
-        entry.kind === "message" ? entry.message.senderUserId : entry.file.senderUserId;
-      const mine = me.data !== undefined && senderId === me.data.id;
-      const key = entry.kind === "message" ? entry.message.id : `file-${entry.file.id}`;
-
-      if (entry.kind === "file") {
-        const meta = [
-          bytes(entry.file.fileSizeBytes),
-          entry.file.expiryDate ? shortDateTime(entry.file.expiryDate) : null,
-        ]
-          .filter(Boolean)
-          .join(" · ");
-        // A file I sent: the accent fill would put muted meta on blue, so the
-        // bubble takes the accent's *surface* token instead — still plainly my
-        // side, still readable.
-        return (
-          <div className="contents" key={key}>
-            {divider}
-            {mine ? (
-              <MyMessage bubbleClassName="gap-2.5 bg-accent-surface" time={clock(iso)}>
-                <FileBody meta={meta} name={entry.file.originalFileName} />
-              </MyMessage>
-            ) : (
-              <PartnerMessage bubbleClassName="items-start gap-2.5" time={clock(iso)}>
-                <FileBody meta={meta} name={entry.file.originalFileName} />
-              </PartnerMessage>
-            )}
-          </div>
-        );
-      }
-
-      return (
-        <div className="contents" key={key}>
-          {divider}
-          {mine ? (
-            <MyMessage time={clock(iso)}>
-              <MyText>{entry.message.message}</MyText>
-            </MyMessage>
-          ) : (
-            <PartnerMessage time={clock(iso)}>
-              <PartnerText>{entry.message.message}</PartnerText>
-            </PartnerMessage>
-          )}
-        </div>
-      );
-    });
-  }
-
-  // The thread frame stacks its blocks with a 16px gap. Figma's desktop chat
-  // (1952:8003) sets the same thread in the right half of a card with the inbox
-  // beside it, under the app's nav — so the phone's full-bleed screen becomes a
-  // pane, and the list it came from stays visible.
   return (
-    <MobileScreen className="gap-4 lg:gap-0" wide>
-      <div className="hidden w-full lg:block">
-        <TopBar unreadNotifications />
-      </div>
-
-      <div className={cn("flex w-full min-h-0 flex-1 flex-col", CHAT_PANE)}>
-        <ChatList
-          activeId={threadId}
-          className="hidden lg:flex lg:h-full lg:w-80 lg:shrink-0 lg:border-e lg:border-border lg:pt-4"
-        />
-
-        <div className="flex w-full min-h-0 flex-1 flex-col">
-          <ChatHeader
-            threadId={threadId}
-            title={pendingCopy(t, "roomLabel", "การสนทนา")}
-          />
-          {/* Figma "Container": 16px side padding, 12px between messages. The
-              ground is stated rather than inherited: inside the desktop pane the
-              card surface would otherwise reach under the bubbles and flatten
-              them. */}
-          <ScreenBody className="items-start gap-3 bg-background px-4 py-3 lg:px-6 lg:py-4">
-            {body}
-          </ScreenBody>
-          {/* `state` only decides which frame the route opens on. It says nothing
-              about whether a send is possible — see `ChatFooter`, which cannot
-              send in any state because the API has no route for it. */}
-          <ChatFooter
-            onUploaded={reloadFiles}
-            roomId={isRoom && state === "default" ? threadId : undefined}
-          />
-        </div>
-      </div>
-    </MobileScreen>
+    <ChatFrame phone="thread">
+      {/* The prerendered page cannot know the query, so it ships the frame's
+          shape and the room fills in on the client. */}
+      <Suspense fallback={<ThreadLayout pane={<PaneSkeleton />} />}>
+        <ThreadRoute slug={threadId} state={state} />
+      </Suspense>
+    </ChatFrame>
   );
 }
 
-/** A thread-shaped skeleton, so the column does not reflow when the page lands. */
-function ThreadSkeleton() {
+/** The list beside whatever the centre holds, from `lg`. */
+function ThreadLayout({ activeId, pane }: { readonly activeId?: string; readonly pane: ReactNode }) {
   return (
     <>
-      <div className="flex w-full shrink-0 items-end gap-2">
-        <div className="size-8 shrink-0 rounded-full bg-muted" />
-        <div className="h-10 w-48 rounded-tl-card rounded-tr-card rounded-br-card bg-muted" />
-      </div>
-      <div className="flex w-full shrink-0 justify-end">
-        <div className="h-10 w-40 rounded-tl-card rounded-tr-card rounded-bl-card bg-muted" />
-      </div>
-      <div className="flex w-full shrink-0 items-end gap-2">
-        <div className="size-8 shrink-0 rounded-full bg-muted" />
-        <div className="h-16 w-56 rounded-tl-card rounded-tr-card rounded-br-card bg-muted" />
-      </div>
+      <ChatList activeId={activeId} banner="off" className={cn("hidden lg:flex", CHAT_LIST_PANE)} />
+      {pane}
     </>
   );
 }
 
 /**
- * What the thread says instead of messages: the API's own sentence, and a retry
- * where retrying is the fix. Same rule as `components/home/browse-list.tsx` — the
- * message is the only thing that separates "no session" from "the container is
- * not running", and the reader needs to know which.
+ * `/chat` on a desktop: the latest conversation open beside the list, as a
+ * messenger opens. Nothing on a phone, where the list is the whole screen and a
+ * thread mounted out of sight would mark its room read.
  */
-function ThreadNotice({
-  title,
-  body,
-  retryLabel,
-  onRetry,
-}: {
-  readonly title: string;
-  readonly body: string;
-  readonly retryLabel?: string;
-  readonly onRetry?: () => void;
-}) {
+export function NewestThread() {
+  const inbox = useInbox();
+  const desktop = useDesktop();
+  if (!desktop) return null;
+  const roomId = newestRoomId(inbox.data);
+  if (roomId === undefined) return <PaneSkeleton />;
+  if (roomId === null) return null;
+  return <ThreadPane key={roomId} roomId={roomId} state="default" />;
+}
+
+function ThreadRoute({ slug, state }: { readonly slug: string; readonly state: "default" | "message-failed" }) {
+  const params = useSearchParams();
+  const inbox = useInbox();
+  const people = useChatPeople();
+
+  const queried = params.get("id");
+  const withUser = params.get("with");
+  const direct = queried && isChatRoomId(queried) ? queried : isChatRoomId(slug) ? slug : null;
+
+  let roomId: string | null | undefined = direct;
+  if (!roomId && withUser && isChatRoomId(withUser)) roomId = roomWith(withUser, inbox, people);
+  // The frame is a picture of a state, so on a prototype slug it borrows your
+  // newest conversation rather than drawing the failure over nothing.
+  else if (!roomId && state === "message-failed") roomId = inbox.error ? null : newestRoomId(inbox.data);
+
+  if (roomId === undefined) return <ThreadLayout pane={<PaneSkeleton />} />;
+
+  if (roomId === null) {
+    const advisorId = withUser && isChatRoomId(withUser) ? withUser : null;
+    return <ThreadLayout pane={<NoRoom advisorId={advisorId} />} />;
+  }
+
   return (
-    <div
-      className={cn(
-        surfaceClass({ tier: "flat" }),
-        "flex w-full shrink-0 flex-col items-start gap-3 p-4",
-      )}
-    >
-      <p className="w-full text-base font-semibold text-foreground">{title}</p>
-      <p className="w-full text-sm font-normal text-muted-foreground">{body}</p>
-      {onRetry && retryLabel ? (
-        <NeutralButton onClick={onRetry} size="sm">
-          {retryLabel}
-        </NeutralButton>
+    <ThreadLayout
+      activeId={roomId}
+      // A new room is a new pane: its uploads, older pages and sheet start clean.
+      pane={<ThreadPane key={roomId} roomId={roomId} state={state} />}
+    />
+  );
+}
+
+/* ------------------------------------------------------------------- panes */
+
+/** The centre's shape while the route is being worked out. */
+function PaneSkeleton() {
+  return (
+    <section className="flex min-h-0 min-w-0 flex-1 flex-col border-border bg-card lg:border-l">
+      <ThreadHeader counterpart={NO_COUNTERPART} loading />
+      <div className="flex min-h-0 flex-1 flex-col justify-end px-4 lg:px-8">
+        <ThreadSkeleton />
+      </div>
+    </section>
+  );
+}
+
+/**
+ * Not one of your conversations: a prototype slug, a broken link, or a person
+ * you have no room with yet. Said plainly, with the way on: for a person, that
+ * a chat opens once a consultation is booked, and their services first, since
+ * booking one is what opens it. No room is opened before a booking.
+ */
+function NoRoom({ advisorId }: { readonly advisorId: string | null }) {
+  const t = useTranslations("chat");
+  const c = useTranslations("common");
+  return (
+    <section className="flex min-h-0 min-w-0 flex-1 flex-col border-border bg-card lg:border-l">
+      {/* Nobody to name, so the phone's bar is only the way back. */}
+      <div className="flex h-16 items-center gap-1 border-b border-border px-1.5 lg:hidden">
+        <Button
+          aria-label={c("back")}
+          className="size-11 rounded-full"
+          nativeButton={false}
+          render={<Link href="/chat" />}
+          size="icon"
+          variant="ghost"
+        >
+          <ChevronLeft className="size-6" />
+        </Button>
+        <span className="text-base font-semibold text-foreground">{t("title")}</span>
+      </div>
+      <div className="flex flex-1 flex-col items-center justify-center gap-5 px-6 py-16 text-center">
+        <span className="flex size-16 items-center justify-center rounded-full bg-muted">
+          <MessageCircleOff aria-hidden className="size-7 text-muted-foreground" />
+        </span>
+        <div className="flex max-w-md flex-col gap-1.5">
+          <h1 className="font-hero text-2xl tracking-tight text-hero-ink lg:text-3xl">
+            {advisorId ? t("noRoomWithTitle") : t("notARoomTitle")}
+          </h1>
+          <p className="text-sm text-muted-foreground lg:text-base">
+            {advisorId ? t("noRoomWithBody") : t("notARoomBody")}
+          </p>
+        </div>
+        <div className="flex flex-wrap justify-center gap-2">
+          {advisorId ? (
+            <>
+              <Button className={cn(authPill(true), "w-auto")} nativeButton={false} render={<Link href={liveAdvisorHref(advisorId)} />}>
+                {t("seeServices")}
+              </Button>
+              <Button className={cn(authPill(), "w-auto")} nativeButton={false} render={<Link href="/chat" />} variant="outline">
+                {t("goToChats")}
+              </Button>
+            </>
+          ) : (
+            <Button className={cn(authPill(true), "w-auto")} nativeButton={false} render={<Link href="/chat" />}>
+              {t("goToChats")}
+            </Button>
+          )}
+        </div>
+      </div>
+    </section>
+  );
+}
+
+/** A file of mine on its way up, or turned down. */
+type Outgoing = {
+  readonly key: number;
+  readonly file: File;
+  readonly status: "sending" | "failed";
+  readonly reason: string | null;
+};
+
+function ThreadPane({ roomId, state }: { readonly roomId: string; readonly state: "default" | "message-failed" }) {
+  const t = useTranslations("chat");
+  const format = useFormatter();
+  const timeZone = useTimeZone() ?? "Asia/Bangkok";
+  const now = useMountTime();
+  const inbox = useInbox();
+  const people = useChatPeople();
+  const readMarks = useReadMarks();
+  const visible = useDocumentVisible();
+  const { messages, files } = useRoomTimeline(roomId);
+  const live = useRoomLiveMessages(roomId);
+  const pending = usePendingSends(roomId);
+  const sent = useSentFiles(roomId);
+  const [detailsOpen, setDetailsOpen] = useState(false);
+  const desktop = useDesktop();
+  const [draft, setDraft] = useState("");
+  const log = useRef<HTMLDivElement>(null);
+  useRoomSubscriptions([roomId]);
+
+  const room = inbox.data?.find((entry) => entry.room.id === roomId)?.room;
+  const me = people.me.data?.id;
+
+  /* ---- older pages ------------------------------------------------------ */
+
+  // The first page is the cached read; anything before it is fetched on asking,
+  // a page at a time on the API's own cursor, and kept here for this room.
+  const [earlier, setEarlier] = useState<{
+    readonly items: readonly ApiChatMessage[];
+    readonly cursor: string | null;
+    readonly busy: boolean;
+    readonly failed: string | null;
+  }>({ items: [], cursor: null, busy: false, failed: null });
+  const firstPage = messages.data;
+  const cursor =
+    earlier.items.length > 0 ? earlier.cursor : firstPage?.hasMore ? firstPage.nextCursor : null;
+  const complete = firstPage !== undefined && cursor === null;
+
+  async function loadEarlier() {
+    if (!cursor || earlier.busy) return;
+    setEarlier((state) => ({ ...state, busy: true, failed: null }));
+    try {
+      const page = await listChatMessages(roomId, { cursor, limit: 50 });
+      setEarlier((state) => ({
+        items: [...state.items, ...page.items],
+        cursor: page.hasMore ? page.nextCursor : null,
+        busy: false,
+        failed: null,
+      }));
+    } catch (cause) {
+      setEarlier((state) => ({
+        ...state,
+        busy: false,
+        failed: cause instanceof Error ? cause.message : String(cause),
+      }));
+    }
+  }
+
+  // Server files first; a file sent from this tab stays until a read lists it.
+  const listed = files.data?.items ?? [];
+  const listedIds = new Set(listed.map((file) => file.id));
+  const allFiles = [...listed, ...sent.filter((file) => !listedIds.has(file.id))];
+  const allMessages = mergeMessages(firstPage?.items ?? [], earlier.items, live);
+  const entries = toTimeline(allMessages, allFiles);
+  const senders = [...new Set(entries.map((entry) => entry.senderId))];
+  const counterpart = counterpartFor(room, senders, people);
+  const days = groupThread(entries, me, timeZone);
+
+  /* ---- the read marker -------------------------------------------------- */
+
+  // Written once per (room, newest line), only while something here is unread
+  // and only while the page is in front of the reader, so a line that arrives
+  // as they read is read and one that arrives in a background tab is not. The
+  // ref stops a re-render from writing it twice.
+  const marked = useRef<string | null>(null);
+  const newest = newestOf(allMessages);
+  let unread = false;
+  if (me && !inbox.loading) {
+    const readThrough = readMarks.get(roomId);
+    const floor = Math.max(
+      readThrough ?? Number.NEGATIVE_INFINITY,
+      room?.lastReadAt ? Date.parse(room.lastReadAt) : Number.NEGATIVE_INFINITY,
+    );
+    unread =
+      allMessages.some((message) => message.senderUserId !== me && Date.parse(message.createdAt) > floor) ||
+      (readThrough === undefined && (room?.unreadCount ?? 0) > 0);
+  }
+  useEffect(() => {
+    if (!visible || !newest || !unread) return;
+    const stamp = `${roomId}:${newest.id}`;
+    if (marked.current === stamp) return;
+    marked.current = stamp;
+    markRoomRead(roomId, newest.id).catch(() => {
+      // Not worth a banner: the thread is on screen and readable, and the
+      // next line or visit tries again.
+      marked.current = null;
+    });
+  }, [newest, roomId, unread, visible]);
+
+  /* ---- text ------------------------------------------------------------- */
+
+  function sendText(text: string) {
+    sendChatMessage(roomId, text);
+    // Back to the newest line: the top of a reversed column is its bottom.
+    log.current?.scrollTo({ top: 0 });
+  }
+
+  const failureText = (failure: SendFailure | null): string | null => {
+    if (!failure) return null;
+    if (failure.kind === "offline") return t("sendOffline");
+    // The API's own sentence ("Chat room not found", "Validation failed").
+    if (failure.kind === "server" && failure.message) return failure.message;
+    return t("sendUnconfirmed");
+  };
+
+  /* ---- uploads ---------------------------------------------------------- */
+
+  const [outgoing, setOutgoing] = useState<readonly Outgoing[]>([]);
+  const nextKey = useRef(0);
+
+  async function send(file: File, key: number) {
+    const update = (patch: Partial<Outgoing>) =>
+      setOutgoing((all) => all.map((item) => (item.key === key ? { ...item, ...patch } : item)));
+    const fail = (reason: string) => update({ status: "failed", reason });
+
+    // The API refuses more (a CHECK in Postgres too); saying so here spares the upload.
+    if (file.size > MAX_CHAT_FILE_BYTES) {
+      fail(t("tooLarge", { size: fileSize(MAX_CHAT_FILE_BYTES) }));
+      return;
+    }
+    update({ status: "sending", reason: null });
+    try {
+      const created = await uploadChatFile(roomId, file);
+      noteFileSent(created);
+      setOutgoing((all) => all.filter((item) => item.key !== key));
+    } catch (cause) {
+      // The API's own sentence: "That file type is not accepted in chat", "File
+      // storage is currently unavailable", each of which the reader needs told apart.
+      fail(cause instanceof Error ? cause.message : String(cause));
+    }
+  }
+
+  function pick(file: File) {
+    const key = nextKey.current++;
+    setOutgoing((all) => [...all, { key, file, status: "sending", reason: null }]);
+    void send(file, key);
+  }
+
+  /* ---- the failed-message frame ----------------------------------------- */
+
+  // A picture of the state, drawn over your newest room. Trying it again hands
+  // the line to the composer to be looked over and sent, rather than posting
+  // words to a real person that its reader never wrote.
+  const [failedLine, setFailedLine] = useState(state === "message-failed");
+
+  /* ---- what the column shows -------------------------------------------- */
+
+  const dayLabel = (day: string, at: number) => {
+    const ago = daysBetween(day, dayKey(now, timeZone));
+    if (ago === 0) return t("today");
+    if (ago === 1) return t("yesterday");
+    return format.dateTime(new Date(at), {
+      weekday: "short",
+      day: "numeric",
+      month: "short",
+      ...(day.slice(0, 4) === dayKey(now, timeZone).slice(0, 4) ? {} : { year: "numeric" }),
+    });
+  };
+
+  const loading = messages.loading || people.me.loading;
+  const nothing = entries.length === 0 && outgoing.length === 0 && pending.length === 0 && !failedLine;
+
+  let column: ReactNode;
+  if (messages.error) {
+    column = (
+      <div className="flex flex-1 items-center justify-center py-10">
+        <ChatError
+          className="max-w-md"
+          error={messages.error}
+          onRetry={messages.reload}
+          title={t("threadLoadFailedTitle")}
+        />
+      </div>
+    );
+  } else if (loading) {
+    column = <ThreadSkeleton />;
+  } else if (nothing) {
+    column = (
+      <div className="flex flex-1 flex-col items-center justify-center gap-3 py-16 text-center">
+        <span className="flex size-14 items-center justify-center rounded-full bg-muted">
+          <MessagesSquare aria-hidden className="size-6 text-muted-foreground" />
+        </span>
+        <p className="text-base font-semibold text-foreground lg:text-lg">{t("threadEmptyTitle")}</p>
+        <p className="max-w-xs text-sm text-muted-foreground lg:max-w-sm lg:text-base">{t("threadEmptyBodyLive")}</p>
+      </div>
+    );
+  } else {
+    column = (
+      <div className="flex flex-col pb-2">
+        {/* With the whole history here, the top of it is the start of the
+            conversation, and says so; otherwise it is the way further back. */}
+        {complete ? (
+          <ThreadIntro counterpart={counterpart} openedAt={room?.createdAt} />
+        ) : (
+          <div className="flex flex-col items-center gap-1.5 pt-6 pb-2">
+            <Button
+              aria-busy={earlier.busy || undefined}
+              className="h-11 gap-2 rounded-full px-5 text-sm font-medium lg:h-12 lg:text-base"
+              disabled={earlier.busy}
+              onClick={() => void loadEarlier()}
+              type="button"
+              variant="outline"
+            >
+              {earlier.busy ? <LoaderCircle aria-hidden className="size-4 animate-spin motion-reduce:animate-none" /> : null}
+              {t("loadEarlier")}
+            </Button>
+            {earlier.failed ? (
+              <p className="text-xs text-destructive lg:text-base" role="alert">
+                {t("loadEarlierFailed")} · {earlier.failed}
+              </p>
+            ) : null}
+          </div>
+        )}
+        {days.map((day) => (
+          <Fragment key={day.key}>
+            <DayDivider>{dayLabel(day.day, day.at)}</DayDivider>
+            {day.runs.map((run) => (
+              <Run counterpart={counterpart} key={run.key} now={now} roomId={roomId} run={run} />
+            ))}
+          </Fragment>
+        ))}
+
+        {failedLine ? (
+          <div className="pt-4">
+            <PendingTextBubble
+              onDismiss={() => setFailedLine(false)}
+              onRetry={() => {
+                setDraft(t("thread.failedText"));
+                setFailedLine(false);
+              }}
+              status="failed"
+              text={t("thread.failedText")}
+            />
+          </div>
+        ) : null}
+
+        {pending.map((item) => (
+          <div className="pt-4" key={item.key}>
+            <PendingTextBubble
+              onDismiss={() => dismissChatMessage(roomId, item.key)}
+              onRetry={() => retryChatMessage(roomId, item.key)}
+              reason={failureText(item.failure)}
+              status={item.status}
+              text={item.text}
+            />
+          </div>
+        ))}
+
+        {outgoing.map((item) => (
+          <div className="pt-4" key={item.key}>
+            <OutgoingBubble
+              image={item.file.type.startsWith("image/")}
+              meta={fileSize(item.file.size)}
+              name={item.file.name}
+              onDismiss={() => setOutgoing((all) => all.filter((other) => other.key !== item.key))}
+              onRetry={() => void send(item.file, item.key)}
+              reason={item.reason}
+              status={item.status}
+            />
+          </div>
+        ))}
+      </div>
+    );
+  }
+
+  const details = (
+    <ThreadDetails
+      anonymous={room?.isAnonymous ?? false}
+      bookings={people.bookings.data?.items ?? []}
+      counterpart={counterpart}
+      roomId={roomId}
+      services={people.services.data?.items ?? []}
+    />
+  );
+  // The same wait as the list's: a name that changed under the reader a beat
+  // later would undo the point of naming them.
+  const naming =
+    loading || people.advisors.loading || people.bookings.loading || people.services.loading || inbox.loading;
+
+  return (
+    <>
+      <section className="flex min-h-0 min-w-0 flex-1 flex-col bg-card lg:border-l lg:border-border" data-slot="chat-thread">
+        <ThreadHeader
+          counterpart={counterpart}
+          detailsOpen={detailsOpen}
+          loading={naming}
+          onToggleDetails={() => setDetailsOpen((open) => !open)}
+        />
+
+        {/* Reversed, so the column starts at its newest line and stays there as
+            lines arrive, without a script measuring heights. Its own scroller,
+            kept out of the desktop's smooth page scroll. */}
+        <div
+          aria-label={t("title")}
+          className="flex min-h-0 flex-1 flex-col-reverse overflow-y-auto overscroll-contain px-3 lg:px-8"
+          data-lenis-prevent
+          ref={log}
+          role="log"
+        >
+          <div className={cn("flex w-full flex-col", (nothing || messages.error) && "flex-1")}>{column}</div>
+        </div>
+
+        <Composer
+          draft={draft}
+          enabled={!messages.error}
+          onDraftChange={setDraft}
+          onPick={pick}
+          onSend={sendText}
+          recipient={naming ? undefined : counterpartName(counterpart, t)}
+        />
+      </section>
+
+      {/* Closed until asked for: the conversation has the room. */}
+      {detailsOpen && desktop ? (
+        <aside
+          aria-label={t("details")}
+          className="flex w-80 shrink-0 flex-col overflow-y-auto overscroll-contain border-l border-border px-5 py-8"
+          data-lenis-prevent
+        >
+          {naming ? <DetailsSkeleton /> : details}
+        </aside>
+      ) : null}
+
+      <DetailsSheet onOpenChange={setDetailsOpen} open={detailsOpen && !desktop}>
+        {details}
+      </DetailsSheet>
+    </>
+  );
+}
+
+/** The top of a conversation: who it is with, and when the room opened. */
+function ThreadIntro({ counterpart, openedAt }: { readonly counterpart: Counterpart; readonly openedAt?: string }) {
+  const t = useTranslations("chat");
+  const format = useFormatter();
+  return (
+    <div className="flex flex-col items-center gap-2 pt-10 pb-4 text-center">
+      <PersonAvatar
+        advisor={counterpart.advisor}
+        known={counterpart.userId !== null}
+        person={counterpart.person}
+        size={64}
+        verified={counterpart.advisor !== null}
+      />
+      <p className="font-hero text-lg tracking-tight text-hero-ink lg:text-2xl">{counterpartName(counterpart, t)}</p>
+      {openedAt ? (
+        <p className="text-xs text-muted-foreground lg:text-base">
+          {t("openedOn", { date: format.dateTime(new Date(openedAt), { day: "numeric", month: "long", year: "numeric" }) })}
+        </p>
+      ) : null}
+    </div>
+  );
+}
+
+function DetailsSkeleton() {
+  return (
+    <div aria-hidden className="flex flex-col items-center gap-3">
+      <span className="size-20 rounded-full bg-muted" />
+      <span className="h-5 w-36 rounded-md bg-muted" />
+      <span className="h-4 w-48 rounded-md bg-muted" />
+      <span className="mt-6 h-28 w-full rounded-card bg-muted" />
+    </div>
+  );
+}
+
+/* --------------------------------------------------------------------- run */
+
+/**
+ * One author's turn: the bubbles stacked tight, the other person's face beside
+ * the last one, and the time once, under it.
+ */
+function Run({
+  run,
+  counterpart,
+  roomId,
+  now,
+}: {
+  readonly run: SenderRun;
+  readonly counterpart: Counterpart;
+  readonly roomId: string;
+  readonly now: number;
+}) {
+  const clock = useClock();
+  const last = run.items.at(-1);
+  const mine = run.mine;
+
+  return (
+    <div className={cn("flex w-full flex-col pt-4", mine ? "items-end" : "items-start")}>
+      <div className={cn("flex w-full items-start gap-2", mine ? "justify-end" : "justify-start")}>
+        {mine ? null : <PersonAvatar advisor={counterpart.advisor} known person={counterpart.person} size={32} />}
+        <div className={cn("flex min-w-0 flex-1 flex-col gap-0.5", mine ? "items-end" : "items-start")}>
+          {run.items.map(({ entry, first }) =>
+            entry.kind === "message" ? (
+              <Fragment key={entry.id}>
+                <TextBubble first={first} mine={mine} text={entry.message.message} />
+                {findOffPlatform(entry.message.message).length > 0 ? (
+                  <OffPlatformNotice mine={mine} reportHref={chatReportHref(roomId)} text={entry.message.message} />
+                ) : null}
+              </Fragment>
+            ) : (
+              <FileBubble file={entry.file} first={first} key={entry.id} mine={mine} now={now} />
+            ),
+          )}
+        </div>
+      </div>
+      {last ? (
+        <time
+          className={cn("mt-1 font-latin text-xs text-muted-foreground tabular-nums lg:text-base", mine ? "pr-1" : "pl-10")}
+          dateTime={new Date(last.entry.at).toISOString()}
+        >
+          {clock(last.entry.at)}
+        </time>
       ) : null}
     </div>
   );

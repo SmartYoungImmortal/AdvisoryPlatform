@@ -83,6 +83,12 @@ export type LiveService = {
   readonly href: string;
   /** Epoch ms the service was listed, for "newest first". */
   readonly listedAt: number;
+  /**
+   * The API's photographs for this service, as absolute URLs in carousel order:
+   * the gallery, which follows `cover` (still chosen here, and always first).
+   * Empty until `service_images` has rows for it.
+   */
+  readonly images: readonly string[];
 };
 
 const CARD_NUMBERS = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12] as const;
@@ -225,6 +231,7 @@ function join(
     reviews: summary?.total ?? 0,
     href: liveServiceHref(service.id),
     listedAt: Date.parse(service.createdAt) || 0,
+    images: service.images ?? [],
   };
 }
 

@@ -76,7 +76,7 @@ export function Field({
   readonly invalid?: boolean;
   readonly latin?: boolean;
   /**
-   * fastwork's sign-in field instead of Figma's: a 16/500 grey label 6px over
+   * The sign-in field instead of Figma's: a 16/500 grey label 6px over
    * a 40px white box with a 1px grey line and 12px corners, the type 16px.
    */
   readonly outline?: boolean;

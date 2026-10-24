@@ -1,254 +1,426 @@
 "use client";
 
 import Link from "next/link";
-import { ChevronLeft, Image as ImageIcon, Info, Plus, SendHorizontal, Video } from "lucide-react";
-import { useTranslations } from "next-intl";
-import { useId, useRef, useState } from "react";
+import { ChevronLeft, Info, Paperclip, RotateCw, SendHorizontal, ShieldAlert, WifiOff } from "lucide-react";
+import { useFormatter, useTranslations } from "next-intl";
+import { useLayoutEffect, useRef, type ReactNode } from "react";
 
+import { AccountShell } from "@/components/account/account-shell";
+import { AppFrame, PHONE_BAR } from "@/components/account/app-frame";
+import { authPill } from "@/components/auth/auth-split";
+import { BottomBar } from "@/components/bottombar";
+import { ApiError } from "@/lib/api/client";
+import { getOwnProfile } from "@/lib/api/resources";
+import type { ApiOwnProfile } from "@/lib/api/types";
+import { useResource } from "@/lib/api/use-resource";
+import { MobileScreen, ScreenBody } from "@/components/mobile/screen";
+import { TopBar } from "@/components/topbar";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { ChatMark } from "@/components/chat/chat-avatar";
-import {
-  CHAT_FILE_ACCEPT,
-  CHAT_IMAGE_TYPES,
-  CHAT_MESSAGE_MAX_LENGTH,
-  pendingCopy,
-  uploadChatFile,
-} from "@/components/chat/chat-data";
+import { Textarea } from "@/components/ui/textarea";
+import { PersonAvatar } from "@/components/chat/chat-avatar";
+import { CHAT_FILE_ACCEPT, CHAT_MESSAGE_MAX_LENGTH } from "@/components/chat/chat-data";
+import { useHourStyle } from "@/components/chat/chat-hooks";
+import { useChatConnection, useConnection } from "@/components/chat/chat-live";
+import { findOffPlatform, offPlatformKinds, type Counterpart } from "@/components/chat/chat-logic";
+import { cn } from "@/lib/utils";
+
+/* -------------------------------------------------------------------- frame */
 
 /**
- * The desktop two-pane card the three thread screens share — Figma's desktop
- * chat (1952:8003) stands the inbox and the open thread side by side in one
- * card.
+ * The page every chat screen stands in.
  *
- * It is `Surface`'s raised tier written as `lg:` variants rather than the
- * component: below `lg` there is no card at all, because the thread *is* the
- * screen — full-bleed, `h-dvh`, its own scroll.
+ * From `lg` it is the app frame (`AppFrame`): the rail at the left and the
+ * white panel, which the chat fills edge to edge and top to bottom: the list,
+ * the open thread and the details beside it, each scrolling on its own. The
+ * column is told to take exactly the panel's height (`basis-0`), so the page
+ * itself never scrolls: a messenger is a window, not a document.
+ *
+ * Below `lg` the frame steps aside and the card is the screen. `phone` says
+ * how: the inbox scrolls as a page under the floating bar and over the tab
+ * bar; a thread is a fixed column (its header, the messages scrolling between,
+ * the composer) with no app bar at all, because its own header carries the way
+ * back.
+ *
+ * Every chat screen stands in this frame, so it is also what holds the live
+ * connection (`./chat-live`) for as long as one of them is open.
  */
-export const CHAT_PANE =
-  "lg:mx-auto lg:w-full lg:max-w-[1440px] lg:flex-row lg:overflow-clip lg:rounded-card lg:border lg:border-border lg:bg-card lg:shadow-card";
-
-/**
- * Figma "Chat Header" — 402 x 84: 24px top padding, a 40px back chevron, a 40px
- * avatar, the 24/24 Geist semibold name (-0.625 tracking) and 24px action glyphs,
- * closed by a hairline 20px below the row.
- *
- * `title` is what the API can actually name this conversation with. That is not
- * a person: `ChatRoomResponseDto` carries no member, and `ChatMessageResponseDto`
- * carries a `senderUserId` and no display name, so nothing in the chat surface
- * knows who is on the other side. The header says "a conversation" and the
- * portrait is a glyph, rather than putting a fixture's face and name over data
- * that has never heard of either.
- *
- * The video control has no endpoint behind it — there is no call module in the
- * API — so it is disabled rather than left looking live.
- */
-export function ChatHeader({
-  threadId,
-  title,
+export function ChatFrame({
+  phone,
+  children,
 }: {
-  /** Addresses this thread's report screen, and nothing else. */
-  readonly threadId: string;
-  /** Left off, the header falls back to the same generic label the inbox uses. */
-  readonly title?: string;
+  readonly phone: "page" | "thread";
+  readonly children: ReactNode;
+}) {
+  const page = phone === "page";
+  return (
+    <MobileScreen className="pb-0" wide="md">
+      <LiveConnection />
+      <AppFrame active="chat">
+        <ScreenBody className={cn("bg-card lg:pb-0", page ? "pb-18" : "pb-0")}>
+          {page ? (
+            <div className={PHONE_BAR}>
+              <TopBar dock unreadNotifications />
+            </div>
+          ) : null}
+          <AccountShell active="chat" className="lg:min-h-0 lg:shrink lg:basis-0" compact>
+            <div
+              className={cn(
+                "flex w-full flex-1 flex-col bg-card",
+                !page && "min-h-0",
+                "lg:min-h-0 lg:flex-row lg:overflow-hidden",
+              )}
+              data-slot="chat-card"
+            >
+              {children}
+            </div>
+          </AccountShell>
+        </ScreenBody>
+      </AppFrame>
+      {page ? <BottomBar className="lg:hidden" role="user" selected="chat" /> : null}
+    </MobileScreen>
+  );
+}
+
+/** Holds the socket open while a chat screen is; `users/me` says whose lines are whose. */
+function LiveConnection() {
+  const me = useResource<ApiOwnProfile>("users/me", getOwnProfile);
+  useChatConnection(me.data?.id);
+  return null;
+}
+
+/**
+ * One quiet line when the live connection has been down for a while, or when
+ * the session behind it has ended. A dropped connection that comes back within
+ * a few seconds is never mentioned (`NOTICE_AFTER_MS` in `./chat-live`).
+ */
+export function ConnectionNote({ className }: { readonly className?: string }) {
+  const t = useTranslations("chat");
+  const c = useTranslations("common");
+  const connection = useConnection();
+  if (!connection.noticeable) return null;
+  const signedOut = connection.status === "unauthorized";
+  return (
+    <p className={cn("flex items-start gap-1.5 text-xs text-muted-foreground lg:text-frame-meta", className)} role="status">
+      <WifiOff aria-hidden className="mt-0.5 size-3.5 shrink-0 lg:mt-1 lg:size-4" />
+      <span className="min-w-0">
+        {signedOut ? t("liveSignedOut") : t("reconnecting")}
+        {signedOut ? (
+          <>
+            {" "}
+            <Link className="font-semibold text-foreground underline underline-offset-2" href="/login">
+              {c("login")}
+            </Link>
+          </>
+        ) : null}
+      </span>
+    </p>
+  );
+}
+
+/* -------------------------------------------------------------------- error */
+
+/**
+ * What a chat block says when the API answered with a failure: the API's own
+ * sentence, verbatim (the same rule as `ApiErrorCard` in
+ * `components/service/parts.tsx`, which is the only thing that tells "no
+ * session" from "the container is not running"), and the one way on. Signed
+ * out, that is signing in, since asking again cannot change who you are;
+ * otherwise it is asking again. Drawn here rather than borrowed so its type
+ * follows the chat's desktop scale.
+ */
+export function ChatError({
+  title,
+  error,
+  onRetry,
+  className,
+}: {
+  readonly title: string;
+  readonly error: Error;
+  readonly onRetry?: () => void;
+  readonly className?: string;
 }) {
   const t = useTranslations("chat");
   const c = useTranslations("common");
-  const heading = title ?? pendingCopy(t, "roomLabel", "การสนทนา");
+  const signedOut = error instanceof ApiError && error.isUnauthenticated;
 
-  // Figma draws the closing rule as a zero-height stroke, so it is painted with
-  // ::after and the 20px trailing space is padding instead of a gap.
   return (
-    <div className="relative flex w-full shrink-0 flex-col items-start bg-card pt-6 pb-5 after:absolute after:bottom-0 after:left-0 after:h-px after:w-full after:bg-border after:content-[''] lg:py-4">
-      <div className="flex w-full shrink-0 items-center gap-4 px-4 lg:gap-3 lg:px-5">
-        {/* The desktop pane has the inbox beside it, so there is nothing for a
-            back chevron to do there. */}
-        <Button
-          aria-label={c("back")}
-          className="size-10 shrink-0 lg:hidden"
-          nativeButton={false}
-          render={<Link href="/chat" />}
-          size="icon"
-          variant="ghost"
-        >
-          <ChevronLeft className="size-10" />
+    <div
+      className={cn(
+        "flex w-full flex-col items-start gap-3 rounded-card border border-hero-card-border bg-card p-5 shadow-hero-card",
+        className,
+      )}
+      role="alert"
+    >
+      <p className="text-base font-semibold text-foreground lg:text-lg">{title}</p>
+      <p className="text-sm text-muted-foreground lg:text-base">{error.message}</p>
+      {signedOut ? (
+        <Button className={cn(authPill(true), "w-auto")} nativeButton={false} render={<Link href="/login" />}>
+          {c("login")}
         </Button>
-        <div className="flex min-w-px flex-1 items-center gap-2.5 self-stretch">
-          {/* No presence dot either: nothing in the API reports whether a member
-              is online. */}
-          <ChatMark size={40} />
-          <p className="min-w-px flex-1 truncate text-2xl leading-6 font-semibold tracking-[-0.625px] text-foreground">
-            {heading}
-          </p>
-        </div>
-        <Button
-          aria-label={t("videoCall")}
-          className="size-6 shrink-0"
-          disabled
-          size="icon"
-          variant="ghost"
-        >
-          <Video className="size-6" />
+      ) : onRetry ? (
+        <Button className={cn(authPill(), "w-auto")} onClick={onRetry} type="button" variant="outline">
+          <RotateCw aria-hidden />
+          {t("retry")}
         </Button>
-        {/* The one way into the report flow. `nativeButton={false}` is what tells
-            Base UI it ended up on an anchor; without it `check-a11y-render.mjs`
-            fails the build. */}
-        <Button
-          aria-label={t("info")}
-          className="size-6 shrink-0"
-          nativeButton={false}
-          render={<Link href={`/chat/${threadId}/report`} />}
-          size="icon"
-          variant="ghost"
-        >
-          <Info className="size-6" />
-        </Button>
-      </div>
+      ) : null}
     </div>
   );
 }
 
+/* ------------------------------------------------------------------- header */
+
+/** What a room is called: the person, else what we know of them, else the room. */
+export function counterpartName(
+  counterpart: Counterpart,
+  t: (key: "advisorFallback" | "roomLabel") => string,
+): string {
+  if (counterpart.advisor) return counterpart.advisor.displayName;
+  if (counterpart.person) return counterpart.person.displayName;
+  return counterpart.userId ? t("advisorFallback") : t("roomLabel");
+}
+
 /**
- * Figma "Chat Footer" — 402 x 76: a hairline, then a 16px gap above the compose
- * row (8px side padding, 24px attach glyphs, the 36px input and a 36px send
- * button).
+ * The thread's head: who this is, and what it is about.
  *
- * ## What this row can and cannot do, and why it says so
- *
- * It arrived with no `onSubmit`, no `onClick`, no `onChange` and no state: a
- * picture of a compose row. Two of the three things it draws are now real.
- *
- * **Text cannot be sent.** `ChatController` maps `GET /chat/rooms`,
- * `GET /chat/rooms/:id/messages` and `PATCH /chat/rooms/:id/read`. There is no
- * `POST` for a message anywhere in the API. Sending is a Socket.IO event —
- * `chat:send` on the `/chat` namespace, handled by `ChatGateway` — which needs
- * `socket.io-client` in `package.json`, and that is not a dependency this screen
- * may add on its own. So the send button is **disabled**, and a line under the
- * row states the reason and points at the gap.
- *
- * Disabled rather than clickable-then-apologetic on purpose: a button that
- * accepts a paragraph and then throws it away is worse than one that never
- * pretended. The draft is still real local state, so what is typed survives a
- * re-render and is there the moment a send exists.
- *
- * **A file can be sent.** `POST /chat/rooms/:id/files` is a real REST route, and
- * both attach glyphs go through it. A file is *not* a message though — the API
- * writes a `chat_files` row and nothing in `chat_messages` — so an upload appears
- * in this room's file list rather than as a bubble the thread already had.
- * `onUploaded` is how the thread hears about it and reads the list again.
+ * The line under the name is the consultation itself when the room's booking
+ * is known (the service and its date), the advisor's own headline when only
+ * the person is, and nothing it would have to make up otherwise. On a phone it
+ * leads with the way back and ends on the details, which a desktop keeps open
+ * beside the thread instead.
  */
-export function ChatFooter({
-  roomId,
-  onUploaded,
+export function ThreadHeader({
+  counterpart,
+  loading,
+  detailsOpen = false,
+  onToggleDetails,
 }: {
-  /**
-   * The room to attach to. Undefined when this thread is not a room the API
-   * knows — a prototype id, or a read that failed — and then the whole row is
-   * inert, because there is nowhere to put a file either.
-   */
-  readonly roomId?: string;
-  readonly onUploaded?: () => void;
+  readonly counterpart: Counterpart;
+  readonly loading: boolean;
+  readonly detailsOpen?: boolean;
+  /** The details: a column beside the thread on a desktop, a sheet on a phone. */
+  readonly onToggleDetails?: () => void;
 }) {
   const t = useTranslations("chat");
-  const noteId = useId();
-  const [draft, setDraft] = useState("");
-  const [uploading, setUploading] = useState(false);
-  const [uploadError, setUploadError] = useState<string | null>(null);
-  const anyFile = useRef<HTMLInputElement>(null);
-  const imageFile = useRef<HTMLInputElement>(null);
+  const c = useTranslations("common");
+  const format = useFormatter();
+  const hour = useHourStyle();
+  const { advisor, booking, service } = counterpart;
+  const name = counterpartName(counterpart, t);
 
-  async function upload(file: File | undefined) {
-    if (!file || !roomId) return;
-    setUploadError(null);
-    setUploading(true);
-    try {
-      await uploadChatFile(roomId, file);
-      onUploaded?.();
-    } catch (cause) {
-      // The API's own sentence — "That file type is not accepted in chat", "A
-      // chat file must not exceed 50 MB", "File storage is currently
-      // unavailable" — each of which the reader needs told apart.
-      setUploadError(cause instanceof Error ? cause.message : String(cause));
-    } finally {
-      setUploading(false);
-    }
-  }
-
-  /** The hidden control behind an attach glyph. `Input` carries the primitive's states. */
-  function picker(ref: React.RefObject<HTMLInputElement | null>, accept: string) {
-    return (
-      <Input
-        accept={accept}
-        aria-hidden
-        className="sr-only"
-        onChange={(event) => {
-          void upload(event.target.files?.[0]);
-          event.target.value = "";
-        }}
-        ref={ref}
-        tabIndex={-1}
-        type="file"
-      />
-    );
+  let subtitle: string | null = advisor?.headline ?? null;
+  if (booking) {
+    const when = format.dateTime(new Date(booking.startTime), {
+      day: "numeric",
+      month: "short",
+      hour,
+      minute: "2-digit",
+    });
+    subtitle = service ? `${service.name} · ${when}` : t("sessionOn", { date: when });
   }
 
   return (
-    // Card surface, like the header: the compose row is the other end of the
-    // thread's chrome, and the messages scroll on the page ground between them.
-    <div className="relative flex w-full shrink-0 flex-col items-start bg-card pt-4 pb-6 before:absolute before:top-0 before:left-0 before:h-px before:w-full before:bg-border before:content-['']">
-      {picker(anyFile, CHAT_FILE_ACCEPT)}
-      {picker(imageFile, CHAT_IMAGE_TYPES.join(","))}
+    <header className="relative z-1 flex h-16 w-full shrink-0 items-center gap-1 border-b border-border bg-card px-1.5 lg:h-22 lg:gap-3 lg:px-6">
+      <Button
+        aria-label={c("back")}
+        className="size-11 shrink-0 rounded-full lg:hidden"
+        nativeButton={false}
+        render={<Link href="/chat" />}
+        size="icon"
+        variant="ghost"
+      >
+        <ChevronLeft className="size-6" />
+      </Button>
+
+      <div className="flex min-w-0 flex-1 items-center gap-3">
+        {loading ? (
+          <span aria-hidden className="size-10 shrink-0 rounded-full bg-muted lg:size-12" />
+        ) : (
+          <>
+            <PersonAvatar
+              advisor={advisor}
+              className="lg:hidden"
+              known={counterpart.userId !== null}
+              person={counterpart.person}
+              size={40}
+              verified={advisor !== null}
+            />
+            <PersonAvatar
+              advisor={advisor}
+              className="hidden lg:inline-flex"
+              known={counterpart.userId !== null}
+              person={counterpart.person}
+              size={48}
+              verified={advisor !== null}
+            />
+          </>
+        )}
+        <div className="flex min-w-0 flex-1 flex-col">
+          {loading ? (
+            <>
+              <span aria-hidden className="h-4 w-32 rounded-md bg-muted" />
+              <span aria-hidden className="mt-1.5 h-3 w-44 rounded-md bg-muted" />
+            </>
+          ) : (
+            <>
+              <h2 className="truncate text-base font-semibold text-foreground lg:text-2xl">
+                {name}
+                {advisor ? <span className="sr-only"> · {t("verified")}</span> : null}
+              </h2>
+              {subtitle ? (
+                <p className="truncate text-xs text-muted-foreground lg:text-base">{subtitle}</p>
+              ) : null}
+            </>
+          )}
+        </div>
+      </div>
+
+      {onToggleDetails ? (
+        <Button
+          aria-expanded={detailsOpen}
+          aria-label={t("details")}
+          className="size-11 shrink-0 rounded-full lg:size-12"
+          onClick={onToggleDetails}
+          size="icon"
+          variant="ghost"
+        >
+          <Info className="size-5.5" />
+        </Button>
+      ) : null}
+    </header>
+  );
+}
+
+/* ----------------------------------------------------------------- composer */
+
+/**
+ * The compose row: attach, write, send.
+ *
+ * **Text** goes out as `chat:send` over the live connection (`onSend`); the
+ * thread draws it at once as sending and then as sent or not sent, with a way
+ * to try again. Enter sends and Shift+Enter starts a new line (an input method
+ * still composing a word keeps its Enter). The field grows with the text up to
+ * a limit and scrolls after that.
+ *
+ * **A file** goes up through `POST /chat/rooms/:id/files`; the thread shows it
+ * on its way and, if the API turns it down, why and how to try again (`onPick`
+ * hands the file over; the bubbles are the thread's).
+ *
+ * The draft belongs to the thread (`draft`, `onDraftChange`), so it can be
+ * handed text to look over, and a phone number or LINE id typed into it is
+ * pointed out before it is sent.
+ */
+export function Composer({
+  enabled,
+  draft,
+  onDraftChange,
+  onSend,
+  onPick,
+  recipient,
+}: {
+  /** False for anything that is not one of my rooms: nothing can be sent there. */
+  readonly enabled: boolean;
+  readonly draft: string;
+  readonly onDraftChange: (draft: string) => void;
+  readonly onSend: (text: string) => void;
+  readonly onPick: (file: File) => void;
+  /** Who the line is for, once known, for the field's accessible name. */
+  readonly recipient?: string;
+}) {
+  const t = useTranslations("chat");
+  const format = useFormatter();
+  const connection = useConnection();
+  const field = useRef<HTMLTextAreaElement>(null);
+  const picker = useRef<HTMLInputElement>(null);
+
+  const kinds = offPlatformKinds(findOffPlatform(draft));
+  const nearLimit = draft.length > CHAT_MESSAGE_MAX_LENGTH * 0.9;
+  const canSend = enabled && draft.trim().length > 0 && connection.status !== "unauthorized";
+
+  // `field-sizing: content` (on `Textarea`) grows the field where it is
+  // supported; elsewhere it is measured, capped by `max-h-40` either way.
+  useLayoutEffect(() => {
+    const element = field.current;
+    if (!element || CSS.supports("field-sizing", "content")) return;
+    element.style.height = "auto";
+    element.style.height = `${element.scrollHeight}px`;
+  }, [draft]);
+
+  function submit() {
+    if (!canSend) return;
+    onSend(draft);
+    onDraftChange("");
+    // Keeps a phone's keyboard up for the next line.
+    field.current?.focus();
+  }
+
+  return (
+    <div className="w-full shrink-0 border-t border-border bg-card px-3 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] lg:px-6 lg:pt-4 lg:pb-5">
+      <ConnectionNote className="mb-2.5 px-1" />
+
+      {/* The hidden control behind the paperclip. `Input` carries the primitive's states. */}
+      <Input
+        accept={CHAT_FILE_ACCEPT}
+        aria-hidden
+        className="sr-only"
+        onChange={(event) => {
+          const file = event.target.files?.[0];
+          event.target.value = "";
+          if (file) onPick(file);
+        }}
+        ref={picker}
+        tabIndex={-1}
+        type="file"
+      />
 
       <form
-        className="flex w-full shrink-0 items-center gap-2 px-2"
+        className="flex items-end gap-2"
         onSubmit={(event) => {
-          // Nothing to submit to. Stopping the default keeps Enter in the field
-          // from navigating away and silently losing the draft.
           event.preventDefault();
+          submit();
         }}
       >
-        {/* Figma draws these as bare 24px glyphs; as real buttons they keep that
-            box but gain the focus ring, hover and press states. */}
         <Button
           aria-label={t("attach")}
-          className="size-6 shrink-0"
-          disabled={!roomId || uploading}
-          onClick={() => anyFile.current?.click()}
+          className="size-11 shrink-0 rounded-full text-foreground lg:size-12"
+          disabled={!enabled}
+          onClick={() => picker.current?.click()}
           size="icon"
           type="button"
           variant="ghost"
         >
-          <Plus className="size-6" />
+          <Paperclip className="size-5.5" />
         </Button>
+
+        <div className="flex min-w-0 flex-1 flex-col">
+          <Textarea
+            aria-label={recipient ? t("composerLabelTo", { name: recipient }) : t("composerLabel")}
+            className="max-h-40 min-h-11 resize-none rounded-3xl border-border bg-muted/60 px-4 py-2.5 text-base shadow-none md:text-base lg:min-h-12 lg:py-3 lg:text-lg"
+            disabled={!enabled}
+            enterKeyHint="send"
+            maxLength={CHAT_MESSAGE_MAX_LENGTH}
+            onChange={(event) => onDraftChange(event.target.value)}
+            onKeyDown={(event) => {
+              if (event.key !== "Enter" || event.shiftKey || event.nativeEvent.isComposing) return;
+              event.preventDefault();
+              submit();
+            }}
+            placeholder={t("composerPlaceholder")}
+            ref={field}
+            rows={1}
+            value={draft}
+          />
+        </div>
+
         <Button
-          aria-label={t("attachImage")}
-          className="size-6 shrink-0"
-          disabled={!roomId || uploading}
-          onClick={() => imageFile.current?.click()}
-          size="icon"
-          type="button"
-          variant="ghost"
-        >
-          <ImageIcon className="size-6" />
-        </Button>
-        <Input
-          aria-describedby={noteId}
-          aria-label={t("title")}
-          className="min-w-px flex-1 rounded-card border-border bg-muted px-3.5 text-sm shadow-none"
-          maxLength={CHAT_MESSAGE_MAX_LENGTH}
-          onChange={(event) => setDraft(event.target.value)}
-          placeholder={t("messagePlaceholder")}
-          type="text"
-          value={draft}
-        />
-        {/* Disabled unconditionally, and not because the field is empty: there is
-            no route to send a message on. The well step rather than the hairline
-            colour, which was a border token doing duty as a fill. */}
-        <Button
-          aria-describedby={noteId}
           aria-label={t("send")}
-          className="size-9 shrink-0 border-0 bg-muted text-muted-foreground hover:bg-accented"
-          disabled
+          className={cn(
+            "size-11 shrink-0 rounded-full border-0 lg:size-12",
+            canSend
+              ? "bg-hero-action text-hero-action-foreground hover:bg-hero-action/85"
+              : "bg-muted text-muted-foreground disabled:opacity-100",
+          )}
+          disabled={!canSend}
           size="icon"
           type="submit"
         >
@@ -256,21 +428,21 @@ export function ChatFooter({
         </Button>
       </form>
 
-      {/* The one honest thing this row can say. It is always true, so it is
-          always shown rather than waiting for a click to admit it. */}
-      <p
-        className="w-full px-4 pt-2 text-xs font-normal text-muted-foreground"
-        id={noteId}
-      >
-        {pendingCopy(
-          t,
-          "sendUnavailable",
-          "ตอนนี้ยังส่งข้อความตัวอักษรไม่ได้ ฝั่ง API รับข้อความผ่าน Socket.IO เท่านั้น ยังไม่มีเส้นทาง REST — แนบไฟล์ได้ตามปกติ",
-        )}
-      </p>
-      {uploadError ? (
-        <p className="w-full px-4 pt-1 text-xs font-normal text-destructive" role="alert">
-          {`${pendingCopy(t, "attachFailed", "แนบไฟล์ไม่สำเร็จ")} — ${uploadError}`}
+      {/* At most one quiet line under the row: what the draft would take off
+          the platform, else how close it is to the limit. */}
+      {kinds.length > 0 ? (
+        <p className="mt-2 flex items-start gap-1.5 px-1 text-xs text-muted-foreground lg:text-frame-meta" role="status">
+          <ShieldAlert aria-hidden className="mt-0.5 size-3.5 shrink-0 text-warning lg:mt-1 lg:size-4" />
+          {t("flagDraft", {
+            kinds: format.list(
+              kinds.map((kind) => t(`flag.${kind}`)),
+              { type: "conjunction" },
+            ),
+          })}
+        </p>
+      ) : nearLimit ? (
+        <p className="mt-2 px-1 text-right font-latin text-xs text-muted-foreground tabular-nums lg:text-frame-meta">
+          {format.number(draft.length)}/{format.number(CHAT_MESSAGE_MAX_LENGTH)}
         </p>
       ) : null}
     </div>

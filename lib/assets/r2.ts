@@ -300,7 +300,7 @@ export const walletSuccess: StaticImageData = {
 
 /**
  * `assets/brands/<provider>` — 24x24 SVG marks for the sign-in buttons, from
- * Simple Icons (CC0), drawn in the page's ink (#171717) as fastwork's are.
+ * Simple Icons (CC0), drawn in the page's ink (#171717).
  */
 export const brandMarks: Readonly<Record<"google" | "facebook" | "apple", StaticImageData>> = {
   google: { src: `${R2_BASE}/brands/google.139b2c3d.svg`, width: 24, height: 24 },

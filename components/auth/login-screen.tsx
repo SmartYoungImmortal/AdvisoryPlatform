@@ -56,12 +56,11 @@ function nextPath(): string | null {
 }
 
 /**
- * The sign-in page. fastwork's (`fastwork.com/login`) taught the method:
- * one narrow column that asks one thing at a time, every sign-in route side
- * by side, the legal line under them. The look is the home page's own, in
+ * The sign-in page: one narrow column that asks one thing at a time, every
+ * sign-in route side by side, the legal line under them. The look is the home page's own, in
  * `AuthSplit`, which `RegisterScreen` shares.
  *
- * Two steps, not fastwork's three. The first carries the providers and,
+ * Two steps, not three. The first carries the providers and,
  * under an "or", the email field itself, so email is one press shorter than
  * a "continue with email" button that only opens the field. The second is
  * the password, with the email it belongs to and a way to change it.

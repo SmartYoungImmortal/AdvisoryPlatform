@@ -5,7 +5,7 @@ import { useTranslations } from "next-intl";
 import { useRouter } from "next/navigation";
 import { useEffect, useState, type FormEvent } from "react";
 
-import { SiteFooter } from "@/components/marketing/site-footer";
+import { AppFrame } from "@/components/account/app-frame";
 import {
   InfoCard,
   InfoRow,
@@ -23,10 +23,8 @@ import {
 } from "@/components/mobile/screen";
 import {
   ACCOUNT_CONFIRM_PANEL,
-  ACCOUNT_NAV,
   AccountBackBar,
 } from "@/components/profile/account-chrome";
-import { TopBar } from "@/components/topbar";
 import { ApiError, api } from "@/lib/api/client";
 import { deleteOwnAccount } from "@/lib/api/account";
 import { signOut } from "@/lib/session";
@@ -126,12 +124,10 @@ export function DeleteAccountScreen({
   }
 
   return (
-    <MobileScreen wide>
+    <MobileScreen wide="md">
       <ScreenTopBar className="lg:hidden" href="/settings" label={c("back")} />
+      <AppFrame active="settings">
       <ScreenBody>
-        <div className={ACCOUNT_NAV}>
-          <TopBar unreadNotifications />
-        </div>
         {/* The one frame in the section with no head band under it, so its back
             bar takes the 76px the other frames split between the two. */}
         <AccountBackBar className="lg:h-19" href="/settings" label={c("back")} />
@@ -243,9 +239,8 @@ export function DeleteAccountScreen({
             )}
           </ScreenActions>
         </form>
-
-        <SiteFooter className="hidden lg:mt-auto lg:flex" />
       </ScreenBody>
+      </AppFrame>
     </MobileScreen>
   );
 }

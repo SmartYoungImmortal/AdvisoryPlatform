@@ -10,7 +10,10 @@ import {
   dismissFresh,
   useNotificationPulse,
 } from "@/components/notifications/notification-store";
-import { notificationHref } from "@/components/notifications/notifications-data";
+import {
+  notificationTarget,
+  rememberNotification,
+} from "@/components/notifications/notifications-data";
 import { isApiConfigured } from "@/lib/api/client";
 import { useSession } from "@/lib/session";
 
@@ -39,7 +42,8 @@ export function NotificationToaster() {
   }, [fresh]);
 
   // A static host may serve the page with a trailing slash.
-  const onFeed = pathname.replace(/\/$/, "") === "/notifications";
+  // The feed, or one notification opened from it (`/notifications/view`).
+  const onFeed = /^\/notifications(\/|$)/.test(pathname);
   const show = fresh !== null && !onFeed;
   const Icon = fresh?.type === "NEW_MESSAGE" ? MessageSquare : Bell;
 
@@ -52,8 +56,11 @@ export function NotificationToaster() {
       {show ? (
         <Link
           className="pointer-events-auto flex w-full max-w-md items-center gap-3 rounded-card bg-foreground px-4 py-3 text-background shadow-card"
-          href={notificationHref(fresh)}
-          onClick={dismissFresh}
+          href={notificationTarget(fresh)}
+          onClick={() => {
+            rememberNotification(fresh);
+            dismissFresh();
+          }}
         >
           <Icon aria-hidden className="size-4.5 shrink-0" />
           <span className="min-w-0 flex-1 truncate text-sm">{fresh.title}</span>

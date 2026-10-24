@@ -32,6 +32,15 @@ export interface ApiPublicService {
   readonly trialDurationMinutes: number | null;
   /** ISO timestamp the service was listed. */
   readonly createdAt: string;
+  /**
+   * The service's photographs from `service_images`, as absolute URLs in
+   * carousel order. Covers are still mapped in the frontend
+   * (`lib/catalogue/live.ts`), so today these are the gallery photos only and
+   * carousel index 0 is kept free for the cover; a screen leads with its own
+   * cover and skips a URL equal to it. Optional because an API built before the
+   * field existed does not send it; read it as empty then.
+   */
+  readonly images?: readonly string[];
 }
 
 /** `PublicServiceQueryDto` — the filters `GET /services` accepts. */
@@ -166,8 +175,8 @@ export type ApiBookingState =
  *
  * It is the appointment row and nothing more: no service name, no advisor name,
  * no amount. A list of these is unreadable on its own, so a screen showing them
- * joins `listServices` and `listAdvisors` by `serviceId` / `advisorId` — the same
- * trade `components/home/browse-list.tsx` makes for one card's advisor name.
+ * joins `listServices` and `listAdvisors` by `serviceId` / `advisorId`, as
+ * `components/bookings/my-bookings-screen.tsx` does.
  *
  * `unavailableUntil` is the end of the range this booking blocks, which is
  * `endTime` plus the advisor's buffer, and `blocksAvailability` goes false once a
