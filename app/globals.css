@@ -20,6 +20,9 @@
      eight other Thai faces for a heavier, more poster-like line than the
      Noto Sans Thai the rest of the UI is set in. */
   --font-hero: 'Kanit', var(--font-sans);
+  /* The handwritten accent word in a heading: Sriracha carries Thai and Latin
+     in one face, so the word reads the same in either language. */
+  --font-hand: 'Sriracha', var(--font-hero);
 
   /* Thai type scale. Thai stacks vowels/tone marks above and below the baseline, so
      the design gives 12px and 24px copy more leading than Tailwind's Latin defaults.
@@ -327,10 +330,12 @@
   --hero-card-border: rgb(228 232 239 / 97%);
   /* The legal pages' ground: the home hero's two lights from the top of the
      screen, sky blue on the left and lavender on the right, without its
-     photograph, fading to the plain page within the first screen. */
+     photograph, fading to the plain page within the first screen. Half the
+     strength it first had: at 22% / 20% the top of a page of small print read
+     as tinted rather than lit. */
   --legal-wash:
-    radial-gradient(70% 55% at 12% 0%, rgb(142 197 255 / 22%), transparent 70%),
-    radial-gradient(60% 50% at 88% 0%, rgb(196 181 253 / 20%), transparent 70%);
+    radial-gradient(70% 55% at 12% 0%, rgb(142 197 255 / 11%), transparent 70%),
+    radial-gradient(60% 50% at 88% 0%, rgb(196 181 253 / 10%), transparent 70%);
   --hero-action: #131922;
   --hero-action-foreground: #ffffff;
   /* A white, nearly empty room with one desk and chair (Unsplash
@@ -531,6 +536,12 @@
       scroll-behavior: auto;
     }
   }
+  /* Under Lenis (desktop) the scroller is moved a frame at a time; a CSS
+     smooth scroll on top would ease every one of those steps again. Lenis
+     glides the anchors itself. */
+  [data-slot="screen-body"].lenis {
+    scroll-behavior: auto;
+  }
 }
 /* The home hero's entrance, ported from the team's own
    `mochiice-fe/app/components/pages/home/SectionHome.vue`.
@@ -673,11 +684,11 @@
   filter: blur(calc(var(--hero-exit, 0) * 16px));
 }
 
-/* Hover: the card comes forward. `scale`, not `transform`, because the
-   transform is the card's place on the ring and is owned by the entrance
-   animation; the individual property composes on top of it. Raised above its
-   neighbours so the enlarged card is never clipped by the one beside it. */
-.hero-card {
+/* Hover: the card comes forward. The face inside grows, never the link: when
+   the hit area itself grew and shrank, a cursor resting near its edge fell off
+   and back on every frame and the card shook. Raised above its neighbours so
+   the enlarged card is never clipped by the one beside it. */
+.hero-card-face {
   transition:
     scale 300ms cubic-bezier(0.16, 1, 0.3, 1),
     box-shadow 300ms ease;
@@ -686,6 +697,10 @@
 .hero-card:hover,
 .hero-card:focus-visible {
   z-index: 1;
+}
+
+.hero-card:hover .hero-card-face,
+.hero-card:focus-visible .hero-card-face {
   scale: 1.03;
   /* Through the token: written inline here, the build reduced the
      `color-mix` to a bare `var(--scrim)`, a solid black shadow. */
@@ -693,7 +708,7 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .hero-card {
+  .hero-card-face {
     transition: none;
   }
 }

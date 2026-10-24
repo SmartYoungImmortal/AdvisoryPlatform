@@ -1,5 +1,5 @@
 import type { StaticImageData } from "next/image";
-import { useCallback } from "react";
+import { useCallback, useMemo } from "react";
 
 import { liveServiceHref } from "@/components/bookings/booking-flow";
 import type { Paginated } from "@/lib/api/client";
@@ -38,6 +38,11 @@ import {
   serviceRefinance,
   serviceResumeRead,
   serviceShopParcel,
+  serviceCompanyStart,
+  serviceCompanyForm,
+  serviceJobContract,
+  serviceFirstInvest,
+  serviceTaxFund,
   serviceSocialAds,
   serviceTechPortfolio,
   serviceYearEndBinders,
@@ -76,6 +81,8 @@ export type LiveService = {
   readonly rating: number | null;
   readonly reviews: number;
   readonly href: string;
+  /** Epoch ms the service was listed, for "newest first". */
+  readonly listedAt: number;
 };
 
 const CARD_NUMBERS = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12] as const;
@@ -126,6 +133,11 @@ const COVER_BY_TITLE = new Map<string, StaticImageData>([
   ["ตั้งราคาสินค้าและคำนวณกำไรต่อชิ้น", servicePriceTags],
   ["ทำพอร์ตให้ได้งานสายเทค", serviceTechPortfolio],
   ["รีวิวเรซูเม่ภาษาอังกฤษ", serviceResumeRead],
+  ["จดทะเบียนบริษัทครั้งแรก", serviceCompanyStart],
+  ["เลือกจดบริษัทหรือห้างหุ้นส่วน", serviceCompanyForm],
+  ["รีวิวสัญญาจ้างก่อนเซ็น", serviceJobContract],
+  ["เริ่มลงทุนด้วยเงินก้อนแรก", serviceFirstInvest],
+  ["เลือกกองทุนลดหย่อนภาษีให้เหมาะกับตัวเอง", serviceTaxFund],
 ]);
 
 /**
@@ -212,7 +224,36 @@ function join(
     rating: ratings ? (summary?.average ?? 0) : null,
     reviews: summary?.total ?? 0,
     href: liveServiceHref(service.id),
+    listedAt: Date.parse(service.createdAt) || 0,
   };
+}
+
+/** The reader's own calendar date, `YYYY-MM-DD`: "today" is theirs, not the server's. */
+function localDate(now = new Date()): string {
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
+}
+
+/**
+ * The services with a bookable slot left today, as a set of ids, for the
+ * "available today" filter. Availability is derived from each advisor's
+ * schedule on the server (`availableOn`), so this is its own request, asked
+ * only while the filter is on; `null` while it is off or still loading.
+ */
+export function useOpenToday(enabled: boolean): ReadonlySet<string> | null {
+  const today = localDate();
+  const open = useResource<Paginated<ApiPublicService> | null>(
+    enabled ? `services?limit=100&availableOn=${today}` : "services:open-today:off",
+    useCallback(
+      (signal: AbortSignal) =>
+        enabled ? listServices({ limit: 100, availableOn: today }, signal) : Promise.resolve(null),
+      [enabled, today],
+    ),
+  );
+  return useMemo(
+    () => (enabled && open.data ? new Set(open.data.items.map((service) => service.id)) : null),
+    [enabled, open.data],
+  );
 }
 
 export function useLiveCatalogue(): {

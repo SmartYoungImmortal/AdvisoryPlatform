@@ -157,6 +157,14 @@ export function HeroSearch({
   // The same live catalogue `/search` and the hero's ring read (one cached
   // request), so a suggestion always opens a service that exists.
   const catalogue = useLiveCatalogue();
+  // Searches kept before that rule, or that stopped matching, stay out too.
+  const shownRecent = useMemo(
+    () =>
+      catalogue.items.length === 0
+        ? recent
+        : recent.filter((r) => matchQuery(catalogue.items, r).length > 0),
+    [catalogue.items, recent],
+  );
   const typed = useMemo(() => {
     if (!query) return null;
     const q = normalise(query);
@@ -175,14 +183,17 @@ export function HeroSearch({
         ...typed.advisors.map((a) => ({ key: `a:${a.id}`, href: a.href })),
       ]
     : [
-        ...recent.map((r) => ({ key: `r:${r}`, href: searchHref(r), q: r })),
+        ...shownRecent.map((r) => ({ key: `r:${r}`, href: searchHref(r), q: r })),
         ...categories.map((c) => ({ key: `c:${c}`, href: searchHref(c), q: c })),
         ...questions.map((x) => ({ key: `q:${x}`, href: searchHref(x), q: x })),
       ];
   const indexOf = (key: string) => options.findIndex((o) => o.key === key);
   const optionId = (key: string) => `${listId}-${indexOf(key)}`;
 
+  // Only a search that finds something is worth offering again; a dead end
+  // kept in the history is one more row to read past.
   const remember = (q: string) => {
+    if (matchQuery(catalogue.items, q).length === 0) return;
     const next = [q, ...recent.filter((r) => r !== q)].slice(0, RECENT_MAX);
     setRecent(next);
     writeRecent(next);
@@ -440,10 +451,10 @@ export function HeroSearch({
             </>
           ) : (
             <>
-              {recent.length > 0
+              {shownRecent.length > 0
                 ? group(
                     t("suggestRecent"),
-                    recent.map((r) => (
+                    shownRecent.map((r) => (
                       <li
                         aria-selected={indexOf(`r:${r}`) === active}
                         className="group/recent relative"

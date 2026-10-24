@@ -266,6 +266,16 @@ export const servicePriceTags = cover("price-tags.898bc6ee.jpg");
 export const serviceTechPortfolio = cover("tech-portfolio.e8bb9a7f.jpg");
 /** Unsplash photo-1698047681432. */
 export const serviceResumeRead = cover("resume-read.4df77d7a.jpg");
+/** Unsplash photo-1758873272412. */
+export const serviceCompanyStart = cover("company-start.9dc1dd75.jpg");
+/** Unsplash photo-1600880292203. */
+export const serviceCompanyForm = cover("company-form.7ab3a2b5.jpg");
+/** Unsplash photo-1763729805496. */
+export const serviceJobContract = cover("job-contract.31f5eb20.jpg");
+/** Unsplash photo-1579621970563. */
+export const serviceFirstInvest = cover("first-invest.c2b8330c.jpg");
+/** Unsplash photo-1633158829875. */
+export const serviceTaxFund = cover("tax-fund.a767947b.jpg");
 
 /** `assets/onboarding/thai-national-id` — 700x466. */
 export const thaiNationalId: StaticImageData = {

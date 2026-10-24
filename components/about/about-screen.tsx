@@ -222,7 +222,7 @@ export function AboutScreen() {
             is public: without it the trailing slot is a bell to `/notifications`,
             which bounces a guest to the sign-in screen from their own nav bar.
             `overlay` because the band below opens on a photograph. */}
-        <TopBar login overlay />
+        <TopBar overlay />
 
         {/* ── Hero ── `SectionHero`: a photograph under a scrim, with the claim
             over it. The reference centres its copy and sets it 64px at the

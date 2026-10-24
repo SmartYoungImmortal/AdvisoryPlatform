@@ -401,7 +401,7 @@ export function HomeScreen() {
       <ScreenBody className="relative isolate">
         {/* `login`: the home page is open to guests, so a guest gets the
             way in rather than a bell that leads to a sign-in wall. */}
-        <TopBar login unreadNotifications />
+        <TopBar unreadNotifications />
         {/* The page's wash used to sit here, a 458px band behind the top of
             the content. It is gone with the hero's own gradient: the hero is
             now a flat field carrying a dozen coloured shapes, and a wash
@@ -418,7 +418,8 @@ export function HomeScreen() {
           <HomeHero
             body={t("heroSubtitle")}
             title={
-              <>
+              // The whole headline in the hand face, the one `/search` quotes its word in.
+              <span className="font-hand">
                 <span className="lg:hidden">{t("searchTitle")}</span>
                 {/* Two lines on purpose, broken where the sentence turns. The
                     `<em>` in the message is kept but drawn in the headline's
@@ -429,7 +430,7 @@ export function HomeScreen() {
                     em: (chunks) => <>{chunks}</>,
                   })}
                 </span>
-              </>
+              </span>
             }
           >
             <HeroSearch
