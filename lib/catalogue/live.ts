@@ -4,7 +4,7 @@ import { useCallback, useMemo } from "react";
 import { liveServiceHref } from "@/components/bookings/booking-flow";
 import type { Paginated } from "@/lib/api/client";
 import {
-  getAdvisorRatingSummary,
+  getAdvisorRatingSummaries,
   listAdvisors,
   listServiceCategories,
   listServices,
@@ -282,24 +282,23 @@ export function useLiveCatalogue(): {
     useCallback((signal: AbortSignal) => listServiceCategories(signal), []),
   );
 
-  // Every advisor's summary, as one resource keyed by who is in the list.
+  // Every advisor's summary, as one resource keyed by who is in the list, read
+  // in one batch. An advisor missing from the answer (or a batch that fails)
+  // is "no reviews yet", not a page that fails, as it was one by one.
   const ids = (advisors.data?.items ?? []).map((advisor) => advisor.id);
   const idKey = ids.join(",");
   const ratings = useResource<ReadonlyMap<string, ApiRatingSummary>>(
     idKey ? `ratings:${idKey}` : "ratings:none",
     useCallback(
       async (signal: AbortSignal) => {
-        const pairs = await Promise.all(
-          (idKey ? idKey.split(",") : []).map(async (id) => {
-            try {
-              return [id, await getAdvisorRatingSummary(id, signal)] as const;
-            } catch {
-              // No summary is "no reviews yet", not a page that fails.
-              return null;
-            }
-          }),
-        );
-        return new Map(pairs.filter((pair) => pair !== null));
+        if (!idKey) return new Map();
+        try {
+          const { items } = await getAdvisorRatingSummaries(idKey.split(","), signal);
+          return new Map(items.map((item) => [item.advisorId, item] as const));
+        } catch (cause) {
+          if (signal.aborted) throw cause;
+          return new Map();
+        }
       },
       [idKey],
     ),

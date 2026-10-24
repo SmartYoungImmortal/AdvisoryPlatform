@@ -10,7 +10,7 @@ import { AppFrame, PHONE_BAR } from "@/components/account/app-frame";
 import { authPill } from "@/components/auth/auth-split";
 import { BottomBar } from "@/components/bottombar";
 import { ApiError } from "@/lib/api/client";
-import { getOwnProfile } from "@/lib/api/resources";
+import { fetchOwnProfile } from "@/lib/session";
 import type { ApiOwnProfile } from "@/lib/api/types";
 import { useResource } from "@/lib/api/use-resource";
 import { MobileScreen, ScreenBody } from "@/components/mobile/screen";
@@ -84,7 +84,7 @@ export function ChatFrame({
 
 /** Holds the socket open while a chat screen is; `users/me` says whose lines are whose. */
 function LiveConnection() {
-  const me = useResource<ApiOwnProfile>("users/me", getOwnProfile);
+  const me = useResource<ApiOwnProfile>("users/me", fetchOwnProfile);
   useChatConnection(me.data?.id);
   return null;
 }

@@ -44,8 +44,8 @@ export interface ApiChatRoomCounterpart {
  *
  * `counterpart` names who the room is with. It is `null` for an anonymous room,
  * and absent from an API older than the field, so a screen still falls back to
- * working the person out (`resolveCounterpart`). There is no last message: that
- * comes from the room's first page of messages.
+ * working the person out (`resolveCounterpart`). `lastMessage` is the room's
+ * newest line, which an older API left to the room's first page of messages.
  */
 export interface ApiChatRoom {
   readonly id: string;
@@ -54,6 +54,11 @@ export interface ApiChatRoom {
   readonly unreadCount: number;
   readonly createdAt: string;
   readonly counterpart?: ApiChatRoomCounterpart | null;
+  /**
+   * The room's newest message (null in an empty room), so the inbox needs no
+   * per-room read; absent from an API older than the field.
+   */
+  readonly lastMessage?: ApiChatMessage | null;
 }
 
 /**

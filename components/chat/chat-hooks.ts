@@ -4,7 +4,8 @@ import { useFormatter, useLocale } from "next-intl";
 import { useCallback, useSyncExternalStore } from "react";
 
 import type { CursorPage, Paginated } from "@/lib/api/client";
-import { getOwnProfile, listAdvisors, listMyBookings, listServices } from "@/lib/api/resources";
+import { listAdvisors, listMyBookings, listServices } from "@/lib/api/resources";
+import { fetchOwnProfile } from "@/lib/session";
 import type { ApiBooking, ApiOwnProfile, ApiPublicAdvisor, ApiPublicService } from "@/lib/api/types";
 import { useResource, type Resource } from "@/lib/api/use-resource";
 import {
@@ -21,13 +22,13 @@ import { newestOf, resolveCounterpart, type Counterpart } from "@/components/cha
  * The reads the chat screens share, one cache key each so the list, the open
  * thread and the details beside it never ask twice.
  *
- * ## Why the inbox reads every room's messages
+ * ## Where the inbox's last lines come from
  *
- * A room row needs a name, a last line and a time, and `ChatRoomResponseDto`
- * has none of them. The first page of each room's messages has all three — the
- * newest line, and the other member's id to look the person up by — so the
- * inbox is one read that fans out: the rooms, then each room's page in
- * parallel. A room whose page fails still lists, without a preview.
+ * A room row needs a name, a last line and a time. The rooms list carries the
+ * other member (`counterpart`) and the newest line (`lastMessage`), so the
+ * inbox is one read. Against an API older than `lastMessage` it falls back to
+ * fanning out: each room's first page in parallel, where a room whose page
+ * fails still lists, without a preview.
  *
  * ## Why nothing here invalidates a mounted read
  *
@@ -49,6 +50,10 @@ export function useInbox(): Resource<readonly InboxRoom[]> {
     "chat/inbox?limit=50",
     useCallback(async (signal: AbortSignal) => {
       const rooms = await listChatRooms({ limit: 50 }, signal);
+      // The newest line rides on each room: the row's page is that one line.
+      if (rooms.items.every((room) => room.lastMessage !== undefined)) {
+        return rooms.items.map((room) => ({ room, messages: room.lastMessage ? [room.lastMessage] : [] }));
+      }
       const pages = await Promise.all(
         rooms.items.map((room) =>
           listChatMessages(room.id, { limit: 50 }, signal).catch((cause: unknown) => {
@@ -78,7 +83,7 @@ export type ChatPeople = {
 export function useChatPeople(): ChatPeople {
   // The same keys `/bookings` and the catalogue read, so whichever page came
   // first has already paid for them.
-  const me = useResource<ApiOwnProfile>("users/me", getOwnProfile);
+  const me = useResource<ApiOwnProfile>("users/me", fetchOwnProfile);
   const bookings = useResource<Paginated<ApiBooking>>(
     "bookings/me?limit=50",
     useCallback((signal: AbortSignal) => listMyBookings({ limit: 50 }, signal), []),

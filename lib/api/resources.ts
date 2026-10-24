@@ -33,6 +33,7 @@ import type {
   ApiPublicService,
   ApiPublicServiceQuery,
   ApiRatingSummary,
+  ApiRatingSummaryItem,
   ApiRefundCase,
   ApiRefundCaseInput,
   ApiReview,
@@ -133,6 +134,18 @@ export function getAdvisorRatingSummary(
   signal?: AbortSignal,
 ): Promise<ApiRatingSummary> {
   return api.get(`advisors/${advisorId}/reviews/summary`, { signal });
+}
+
+/**
+ * `GET /advisors/reviews/summaries?ids=` — public. The same summary for up to
+ * 100 advisors in one call, for a directory page that would otherwise ask once
+ * per advisor. An advisor the single route would 404 is simply absent.
+ */
+export function getAdvisorRatingSummaries(
+  advisorIds: readonly string[],
+  signal?: AbortSignal,
+): Promise<{ readonly items: readonly ApiRatingSummaryItem[] }> {
+  return api.get("advisors/reviews/summaries", { query: { ids: advisorIds.join(",") }, signal });
 }
 
 /* --------------------------------------------------------------------- user */
