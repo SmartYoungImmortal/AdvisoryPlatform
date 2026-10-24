@@ -166,7 +166,12 @@
     "filtersCount": "ตัวกรอง ({count})",
     "showResults": "ดูผลลัพธ์ {count} รายการ",
     "removeFilter": "เอาตัวกรอง {label} ออก",
-    "newListing": "ใหม่"
+    "noReviews": "ยังไม่มีรีวิว",    "perSession": "/ {minutes, plural, =60 {1 ชม.} =90 {1.5 ชม.} =120 {2 ชม.} other {# นาที}}",
+    "verifiedAdvisor": "ยืนยันตัวตนแล้ว",
+    "showingOf": "แสดง {from}–{to} จาก {total} รายการ",
+    "pagination": "หน้าผลการค้นหา",
+    "previousPage": "หน้าก่อนหน้า",
+    "nextPage": "หน้าถัดไป"
   },
   "bookings": {
     "title": "การจองของฉัน",

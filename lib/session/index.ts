@@ -370,10 +370,11 @@ export async function signIn(
 /**
  * Drop the session here first, then ask the API to drop its cookie.
  *
- * That order is deliberate. Callers navigate away the moment this is called —
- * `components/profile/log-out-dialog` does a full `window.location.replace` —
- * and a navigation cancels an in-flight request, so the local half has to have
- * happened already. The POST is still awaited for callers that can wait.
+ * That order is deliberate: the screen shows signed-out at once, and if the
+ * caller leaves early the local half has already happened. Callers that leave
+ * with a full `window.location.replace` (the log-out dialog, the console menu)
+ * wait for this first, because a navigation cancels the in-flight POST and
+ * the cookie would outlive the sign-out.
  */
 export async function signOut(): Promise<void> {
   publish(ANONYMOUS);

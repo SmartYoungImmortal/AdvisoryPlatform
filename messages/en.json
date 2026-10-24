@@ -166,7 +166,12 @@
     "filtersCount": "Filters ({count})",
     "showResults": "Show {count} results",
     "removeFilter": "Remove filter {label}",
-    "newListing": "New"
+    "noReviews": "No reviews yet",    "perSession": "/ {minutes, plural, =60 {1 hr} =90 {1.5 hr} =120 {2 hr} other {# min}}",
+    "verifiedAdvisor": "Identity verified",
+    "showingOf": "Showing {from}–{to} of {total}",
+    "pagination": "Result pages",
+    "previousPage": "Previous page",
+    "nextPage": "Next page"
   },
   "bookings": {
     "title": "My bookings",

@@ -1,14 +1,13 @@
 "use client";
 
-import { RotateCw, SlidersHorizontal, Star, X } from "lucide-react";
+import { ChevronLeft, ChevronRight, RotateCw, SlidersHorizontal, Star, X } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
-import { useTranslations } from "next-intl";
-import { useState, type ReactNode } from "react";
+import { useFormatter, useTranslations } from "next-intl";
+import { useRef, useState, useSyncExternalStore, type ReactNode } from "react";
 
 import { authPill } from "@/components/auth/auth-split";
 import { HeroSearch } from "@/components/home/hero-search";
-import { ServicePrice } from "@/components/home/parts";
 import { SiteFooter } from "@/components/marketing/site-footer";
 import { MobileScreen, ScreenBody } from "@/components/mobile/screen";
 import { BottomBar } from "@/components/bottombar";
@@ -69,6 +68,21 @@ const RATINGS: readonly { key: MinRating; label: string }[] = [
   { key: "4.8", label: "rating48" },
 ];
 
+const DESKTOP = "(min-width: 1024px)";
+
+/** Whether the filter panel slides in from the side (desktop) or up from the bottom. */
+function useIsDesktop(): boolean {
+  return useSyncExternalStore(
+    (onChange) => {
+      const query = window.matchMedia(DESKTOP);
+      query.addEventListener("change", onChange);
+      return () => query.removeEventListener("change", onChange);
+    },
+    () => window.matchMedia(DESKTOP).matches,
+    () => false,
+  );
+}
+
 /**
  * The page's one chip: a 36px pill, the chosen one in the home hero's black.
  * `aria-pressed` carries the state for a screen reader.
@@ -76,10 +90,12 @@ const RATINGS: readonly { key: MinRating; label: string }[] = [
 function Chip({
   active,
   onClick,
+  className,
   children,
 }: {
   readonly active: boolean;
   readonly onClick: () => void;
+  readonly className?: string;
   readonly children: ReactNode;
 }) {
   return (
@@ -87,6 +103,7 @@ function Chip({
       aria-pressed={active}
       className={cn(
         "h-9 shrink-0 rounded-full px-4 text-sm font-medium",
+        className,
         active
           ? "border-transparent bg-hero-action text-hero-action-foreground hover:bg-hero-action/85"
           : "border-border bg-card text-foreground hover:bg-muted",
@@ -100,11 +117,43 @@ function Chip({
   );
 }
 
+/** How many categories the desktop row shows before the rest fold away: two rows of chips. */
+const CATEGORY_LIMIT = 7;
+
 /**
- * One filter group: a label over a list of radios, one option per row. Chips
- * wrapped two to a row in a 17rem column and read as a heap; a list reads
- * top to bottom and every row is a full-width target.
+ * The busiest categories under the search field (`categoriesOf` sorts them):
+ * "all" and six more, two rows at most on a desktop, one sideways row on the
+ * phone. Every category, these included, is in the filter panel; one chosen
+ * there joins this row so the choice stays in view.
  */
+function CategoryChips({
+  categories,
+  value,
+  onChange,
+}: {
+  readonly categories: readonly string[];
+  readonly value: string | null;
+  readonly onChange: (category: string | null) => void;
+}) {
+  const t = useTranslations("search");
+  const shown = categories.slice(0, CATEGORY_LIMIT);
+  if (value && !shown.includes(value)) shown.push(value);
+
+  return (
+    <div className="-mx-5 flex w-screen max-w-none gap-2 overflow-x-auto px-5 pb-1 [scrollbar-width:none] md:mx-0 md:w-full md:flex-wrap md:justify-center md:px-0">
+      <Chip active={value === null} onClick={() => onChange(null)}>
+        {t("allCategories")}
+      </Chip>
+      {shown.map((category) => (
+        <Chip active={value === category} key={category} onClick={() => onChange(category)}>
+          {category}
+        </Chip>
+      ))}
+    </div>
+  );
+}
+
+/** One filter group in the panel: a label over a list of radios, one per row. */
 function OptionGroup<K extends string>({
   title,
   options,
@@ -123,7 +172,7 @@ function OptionGroup<K extends string>({
       <RadioGroup className="gap-0" onValueChange={(next) => onChange(next as K)} value={value}>
         {options.map((option) => (
           <label
-            className="-mx-2 flex h-11 cursor-pointer items-center gap-3 rounded-xl px-2 text-sm text-foreground transition-colors hover:bg-muted has-data-checked:font-semibold lg:h-10"
+            className="-mx-2 flex h-11 cursor-pointer items-center gap-3 rounded-xl px-2 text-sm text-foreground transition-colors hover:bg-muted has-data-checked:font-semibold"
             key={option.key}
           >
             <RadioGroupItem value={option.key} />
@@ -144,8 +193,8 @@ function chosen<K extends string>(options: readonly { key: K; label: string }[],
 
 /**
  * What is on, as pills above the results, each one taking its own filter
- * off: the phone keeps its filters in a sheet, so without these it cannot
- * see what is narrowing the list.
+ * off: the filters live behind one button, so without these nobody can see
+ * what is narrowing the list.
  */
 function ActiveFilters({
   filters,
@@ -156,7 +205,6 @@ function ActiveFilters({
 }) {
   const t = useTranslations("search");
   const pills: { key: keyof Filters; label: string }[] = [];
-  if (filters.category) pills.push({ key: "category", label: filters.category });
   for (const [key, label] of [
     ["price", chosen(PRICES, filters.price)],
     ["length", chosen(LENGTHS, filters.length)],
@@ -183,7 +231,7 @@ function ActiveFilters({
       ))}
       <Button
         className="h-8 px-1 text-xs font-semibold underline underline-offset-2"
-        onClick={() => onChange(DEFAULT_FILTERS)}
+        onClick={() => onChange({ ...DEFAULT_FILTERS, category: filters.category })}
         type="button"
         variant="link"
       >
@@ -194,23 +242,38 @@ function ActiveFilters({
 }
 
 /**
- * Every filter, drawn once and used twice: in the desktop column beside the
- * results, and in the phone's bottom sheet. The category is not here; it is
- * the row of chips under the search field, one tap at any width.
+ * Every category (the chips under the field show only the most popular), then
+ * price, length and score.
  */
 function FilterPanel({
   filters,
   onChange,
+  categories,
 }: {
   readonly filters: Filters;
   readonly onChange: (next: Filters) => void;
+  readonly categories: readonly string[];
 }) {
   const t = useTranslations("search");
   const set = <K extends keyof Filters>(key: K, value: Filters[K]) =>
     onChange({ ...filters, [key]: value });
-
   return (
     <div className="flex flex-col gap-6">
+      {/* Chips that wrap, not a radio per row: twelve rows of categories
+          pushed the price and length a screen down the panel. */}
+      <fieldset className="flex flex-col">
+        <legend className="pb-3 text-sm font-semibold text-foreground">{t("categoryTitle")}</legend>
+        <div className="flex flex-wrap gap-2">
+          <Chip active={filters.category === null} onClick={() => set("category", null)}>
+            {t("allCategories")}
+          </Chip>
+          {categories.map((category) => (
+            <Chip active={filters.category === category} key={category} onClick={() => set("category", category)}>
+              {category}
+            </Chip>
+          ))}
+        </div>
+      </fieldset>
       <OptionGroup onChange={(v) => set("price", v)} options={PRICES} title={t("priceTitle")} value={filters.price} />
       <OptionGroup onChange={(v) => set("length", v)} options={LENGTHS} title={t("durationTitle")} value={filters.length} />
       <OptionGroup onChange={(v) => set("rating", v)} options={RATINGS} title={t("ratingTitle")} value={filters.rating} />
@@ -221,46 +284,35 @@ function FilterPanel({
 /** The score, or "new" for an advisor nobody has reviewed yet. */
 function Rating({ item }: { readonly item: LiveService }) {
   const t = useTranslations("search");
-  const s = useTranslations("service");
   if (item.rating === null) {
-    return <span aria-hidden className="h-4 w-24 animate-pulse rounded-md bg-muted" />;
+    return <span aria-hidden className="h-4 w-14 animate-pulse rounded-md bg-muted" />;
   }
   if (item.reviews === 0) {
+    // Not "0 stars": a zero reads as the lowest score, and nobody has scored it.
     return (
-      <span className="self-start rounded-full bg-muted px-2 py-0.5 text-xs font-medium text-foreground">
-        {t("newListing")}
+      <span className="flex items-center gap-1 text-xs text-muted-foreground">
+        <Star aria-hidden className="size-3.5 text-muted-foreground" />
+        {t("noReviews")}
       </span>
     );
   }
   return (
-    <span className="flex items-center gap-1 text-sm">
+    <span className="flex items-center gap-1 text-xs">
       <Star aria-hidden className="size-3.5 fill-primary text-primary" />
       <span className="font-latin font-semibold text-foreground tabular-nums">{item.rating.toFixed(1)}</span>
-      <span className="text-muted-foreground">{s("reviewCount", { count: item.reviews })}</span>
+      <span className="text-muted-foreground tabular-nums">({item.reviews})</span>
     </span>
   );
 }
 
-/**
- * The advisor's face from their ring card, or their initial on the muted step.
- * 20px in the phone's row; from `sm` a 44px portrait laid into the photo's
- * bottom edge with a white ring, the way the home hero's cards carry theirs.
- */
-// `relative` so it paints over the photo, which is positioned and would
-// otherwise cover the half of the face that overlaps it.
-const FACE = "relative size-5 shrink-0 rounded-full sm:-mt-6 sm:size-11 sm:ring-3 sm:ring-card";
-
+/** The advisor's face from their ring card, or their initial on the muted step. */
 function AdvisorFace({ item }: { readonly item: LiveService }) {
-  if (item.face) {
-    return <Image alt="" className={cn(FACE, "object-cover")} src={item.face} />;
-  }
+  const face = "size-6 shrink-0 rounded-full";
+  if (item.face) return <Image alt="" className={cn(face, "object-cover")} src={item.face} />;
   return (
     <span
       aria-hidden
-      className={cn(
-        FACE,
-        "flex items-center justify-center bg-muted text-2xs font-semibold text-muted-foreground sm:text-base",
-      )}
+      className={cn(face, "flex items-center justify-center bg-muted text-2xs font-semibold text-muted-foreground")}
     >
       {item.advisorName.slice(0, 1)}
     </span>
@@ -268,53 +320,75 @@ function AdvisorFace({ item }: { readonly item: LiveService }) {
 }
 
 /**
- * A result. A row on the phone (a 112px square photo beside the text, so two
- * or three fit a screen), a card from `sm`: the photo across the top at
- * 16:10, the advisor's face over its edge, then the service, the score and
- * the price. Who is giving the advice comes first, because that is what a
- * client is choosing. The whole card is the link to the service's live page.
+ * A result. What a client weighs, in the order they weigh it, and only what
+ * the API actually knows: who (face, name, the verified mark every listed
+ * advisor has earned, their line of work), what (the service, two lines),
+ * how it has gone (score and reviews) and what it costs for how long.
+ * Nothing invented to fill the card: there is no reply time or sales count
+ * behind it, so neither is drawn. The whole card is the link to the service.
  */
 function ResultCard({ item }: { readonly item: LiveService }) {
+  const t = useTranslations("search");
+  const format = useFormatter();
   return (
     <Link
-      className="group flex gap-3 rounded-2xl border border-border bg-card p-2.5 transition-[box-shadow,translate] duration-200 hover:-translate-y-0.5 hover:shadow-card-hover focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none active:translate-y-0 sm:flex-col sm:gap-0 sm:overflow-hidden sm:p-0"
+      className="group flex flex-col gap-3 rounded-2xl outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
       href={item.href}
     >
-      <span className="relative w-28 shrink-0 overflow-hidden rounded-xl sm:w-full sm:rounded-none">
+      {/* The hero ring cards' own 2px shadow: just enough to lift the photo off white. */}
+      <span className="overflow-hidden rounded-2xl bg-muted shadow-hero-card transition-shadow duration-200 group-hover:shadow-hero-card-hover">
         <Image
           alt=""
-          className="aspect-square w-full object-cover transition-transform duration-300 group-hover:scale-[1.03] sm:aspect-[16/10]"
+          className="aspect-[4/3] w-full object-cover transition-transform duration-300 group-hover:scale-[1.03]"
           src={item.cover}
         />
       </span>
-      <span className="flex min-w-0 flex-1 flex-col gap-1.5 sm:gap-2 sm:px-4 sm:pb-4">
-        <span className="flex min-w-0 items-center gap-1.5 sm:items-end sm:gap-2.5">
+      <span className="flex min-w-0 flex-1 flex-col gap-2 px-0.5">
+        <span className="flex min-w-0 items-center gap-2">
           <AdvisorFace item={item} />
-          <span className="truncate text-sm text-muted-foreground">{item.advisorName}</span>
+          <span className="truncate text-xs font-medium text-foreground">{item.advisorName}</span>
         </span>
-        {/* Two lines held at every card, so a row's scores and prices line up. */}
-        <span className="line-clamp-2 text-base leading-snug font-semibold text-foreground sm:min-h-11">
-          {item.title}
+        {/* The title on one line and what it covers on two, both held at that
+            height, so every card matches and a row's prices line up. */}
+        <span className="flex min-w-0 flex-col gap-1">
+          <span className="truncate text-sm leading-snug font-semibold text-foreground md:text-base">
+            {item.title}
+          </span>
+          <span className="line-clamp-2 min-h-10 text-xs leading-5 text-muted-foreground">{item.description}</span>
         </span>
-        <Rating item={item} />
-        <span className="mt-auto pt-1 sm:border-t sm:border-border sm:pt-3">
-          <ServicePrice minutes={item.minutes} price={item.price} />
+        <span className="mt-auto flex flex-wrap items-end justify-between gap-x-2 gap-y-1 pt-1">
+          <Rating item={item} />
+          <span className="flex items-baseline gap-1 whitespace-nowrap">
+            <span className="font-latin text-sm font-bold text-foreground tabular-nums md:text-base">
+              {format.number(item.price, { style: "currency", currency: "THB", maximumFractionDigits: 0 })}
+            </span>
+            <span className="text-xs text-muted-foreground">{t("perSession", { minutes: item.minutes })}</span>
+          </span>
         </span>
       </span>
     </Link>
   );
 }
 
+// Two across on the phone, three on a tablet held upright, and from `lg` the
+// desktop's four, which a landscape tablet shows as the 1710 frame scaled down
+// (`doc-scale`) rather than as a layout of its own.
+const GRID =
+  "grid grid-cols-2 gap-x-4 gap-y-8 md:grid-cols-3 md:gap-x-6 md:gap-y-10 lg:grid-cols-4 lg:gap-x-10 lg:gap-y-14";
+
+/** Twelve at a time: three full rows at the widest grid, enough to choose from at once. */
+const PAGE_SIZE = 12;
+
 /** The loaded grid's own shape, so nothing shifts when the list lands. */
 function ResultsSkeleton() {
   return (
-    <div aria-hidden className="grid grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-5 xl:grid-cols-3">
-      {Array.from({ length: 6 }, (_, i) => (
-        <div className="flex gap-3 rounded-2xl border border-border p-2.5 sm:flex-col sm:p-0" key={i}>
-          <span className="aspect-square w-28 animate-pulse rounded-xl bg-muted sm:aspect-[4/3] sm:w-full sm:rounded-none" />
-          <span className="flex flex-1 flex-col gap-2 sm:p-4">
+    <div aria-hidden className={GRID}>
+      {Array.from({ length: 8 }, (_, i) => (
+        <div className="flex flex-col gap-3" key={i}>
+          <span className="aspect-[4/3] w-full animate-pulse rounded-2xl bg-muted" />
+          <span className="flex flex-col gap-2 px-0.5">
+            <span className="h-4 w-1/2 animate-pulse rounded-md bg-muted" />
             <span className="h-4 w-4/5 animate-pulse rounded-md bg-muted" />
-            <span className="h-3 w-2/5 animate-pulse rounded-md bg-muted" />
             <span className="h-3 w-1/3 animate-pulse rounded-md bg-muted" />
           </span>
         </div>
@@ -327,7 +401,7 @@ function ResultsSkeleton() {
 function LoadFailed({ message, onRetry }: { readonly message: string; readonly onRetry: () => void }) {
   const t = useTranslations("search");
   return (
-    <div className="flex flex-col items-center gap-4 rounded-3xl border border-dashed border-border px-6 py-14 text-center">
+    <div className="flex flex-col items-center gap-4 px-6 py-16 text-center">
       <h2 className="text-xl font-bold text-foreground">{t("loadFailedTitle")}</h2>
       <p className="max-w-md text-sm text-muted-foreground">{message}</p>
       <Button className={cn(authPill(true), "w-auto")} onClick={onRetry} type="button">
@@ -351,7 +425,7 @@ function EmptyResults({
   const t = useTranslations("search");
 
   return (
-    <div className="flex flex-col items-center gap-5 rounded-3xl border border-dashed border-border px-6 py-14 text-center">
+    <div className="flex flex-col items-center gap-5 px-6 py-16 text-center">
       <Image alt="" className="h-28 w-auto" src={errorSearch} />
       <div className="flex max-w-md flex-col gap-1.5">
         <h2 className="text-xl font-bold text-foreground">
@@ -387,17 +461,24 @@ function EmptyResults({
   );
 }
 
-/** The phone's filters: the same panel in a bottom sheet, with its own count. */
+/**
+ * Every filter but the category, behind one button: a panel from the right on
+ * a desktop, a sheet from the bottom on the phone. The button says how many
+ * are on, and the panel ends on the number of results they leave.
+ */
 function FilterSheet({
   filters,
   onChange,
   resultCount,
+  categories,
 }: {
   readonly filters: Filters;
   readonly onChange: (next: Filters) => void;
   readonly resultCount: number;
+  readonly categories: readonly string[];
 }) {
   const t = useTranslations("search");
+  const desktop = useIsDesktop();
   const [open, setOpen] = useState(false);
   const count = activeCount({ ...filters, category: DEFAULT_FILTERS.category });
 
@@ -405,19 +486,24 @@ function FilterSheet({
     <Sheet onOpenChange={setOpen} open={open}>
       <SheetTrigger
         className={cn(
-          "flex h-10 shrink-0 items-center gap-2 rounded-full border px-4 text-sm font-medium lg:hidden",
-          count > 0 ? "border-transparent bg-hero-action text-hero-action-foreground" : "border-border bg-card text-foreground",
+          "flex h-10 shrink-0 items-center gap-2 rounded-full border px-4 text-sm font-medium transition-colors",
+          count > 0
+            ? "border-transparent bg-hero-action text-hero-action-foreground"
+            : "border-border bg-card text-foreground hover:bg-muted",
         )}
       >
         <SlidersHorizontal aria-hidden className="size-4" />
         {count > 0 ? t("filtersCount", { count }) : t("filtersTitle")}
       </SheetTrigger>
-      <SheetContent className="max-h-[85dvh] gap-0 rounded-t-3xl p-0" side="bottom">
+      <SheetContent
+        className={cn("gap-0 p-0", desktop ? "w-full sm:max-w-sm" : "max-h-[85dvh] rounded-t-3xl")}
+        side={desktop ? "right" : "bottom"}
+      >
         <div className="flex items-center justify-between border-b border-border px-6 py-4">
           <SheetTitle className="text-lg font-bold">{t("filtersTitle")}</SheetTitle>
         </div>
         <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-6 py-6">
-          <FilterPanel filters={filters} onChange={onChange} />
+          <FilterPanel categories={categories} filters={filters} onChange={onChange} />
         </div>
         <div className="flex gap-2 border-t border-border px-6 py-4">
           <Button
@@ -460,7 +546,7 @@ function SortSelect({ value, onChange }: { readonly value: SortKey; readonly onC
   );
 }
 
-/** What the results column shows: failed, loading, results, or none. */
+/** What the results area shows: failed, loading, results, or none. */
 function ResultsBody({
   catalogue,
   results,
@@ -474,39 +560,102 @@ function ResultsBody({
   readonly filtered: boolean;
   readonly onClear: () => void;
 }) {
-  const t = useTranslations("search");
   if (catalogue.error) return <LoadFailed message={catalogue.error.message} onRetry={catalogue.reload} />;
   if (catalogue.loading && catalogue.items.length === 0) return <ResultsSkeleton />;
   if (results.length === 0) return <EmptyResults filtered={filtered} onClear={onClear} query={query} />;
+  // Keyed by what is listed, so a new search, filter or sort starts at page one.
+  return <PagedResults key={results.map((item) => item.id).join(",")} results={results} />;
+}
+
+/**
+ * The results twelve to a page, with numbered pages under the grid. Changing
+ * page brings the top of the results back into view, so the reader starts the
+ * new page at its first card rather than at the bottom of the old one. The
+ * results are already narrowed and sorted on this page, so a new search or
+ * filter remounts this (see `key` in `ResultsBody`) and starts again at one.
+ */
+function PagedResults({ results }: { readonly results: readonly LiveService[] }) {
+  const t = useTranslations("search");
+  const [page, setPage] = useState(1);
+  const top = useRef<HTMLDivElement>(null);
+  const pages = Math.max(1, Math.ceil(results.length / PAGE_SIZE));
+  const start = (page - 1) * PAGE_SIZE;
+  const visible = results.slice(start, start + PAGE_SIZE);
+
+  const go = (next: number) => {
+    setPage(next);
+    top.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+  };
+
   return (
     <>
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-5 xl:grid-cols-3">
-        {results.map((item) => (
+      <div className={cn(GRID, "scroll-mt-28")} ref={top}>
+        {visible.map((item) => (
           <ResultCard item={item} key={item.id} />
         ))}
       </div>
-      <p className="pt-2 text-center text-sm text-muted-foreground">{t("endOfResults", { count: results.length })}</p>
+      <div className="flex flex-col items-center gap-4 pt-10">
+        {pages > 1 ? (
+          <nav aria-label={t("pagination")} className="flex items-center gap-1">
+            <Button
+              aria-label={t("previousPage")}
+              className="size-10 rounded-full"
+              disabled={page === 1}
+              onClick={() => go(page - 1)}
+              size="icon"
+              type="button"
+              variant="ghost"
+            >
+              <ChevronLeft aria-hidden />
+            </Button>
+            {Array.from({ length: pages }, (_, i) => i + 1).map((n) => (
+              <Button
+                aria-current={n === page ? "page" : undefined}
+                className={cn(
+                  "size-10 rounded-full font-latin text-sm tabular-nums",
+                  n === page
+                    ? "bg-hero-action text-hero-action-foreground hover:bg-hero-action/85"
+                    : "text-foreground",
+                )}
+                key={n}
+                onClick={() => go(n)}
+                size="icon"
+                type="button"
+                variant="ghost"
+              >
+                {n}
+              </Button>
+            ))}
+            <Button
+              aria-label={t("nextPage")}
+              className="size-10 rounded-full"
+              disabled={page === pages}
+              onClick={() => go(page + 1)}
+              size="icon"
+              type="button"
+              variant="ghost"
+            >
+              <ChevronRight aria-hidden />
+            </Button>
+          </nav>
+        ) : null}
+        <p className="text-sm text-muted-foreground">
+          {t("showingOf", { from: start + 1, to: start + visible.length, total: results.length })}
+        </p>
+      </div>
     </>
   );
 }
 
 /**
  * `/search`: the live catalogue (`GET /services`, joined to advisors,
- * categories and ratings in `useLiveCatalogue`), matched against `?q=` when
- * there is one, then narrowed by the filters and ordered by the sort, all on
- * this page.
+ * categories and ratings in `useLiveCatalogue`), matched against `?q=`,
+ * narrowed by the filters and ordered by the sort, all on this page.
  *
- * Laid out on the frame the rest of the redesign uses: the same search field
- * as the home hero (its suggestions, history and categories included), the
- * docking bar, pills throughout, and the 1710 desktop zoomed down on a
- * landscape tablet (`doc-scale`).
- *
- * - **Categories** are the chips under the field, one tap at every width,
- *   and are the categories the catalogue holds, so each filters to something.
- * - **The rest of the filters** sit in a column beside the results on a
- *   desktop and in a bottom sheet on the phone; the same panel either way.
- * - **Results** are rows on the phone and cards from `sm`, each opening the
- *   service's live page.
+ * Built like the home hero, because that is the page people already know how
+ * to use: one heading, one search field in the middle, the categories under
+ * it, and then the results. Everything else (price, length, score) waits
+ * behind a single button, so the first screen asks for one thing only.
  */
 export function SearchScreen({
   query: typed,
@@ -544,17 +693,13 @@ export function SearchScreen({
       <ScreenBody className="bg-card pb-18 lg:pb-0">
         <TopBar dock unreadNotifications />
 
-        <div className="doc-scale mx-auto flex w-full max-w-340 flex-1 flex-col px-6 pt-6 pb-14 md:px-8 lg:pt-10 lg:pb-24">
-          <header className="flex flex-col gap-5 md:gap-6">
-            <div className="flex flex-col gap-1.5">
-              <h1 className="text-2xl leading-tight font-bold text-foreground md:text-4xl">
-                {query ? t("resultsTitle", { query }) : t("pageTitle")}
-              </h1>
-              <p className="text-sm text-muted-foreground md:text-base">
-                {query ? t("count", { count: results.length }) : t("pageSubtitle")}
-              </p>
-            </div>
-            <div className="flex w-full max-w-2xl">
+        <div className="doc-scale mx-auto flex w-full max-w-300 flex-1 flex-col px-5 pt-8 pb-14 md:px-8 lg:pt-14 lg:pb-24">
+          {/* The hero's own stack: heading, field, categories, centred. */}
+          <header className="mx-auto flex w-full max-w-170 flex-col items-center gap-5 text-center lg:gap-6">
+            <h1 className="font-hero text-3xl font-normal tracking-tight text-hero-ink md:text-hero">
+              {t("pageTitle")}
+            </h1>
+            <div className="flex w-full">
               {/* Keyed by the query: a new search from this field is a new
                   page view, and the field should open holding it. */}
               <HeroSearch
@@ -567,63 +712,41 @@ export function SearchScreen({
                 variant="page"
               />
             </div>
-            {/* Categories: one row that scrolls sideways on the phone. */}
-            <div className="-mx-6 flex gap-2 overflow-x-auto px-6 pb-1 [scrollbar-width:none] md:mx-0 md:flex-wrap md:px-0">
-              <Chip active={filters.category === null} onClick={() => setFilters({ ...filters, category: null })}>
-                {t("allCategories")}
-              </Chip>
-              {categories.map((category) => (
-                <Chip
-                  active={filters.category === category}
-                  key={category}
-                  onClick={() => setFilters({ ...filters, category })}
-                >
-                  {category}
-                </Chip>
-              ))}
-            </div>
+            {/* One row that scrolls sideways on the phone, wraps centred above it. */}
+            <CategoryChips
+              categories={categories}
+              onChange={(category) => setFilters({ ...filters, category })}
+              value={filters.category}
+            />
           </header>
 
-          <div className="mt-8 grid grid-cols-1 gap-10 lg:mt-10 lg:grid-cols-[17rem_minmax(0,1fr)] lg:gap-12">
-            <aside className="hidden lg:block">
-              <div className="sticky top-28 flex flex-col gap-6">
-                <div className="flex items-center justify-between">
-                  <h2 className="text-lg font-bold text-foreground">{t("filtersTitle")}</h2>
-                  {filtered ? (
-                    <Button
-                      className="h-auto p-0 text-sm font-semibold underline underline-offset-2"
-                      onClick={clear}
-                      type="button"
-                      variant="link"
-                    >
-                      {t("clearAll")}
-                    </Button>
-                  ) : null}
-                </div>
-                <FilterPanel filters={filters} onChange={setFilters} />
+          <section aria-live="polite" className="mt-10 flex min-w-0 flex-col gap-4 lg:mt-14">
+            <div className="flex items-center justify-between gap-3">
+              <p className="min-w-0 truncate text-sm text-muted-foreground">
+                {query ? `${t("resultsTitle", { query })} · ` : null}
+                <span className="font-medium text-foreground">{t("count", { count: results.length })}</span>
+              </p>
+              <div className="flex shrink-0 items-center gap-2">
+                <FilterSheet
+                  categories={categories}
+                  filters={filters}
+                  onChange={setFilters}
+                  resultCount={results.length}
+                />
+                <SortSelect onChange={setSort} value={sort} />
               </div>
-            </aside>
+            </div>
 
-            <section aria-live="polite" className="flex min-w-0 flex-col gap-5">
-              <div className="flex items-center justify-between gap-3">
-                <p className="text-sm font-medium text-foreground">{t("count", { count: results.length })}</p>
-                <div className="flex items-center gap-2">
-                  <FilterSheet filters={filters} onChange={setFilters} resultCount={results.length} />
-                  <SortSelect onChange={setSort} value={sort} />
-                </div>
-              </div>
+            <ActiveFilters filters={filters} onChange={setFilters} />
 
-              <ActiveFilters filters={filters} onChange={setFilters} />
-
-              <ResultsBody
-                catalogue={catalogue}
-                filtered={filtered}
-                onClear={clear}
-                query={query}
-                results={results}
-              />
-            </section>
-          </div>
+            <ResultsBody
+              catalogue={catalogue}
+              filtered={filtered}
+              onClear={clear}
+              query={query}
+              results={results}
+            />
+          </section>
         </div>
 
         <SiteFooter className="hidden lg:flex" />

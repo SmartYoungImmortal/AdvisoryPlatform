@@ -52,6 +52,8 @@ export interface ApiPublicAdvisor {
   readonly bio: string | null;
   /** A storage key, not a URL — the avatar endpoint presigns it. */
   readonly avatarKey: string | null;
+  /** better-auth's `image`: an already-public portrait URL, when the account has one. */
+  readonly image?: string | null;
   readonly skills: readonly string[];
   readonly publishedServiceCount: number;
 }

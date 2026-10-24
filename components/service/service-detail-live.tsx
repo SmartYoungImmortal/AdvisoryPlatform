@@ -202,7 +202,7 @@ function SlotsBlock({ serviceId }: { readonly serviceId: string }) {
     if (existing) existing.push(slot);
     else byDay.set(key, [slot]);
   }
-  const days = [...byDay.keys()].toSorted();
+  const days = [...byDay.keys()].toSorted((a, b) => a.localeCompare(b));
   const selected = day && byDay.has(day) ? day : (days[0] ?? null);
 
   const onPick = useCallback(
