@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   dayKey,
   daysBetween,
+  findEmails,
   findOffPlatform,
   groupThread,
   matchesQuery,
@@ -187,6 +188,37 @@ describe("counterpart", () => {
   });
 });
 
+describe("email scanner", () => {
+  // The answers `/[a-z0-9._%+-]+@(?:[a-z0-9-]+\.)+[a-z]{2,}/gi` gives.
+  const emails = (text: string) => findEmails(text).map(({ start, end }) => text.slice(start, end));
+
+  it("finds whole addresses, with every label of the domain", () => {
+    expect(emails("ส่งมาที่ kanya.law@gmail.com ก็ได้")).toEqual(["kanya.law@gmail.com"]);
+    expect(emails("a.b+c@mail.co.th, x@y.org")).toEqual(["a.b+c@mail.co.th", "x@y.org"]);
+    expect(emails("A_B%1@Sub-Domain.Example.COM")).toEqual(["A_B%1@Sub-Domain.Example.COM"]);
+  });
+
+  it("ends at the top level's letters and backs off to the last label that has one", () => {
+    expect(emails("x@y.com5")).toEqual(["x@y.com"]);
+    expect(emails("x@y.com.t1")).toEqual(["x@y.com"]);
+    expect(emails("x@a.b.c")).toEqual([]);
+  });
+
+  it("finds nothing without a name, a dotted domain or a two-letter top level", () => {
+    expect(emails("@gmail.com")).toEqual([]);
+    expect(emails("me@localhost")).toEqual([]);
+    expect(emails("me@x..com")).toEqual([]);
+    expect(emails("a@b.com@c.org")).toEqual(["a@b.com"]);
+  });
+
+  it("stays linear on a long run with no top level", () => {
+    const text = `x@${"a.".repeat(20_000)}1`;
+    const started = performance.now();
+    expect(emails(text)).toEqual([]);
+    expect(performance.now() - started).toBeLessThan(200);
+  });
+});
+
 describe("off-platform scanner", () => {
   const kinds = (text: string) => offPlatformKinds(findOffPlatform(text));
 
@@ -210,9 +242,9 @@ describe("off-platform scanner", () => {
     const text = "โทร 089-123-4567 ได้เลย";
     const parts = splitByMatches(text, findOffPlatform(text));
     expect(parts).toEqual([
-      { text: "โทร ", kind: null },
-      { text: "089-123-4567", kind: "phone" },
-      { text: " ได้เลย", kind: null },
+      { text: "โทร ", kind: null, start: 0 },
+      { text: "089-123-4567", kind: "phone", start: 4 },
+      { text: " ได้เลย", kind: null, start: 16 },
     ]);
   });
 });

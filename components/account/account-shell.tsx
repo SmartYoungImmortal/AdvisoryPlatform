@@ -42,6 +42,7 @@ import { cn } from "@/lib/utils";
  *   rail's current item is `AppFrame`'s own `active`.
  */
 export function AccountShell({
+  active,
   children,
   compact = false,
   className,
@@ -63,6 +64,8 @@ export function AccountShell({
         compact && "lg:max-w-none lg:p-0",
         className,
       )}
+      // Which place this page is, for tests and styles that need to tell.
+      data-section={active}
       data-slot="account-shell"
     >
       {children}

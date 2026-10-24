@@ -23,6 +23,7 @@ import {
 import Image from "next/image";
 import Link from "next/link";
 import { useTranslations } from "next-intl";
+import type { ReactNode } from "react";
 
 import { authPill } from "@/components/auth/auth-split";
 import { SiteFooter } from "@/components/marketing/site-footer";
@@ -45,6 +46,11 @@ import { cn } from "@/lib/utils";
 /** Section headings: the hero's Kanit, a step down from the page title. */
 const H2 = "font-hero text-3xl leading-tight font-normal tracking-tight text-hero-ink md:text-4xl";
 const LEAD = "text-base text-muted-foreground";
+
+/** The hand-lettered word in the title (`t.rich`'s `<hand>`). */
+function handWord(chunks: ReactNode) {
+  return <span className="ms-1.5 font-hand">{chunks}</span>;
+}
 /** The page's 1200 column, with the gutters `/search` uses at each width. */
 const COLUMN = "mx-auto w-full max-w-300 px-5 md:px-20 lg:px-8";
 
@@ -173,7 +179,7 @@ function Hero({ next }: { readonly next: Next }) {
           {/* The one hand-lettered word on the page: Sriracha, the face
               `/search` quotes its word in. */}
           <span className="block">
-            {t.rich("applyTitle2", { hand: (chunks) => <span className="ms-1.5 font-hand">{chunks}</span> })}
+            {t.rich("applyTitle2", { hand: handWord })}
           </span>
         </h1>
         <p className={cn(LEAD, "max-w-136")}>{t("applyLead")}</p>

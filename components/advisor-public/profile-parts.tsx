@@ -212,7 +212,6 @@ function MetaRow({
   readonly reviewsHref: string;
   readonly onReviews?: LinkHandler;
 }) {
-  const t = useTranslations("advisorProfile");
   const s = useTranslations("service");
 
   return (
@@ -228,21 +227,37 @@ function MetaRow({
           •
         </span>
       ) : null}
-      {reviewCount === null ? null : reviewCount === undefined ? (
-        <Pending className="h-4 w-14 lg:h-[19px] lg:w-[76px]" />
-      ) : (
-        <Link
-          className="rounded-sm outline-none hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/50"
-          href={reviewsHref}
-          onClick={onReviews}
-        >
-          {t.rich("reviewCountRich", {
-            count: reviewCount,
-            b: (chunks) => <b className="font-latin font-bold text-foreground tabular-nums">{chunks}</b>,
-          })}
-        </Link>
-      )}
+      <ReviewCount count={reviewCount} href={reviewsHref} onClick={onReviews} />
     </div>
+  );
+}
+
+/** The figure in a count, bold in the Latin face (`t.rich`'s `<b>`). */
+function boldFigure(chunks: ReactNode) {
+  return <b className="font-latin font-bold text-foreground tabular-nums">{chunks}</b>;
+}
+
+/** The review count on the handle row: nothing when unknown, a bar while it loads, then the link. */
+function ReviewCount({
+  count,
+  href,
+  onClick,
+}: {
+  readonly count: number | null | undefined;
+  readonly href: string;
+  readonly onClick?: LinkHandler;
+}) {
+  const t = useTranslations("advisorProfile");
+  if (count === null) return null;
+  if (count === undefined) return <Pending className="h-4 w-14 lg:h-[19px] lg:w-[76px]" />;
+  return (
+    <Link
+      className="rounded-sm outline-none hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/50"
+      href={href}
+      onClick={onClick}
+    >
+      {t.rich("reviewCountRich", { count, b: boldFigure })}
+    </Link>
   );
 }
 
@@ -380,6 +395,36 @@ function SkillChip({ children }: { readonly children: string }) {
   );
 }
 
+const COVER_BOX =
+  "relative block h-50 w-full overflow-hidden md:rounded-2xl lg:aspect-video lg:h-auto lg:rounded-[21.375px]";
+
+/**
+ * The cover itself: grey while it loads, an empty cell when there is none,
+ * the photograph (a link to the service when it has one) otherwise.
+ */
+function FeaturedCover({ featured }: { readonly featured: FeaturedService | null | undefined }) {
+  const t = useTranslations("advisorProfile");
+  if (featured === undefined) return <span aria-hidden className={cn(COVER_BOX, "bg-muted")} />;
+  // A blank cover: the cell keeps its size and draws nothing.
+  if (featured === null) return <span aria-hidden className={COVER_BOX} />;
+  const image = (
+    <Image alt="" className="object-cover" fill priority sizes="(min-width: 1024px) 680px, 100vw" src={featured.cover} />
+  );
+  if (!featured.href) return <span className={cn(COVER_BOX, "bg-muted")}>{image}</span>;
+  return (
+    <Link
+      aria-label={t("featuredLabel", { title: featured.title })}
+      className={cn(COVER_BOX, "bg-muted outline-none focus-visible:ring-3 focus-visible:ring-ring/50")}
+      href={featured.href}
+    >
+      {image}
+      <span className="absolute bottom-[19px] left-[19px] hidden max-w-[calc(100%-38px)] items-center rounded-full bg-card/95 px-[19px] py-[7.125px] text-frame-meta font-medium text-foreground shadow-hero-card lg:flex">
+        <span className="truncate">{featured.title}</span>
+      </span>
+    </Link>
+  );
+}
+
 /**
  * The featured cover: the full-bleed 200px cover on the phone, the
  * 16:9 cover in the right-hand cell from `lg`, captioned with skills there.
@@ -391,33 +436,9 @@ function Featured({
   readonly featured: FeaturedService | null | undefined;
   readonly skills: readonly string[];
 }) {
-  const t = useTranslations("advisorProfile");
-  const box =
-    "relative block h-50 w-full overflow-hidden md:rounded-2xl lg:aspect-video lg:h-auto lg:rounded-[21.375px]";
-
   return (
     <figure className="m-0 flex w-full flex-col md:px-5 lg:col-start-2 lg:row-start-1 lg:gap-[16.15px] lg:px-0">
-      {featured === undefined ? (
-        <span aria-hidden className={cn(box, "bg-muted")} />
-      ) : featured === null ? (
-        // A blank cover: the cell keeps its size and draws nothing.
-        <span aria-hidden className={box} />
-      ) : featured.href ? (
-        <Link
-          aria-label={t("featuredLabel", { title: featured.title })}
-          className={cn(box, "bg-muted outline-none focus-visible:ring-3 focus-visible:ring-ring/50")}
-          href={featured.href}
-        >
-          <Image alt="" className="object-cover" fill priority sizes="(min-width: 1024px) 680px, 100vw" src={featured.cover} />
-          <span className="absolute bottom-[19px] left-[19px] hidden max-w-[calc(100%-38px)] items-center rounded-full bg-card/95 px-[19px] py-[7.125px] text-frame-meta font-medium text-foreground shadow-hero-card lg:flex">
-            <span className="truncate">{featured.title}</span>
-          </span>
-        </Link>
-      ) : (
-        <span className={cn(box, "bg-muted")}>
-          <Image alt="" className="object-cover" fill priority sizes="(min-width: 1024px) 680px, 100vw" src={featured.cover} />
-        </span>
-      )}
+      <FeaturedCover featured={featured} />
       {/* A blank cover drops its caption too. */}
       {featured !== null && skills.length > 0 ? (
         <figcaption className="hidden lg:block">
@@ -1092,7 +1113,10 @@ export function PendingProfile({
     <ProfilePage back={back}>
       <ProfileHeader model={model} />
       <ProfileTabs current={tab} items={items} label={label} onSelect={onSelect} />
-      <TabPanel>{tab === "reviews" ? <ReviewListPending /> : tab === "services" ? <ServiceGridPending /> : null}</TabPanel>
+      <TabPanel>
+        {tab === "reviews" ? <ReviewListPending /> : null}
+        {tab === "services" ? <ServiceGridPending /> : null}
+      </TabPanel>
     </ProfilePage>
   );
 }

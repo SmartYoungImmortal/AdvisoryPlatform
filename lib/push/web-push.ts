@@ -56,7 +56,8 @@ function decodeKey(key: string): Uint8Array<ArrayBuffer> {
   const base64 = (key + "=".repeat((4 - (key.length % 4)) % 4)).replace(/-/g, "+").replace(/_/g, "/");
   const raw = atob(base64);
   const bytes = new Uint8Array(raw.length);
-  for (let i = 0; i < raw.length; i += 1) bytes[i] = raw.charCodeAt(i);
+  // `atob` gives one char per byte (0–255), so the code point is the byte.
+  for (let i = 0; i < raw.length; i += 1) bytes[i] = raw.codePointAt(i) ?? 0;
   return bytes;
 }
 

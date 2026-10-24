@@ -212,10 +212,10 @@ function StatusFilter({
   const t = useTranslations("transactions");
 
   return (
-    <div
+    // `<fieldset>`: a group by its own semantics; reset so it lays out as the row it was.
+    <fieldset
       aria-label={t("filterLabel")}
-      className={cn("flex w-full shrink-0 gap-2 overflow-x-auto", GUTTER, className)}
-      role="group"
+      className={cn("flex w-full min-w-0 shrink-0 gap-2 overflow-x-auto border-0 py-0", GUTTER, className)}
     >
       {FILTERS.map((key) => {
         const active = key === value;
@@ -246,7 +246,7 @@ function StatusFilter({
           </Button>
         );
       })}
-    </div>
+    </fieldset>
   );
 }
 

@@ -19,6 +19,41 @@ export function faceFor(advisor: ApiPublicAdvisor | null): StaticImageData | nul
   return advisor.image ? { src: advisor.image, width: 128, height: 128 } : null;
 }
 
+/** The disc itself, in the order `PersonAvatar` describes. */
+function AvatarFace({
+  face,
+  initial,
+  known,
+  size,
+}: {
+  readonly face: StaticImageData | null;
+  readonly initial: string;
+  readonly known: boolean;
+  readonly size: number;
+}) {
+  if (face) {
+    return <Image alt="" className="size-full rounded-full bg-muted object-cover" height={size} src={face} width={size} />;
+  }
+  if (initial) {
+    return (
+      <span
+        className="flex size-full items-center justify-center rounded-full bg-muted font-medium text-foreground"
+        style={{ fontSize: Math.round(size * 0.4) }}
+      >
+        {initial}
+      </span>
+    );
+  }
+  if (known) {
+    return (
+      <span className="flex size-full items-center justify-center rounded-full bg-muted text-muted-foreground">
+        <UserRound style={{ width: size * 0.48, height: size * 0.48 }} />
+      </span>
+    );
+  }
+  return <ChatMark className="size-full" size={size} />;
+}
+
 /**
  * The other person in a conversation: their face, else the first letter of
  * their name, else a person glyph when we know someone is there but not who,
@@ -60,28 +95,7 @@ export function PersonAvatar({
       className={cn("relative inline-flex shrink-0", className)}
       style={{ width: size, height: size }}
     >
-      {face ? (
-        <Image
-          alt=""
-          className="size-full rounded-full bg-muted object-cover"
-          height={size}
-          src={face}
-          width={size}
-        />
-      ) : initial ? (
-        <span
-          className="flex size-full items-center justify-center rounded-full bg-muted font-medium text-foreground"
-          style={{ fontSize: Math.round(size * 0.4) }}
-        >
-          {initial}
-        </span>
-      ) : known ? (
-        <span className="flex size-full items-center justify-center rounded-full bg-muted text-muted-foreground">
-          <UserRound style={{ width: size * 0.48, height: size * 0.48 }} />
-        </span>
-      ) : (
-        <ChatMark className="size-full" size={size} />
-      )}
+      <AvatarFace face={face} initial={initial} known={known} size={size} />
       {verified ? (
         <span
           className="absolute -end-0.5 -bottom-0.5 flex items-center justify-center rounded-full bg-card"

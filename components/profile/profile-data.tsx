@@ -4,7 +4,8 @@ import { useCallback } from "react";
 
 import { BOOKING_BUCKET } from "@/components/bookings/booking-flow";
 import { api, ApiError, type Paginated } from "@/lib/api/client";
-import { getOwnAvatarUrl, getOwnProfile, listAdvisors, listMyBookings } from "@/lib/api/resources";
+import { getOwnAvatarUrl, listAdvisors, listMyBookings } from "@/lib/api/resources";
+import { fetchOwnProfile } from "@/lib/session";
 import type { ApiAvatarUrl, ApiBooking, ApiOwnProfile, ApiPublicAdvisor } from "@/lib/api/types";
 import { useResource, type Resource } from "@/lib/api/use-resource";
 import { useLiveCatalogue, type LiveService } from "@/lib/catalogue/live";
@@ -60,9 +61,12 @@ export function hasRole(profile: ApiOwnProfile | undefined, role: string): boole
   return (profile?.roles ?? []).some((held) => held.toLowerCase() === want);
 }
 
-/** `GET /users/me`. One cache key, so every screen that asks shares one request. */
+/**
+ * `GET /users/me`. One cache key, so every screen that asks shares one request,
+ * and the first one shares the session's own (`fetchOwnProfile`).
+ */
 export function useOwnProfile(): Resource<ApiOwnProfile> {
-  return useResource<ApiOwnProfile>("users/me", getOwnProfile);
+  return useResource<ApiOwnProfile>("users/me", fetchOwnProfile);
 }
 
 /**

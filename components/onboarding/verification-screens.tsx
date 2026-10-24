@@ -303,9 +303,7 @@ function StatusLoading() {
   return (
     <OnboardingSplit>
       <div aria-busy className="flex flex-col gap-5 pt-4 md:gap-6 lg:pt-0">
-        <span className="sr-only" role="status">
-          {t("statusLoading")}
-        </span>
+        <output className="sr-only">{t("statusLoading")}</output>
         <span className="ml-2 size-12 rounded-full bg-muted" />
         <div className="flex flex-col gap-3">
           <span className="h-9 w-2/3 rounded-lg bg-muted" />

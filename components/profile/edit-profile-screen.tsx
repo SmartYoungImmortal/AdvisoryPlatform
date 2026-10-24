@@ -104,6 +104,110 @@ function TextField({
 }
 
 /** A failure said in place, under what it is about. */
+type NameFields = { displayName?: string; fullName?: string };
+
+/**
+ * What is wrong with the names as typed: a display name always; a full name
+ * once the account has one, since the API refuses either sent empty.
+ */
+function nameErrors(
+  nextName: string,
+  nextFull: string,
+  current: { readonly fullName?: string | null },
+  t: (key: "nameRequired" | "fullNameRequired") => string,
+): NameFields {
+  const found: NameFields = {};
+  if (!nextName) found.displayName = t("nameRequired");
+  if (!nextFull && current.fullName) found.fullName = t("fullNameRequired");
+  return found;
+}
+
+/** Only the names that differ from what the account holds now. */
+function nameChanges(
+  nextName: string,
+  nextFull: string,
+  current: { readonly displayName: string; readonly fullName?: string | null },
+): NameFields {
+  const changes: NameFields = {};
+  if (nextName !== current.displayName) changes.displayName = nextName;
+  if (nextFull && nextFull !== (current.fullName ?? "")) changes.fullName = nextFull;
+  return changes;
+}
+
+/**
+ * Why a picked photo cannot be uploaded, by the API's own rules
+ * (users/avatar.constants.ts), so a wrong file is refused before it is sent
+ * rather than after; null when it can.
+ */
+function photoProblem(file: File): "photoTypeError" | "photoSizeError" | null {
+  if (!AVATAR_ACCEPT.split(",").includes(file.type)) return "photoTypeError";
+  if (file.size > MAX_AVATAR_BYTES) return "photoSizeError";
+  return null;
+}
+
+/** Focus the first field with an error; true when there was one. */
+function focusFirstError(
+  found: NameFields,
+  nameField: RefObject<HTMLInputElement | null>,
+  fullField: RefObject<HTMLInputElement | null>,
+): boolean {
+  if (found.displayName) nameField.current?.focus();
+  else if (found.fullName) fullField.current?.focus();
+  return Boolean(found.displayName || found.fullName);
+}
+
+/** The save button's word: saving while it goes, "try again" after a failure. */
+function saveLabelKey(saving: boolean, failed: boolean): "saving" | "retry" | "save" {
+  if (saving) return "saving";
+  return failed ? "retry" : "save";
+}
+
+/** What went wrong, in the API's own sentence when it gave one. */
+function messageOf(cause: unknown): string {
+  return cause instanceof Error ? cause.message : String(cause);
+}
+
+/**
+ * The photo control's upload: checked against the API's rules before it is
+ * sent, `uploading` while it goes, and the reason when it is refused.
+ * `onUploaded` refreshes whatever shows the portrait.
+ */
+function usePhotoUpload(rejected: boolean, onUploaded: () => void) {
+  const t = useTranslations("profileEdit");
+  const [photoError, setPhotoError] = useState<string | null>(rejected ? t("photoTypeError") : null);
+  const [uploading, setUploading] = useState(false);
+
+  async function changePhoto(file: File | undefined) {
+    if (!file) return;
+    const problem = photoProblem(file);
+    setPhotoError(problem ? t(problem) : null);
+    if (problem) return;
+    setUploading(true);
+    try {
+      await uploadOwnAvatar(file);
+      onUploaded();
+    } catch (cause) {
+      setPhotoError(messageOf(cause));
+    } finally {
+      setUploading(false);
+    }
+  }
+
+  return { photoError, uploading, changePhoto };
+}
+
+/** The way to the account settings inside the email note (`t.rich`'s `<link>`). */
+function settingsLink(chunks: ReactNode) {
+  return (
+    <Link
+      className="font-medium text-foreground underline underline-offset-2 outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
+      href="/settings"
+    >
+      {chunks}
+    </Link>
+  );
+}
+
 function InlineAlert({ title, body }: { readonly title: string; readonly body: string }) {
   return (
     <div
@@ -175,10 +279,13 @@ export function EditProfileScreen({
   const [saveError, setSaveError] = useState<string | null>(
     state === "save-failed" ? t("saveFailedHint") : null,
   );
-  const [photoError, setPhotoError] = useState<string | null>(
-    state === "photo-rejected" ? t("photoTypeError") : null,
-  );
-  const [uploading, setUploading] = useState(false);
+  const { photoError, uploading, changePhoto } = usePhotoUpload(state === "photo-rejected", () => {
+    // The presigned URL and the profile's `avatarKey` both changed; asking
+    // again redraws every portrait on the page, the sidebar's included.
+    invalidate("users/me");
+    avatar.reload();
+    profile.reload();
+  });
 
   // The form is seeded from the profile once it lands and is the reader's own
   // after that, so the fields are null until then rather than mirroring the
@@ -202,24 +309,11 @@ export function EditProfileScreen({
     const nextName = nameValue.trim();
     const nextFull = fullValue.trim();
 
-    // A display name always; a full name once the account has one, since the
-    // API refuses either sent empty.
-    const found: { displayName?: string; fullName?: string } = {};
-    if (!nextName) found.displayName = t("nameRequired");
-    if (!nextFull && profile.data.fullName) found.fullName = t("fullNameRequired");
+    const found = nameErrors(nextName, nextFull, profile.data, t);
     setErrors(found);
-    if (found.displayName) {
-      nameField.current?.focus();
-      return;
-    }
-    if (found.fullName) {
-      fullField.current?.focus();
-      return;
-    }
+    if (focusFirstError(found, nameField, fullField)) return;
 
-    const changes: { displayName?: string; fullName?: string } = {};
-    if (nextName !== profile.data.displayName) changes.displayName = nextName;
-    if (nextFull && nextFull !== (profile.data.fullName ?? "")) changes.fullName = nextFull;
+    const changes = nameChanges(nextName, nextFull, profile.data);
     if (Object.keys(changes).length === 0) {
       router.push("/profile");
       return;
@@ -233,42 +327,15 @@ export function EditProfileScreen({
       invalidate("users/me");
       router.push("/profile");
     } catch (cause) {
-      setSaveError(cause instanceof Error ? cause.message : String(cause));
+      setSaveError(messageOf(cause));
     } finally {
       setSaving(false);
     }
   }
 
-  async function changePhoto(file: File | undefined) {
-    if (!file) return;
-    setPhotoError(null);
-    // The API's own rules (users/avatar.constants.ts), so a wrong file is
-    // refused before it is uploaded rather than after.
-    if (!AVATAR_ACCEPT.split(",").includes(file.type)) {
-      setPhotoError(t("photoTypeError"));
-      return;
-    }
-    if (file.size > MAX_AVATAR_BYTES) {
-      setPhotoError(t("photoSizeError"));
-      return;
-    }
-    setUploading(true);
-    try {
-      await uploadOwnAvatar(file);
-      // The presigned URL and the profile's `avatarKey` both changed; asking
-      // again redraws every portrait on the page, the sidebar's included.
-      invalidate("users/me");
-      avatar.reload();
-      profile.reload();
-    } catch (cause) {
-      setPhotoError(cause instanceof Error ? cause.message : String(cause));
-    } finally {
-      setUploading(false);
-    }
-  }
-
   const pick = () => picker.current?.click();
   const photoBusy = !profile.data || uploading;
+  const saveLabel = t(saveLabelKey(saving, saveError !== null));
 
   return (
     // White under the back chevron too, so the phone's top strip is the page
@@ -410,16 +477,7 @@ export function EditProfileScreen({
                         </span>
                       </div>
                       <p className="text-sm text-muted-foreground lg:text-frame-meta">
-                        {t.rich("emailNoteLinked", {
-                          link: (chunks) => (
-                            <Link
-                              className="font-medium text-foreground underline underline-offset-2 outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
-                              href="/settings"
-                            >
-                              {chunks}
-                            </Link>
-                          ),
-                        })}
+                        {t.rich("emailNoteLinked", { link: settingsLink })}
                       </p>
                     </div>
 
@@ -443,7 +501,7 @@ export function EditProfileScreen({
                         type="submit"
                       >
                         {saving ? <LoaderCircle aria-hidden className="animate-spin motion-reduce:animate-none" /> : null}
-                        {saving ? t("saving") : saveError ? t("retry") : t("save")}
+                        {saveLabel}
                       </Button>
                     </div>
                   </div>

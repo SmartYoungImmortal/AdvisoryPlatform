@@ -98,6 +98,37 @@ function SessionCard({
   );
 }
 
+/**
+ * What goes under the name when there is no advisor headline: for someone the
+ * API names but the directory does not list, "not public right now" only when
+ * this is a room I booked them in (so they are the advisor), and nothing for
+ * an Advisee; for nobody named, which of the two we cannot tell.
+ */
+function detailsNoteKey({ advisor, person, booking, userId }: Counterpart): "unlisted" | "unknownPartner" | null {
+  if (advisor) return null;
+  if (!person) return userId ? "unlisted" : "unknownPartner";
+  return booking ? "unlisted" : null;
+}
+
+/** The next session with this person that has not ended yet, booked or under way. */
+function nextSessionWith(bookings: readonly ApiBooking[], userId: string | null, now: number): ApiBooking | undefined {
+  if (!userId) return undefined;
+  return bookings
+    .filter(
+      (b) =>
+        (b.advisorId === userId || b.adviseeId === userId) &&
+        (b.state === "BOOKED" || b.state === "IN_PROGRESS") &&
+        Date.parse(b.endTime) > now,
+    )
+    .toSorted((a, b) => Date.parse(a.startTime) - Date.parse(b.startTime))[0];
+}
+
+/** Where "book again" goes: the service this room is about, else the advisor's page. */
+function bookHrefFor({ service, advisor }: Counterpart): string | null {
+  if (service) return liveServiceHref(service.id);
+  return advisor ? liveAdvisorHref(advisor.id) : null;
+}
+
 export function ThreadDetails({
   counterpart,
   roomId,
@@ -115,31 +146,15 @@ export function ThreadDetails({
   readonly className?: string;
 }) {
   const t = useTranslations("chat");
-  const { advisor, booking, person, service, userId } = counterpart;
+  const { advisor, booking, person, userId } = counterpart;
   const name = counterpartName(counterpart, t);
-  // Under the name: the advisor's headline; for someone the API names but the
-  // directory does not list, "not public right now" only when this is a room I
-  // booked them in (so they are the advisor), and nothing for an Advisee.
-  let note: string | null = null;
-  if (!advisor) {
-    if (!person) note = userId ? t("unlisted") : t("unknownPartner");
-    else if (booking) note = t("unlisted");
-  }
+  const noteKey = detailsNoteKey(counterpart);
+  const note = noteKey ? t(noteKey) : null;
 
   const now = useMountTime();
-  const upcoming = userId
-    ? bookings
-        .filter(
-          (b) =>
-            (b.advisorId === userId || b.adviseeId === userId) &&
-            (b.state === "BOOKED" || b.state === "IN_PROGRESS") &&
-            Date.parse(b.endTime) > now,
-        )
-        .toSorted((a, b) => Date.parse(a.startTime) - Date.parse(b.startTime))[0]
-    : undefined;
-  const session = booking ?? upcoming ?? null;
+  const session = booking ?? nextSessionWith(bookings, userId, now) ?? null;
   const serviceOf = (b: ApiBooking) => services.find((s) => s.id === b.serviceId) ?? null;
-  const bookHref = service ? liveServiceHref(service.id) : advisor ? liveAdvisorHref(advisor.id) : null;
+  const bookHref = bookHrefFor(counterpart);
 
   return (
     <div className={cn("flex flex-col gap-6", className)}>
@@ -150,9 +165,8 @@ export function ThreadDetails({
           <p className="font-hero text-xl tracking-tight text-hero-ink lg:text-2xl">{name}</p>
           {advisor ? (
             <p className="line-clamp-2 text-sm text-muted-foreground lg:text-base">{advisor.headline}</p>
-          ) : note ? (
-            <p className="text-sm text-muted-foreground lg:text-base">{note}</p>
           ) : null}
+          {note ? <p className="text-sm text-muted-foreground lg:text-base">{note}</p> : null}
         </div>
         {anonymous ? (
           <StatusPill className={PILL} icon={EyeOff} tone="neutral">

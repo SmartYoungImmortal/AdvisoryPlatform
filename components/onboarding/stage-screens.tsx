@@ -299,9 +299,9 @@ function AttachedDocument({
           <ImageIcon aria-hidden className="size-10 text-muted-foreground" />
         )}
         {shown === "opening" && preview ? (
-          <span className={cn("absolute inset-0 flex items-center justify-center text-muted-foreground", NOTE)} role="status">
+          <output className={cn("absolute inset-0 flex items-center justify-center text-muted-foreground", NOTE)}>
             {t("preparing")}
-          </span>
+          </output>
         ) : null}
       </div>
       <div className="flex w-full items-center gap-3 rounded-card bg-muted px-3.5 py-2.5">

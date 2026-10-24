@@ -27,10 +27,11 @@
 - [x] `/forgot-password`, `/reset-sent`
 - [x] ของที่ใช้ร่วมกัน: navbar, เมนูมือถือ, ปุ่ม TH/EN
 - [x] `/search` และ `/search/no-results` (ใช้หน้าเดียวกัน)
+- [x] `/notifications` (+ `/notifications/view` หน้าข้อความเต็มของแจ้งเตือนที่อ่านอย่างเดียว) ผ่าน 25 ต.ค.
 
 ## ทำแล้วแต่ยังไม่ผ่าน
 
-รอบ 24-25 ต.ค. 2569 ทำพร้อมกันหลาย agent ยังไม่ได้ commit
+รอบ 24-25 ต.ค. 2569 merge เข้า dev แล้ว (web #80, API #59)
 
 ### Home ใต้ hero
 - [ ] `/` ส่วนใต้ hero: concept "คำถามในใจ" (คำถามลายมือ คำตอบตัวพิมพ์) 4 บท + FAQ + ปิดท้ายบนรูปห้อง
@@ -59,7 +60,7 @@
 
 ### RD-11 · แชตและการแจ้งเตือน
 - [ ] `/chat`, `/chat/empty`, `/chat/session-banner`; ห้องแชตย้ายไป `/chat/room?id=…` (+ `/message-failed`, `/report`, `/report/submitted`)
-- [ ] `/notifications`, `/notifications/advisor`
+- [ ] `/notifications/advisor` (ฝั่ง advisor ใช้หน้าเดียวกับ `/notifications` ที่ผ่านแล้ว รอพี่ดู)
 
 ## ยังไม่ได้ทำ
 
@@ -159,7 +160,6 @@
 - [ ] `/bookings` แสดง id ดิบของบริการที่ปิดไปแล้วแทนชื่อ
 - [ ] `useQueryValue` ใน `components/bookings/booking-flow.ts` ค้างค่า query เก่าเมื่อหน้าลิงก์หาตัวเองด้วย query ใหม่ (หน้า service แก้แล้วด้วย `useSearchParams`)
 - [ ] advisor ที่โดนปฏิเสธแล้วสมัครใหม่ ต้องกรอกทักษะ/หลักฐานใหม่ทั้งหมด และหลักฐานอาจถูกส่งซ้ำ
-- [ ] API: ห้องแชตยังไม่บอกว่าคุยกับใคร (หน้าแชตเดาจากข้อความ/การจอง), ยังไม่มี route ส่งข้อความแบบตัวอักษร
 - [ ] key ข้อความที่ไม่มีใครใช้แล้วใน `messages/th.json` (`payment.*` หลายตัว, `home.promo*` ฯลฯ, ข้อความสมัคร advisor ที่ผิด เช่น 10 MB)
 - [ ] บัญชีเดโม `nattapong.d@advisory.demo` โดนแบนใน DB ที่ใช้อยู่ (ใช้ `supaporn.t` แทน)
-- [ ] งานฝั่ง API (รูป service ใน `service_images`, seed, ลบ service แล้วลบรูปด้วย) ยังไม่ได้ commit
+- [ ] API: ทุก request ที่มี cookie เสียเวลาอ่าน session จาก DB ~300ms เพราะ cookie cache ไม่ถูกต่ออายุ (รายละเอียดใน API PR #60) รอพี่ตัดสินใจวิธีแก้

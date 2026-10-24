@@ -171,18 +171,15 @@ function FixtureProfile({
       />
       <TabPanel>
         {tab === "services" ? <ServiceGrid cards={cards} /> : null}
-        {tab === "reviews" ? (
-          // Two of the three fixture advisors have no written excerpts, so this
-          // tab really does render empty on `/advisors/thanakrit-w/reviews`.
-          reviews.length > 0 ? (
-            <ReviewList rating={rating} reviews={reviews} />
-          ) : (
-            <EmptyNotice
-              body={t("noReviewsBody", { name: advisor.name })}
-              figure={<PhotoCollage photos={collagePhotos(profile)} />}
-              title={t("noReviewsTitle")}
-            />
-          )
+        {/* Two of the three fixture advisors have no written excerpts, so this
+            tab really does render empty on `/advisors/thanakrit-w/reviews`. */}
+        {tab === "reviews" && reviews.length > 0 ? <ReviewList rating={rating} reviews={reviews} /> : null}
+        {tab === "reviews" && reviews.length === 0 ? (
+          <EmptyNotice
+            body={t("noReviewsBody", { name: advisor.name })}
+            figure={<PhotoCollage photos={collagePhotos(profile)} />}
+            title={t("noReviewsTitle")}
+          />
         ) : null}
         {tab === "about" ? (
           <AboutView bio={profile.about} skills={profile.skills} verified={advisor.verified} />

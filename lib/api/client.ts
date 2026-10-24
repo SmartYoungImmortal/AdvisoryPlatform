@@ -19,6 +19,8 @@
  * editing a variable.
  */
 
+import { trimTrailing } from "@/lib/utils";
+
 /** A page of results, exactly as the API's `PaginatedResult<T>` is shaped. */
 export interface Paginated<T> {
   readonly items: readonly T[];
@@ -88,7 +90,7 @@ export class ApiUnreachableError extends Error {
  * with a stated reason instead of silently resolving against the site's own
  * origin, which would 404 into the HTML of the exported page.
  */
-const BASE_URL = process.env.NEXT_PUBLIC_API_URL?.replace(/\/+$/, "") ?? "";
+const BASE_URL = trimTrailing(process.env.NEXT_PUBLIC_API_URL ?? "", "/");
 
 /** Whether the app has been built with an API to talk to at all. */
 export const isApiConfigured = BASE_URL.length > 0;
@@ -129,7 +131,7 @@ export function apiSocketTarget(namespace: string): { readonly url: string; read
     const base = new URL(BASE_URL);
     return {
       url: `${base.origin}/${namespace.replace(/^\/+/, "")}`,
-      path: `${base.pathname.replace(/\/+$/, "")}/socket.io`,
+      path: `${trimTrailing(base.pathname, "/")}/socket.io`,
     };
   } catch {
     return null;

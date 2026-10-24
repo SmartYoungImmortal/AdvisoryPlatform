@@ -54,7 +54,9 @@ export function PushToggle({
     }
   };
 
-  const note = failed ? t("pushFailed") : state && state in NOTE_KEY ? t(NOTE_KEY[state as keyof typeof NOTE_KEY]) : null;
+  let note: string | null = null;
+  if (failed) note = t("pushFailed");
+  else if (state && state in NOTE_KEY) note = t(NOTE_KEY[state as keyof typeof NOTE_KEY]);
   const canChange = state === "on" || state === "off";
   const row = layout === "row";
 

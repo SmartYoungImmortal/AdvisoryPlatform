@@ -20,10 +20,8 @@ import { AccountShell } from "@/components/account/account-shell";
 import { AppFrame } from "@/components/account/app-frame";
 import { authPill } from "@/components/auth/auth-split";
 import { Figures } from "@/components/figures";
-import { SiteFooter } from "@/components/marketing/site-footer";
 import { MobileScreen, ScreenBody } from "@/components/mobile/screen";
 import type { NotificationCategory } from "@/components/notifications/notifications-data";
-import { TopBar } from "@/components/topbar";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
@@ -75,10 +73,10 @@ export function FeedFilters({
   const options: readonly FeedFilter[] = ["all", ...kinds];
 
   return (
-    <div
+    // `<fieldset>`: a group by its own semantics; reset so it lays out as the row it was.
+    <fieldset
       aria-label={t("filterLabel")}
-      className="-mx-5 flex gap-2 overflow-x-auto px-5 md:-mx-10 md:px-10 lg:mx-0 lg:gap-3 lg:px-0"
-      role="group"
+      className="-mx-5 flex min-w-0 gap-2 overflow-x-auto border-0 px-5 py-0 md:-mx-10 md:px-10 lg:mx-0 lg:gap-3 lg:px-0"
     >
       {options.map((key) => {
         const active = key === value;
@@ -100,7 +98,7 @@ export function FeedFilters({
           </Button>
         );
       })}
-    </div>
+    </fieldset>
   );
 }
 
@@ -216,6 +214,11 @@ export function FeedSkeleton() {
   );
 }
 
+/** The line break in the empty state's body (`t.rich`'s `<br>`), on a phone or upright tablet only. */
+function phoneBreak() {
+  return <br className="lg:hidden" />;
+}
+
 /**
  * Nothing yet, unboxed at the top of the column: one muted icon, what will
  * arrive here, and the way to start (a booking sends the first one).
@@ -236,7 +239,7 @@ export function EmptyFeed() {
         <p className="text-xs text-muted-foreground lg:text-frame-meta">
           {/* Broken in two on a phone or an upright tablet, at the phrase
               rather than wherever the width runs out; one line from `lg`. */}
-          {t.rich("emptyBody", { br: () => <br className="lg:hidden" /> })}
+          {t.rich("emptyBody", { br: phoneBreak })}
         </p>
       </div>
       <Button
@@ -345,9 +348,8 @@ function FeedHeader({
  * the filter tabs, and the feed. Nothing boxed. `headerActions` sits at the
  * right of the heading row, for the device-alerts switch.
  *
- * The advisee's page sits in the app frame (`AppFrame`), the rail at its left.
- * The advisor's does not: the rail lists the advisee's places, so the
- * advisor's keeps the app bar and footer, on the same scale (`app-scale`).
+ * Every role's page sits in the app frame (`AppFrame`), the rail at its left;
+ * `advisor` only changes where the phone's back chevron goes.
  */
 export function NotificationCenterFrame({
   advisor = false,
@@ -395,47 +397,24 @@ export function NotificationCenterFrame({
     </div>
   );
 
-  return <NotificationsShell advisor={advisor}>{content}</NotificationsShell>;
+  return <NotificationsShell>{content}</NotificationsShell>;
 }
 
 /**
- * The page around the feed or one notification: the app frame and its rail
- * for the advisee; the app bar and footer for the advisor, whose places the
- * rail does not list. Both on the same scale (`app-scale`).
+ * The page around the feed or one notification: the app frame and its rail,
+ * for every role. An advisor reaches it from the same rail as every other
+ * account page, so it keeps that rail rather than swapping to the app bar
+ * and footer (which made the rail vanish for advisors on this one page).
  */
-export function NotificationsShell({
-  advisor = false,
-  children,
-}: {
-  readonly advisor?: boolean;
-  readonly children: ReactNode;
-}) {
-  if (!advisor) {
-    return (
-      // `wide="md"`: a tablet held upright gets the phone layout at its own width.
-      <MobileScreen className="bg-card" wide="md">
-        <AppFrame active="notifications">
-          <ScreenBody className="bg-card">
-            <AccountShell active="notifications">{children}</AccountShell>
-          </ScreenBody>
-        </AppFrame>
-      </MobileScreen>
-    );
-  }
-
+export function NotificationsShell({ children }: { readonly children: ReactNode }) {
   return (
+    // `wide="md"`: a tablet held upright gets the phone layout at its own width.
     <MobileScreen className="bg-card" wide="md">
-      <ScreenBody className="bg-card">
-        {/* The app bar from `lg` only; the phone has the chevron by the title. */}
-        <div className="hidden lg:contents">
-          <TopBar dock unreadNotifications />
-        </div>
-        {/* The account column's inset and scale, without the frame. */}
-        <div className="app-scale flex w-full flex-col lg:mx-auto lg:max-w-[1702.875px] lg:shrink-0 lg:grow lg:px-[42.75px] lg:pt-[47.5px] lg:pb-16">
-          {children}
-        </div>
-        <SiteFooter className="hidden lg:flex" />
-      </ScreenBody>
+      <AppFrame active="notifications">
+        <ScreenBody className="bg-card">
+          <AccountShell active="notifications">{children}</AccountShell>
+        </ScreenBody>
+      </AppFrame>
     </MobileScreen>
   );
 }
@@ -453,68 +432,43 @@ type SampleRow = {
 
 type SampleGroup = { readonly label: string; readonly rows: readonly SampleRow[] };
 
+type NotificationsT = ReturnType<typeof useTranslations<"notifications">>;
+type NotificationKey = Parameters<NotificationsT>[0];
+
+/**
+ * One sample row as message keys: id, icon, category, title, body, where it
+ * goes, then the time (none on yesterday's rows: the heading already says
+ * when) and whether it is unread.
+ */
+type SampleSpec = readonly [
+  id: string,
+  icon: LucideIcon,
+  category: NotificationCategory | null,
+  title: NotificationKey,
+  body: NotificationKey,
+  href: string,
+  time?: NotificationKey,
+  unread?: boolean,
+];
+
 /** Figma's feed for the reader who books: a confirmation, a reply, a receipt. */
-function useAdviseeSample(): readonly SampleGroup[] {
-  const t = useTranslations("notifications");
-  return [
-    {
-      label: t("today"),
-      rows: [
-        {
-          id: "booking",
-          icon: CalendarDays,
-          category: "booking",
-          title: t("bookingConfirmedTitle"),
-          body: t("bookingConfirmedBody"),
-          time: t("bookingConfirmedTime"),
-          href: "/transactions/detail",
-          unread: true,
-        },
-        {
-          id: "message",
-          icon: MessageSquare,
-          category: "message",
-          title: t("newMessageTitle"),
-          body: t("newMessageBody"),
-          time: t("newMessageTime"),
-          href: "/chat/sarah-jenskins",
-          unread: true,
-        },
-        {
-          id: "payment",
-          icon: CreditCard,
-          category: "payment",
-          title: t("paymentTitle"),
-          body: t("paymentBody"),
-          time: t("paymentTime"),
-          href: "/transactions/detail",
-        },
-      ],
-    },
-    {
-      // Yesterday's rows carry no time of their own: the heading already says when.
-      label: t("yesterday"),
-      rows: [
-        {
-          id: "message-1",
-          icon: MessageSquare,
-          category: "message",
-          title: t("newMessageTitle"),
-          body: t("newMessageBody"),
-          href: "/chat/sarah-jenskins",
-        },
-        {
-          id: "message-2",
-          icon: MessageSquare,
-          category: "message",
-          title: t("newMessageTitle"),
-          body: t("newMessageBody"),
-          href: "/chat/sarah-jenskins",
-        },
-      ],
-    },
-  ];
-}
+const ADVISEE_SAMPLE: readonly { readonly today: boolean; readonly rows: readonly SampleSpec[] }[] = [
+  {
+    today: true,
+    rows: [
+      ["booking", CalendarDays, "booking", "bookingConfirmedTitle", "bookingConfirmedBody", "/transactions/detail", "bookingConfirmedTime", true],
+      ["message", MessageSquare, "message", "newMessageTitle", "newMessageBody", "/chat/sarah-jenskins", "newMessageTime", true],
+      ["payment", CreditCard, "payment", "paymentTitle", "paymentBody", "/transactions/detail", "paymentTime"],
+    ],
+  },
+  {
+    today: false,
+    rows: [
+      ["message-1", MessageSquare, "message", "newMessageTitle", "newMessageBody", "/chat/sarah-jenskins"],
+      ["message-2", MessageSquare, "message", "newMessageTitle", "newMessageBody", "/chat/sarah-jenskins"],
+    ],
+  },
+];
 
 /**
  * The same feed from the other side of the booking (1952:35562): the request to
@@ -522,75 +476,41 @@ function useAdviseeSample(): readonly SampleGroup[] {
  * review and the verification that put the profile up. Each row goes where an
  * advisor would act on it.
  */
-function useAdvisorSample(): readonly SampleGroup[] {
+const ADVISOR_SAMPLE: typeof ADVISEE_SAMPLE = [
+  {
+    today: true,
+    rows: [
+      ["screening", FileText, null, "screeningRequestTitle", "screeningRequestBody", "/screening/requests", "screeningRequestTime", true],
+      ["booking", CalendarDays, "booking", "newBookingTitle", "newBookingBody", "/work/calendar", "bookingConfirmedTime", true],
+      ["message", MessageSquare, "message", "advisorMessageTitle", "newMessageBody", "/chat", "newMessageTime", true],
+      ["payout", CreditCard, "payment", "payoutTitle", "payoutBody", "/earnings", "paymentTime"],
+    ],
+  },
+  {
+    today: false,
+    rows: [
+      ["review", Star, null, "reviewTitle", "reviewBody", "/reviews"],
+      ["verified", BadgeCheck, null, "verifiedTitle", "verifiedBody", "/advisor/profile"],
+    ],
+  },
+];
+
+/** A sample feed's groups, in the reader's language. */
+function useSample(advisor: boolean): readonly SampleGroup[] {
   const t = useTranslations("notifications");
-  return [
-    {
-      label: t("today"),
-      rows: [
-        {
-          id: "screening",
-          icon: FileText,
-          category: null,
-          title: t("screeningRequestTitle"),
-          body: t("screeningRequestBody"),
-          time: t("screeningRequestTime"),
-          href: "/screening/requests",
-          unread: true,
-        },
-        {
-          id: "booking",
-          icon: CalendarDays,
-          category: "booking",
-          title: t("newBookingTitle"),
-          body: t("newBookingBody"),
-          time: t("bookingConfirmedTime"),
-          href: "/work/calendar",
-          unread: true,
-        },
-        {
-          id: "message",
-          icon: MessageSquare,
-          category: "message",
-          title: t("advisorMessageTitle"),
-          body: t("newMessageBody"),
-          time: t("newMessageTime"),
-          href: "/chat",
-          unread: true,
-        },
-        {
-          id: "payout",
-          icon: CreditCard,
-          category: "payment",
-          title: t("payoutTitle"),
-          body: t("payoutBody"),
-          time: t("paymentTime"),
-          href: "/earnings",
-        },
-      ],
-    },
-    {
-      label: t("yesterday"),
-      rows: [
-        {
-          id: "review",
-          icon: Star,
-          category: null,
-          title: t("reviewTitle"),
-          body: t("reviewBody"),
-          href: "/reviews",
-        },
-        {
-          id: "verified",
-          icon: BadgeCheck,
-          category: null,
-          title: t("verifiedTitle"),
-          body: t("verifiedBody"),
-          href: "/advisor/profile",
-        },
-      ],
-    },
-  ];
+  return (advisor ? ADVISOR_SAMPLE : ADVISEE_SAMPLE).map((group) => ({
+    label: t(group.today ? "today" : "yesterday"),
+    rows: group.rows.map(([id, icon, category, title, body, href, time, unread]) => ({
+      id,
+      icon,
+      category,
+      title: t(title),
+      body: t(body),
+      time: time ? t(time) : undefined,
+      href,
+      unread,
+    })),
+  }));
 }
 
 /**
@@ -598,9 +518,7 @@ function useAdvisorSample(): readonly SampleGroup[] {
  * nothing here comes from the server, so nothing is sent to it.
  */
 function SampleCenter({ advisor }: { readonly advisor: boolean }) {
-  const advisee = useAdviseeSample();
-  const advisorFeed = useAdvisorSample();
-  const groups = advisor ? advisorFeed : advisee;
+  const groups = useSample(advisor);
   const [allRead, setAllRead] = useState(false);
   const [filter, setFilter] = useState<FeedFilter>("all");
   const rows = groups.flatMap((group) => group.rows);

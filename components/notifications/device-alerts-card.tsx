@@ -105,20 +105,24 @@ export function DeviceAlertsCard() {
     settle.current = setTimeout(() => show(t(target === "on" ? "pushIsOn" : "pushIsOff"), true), SETTLE_MS);
     if (running.current) return;
     running.current = true;
+    // One request at a time, then again while the wish has moved on since.
+    const chase = async (): Promise<void> => {
+      if (wish.current === settled.current) return;
+      const want = wish.current;
+      const next = await (want === "on" ? enablePush() : disablePush());
+      settled.current = next;
+      if (next !== want) {
+        // The browser said no (permission refused, unsupported): show what
+        // is true and why, and stop chasing the wish.
+        wish.current = next;
+        setState(next);
+        show(problem(next) ?? t("pushFailed"), false);
+      }
+      return chase();
+    };
     void (async () => {
       try {
-        while (wish.current !== settled.current) {
-          const want = wish.current;
-          const next = await (want === "on" ? enablePush() : disablePush());
-          settled.current = next;
-          if (next !== want) {
-            // The browser said no (permission refused, unsupported): show what
-            // is true and why, and stop chasing the wish.
-            wish.current = next;
-            setState(next);
-            show(problem(next) ?? t("pushFailed"), false);
-          }
-        }
+        await chase();
       } catch {
         wish.current = settled.current;
         setState(settled.current);

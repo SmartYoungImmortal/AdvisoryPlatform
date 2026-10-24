@@ -215,10 +215,11 @@ function ReportForm({ roomId }: { readonly roomId: string }) {
       <span className="flex min-w-0 flex-1 flex-col gap-0.5">
         <span className="text-xs text-muted-foreground lg:text-base">{t("whoLabel")}</span>
         <span className="truncate text-base font-semibold text-foreground lg:text-lg">{resolving ? "" : name}</span>
-        {counterpart.service ? (
-          <span className="truncate text-sm text-muted-foreground lg:text-base">{counterpart.service.name}</span>
-        ) : counterpart.advisor ? (
-          <span className="truncate text-sm text-muted-foreground lg:text-base">{counterpart.advisor.headline}</span>
+        {/* What the room is about: the service, else the advisor's headline. */}
+        {counterpart.service || counterpart.advisor ? (
+          <span className="truncate text-sm text-muted-foreground lg:text-base">
+            {counterpart.service?.name ?? counterpart.advisor?.headline}
+          </span>
         ) : null}
       </span>
     </div>
@@ -309,9 +310,9 @@ function ReportForm({ roomId }: { readonly roomId: string }) {
 
         {failure ? <ChatError error={failure} title={t("failedTitle")} /> : null}
         {!resolving && !reportable ? (
-          <p className="rounded-card bg-warning/10 p-4 text-sm text-foreground lg:text-base" role="status">
+          <output className="block rounded-card bg-warning/10 p-4 text-sm text-foreground lg:text-base">
             {t("noCounterpart")}
-          </p>
+          </output>
         ) : null}
 
         <div className="flex flex-col gap-3 md:flex-row">

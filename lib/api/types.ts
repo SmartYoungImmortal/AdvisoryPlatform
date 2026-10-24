@@ -124,6 +124,11 @@ export interface ApiRatingSummary {
   readonly distribution: readonly ApiRatingBar[];
 }
 
+/** `AdvisorRatingSummaryItemDto` — one advisor's summary in `GET /advisors/reviews/summaries`. */
+export interface ApiRatingSummaryItem extends ApiRatingSummary {
+  readonly advisorId: string;
+}
+
 /** `UserOwnProfileResponseDto` — users/dtos */
 export interface ApiOwnProfile {
   readonly id: string;

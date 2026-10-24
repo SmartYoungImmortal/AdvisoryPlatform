@@ -4,7 +4,7 @@ import { useGSAP } from "@gsap/react";
 import gsap from "gsap";
 import { BadgeCheck, FileCheck, ShieldCheck } from "lucide-react";
 import { useTranslations } from "next-intl";
-import { useRef } from "react";
+import { useRef, type ReactNode } from "react";
 
 import { CountUp, Rise, THROW, onFirstView } from "@/components/motion";
 import { cn } from "@/lib/utils";
@@ -154,25 +154,36 @@ export function VettingCounts({
   );
 }
 
+/** The verified mark as it sits in the sentence (`t.rich`'s `<tick>`), on either ground. */
+function VettingTick({ dark, children }: { readonly dark: boolean; readonly children: ReactNode }) {
+  return (
+    <span
+      className={cn(
+        "mx-1 inline-flex items-center gap-1.5 rounded-full px-3 py-0.5 align-middle text-sm font-medium lg:text-base",
+        dark ? "bg-success/15 text-on-media" : "bg-success/12 text-foreground",
+      )}
+    >
+      <BadgeCheck aria-hidden className="size-4 text-success lg:size-4.5" />
+      {children}
+    </span>
+  );
+}
+
+function tickOnDark(chunks: ReactNode) {
+  return <VettingTick dark>{chunks}</VettingTick>;
+}
+
+function tickOnLight(chunks: ReactNode) {
+  return <VettingTick dark={false}>{chunks}</VettingTick>;
+}
+
 /** What the verified mark on a card means, with the mark itself in the sentence. */
 export function VettingNote({ tone = "light" }: { readonly tone?: Tone }) {
   const t = useTranslations("home");
   const dark = tone === "dark";
   return (
     <p className={cn("text-base leading-relaxed lg:text-lg", dark ? "text-on-media/75" : "text-muted-foreground")}>
-      {t.rich("vettingBandBody", {
-        tick: (chunks) => (
-          <span
-            className={cn(
-              "mx-1 inline-flex items-center gap-1.5 rounded-full px-3 py-0.5 align-middle text-sm font-medium lg:text-base",
-              dark ? "bg-success/15 text-on-media" : "bg-success/12 text-foreground",
-            )}
-          >
-            <BadgeCheck aria-hidden className="size-4 text-success lg:size-4.5" />
-            {chunks}
-          </span>
-        ),
-      })}
+      {t.rich("vettingBandBody", { tick: dark ? tickOnDark : tickOnLight })}
     </p>
   );
 }
