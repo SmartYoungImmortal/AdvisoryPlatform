@@ -19,7 +19,7 @@ import { TypingPlaceholder } from "@/components/home/typing-placeholder";
 import { matchQuery } from "@/lib/catalogue/filters";
 import { useLiveCatalogue, type LiveService } from "@/lib/catalogue/live";
 import { normalise } from "@/lib/catalogue/search";
-import { cn } from "@/lib/utils";
+import { cn, trimTrailing } from "@/lib/utils";
 
 /** One advisor in the suggestions, read off their services in the live catalogue. */
 type LiveAdvisor = {
@@ -151,7 +151,7 @@ export function HeroSearch({
   // The placeholder's examples end in an ellipsis to read as half-typed; as
   // things to press they are whole questions.
   const questions = useMemo(
-    () => examples.map((e) => e.replace(/[.…]+$/u, "")).slice(0, 4),
+    () => examples.map((e) => trimTrailing(e, ".…")).slice(0, 4),
     [examples],
   );
   // The same live catalogue `/search` and the hero's ring read (one cached
@@ -362,6 +362,9 @@ export function HeroSearch({
           // first, or the blur closes it before the click lands.
           onMouseDown={(event) => event.preventDefault()}
           role="listbox"
+          // Focusable by script only: focus stays on the field, which names the
+          // active option (`aria-activedescendant`), as the combobox pattern has it.
+          tabIndex={-1}
         >
           {typed ? (
             <>

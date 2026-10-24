@@ -18,13 +18,13 @@ HEAD_SHA="${HEAD_SHA:-}"
 COMMIT_SHORT="$(echo "${HEAD_SHA}" | cut -c1-7)"
 BRANCH="${HEAD_REF:-}"
 
-if [ -n "${PR}" ]; then MODE="pr"; else MODE="branch"; fi
+if [[ -n "${PR}" ]]; then MODE="pr"; else MODE="branch"; fi
 
 # ── helpers ──────────────────────────────────────────────────────────
 rating() { case "${1%%.*}" in 1) echo A;; 2) echo B;; 3) echo C;; 4) echo D;; 5) echo E;; *) echo "?";; esac; }
 debt() { # minutes -> "2d 3h", "24m", "0m"
   local m=${1:-0}; local d=$((m/480)); local h=$(((m%480)/60)); local mm=$((m%60)); local o=""
-  [ "$d" -gt 0 ] && o="${d}d "; [ "$h" -gt 0 ] && o="${o}${h}h "; { [ -z "$o" ] || [ "$mm" -gt 0 ]; } && o="${o}${mm}m"
+  [[ "$d" -gt 0 ]] && o="${d}d "; [[ "$h" -gt 0 ]] && o="${o}${h}h "; [[ -z "$o" || "$mm" -gt 0 ]] && o="${o}${mm}m"
   echo "${o% }"
 }
 mval() { jq -r --arg k "$1" '.component.measures[]? | select(.metric==$k) | .value' "$2" 2>/dev/null; }
@@ -45,11 +45,11 @@ poll_analysis() { # url, jq filter -> /tmp/entry.json, 0 when it matches HEAD_SH
     if curl -sf "$url" -o /tmp/list.json; then
       jq -e "$filter" /tmp/list.json >/tmp/entry.json 2>/dev/null || echo '{}' >/tmp/entry.json
       sha=$(jq -r '.commit.sha // ""' /tmp/entry.json 2>/dev/null)
-      if [ -n "$sha" ] && [ "$sha" = "$HEAD_SHA" ]; then
+      if [[ -n "$sha" && "$sha" = "$HEAD_SHA" ]]; then
         echo "Analysis for ${COMMIT_SHORT} found (attempt ${i})."
         return 0
       fi
-      if [ -n "$sha" ]; then
+      if [[ -n "$sha" ]]; then
         echo "  …Sonar is still on $(echo "$sha" | cut -c1-7), waiting for ${COMMIT_SHORT} (${i}/30)"
       else
         echo "  …no analysis yet (${i}/30)"
@@ -63,7 +63,7 @@ poll_analysis() { # url, jq filter -> /tmp/entry.json, 0 when it matches HEAD_SH
 }
 
 FRESH=""
-if [ "$MODE" = "pr" ]; then
+if [[ "$MODE" = "pr" ]]; then
   echo "Waiting for SonarCloud analysis of PR #${PR} at ${COMMIT_SHORT}…"
   poll_analysis "${API}/project_pull_requests/list?project=${PROJECT}" \
     ".pullRequests[]? | select(.key==\"${PR}\")" && FRESH=1
@@ -104,10 +104,10 @@ SECREV=$(rating "$(mval security_review_rating /tmp/m.json)")
 # measure: the list endpoint carries the sha it belongs to, so the pass/fail can
 # never be attributed to the wrong commit even if the measures index lags behind.
 GATE=$(jq -r '.status.qualityGateStatus // ""' /tmp/entry.json 2>/dev/null)
-[ -z "${GATE}" ] && GATE=$(mval alert_status /tmp/m.json)
+[[ -z "${GATE}" ]] && GATE=$(mval alert_status /tmp/m.json)
 GATE=${GATE:-NONE}
 # Never report a verdict that belongs to an older commit — say "checking" instead.
-[ -z "${FRESH}" ] && GATE="PENDING"
+[[ -z "${FRESH}" ]] && GATE="PENDING"
 
 # severity facet counts
 sev() { jq -r --arg s "$1" '(.facets[]?|select(.property=="severities").values[]?|select(.val==$s).count) // 0' /tmp/i.json 2>/dev/null | head -1; }
@@ -163,7 +163,7 @@ echo "| ${BLOCKER} | ${CRITICAL} | ${MAJOR} | ${MINOR} | ${INFO} |"
 echo ""
 echo "<details><summary>📋 All Issues (${ISSUE_TOTAL})</summary>"
 echo ""
-if [ "${ISSUE_TOTAL}" = "0" ]; then
+if [[ "${ISSUE_TOTAL}" = "0" ]]; then
   echo "No open issues on this analysis. 🎉"
 else
   echo "| Severity | Rule | File | Message |"
@@ -175,7 +175,7 @@ echo "</details>"
 echo ""
 # Naming the analysed commit keeps the numbers falsifiable: if it ever drifts
 # from the head commit again, the report says so instead of looking authoritative.
-if [ -n "${FRESH}" ]; then
+if [[ -n "${FRESH}" ]]; then
   echo "🔗 [Dashboard](${DASH}) · Branch: \`${BRANCH}\` · Commit: \`${COMMIT_SHORT}\` · Scanned via SonarCloud"
 else
   echo "🔗 [Dashboard](${DASH}) · Branch: \`${BRANCH}\` · Head: \`${COMMIT_SHORT}\` · Last analysed: \`${ANALYSED_SHORT:-none}\` · Scanned via SonarCloud"
@@ -187,10 +187,10 @@ fi
 echo "----- report preview -----"; cat /tmp/report.md
 
 # ── 4. post the report (PR sticky comment, or commit comment) ─────────
-if [ "$MODE" = "pr" ]; then
+if [[ "$MODE" = "pr" ]]; then
   CID=$(gh api "repos/${REPO}/issues/${PR}/comments" --paginate \
           --jq '.[] | select(.body | contains("<!-- sonar-report -->")) | .id' 2>/dev/null | head -1)
-  if [ -n "${CID}" ]; then
+  if [[ -n "${CID}" ]]; then
     gh api -X PATCH "repos/${REPO}/issues/comments/${CID}" -F body=@/tmp/report.md >/dev/null && echo "Updated PR comment ${CID}"
   else
     gh api -X POST "repos/${REPO}/issues/${PR}/comments" -F body=@/tmp/report.md >/dev/null && echo "Created PR comment"
@@ -203,10 +203,10 @@ if [ "$MODE" = "pr" ]; then
     *)     STATUS_TAG="[🔍 CHECKING]" ;;
   esac
   CUR_TITLE=$(gh api "repos/${REPO}/pulls/${PR}" --jq '.title' 2>/dev/null)
-  if [ -n "${CUR_TITLE}" ]; then
+  if [[ -n "${CUR_TITLE}" ]]; then
     REST=$(printf '%s' "${CUR_TITLE}" | sed -E 's/^[[:space:]]*\[[^]]*\][[:space:]]*//')
     NEW_TITLE="${STATUS_TAG} ${REST}"
-    if [ "${NEW_TITLE}" != "${CUR_TITLE}" ]; then
+    if [[ "${NEW_TITLE}" != "${CUR_TITLE}" ]]; then
       gh api -X PATCH "repos/${REPO}/pulls/${PR}" -f title="${NEW_TITLE}" >/dev/null \
         && echo "PR title → ${NEW_TITLE}"
     fi

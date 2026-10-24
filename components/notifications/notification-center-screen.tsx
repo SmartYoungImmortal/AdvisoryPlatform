@@ -432,68 +432,43 @@ type SampleRow = {
 
 type SampleGroup = { readonly label: string; readonly rows: readonly SampleRow[] };
 
+type NotificationsT = ReturnType<typeof useTranslations<"notifications">>;
+type NotificationKey = Parameters<NotificationsT>[0];
+
+/**
+ * One sample row as message keys: id, icon, category, title, body, where it
+ * goes, then the time (none on yesterday's rows: the heading already says
+ * when) and whether it is unread.
+ */
+type SampleSpec = readonly [
+  id: string,
+  icon: LucideIcon,
+  category: NotificationCategory | null,
+  title: NotificationKey,
+  body: NotificationKey,
+  href: string,
+  time?: NotificationKey,
+  unread?: boolean,
+];
+
 /** Figma's feed for the reader who books: a confirmation, a reply, a receipt. */
-function useAdviseeSample(): readonly SampleGroup[] {
-  const t = useTranslations("notifications");
-  return [
-    {
-      label: t("today"),
-      rows: [
-        {
-          id: "booking",
-          icon: CalendarDays,
-          category: "booking",
-          title: t("bookingConfirmedTitle"),
-          body: t("bookingConfirmedBody"),
-          time: t("bookingConfirmedTime"),
-          href: "/transactions/detail",
-          unread: true,
-        },
-        {
-          id: "message",
-          icon: MessageSquare,
-          category: "message",
-          title: t("newMessageTitle"),
-          body: t("newMessageBody"),
-          time: t("newMessageTime"),
-          href: "/chat/sarah-jenskins",
-          unread: true,
-        },
-        {
-          id: "payment",
-          icon: CreditCard,
-          category: "payment",
-          title: t("paymentTitle"),
-          body: t("paymentBody"),
-          time: t("paymentTime"),
-          href: "/transactions/detail",
-        },
-      ],
-    },
-    {
-      // Yesterday's rows carry no time of their own: the heading already says when.
-      label: t("yesterday"),
-      rows: [
-        {
-          id: "message-1",
-          icon: MessageSquare,
-          category: "message",
-          title: t("newMessageTitle"),
-          body: t("newMessageBody"),
-          href: "/chat/sarah-jenskins",
-        },
-        {
-          id: "message-2",
-          icon: MessageSquare,
-          category: "message",
-          title: t("newMessageTitle"),
-          body: t("newMessageBody"),
-          href: "/chat/sarah-jenskins",
-        },
-      ],
-    },
-  ];
-}
+const ADVISEE_SAMPLE: readonly { readonly today: boolean; readonly rows: readonly SampleSpec[] }[] = [
+  {
+    today: true,
+    rows: [
+      ["booking", CalendarDays, "booking", "bookingConfirmedTitle", "bookingConfirmedBody", "/transactions/detail", "bookingConfirmedTime", true],
+      ["message", MessageSquare, "message", "newMessageTitle", "newMessageBody", "/chat/sarah-jenskins", "newMessageTime", true],
+      ["payment", CreditCard, "payment", "paymentTitle", "paymentBody", "/transactions/detail", "paymentTime"],
+    ],
+  },
+  {
+    today: false,
+    rows: [
+      ["message-1", MessageSquare, "message", "newMessageTitle", "newMessageBody", "/chat/sarah-jenskins"],
+      ["message-2", MessageSquare, "message", "newMessageTitle", "newMessageBody", "/chat/sarah-jenskins"],
+    ],
+  },
+];
 
 /**
  * The same feed from the other side of the booking (1952:35562): the request to
@@ -501,75 +476,41 @@ function useAdviseeSample(): readonly SampleGroup[] {
  * review and the verification that put the profile up. Each row goes where an
  * advisor would act on it.
  */
-function useAdvisorSample(): readonly SampleGroup[] {
+const ADVISOR_SAMPLE: typeof ADVISEE_SAMPLE = [
+  {
+    today: true,
+    rows: [
+      ["screening", FileText, null, "screeningRequestTitle", "screeningRequestBody", "/screening/requests", "screeningRequestTime", true],
+      ["booking", CalendarDays, "booking", "newBookingTitle", "newBookingBody", "/work/calendar", "bookingConfirmedTime", true],
+      ["message", MessageSquare, "message", "advisorMessageTitle", "newMessageBody", "/chat", "newMessageTime", true],
+      ["payout", CreditCard, "payment", "payoutTitle", "payoutBody", "/earnings", "paymentTime"],
+    ],
+  },
+  {
+    today: false,
+    rows: [
+      ["review", Star, null, "reviewTitle", "reviewBody", "/reviews"],
+      ["verified", BadgeCheck, null, "verifiedTitle", "verifiedBody", "/advisor/profile"],
+    ],
+  },
+];
+
+/** A sample feed's groups, in the reader's language. */
+function useSample(advisor: boolean): readonly SampleGroup[] {
   const t = useTranslations("notifications");
-  return [
-    {
-      label: t("today"),
-      rows: [
-        {
-          id: "screening",
-          icon: FileText,
-          category: null,
-          title: t("screeningRequestTitle"),
-          body: t("screeningRequestBody"),
-          time: t("screeningRequestTime"),
-          href: "/screening/requests",
-          unread: true,
-        },
-        {
-          id: "booking",
-          icon: CalendarDays,
-          category: "booking",
-          title: t("newBookingTitle"),
-          body: t("newBookingBody"),
-          time: t("bookingConfirmedTime"),
-          href: "/work/calendar",
-          unread: true,
-        },
-        {
-          id: "message",
-          icon: MessageSquare,
-          category: "message",
-          title: t("advisorMessageTitle"),
-          body: t("newMessageBody"),
-          time: t("newMessageTime"),
-          href: "/chat",
-          unread: true,
-        },
-        {
-          id: "payout",
-          icon: CreditCard,
-          category: "payment",
-          title: t("payoutTitle"),
-          body: t("payoutBody"),
-          time: t("paymentTime"),
-          href: "/earnings",
-        },
-      ],
-    },
-    {
-      label: t("yesterday"),
-      rows: [
-        {
-          id: "review",
-          icon: Star,
-          category: null,
-          title: t("reviewTitle"),
-          body: t("reviewBody"),
-          href: "/reviews",
-        },
-        {
-          id: "verified",
-          icon: BadgeCheck,
-          category: null,
-          title: t("verifiedTitle"),
-          body: t("verifiedBody"),
-          href: "/advisor/profile",
-        },
-      ],
-    },
-  ];
+  return (advisor ? ADVISOR_SAMPLE : ADVISEE_SAMPLE).map((group) => ({
+    label: t(group.today ? "today" : "yesterday"),
+    rows: group.rows.map(([id, icon, category, title, body, href, time, unread]) => ({
+      id,
+      icon,
+      category,
+      title: t(title),
+      body: t(body),
+      time: time ? t(time) : undefined,
+      href,
+      unread,
+    })),
+  }));
 }
 
 /**
@@ -577,9 +518,7 @@ function useAdvisorSample(): readonly SampleGroup[] {
  * nothing here comes from the server, so nothing is sent to it.
  */
 function SampleCenter({ advisor }: { readonly advisor: boolean }) {
-  const advisee = useAdviseeSample();
-  const advisorFeed = useAdvisorSample();
-  const groups = advisor ? advisorFeed : advisee;
+  const groups = useSample(advisor);
   const [allRead, setAllRead] = useState(false);
   const [filter, setFilter] = useState<FeedFilter>("all");
   const rows = groups.flatMap((group) => group.rows);

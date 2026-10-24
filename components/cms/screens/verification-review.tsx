@@ -2,16 +2,16 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Check, FileText, X } from "lucide-react";
+import { FileText } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { useCallback, useId, useMemo, useState } from "react";
 
 import { CmsApiError, CmsCardSkeleton, useRuling } from "@/components/cms/api";
-import { CmsButton } from "@/components/cms/button";
 import { CmsCard } from "@/components/cms/card";
 import { CmsDocument } from "@/components/cms/document";
 import { useCmsFeedback } from "@/components/cms/feedback";
-import { CmsFormField, CmsTextarea } from "@/components/cms/fields";
+import { CmsFormField } from "@/components/cms/fields";
+import { RejectReasonField, RulingActions } from "@/components/cms/ruling";
 import { useRecordId } from "@/components/cms/hooks";
 import { CmsPage } from "@/components/cms/layout";
 import { useAccountName } from "@/components/cms/people";
@@ -188,16 +188,7 @@ function Review({ request }: { readonly request: IdentityVerification }) {
       aside={
         <CmsSidebarOptions
           actions={
-            pending ? (
-              <>
-                <CmsButton block color="success" icon={Check} onClick={approve} size="lg">
-                  {t("approve")}
-                </CmsButton>
-                <CmsButton block color="error" icon={X} onClick={reject} size="lg">
-                  {t("reject")}
-                </CmsButton>
-              </>
-            ) : null
+            pending ? <RulingActions onApprove={approve} onReject={reject} /> : null
           }
           info={[
             { label: t("submittedAt"), by: name, at: request.submittedAt },
@@ -283,20 +274,15 @@ function Review({ request }: { readonly request: IdentityVerification }) {
         </section>
 
         {pending ? (
-          <div className="mt-6 border-t border-border pt-6">
-            <CmsFormField error={reasonError} htmlFor={reasonId} label={t("reason")}>
-              <CmsTextarea
-                id={reasonId}
-                invalid={Boolean(reasonError)}
-                onChange={(event) => {
-                  setReason(event.target.value);
-                  setReasonError(undefined);
-                }}
-                placeholder={t("rejectPlaceholder")}
-                value={reason}
-              />
-            </CmsFormField>
-          </div>
+          <RejectReasonField
+            error={reasonError}
+            id={reasonId}
+            onChange={(value) => {
+              setReason(value);
+              setReasonError(undefined);
+            }}
+            value={reason}
+          />
         ) : null}
       </CmsCard>
     </CmsPage>

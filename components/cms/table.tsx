@@ -233,7 +233,9 @@ export function CmsTable<Row extends { readonly id: string }>({
           </TableRow>
           {/* `UTable`'s separator: a 1px accented rule laid over the top of the
               first row, so it adds no height to the head. */}
-          <tr aria-hidden className="absolute start-0 z-1 h-px w-full bg-accented" />
+          {/* A rule, not a row: `presentation` keeps it out of the table's
+              rows for assistive tech without `aria-hidden` on a table part. */}
+          <tr className="absolute start-0 z-1 h-px w-full bg-accented" role="presentation" />
         </TableHeader>
         <TableBody className="divide-y divide-table-rule">
           {rows.length === 0 ? (
