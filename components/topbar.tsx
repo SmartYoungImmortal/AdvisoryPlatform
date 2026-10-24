@@ -405,7 +405,7 @@ export function TopBar({
               {/* Decided by the session alone. It used to need a `login` prop
                   per page, and every page without it showed a guest the bell
                   to notifications they cannot have. */}
-              {!sessionKnown ? null : !signedIn ? (
+              {sessionKnown && !signedIn ? (
                 /* fastwork's "Get started": a black pill with white type that
                    opens sign-up, the one thing on the bar for a guest to press.
                    Signing in is a tap away on the register screen itself. */
@@ -416,7 +416,8 @@ export function TopBar({
                 >
                   {t("getStarted")}
                 </Button>
-              ) : (
+              ) : null}
+              {sessionKnown && signedIn ? (
                 <Button
                   aria-label={t("notifications")}
                   className={cn(
@@ -437,7 +438,7 @@ export function TopBar({
                     <span className="absolute top-1.5 right-1.5 size-2 rounded-full bg-primary ring-2 ring-card" />
                   ) : null}
                 </Button>
-              )}
+              ) : null}
               {/* Figma "Actions" (1564:24863) pairs the bell with the portrait. */}
               <NavAvatar />
             </div>
