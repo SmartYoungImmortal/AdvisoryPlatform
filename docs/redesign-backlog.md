@@ -115,7 +115,6 @@
 - [ ] `/landing`
 
 ### RD-15 · สถานะระบบ
-- [ ] `/offline`, `/offline/banner`, `/offline/chat`, `/offline/payment`, `/offline/queue`, `/offline/syncing`
 - [ ] `/status/no-connection`, `/status/not-found`, `/status/server-error`
 
 ### RD-16 · Admin console
@@ -130,8 +129,20 @@
 
 ## ไม่ต้องทำ
 
-- `/story` ต้นแบบ 3D ที่เลิกทำแล้ว
-- `/screens`, `/appshell` หน้าสำหรับ dev
+- `/screens` หน้าสำหรับ dev
+
+## ลบแล้ว (24 ต.ค. 2026)
+
+หน้า state ตาม Figma ที่หน้าจริงแสดงเองอยู่แล้ว กับหน้าที่ไม่มีใช้ ไม่ต้อง redesign:
+`/story`, `/appshell`, `/offline/*`, `/login/wrong-password`, `/login/account-locked`,
+`/register/email-in-use`, `/register/validation-errors`, `/settings/password/wrong`,
+`/settings/email/in-use`, `/settings/delete/blocked`, `/profile/edit/photo-rejected`,
+`/advisor-onboarding/stage-1/errors`, `/advisor-onboarding/stage-2/uploaded`,
+`/advisor-onboarding/stage-2/rejected`, `/advisor-onboarding/stage-3/missing-proof`,
+`/checkout/card/errors`, `/notifications/empty`, `/availability/profiles/empty`,
+`/matching/results/no-results`
+
+เก็บ `/availability/profiles/edit/error` ไว้ เพราะเทส e2e ใช้เป็น fixture
 
 ## เรื่องค้างที่ไม่ใช่หน้า
 
