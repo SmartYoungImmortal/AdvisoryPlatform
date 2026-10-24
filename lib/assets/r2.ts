@@ -155,6 +155,68 @@ export const serviceLaptopCode: StaticImageData = {
   height: 426,
 };
 
+/*
+ * Service covers for the seeded services whose advisor is not on the home
+ * ring. Unsplash, under the Unsplash License, cropped to 960x600 (16:10, the
+ * `/search` card's frame); the source photo is named on each.
+ */
+
+/** `assets/services/freelance-calculator` — 960x600. Unsplash photo-1626266061368. */
+export const serviceFreelanceCalculator: StaticImageData = {
+  src: `${R2_BASE}/services/freelance-calculator.a84fbb41.jpg`,
+  width: 960,
+  height: 600,
+};
+
+/** `assets/services/tax-forms` — 960x600. Unsplash photo-1554224155-cfa08c2a758f. */
+export const serviceTaxForms: StaticImageData = {
+  src: `${R2_BASE}/services/tax-forms.d727eb9a.jpg`,
+  width: 960,
+  height: 600,
+};
+
+/** `assets/services/company-books` — 960x600. Unsplash photo-1460925895917. */
+export const serviceCompanyBooks: StaticImageData = {
+  src: `${R2_BASE}/services/company-books.d8e4807c.jpg`,
+  width: 960,
+  height: 600,
+};
+
+/** `assets/services/career-notes` — 960x600. Unsplash photo-1484480974693. */
+export const serviceCareerNotes: StaticImageData = {
+  src: `${R2_BASE}/services/career-notes.8aa10535.jpg`,
+  width: 960,
+  height: 600,
+};
+
+/** `assets/services/shop-owner` — 960x600. Unsplash photo-1753351052363. */
+export const serviceShopOwner: StaticImageData = {
+  src: `${R2_BASE}/services/shop-owner.b26fcfdd.jpg`,
+  width: 960,
+  height: 600,
+};
+
+/** `assets/services/business-board` — 960x600. Unsplash photo-1531403009284. */
+export const serviceBusinessBoard: StaticImageData = {
+  src: `${R2_BASE}/services/business-board.3eb25c25.jpg`,
+  width: 960,
+  height: 600,
+};
+
+/** `assets/services/contract-review` — 960x600. Unsplash photo-1450101499163. */
+export const serviceContractReview: StaticImageData = {
+  src: `${R2_BASE}/services/contract-review.aba0eeaf.jpg`,
+  width: 960,
+  height: 600,
+};
+
+/** `assets/services/interview-practice` — 960x600. Unsplash photo-1573497620053. */
+export const serviceInterviewPractice: StaticImageData = {
+  src: `${R2_BASE}/services/interview-practice.72b93854.jpg`,
+  width: 960,
+  height: 600,
+};
+
 /** `assets/onboarding/thai-national-id` — 700x466. */
 export const thaiNationalId: StaticImageData = {
   src: `${R2_BASE}/onboarding/thai-national-id.3964db40.png`,

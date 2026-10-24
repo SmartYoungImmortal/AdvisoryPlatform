@@ -9,6 +9,7 @@ import { useTranslations } from "next-intl";
 import { useEffect, useRef, type CSSProperties } from "react";
 
 import { heroCards } from "@/lib/assets/r2";
+import { useLiveCatalogue } from "@/lib/catalogue/live";
 import { cn } from "@/lib/utils";
 
 gsap.registerPlugin(useGSAP, ScrollTrigger);
@@ -41,6 +42,14 @@ const STEP = 360 / CARDS.length;
 export function HeroShapes({ className }: { readonly className?: string }) {
   const t = useTranslations("home");
   const scope = useRef<HTMLDivElement>(null);
+  // Each card is a real advisor (seeded in the API repo); once the live
+  // catalogue is in, a card opens that advisor's service. Until then, and for
+  // a card with no service, it searches its topic.
+  const catalogue = useLiveCatalogue();
+  const serviceHref = new Map<number, string>();
+  for (const item of catalogue.items) {
+    if (item.card && !serviceHref.has(item.card)) serviceHref.set(item.card, item.href);
+  }
 
   // The hero's scroll-out runs across the first screen of `home-hero-track`,
   // the stretch where the band is held `sticky`: the ring's `--hero-exit`
@@ -199,7 +208,7 @@ export function HeroShapes({ className }: { readonly className?: string }) {
                 // with, from `components/ui/button.tsx`.
                 "focus-visible:ring-3 focus-visible:ring-ring/50",
               )}
-              href={`/search?q=${encodeURIComponent(t(`card${n}Topic`))}`}
+              href={serviceHref.get(n) ?? `/search?q=${encodeURIComponent(t(`card${n}Topic`))}`}
               key={n}
               // Index 0 sits at the top of the ring; the rest follow
               // clockwise.

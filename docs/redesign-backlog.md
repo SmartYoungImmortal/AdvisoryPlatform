@@ -48,9 +48,9 @@
 หน้าที่ลูกค้าใช้ตัดสินใจจอง ควรมี: รูป ชื่อ badge ยืนยันตัวตนที่บอกชัดว่าตรวจอะไร คะแนน เวลาตอบ ราคาเริ่มต้น ปุ่มจองติดตลอด เวลาว่างถัดไป บริการ คุณวุฒิ รีวิว
 
 ### RD-03 · ค้นหาและบริการ
-- [ ] `/search`
+- [ ] `/search` — ทำรอบแรกแล้ว ยังไม่ผ่าน (ข้อมูลจริงจาก API, ตัด gradient แล้ว, รูปปกไม่ซ้ำกัน)
 - [ ] `/search/browse`
-- [ ] `/search/no-results`
+- [ ] `/search/no-results` — ใช้หน้าเดียวกับ `/search` แล้ว
 - [ ] `/service/[id]`
 - [ ] `/matching`, `/matching/searching`, `/matching/results`, `/matching/results/no-results`
 
@@ -108,8 +108,8 @@
 
 ### RD-13 · หน้า auth ที่เหลือ (เร็ว ใช้ `AuthSplit` ได้เลย)
 - [ ] `/reset-password`
-- [ ] `/verification-sent`
-- [ ] `/email-verified`
+- [ ] `/verification-sent`: ทำแล้วบน `AuthSplit` รอพี่ดู (อีเมลยังไม่ถูกส่งจริง เพราะ API ยังไม่มีบริการส่งเมล)
+- [ ] `/email-verified`: ทำแล้วบน `AuthSplit` รอพี่ดู
 
 ### RD-14 · หน้าการตลาด
 - [ ] `/about`
