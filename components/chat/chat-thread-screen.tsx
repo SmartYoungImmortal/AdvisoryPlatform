@@ -469,6 +469,27 @@ function useUploads(roomId: string) {
   return { outgoing, send, pick, dismissUpload };
 }
 
+/**
+ * The read marker, written once per (room, newest line), only while `due`:
+ * something here is unread and the page is in front of the reader, so a line
+ * that arrives as they read is read and one that arrives in a background tab
+ * is not. The ref stops a re-render from writing it twice.
+ */
+function useMarkRead(roomId: string, newest: ApiChatMessage | undefined, due: boolean) {
+  const marked = useRef<string | null>(null);
+  useEffect(() => {
+    if (!due || !newest) return;
+    const stamp = `${roomId}:${newest.id}`;
+    if (marked.current === stamp) return;
+    marked.current = stamp;
+    markRoomRead(roomId, newest.id).catch(() => {
+      // Not worth a banner: the thread is on screen and readable, and the
+      // next line or visit tries again.
+      marked.current = null;
+    });
+  }, [due, newest, roomId]);
+}
+
 function ThreadPane({ roomId, state }: { readonly roomId: string; readonly state: "default" | "message-failed" }) {
   const t = useTranslations("chat");
   const format = useFormatter();
@@ -508,25 +529,9 @@ function ThreadPane({ roomId, state }: { readonly roomId: string; readonly state
 
   /* ---- the read marker -------------------------------------------------- */
 
-  // Written once per (room, newest line), only while something here is unread
-  // and only while the page is in front of the reader, so a line that arrives
-  // as they read is read and one that arrives in a background tab is not. The
-  // ref stops a re-render from writing it twice.
-  const marked = useRef<string | null>(null);
-  const newest = newestOf(allMessages);
   const unread =
     me !== undefined && !inbox.loading && roomUnread({ me, room, messages: allMessages, readThrough: readMarks.get(roomId) });
-  useEffect(() => {
-    if (!visible || !newest || !unread) return;
-    const stamp = `${roomId}:${newest.id}`;
-    if (marked.current === stamp) return;
-    marked.current = stamp;
-    markRoomRead(roomId, newest.id).catch(() => {
-      // Not worth a banner: the thread is on screen and readable, and the
-      // next line or visit tries again.
-      marked.current = null;
-    });
-  }, [newest, roomId, unread, visible]);
+  useMarkRead(roomId, newestOf(allMessages), unread && visible);
 
   /* ---- text ------------------------------------------------------------- */
 

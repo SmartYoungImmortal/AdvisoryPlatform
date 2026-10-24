@@ -145,6 +145,23 @@ function photoProblem(file: File): "photoTypeError" | "photoSizeError" | null {
   return null;
 }
 
+/** Focus the first field with an error; true when there was one. */
+function focusFirstError(
+  found: NameFields,
+  nameField: RefObject<HTMLInputElement | null>,
+  fullField: RefObject<HTMLInputElement | null>,
+): boolean {
+  if (found.displayName) nameField.current?.focus();
+  else if (found.fullName) fullField.current?.focus();
+  return Boolean(found.displayName || found.fullName);
+}
+
+/** The save button's word: saving while it goes, "try again" after a failure. */
+function saveLabelKey(saving: boolean, failed: boolean): "saving" | "retry" | "save" {
+  if (saving) return "saving";
+  return failed ? "retry" : "save";
+}
+
 /** What went wrong, in the API's own sentence when it gave one. */
 function messageOf(cause: unknown): string {
   return cause instanceof Error ? cause.message : String(cause);
@@ -294,14 +311,7 @@ export function EditProfileScreen({
 
     const found = nameErrors(nextName, nextFull, profile.data, t);
     setErrors(found);
-    if (found.displayName) {
-      nameField.current?.focus();
-      return;
-    }
-    if (found.fullName) {
-      fullField.current?.focus();
-      return;
-    }
+    if (focusFirstError(found, nameField, fullField)) return;
 
     const changes = nameChanges(nextName, nextFull, profile.data);
     if (Object.keys(changes).length === 0) {
@@ -325,9 +335,7 @@ export function EditProfileScreen({
 
   const pick = () => picker.current?.click();
   const photoBusy = !profile.data || uploading;
-  let saveLabel = t("save");
-  if (saving) saveLabel = t("saving");
-  else if (saveError) saveLabel = t("retry");
+  const saveLabel = t(saveLabelKey(saving, saveError !== null));
 
   return (
     // White under the back chevron too, so the phone's top strip is the page

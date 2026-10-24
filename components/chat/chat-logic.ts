@@ -288,19 +288,31 @@ const LETTER = /[a-z]/i;
 export function findEmails(text: string): { readonly start: number; readonly end: number }[] {
   const found: { start: number; end: number }[] = [];
   let floor = 0;
-  for (let at = text.indexOf("@"); at >= 0; at = text.indexOf("@", at + 1)) {
-    let start = at;
-    while (start > floor && EMAIL_LOCAL.test(text[start - 1])) start -= 1;
-    if (start === at) continue;
-    let stop = at + 1;
-    while (stop < text.length && EMAIL_DOMAIN.test(text[stop])) stop += 1;
-    const end = emailDomainEnd(text, at + 1, stop);
-    if (end === null) continue;
-    found.push({ start, end });
-    floor = end;
-    at = end - 1;
+  let at = text.indexOf("@");
+  while (at >= 0) {
+    const email = emailAround(text, at, floor);
+    if (email) {
+      found.push(email);
+      floor = email.end;
+    }
+    // The next search starts after this address, or after this "@".
+    at = text.indexOf("@", email ? email.end : at + 1);
   }
   return found;
+}
+
+/**
+ * The address around the "@" at `at`, its name reaching back no further than
+ * `floor` (the end of the previous one); null when there is none.
+ */
+function emailAround(text: string, at: number, floor: number): { start: number; end: number } | null {
+  let start = at;
+  while (start > floor && EMAIL_LOCAL.test(text[start - 1])) start -= 1;
+  if (start === at) return null;
+  let stop = at + 1;
+  while (stop < text.length && EMAIL_DOMAIN.test(text[stop])) stop += 1;
+  const end = emailDomainEnd(text, at + 1, stop);
+  return end === null ? null : { start, end };
 }
 
 /**
