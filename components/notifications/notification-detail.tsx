@@ -14,7 +14,6 @@ import {
 import { useNotificationFeed } from "@/components/notifications/notification-store";
 import { rememberedNotification } from "@/components/notifications/notifications-data";
 import { Button } from "@/components/ui/button";
-import { useSession } from "@/lib/session";
 import { cn } from "@/lib/utils";
 
 /**
@@ -27,8 +26,6 @@ export function NotificationDetailRoute() {
   const t = useTranslations("notifications");
   const c = useTranslations("common");
   const format = useFormatter();
-  const session = useSession();
-  const advisor = session.status === "authenticated" && session.account.role === "advisor";
   const id = asUuid(useQueryValue("id"));
   const feed = useNotificationFeed();
   const item =
@@ -37,7 +34,7 @@ export function NotificationDetailRoute() {
   const settled = !id || feed.status !== "loading";
 
   return (
-    <NotificationsShell advisor={advisor}>
+    <NotificationsShell>
       <article className={cn("flex w-full flex-col pt-6 pb-12 lg:pt-0 lg:pb-0", FEED_COLUMN, GUTTER)}>
         <Button
           aria-label={c("back")}

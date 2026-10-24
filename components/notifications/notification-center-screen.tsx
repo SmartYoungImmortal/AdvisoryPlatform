@@ -20,10 +20,8 @@ import { AccountShell } from "@/components/account/account-shell";
 import { AppFrame } from "@/components/account/app-frame";
 import { authPill } from "@/components/auth/auth-split";
 import { Figures } from "@/components/figures";
-import { SiteFooter } from "@/components/marketing/site-footer";
 import { MobileScreen, ScreenBody } from "@/components/mobile/screen";
 import type { NotificationCategory } from "@/components/notifications/notifications-data";
-import { TopBar } from "@/components/topbar";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
@@ -345,9 +343,8 @@ function FeedHeader({
  * the filter tabs, and the feed. Nothing boxed. `headerActions` sits at the
  * right of the heading row, for the device-alerts switch.
  *
- * The advisee's page sits in the app frame (`AppFrame`), the rail at its left.
- * The advisor's does not: the rail lists the advisee's places, so the
- * advisor's keeps the app bar and footer, on the same scale (`app-scale`).
+ * Every role's page sits in the app frame (`AppFrame`), the rail at its left;
+ * `advisor` only changes where the phone's back chevron goes.
  */
 export function NotificationCenterFrame({
   advisor = false,
@@ -395,47 +392,24 @@ export function NotificationCenterFrame({
     </div>
   );
 
-  return <NotificationsShell advisor={advisor}>{content}</NotificationsShell>;
+  return <NotificationsShell>{content}</NotificationsShell>;
 }
 
 /**
- * The page around the feed or one notification: the app frame and its rail
- * for the advisee; the app bar and footer for the advisor, whose places the
- * rail does not list. Both on the same scale (`app-scale`).
+ * The page around the feed or one notification: the app frame and its rail,
+ * for every role. An advisor reaches it from the same rail as every other
+ * account page, so it keeps that rail rather than swapping to the app bar
+ * and footer (which made the rail vanish for advisors on this one page).
  */
-export function NotificationsShell({
-  advisor = false,
-  children,
-}: {
-  readonly advisor?: boolean;
-  readonly children: ReactNode;
-}) {
-  if (!advisor) {
-    return (
-      // `wide="md"`: a tablet held upright gets the phone layout at its own width.
-      <MobileScreen className="bg-card" wide="md">
-        <AppFrame active="notifications">
-          <ScreenBody className="bg-card">
-            <AccountShell active="notifications">{children}</AccountShell>
-          </ScreenBody>
-        </AppFrame>
-      </MobileScreen>
-    );
-  }
-
+export function NotificationsShell({ children }: { readonly children: ReactNode }) {
   return (
+    // `wide="md"`: a tablet held upright gets the phone layout at its own width.
     <MobileScreen className="bg-card" wide="md">
-      <ScreenBody className="bg-card">
-        {/* The app bar from `lg` only; the phone has the chevron by the title. */}
-        <div className="hidden lg:contents">
-          <TopBar dock unreadNotifications />
-        </div>
-        {/* The account column's inset and scale, without the frame. */}
-        <div className="app-scale flex w-full flex-col lg:mx-auto lg:max-w-[1702.875px] lg:shrink-0 lg:grow lg:px-[42.75px] lg:pt-[47.5px] lg:pb-16">
-          {children}
-        </div>
-        <SiteFooter className="hidden lg:flex" />
-      </ScreenBody>
+      <AppFrame active="notifications">
+        <ScreenBody className="bg-card">
+          <AccountShell active="notifications">{children}</AccountShell>
+        </ScreenBody>
+      </AppFrame>
     </MobileScreen>
   );
 }
