@@ -1,19 +1,111 @@
 import Image, { type StaticImageData } from "next/image";
-import { MessageSquare } from "lucide-react";
+import { BadgeCheck, MessageSquare, UserRound } from "lucide-react";
 
-import { sarahJenskins as sarah } from "@/lib/assets/r2";
+import { heroCardFor } from "@/lib/catalogue/live";
+import type { ApiPublicAdvisor } from "@/lib/api/types";
+import { heroCards, sarahJenskins as sarah } from "@/lib/assets/r2";
 import { cn } from "@/lib/utils";
+
+/**
+ * The face to show for a listed advisor: the photograph their home-hero card
+ * carries when they stand on the ring, so one person has one face across the
+ * product (`lib/catalogue/live.ts` does the same for the search cards), and
+ * otherwise the portrait URL the API hands out. `null` when there is neither.
+ */
+export function faceFor(advisor: ApiPublicAdvisor | null): StaticImageData | null {
+  if (!advisor) return null;
+  const card = heroCardFor(advisor.displayName);
+  if (card) return heroCards[card].face;
+  return advisor.image ? { src: advisor.image, width: 128, height: 128 } : null;
+}
+
+/**
+ * The other person in a conversation: their face, else the first letter of
+ * their name, else a person glyph when we know someone is there but not who,
+ * else the chat glyph when nobody can be told at all. An initial is only ever
+ * taken from a real name, never from a stand-in like "ผู้เชี่ยวชาญ".
+ *
+ * A listed advisor's own face comes first (see `faceFor`); `person`, the room's
+ * other member as the API names them, covers everyone else, an Advisee seen by
+ * their advisor included.
+ *
+ * `verified` puts the check on the corner. It is only ever true for a listed
+ * advisor, and a listed advisor is one an admin has identity-checked — see
+ * `Counterpart` in `./chat-logic`. Decorative here: the name beside it says
+ * "verified" in words for a screen reader.
+ */
+export function PersonAvatar({
+  advisor,
+  person = null,
+  known = false,
+  size,
+  verified = false,
+  className,
+}: {
+  readonly advisor: ApiPublicAdvisor | null;
+  readonly person?: { readonly displayName: string; readonly image: string | null } | null;
+  /** Someone is on the other side, though they cannot be named. */
+  readonly known?: boolean;
+  readonly size: number;
+  readonly verified?: boolean;
+  readonly className?: string;
+}) {
+  const face = faceFor(advisor) ?? (person?.image ? { src: person.image, width: 128, height: 128 } : null);
+  const initial = (advisor?.displayName ?? person?.displayName ?? "").trim().slice(0, 1);
+  const badge = Math.max(14, Math.round(size * 0.36));
+
+  return (
+    <span
+      aria-hidden
+      className={cn("relative inline-flex shrink-0", className)}
+      style={{ width: size, height: size }}
+    >
+      {face ? (
+        <Image
+          alt=""
+          className="size-full rounded-full bg-muted object-cover"
+          height={size}
+          src={face}
+          width={size}
+        />
+      ) : initial ? (
+        <span
+          className="flex size-full items-center justify-center rounded-full bg-muted font-medium text-foreground"
+          style={{ fontSize: Math.round(size * 0.4) }}
+        >
+          {initial}
+        </span>
+      ) : known ? (
+        <span className="flex size-full items-center justify-center rounded-full bg-muted text-muted-foreground">
+          <UserRound style={{ width: size * 0.48, height: size * 0.48 }} />
+        </span>
+      ) : (
+        <ChatMark className="size-full" size={size} />
+      )}
+      {verified ? (
+        <span
+          className="absolute -end-0.5 -bottom-0.5 flex items-center justify-center rounded-full bg-card"
+          style={{ width: badge, height: badge }}
+        >
+          <BadgeCheck
+            className="fill-primary text-primary-foreground"
+            style={{ width: badge, height: badge }}
+          />
+        </span>
+      ) : null}
+    </span>
+  );
+}
 
 /**
  * The portrait slot with nothing to put in it.
  *
- * The chat surface reads real rooms and real messages now, and neither knows a
- * face. `ChatRoomResponseDto` names no member; `ChatMessageResponseDto` carries a
- * `senderUserId` and no display name or avatar key; and no route presigns another
- * user's avatar the way `GET /users/me/avatar` does for your own. So there is no
- * photograph to be had, and `ChatAvatar`'s default — a stock portrait of a person
- * called Sarah Jenskins — would be a claim about the data rather than a
- * placeholder for it.
+ * A room whose other member cannot be told (an anonymous room, or one from an
+ * API older than `ChatRoomResponseDto.counterpart` that nobody has written in)
+ * has no face to show, and no route presigns another user's uploaded avatar the
+ * way `GET /users/me/avatar` does for your own. `ChatAvatar`'s default — a stock
+ * portrait of a person called Sarah Jenskins — would be a claim about the data
+ * rather than a placeholder for it.
  *
  * A glyph on the muted step says "a conversation" without saying who with. It is
  * what the header, the inbox row and the partner's bubble all use; `ChatAvatar`

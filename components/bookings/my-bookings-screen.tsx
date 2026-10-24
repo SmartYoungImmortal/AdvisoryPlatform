@@ -43,9 +43,11 @@ import { StatusPill } from "@/components/mobile/status-pill";
 import { Surface, surfaceClass } from "@/components/mobile/surface";
 import { ThaiText } from "@/components/mobile/thai-text";
 import { BottomBar } from "@/components/bottombar";
-import { SiteFooter } from "@/components/marketing/site-footer";
 import { TopBar } from "@/components/topbar";
-import { PAGE, SPLIT_WITH_RAIL } from "@/lib/layout";
+import { AccountShell, DESKTOP_TYPE_LIFT } from "@/components/account/account-shell";
+import { AppFrame, PHONE_BAR } from "@/components/account/app-frame";
+import { chatWithHref } from "@/components/chat/chat-data";
+import { SPLIT_WITH_RAIL } from "@/lib/layout";
 import { cn } from "@/lib/utils";
 
 /**
@@ -56,8 +58,8 @@ import { cn } from "@/lib/utils";
  * `BookingResponseDto` is the appointment and nothing else: two timestamps, a
  * state, and three ids. No service name, no advisor name, no amount. So the
  * screen makes three requests — the bookings page, the services page and the
- * advisors page — and joins them by id, the same trade `browse-list.tsx` makes
- * for one card's advisor name. A service or advisor that is no longer published
+ * advisors page — and joins them by id: one request per page rather than one
+ * per row. A service or advisor that is no longer published
  * simply resolves to nothing, and the row states the booking without naming it
  * rather than printing a blank.
  *
@@ -347,7 +349,7 @@ function NextSessionCard({ entry }: { readonly entry: Joined }) {
             this is the one action on the card that leads somewhere real. */}
         <NeutralButton
           className="w-auto shrink-0"
-          href={`/chat/${booking.advisorId}`}
+          href={chatWithHref(booking.advisorId)}
         >
           {t("join")}
         </NeutralButton>
@@ -452,19 +454,26 @@ export function MyBookingsScreen() {
   const failed = bookings.error;
 
   return (
-    <MobileScreen className="pb-0" wide>
-      <ScreenBody className="pb-18 lg:pb-0">
-        <TopBar unreadNotifications />
+    <MobileScreen className="pb-0" wide="md">
+      <AppFrame active="bookings">
+      {/* White from `lg`: the app frame's panel. */}
+      <ScreenBody className="pb-18 lg:bg-card lg:pb-0">
+        <div className={PHONE_BAR}>
+          <TopBar dock unreadNotifications />
+        </div>
 
-        {/* Figma "Page Content" — 24px inset, 16px between blocks. */}
+        <AccountShell active="bookings">
+        {/* Figma "Page Content" — 24px inset, 16px between blocks. From `lg`
+            the shell's column is the page, so the block drops its own inset,
+            and its phone-sized type is lifted for the zoomed frame. */}
         <div
           className={cn(
-            "flex w-full shrink-0 flex-col items-center gap-4 px-6 lg:gap-0",
-            PAGE,
+            "flex w-full shrink-0 flex-col items-center gap-4 px-6 lg:gap-0 lg:px-0",
+            DESKTOP_TYPE_LIFT,
           )}
         >
-          <div className="flex w-full shrink-0 flex-col items-start gap-2 overflow-clip pt-4 pb-2 lg:gap-1 lg:pt-6 lg:pb-8">
-            <h1 className="w-full text-heading font-semibold text-foreground lg:text-heading-lg">
+          <div className="flex w-full shrink-0 flex-col items-start gap-2 overflow-clip pt-4 pb-2 lg:gap-1 lg:pt-0 lg:pb-8">
+            <h1 className="w-full text-heading font-semibold text-foreground lg:font-hero lg:text-frame-title lg:font-normal lg:tracking-tight lg:text-hero-ink">
               {t("title")}
             </h1>
             {!bookings.loading && !failed ? (
@@ -482,7 +491,7 @@ export function MyBookingsScreen() {
             <div
               className={cn(
                 surfaceClass(),
-                "flex w-full shrink-0 flex-col items-start gap-3 p-5 lg:mb-14",
+                "flex w-full shrink-0 flex-col items-start gap-3 p-5",
               )}
             >
               <p className="w-full text-base font-semibold text-foreground">
@@ -507,7 +516,7 @@ export function MyBookingsScreen() {
               </div>
             </div>
           ) : (
-            <div className={cn("contents lg:w-full lg:pb-14", SPLIT_WITH_RAIL)}>
+            <div className={cn("contents lg:w-full", SPLIT_WITH_RAIL)}>
               <div className="contents lg:flex lg:flex-col lg:gap-4">
                 <StatusTabs
                   current={bucket}
@@ -594,9 +603,9 @@ export function MyBookingsScreen() {
             </div>
           )}
         </div>
-
-        <SiteFooter className="hidden lg:flex" />
+        </AccountShell>
       </ScreenBody>
+      </AppFrame>
       <BottomBar className="lg:hidden" role="user" selected="bookings" />
     </MobileScreen>
   );

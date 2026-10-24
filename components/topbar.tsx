@@ -406,7 +406,7 @@ export function TopBar({
                   per page, and every page without it showed a guest the bell
                   to notifications they cannot have. */}
               {sessionKnown && !signedIn ? (
-                /* fastwork's "Get started": a black pill with white type that
+                /* "Get started": a black pill with white type that
                    opens sign-up, the one thing on the bar for a guest to press.
                    Signing in is a tap away on the register screen itself. */
                 <Button

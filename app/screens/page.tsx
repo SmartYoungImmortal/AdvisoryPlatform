@@ -77,7 +77,6 @@ const SECTIONS: ReadonlyArray<{
     node: "995:10812",
     screens: [
       { href: "/notifications", label: "Notification center" },
-      { href: "/notifications/push-primer", label: "Push primer" },
       { href: "/chat/session-banner", label: "In-app banner" },
     ],
   },

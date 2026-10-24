@@ -327,23 +327,3 @@ export function VerifiedTick({ className }: { readonly className?: string }) {
     />
   );
 }
-
-/** Figma "Icon Badge" — the 36px circle behind a category, step or card glyph. */
-export function IconBadge({
-  className,
-  children,
-}: {
-  readonly className?: string;
-  readonly children: ReactNode;
-}) {
-  return (
-    <div
-      className={cn(
-        "flex size-9 shrink-0 items-center justify-center overflow-clip rounded-full",
-        className,
-      )}
-    >
-      {children}
-    </div>
-  );
-}

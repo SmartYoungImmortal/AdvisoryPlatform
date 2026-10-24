@@ -93,9 +93,9 @@ export function StepList() {
 /**
  * What a block says when the API answered with a failure.
  *
- * The API's own sentence, verbatim, the way `components/home/browse-list.tsx`
- * prints it — it is the only thing that tells "no session" apart from "the
- * container is not running", and a translated guess would erase the difference.
+ * The API's own sentence, verbatim — it is the only thing that tells "no
+ * session" apart from "the container is not running", and a translated guess
+ * would erase the difference.
  *
  * A retry is offered for everything the reader could plausibly fix by asking
  * again, and withheld for 401 and 403: pressing it a second time cannot change

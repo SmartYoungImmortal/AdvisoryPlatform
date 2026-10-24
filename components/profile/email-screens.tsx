@@ -5,7 +5,7 @@ import { Mail, MailCheck } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { useState, useSyncExternalStore, type FormEvent, type ReactNode } from "react";
 
-import { SiteFooter } from "@/components/marketing/site-footer";
+import { AppFrame } from "@/components/account/app-frame";
 import { AlertBanner } from "@/components/mobile/banner";
 import { NeutralButton, PrimaryButton } from "@/components/mobile/buttons";
 import { Field } from "@/components/mobile/field";
@@ -20,11 +20,9 @@ import {
 import {
   ACCOUNT_FORM_PANEL,
   ACCOUNT_HEADING,
-  ACCOUNT_NAV,
   AccountBackBar,
 } from "@/components/profile/account-chrome";
 import { useAccount } from "@/components/session/account-bits";
-import { TopBar } from "@/components/topbar";
 import { ApiError } from "@/lib/api/client";
 import { requestEmailChange } from "@/lib/api/account";
 import { isEmail } from "@/lib/session";
@@ -145,12 +143,10 @@ export function ChangeEmailScreen({
   }
 
   return (
-    <MobileScreen wide>
+    <MobileScreen wide="md">
       <ScreenTopBar className="lg:hidden" href="/settings" label={c("back")} />
+      <AppFrame active="settings">
       <ScreenBody>
-        <div className={ACCOUNT_NAV}>
-          <TopBar unreadNotifications />
-        </div>
         <AccountBackBar href="/settings" label={c("back")} />
 
         {/* Figma "Head Band" — the title on the card surface, above the page. */}
@@ -224,9 +220,8 @@ export function ChangeEmailScreen({
             </PrimaryButton>
           </ScreenActions>
         </form>
-
-        <SiteFooter className="hidden lg:mt-auto lg:flex" />
       </ScreenBody>
+      </AppFrame>
     </MobileScreen>
   );
 }
@@ -271,12 +266,10 @@ export function VerifyEmailScreen() {
   }
 
   return (
-    <MobileScreen wide>
+    <MobileScreen wide="md">
       <ScreenTopBar className="lg:hidden" href="/settings/email" label={c("back")} />
+      <AppFrame active="settings">
       <ScreenBody>
-        <div className={ACCOUNT_NAV}>
-          <TopBar unreadNotifications />
-        </div>
         <AccountBackBar href="/settings/email" label={c("back")} />
 
         {/* Figma "Head Band" — desktop only: the phone frame keeps its title in
@@ -327,9 +320,8 @@ export function VerifyEmailScreen() {
             </NeutralButton>
           </ScreenActions>
         </div>
-
-        <SiteFooter className="hidden lg:mt-auto lg:flex" />
       </ScreenBody>
+      </AppFrame>
     </MobileScreen>
   );
 }

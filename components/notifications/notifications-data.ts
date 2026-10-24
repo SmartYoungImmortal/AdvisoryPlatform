@@ -80,36 +80,51 @@ export function markAllNotificationsRead(
 /* ------------------------------------------------------------------ routing */
 
 /**
- * Where tapping a notification goes: the record itself if it has one, otherwise its
- * list. A screening decision opens the outcome page, which redirects to the
- * request's real status.
+ * Where tapping a notification goes, only when there is something to do
+ * next: a message to answer (its room; `resourceId` is the chat room), a
+ * session to get ready for, a request to decide, a new booking to see on the
+ * calendar. Null for the ones that only inform (a confirmed booking, a
+ * payment, a payout, a review, a decision, a warning): opening a whole list
+ * for them added nothing, so they open their own page (`notificationTarget`).
  */
-export function notificationHref(notification: ApiNotification): string {
+export function notificationHref(notification: ApiNotification): string | null {
   const id = notification.resourceId;
   switch (notification.type) {
-    case "SCREENING_REQUESTED":
-      return id ? `/screening/review?requestId=${id}` : "/screening/requests";
-    case "SCREENING_DECIDED":
-      return id ? `/screening/accepted?serviceId=${id}` : "/bookings";
     case "NEW_MESSAGE":
-      return "/chat";
-    case "BOOKING_CONFIRMED":
+      return id ? `/chat/room?id=${id}` : "/chat";
     case "SESSION_REMINDER":
       return "/bookings";
+    case "SCREENING_REQUESTED":
+      return id ? `/screening/review?requestId=${id}` : "/screening/requests";
     case "BOOKING_RECEIVED":
       return "/work/calendar";
-    case "PAYMENT_SUCCEEDED":
-      return "/transactions";
-    case "PAYOUT_SENT":
-      return "/earnings";
-    case "REVIEW_RECEIVED":
-      return "/reviews";
-    case "VERIFICATION_DECIDED":
-      return "/advisor/profile";
     default:
-      // POLICY_WARNING: open the user's profile.
-      return "/profile";
+      return null;
   }
+}
+
+/**
+ * Where a notification opens: what `notificationHref` names, otherwise its own
+ * page (`/notifications/view`), the title and the whole message, for the ones
+ * that only inform and may run longer than the row shows.
+ */
+export function notificationTarget(notification: ApiNotification): string {
+  return notificationHref(notification) ?? `/notifications/view?id=${notification.id}`;
+}
+
+/**
+ * The notifications opened this visit, by id, so their page shows at once
+ * (and for one that came in on a later page of the feed) instead of waiting
+ * for the first page to load again. The API has no single-notification read.
+ */
+const opened = new Map<string, ApiNotification>();
+
+export function rememberNotification(notification: ApiNotification): void {
+  opened.set(notification.id, notification);
+}
+
+export function rememberedNotification(id: string): ApiNotification | null {
+  return opened.get(id) ?? null;
 }
 
 /* --------------------------------------------------------------------- dates */
@@ -121,17 +136,46 @@ export function dayKey(date: Date): string {
   return `${date.getFullYear()}-${date.getMonth()}-${date.getDate()}`;
 }
 
-/** Groups a newest-first list by local day, keeping the order. */
-export function groupByDay(
+/** How far back a notification is, in the reader's own calendar. */
+export type Recency = "today" | "yesterday" | "earlier";
+
+/** Today, yesterday or earlier than that, for a notification made at `iso`. */
+export function recencyOf(iso: string, now: number): Recency {
+  const day = dayKey(new Date(iso));
+  if (day === dayKey(new Date(now))) return "today";
+  if (day === dayKey(new Date(now - 24 * 60 * 60 * 1000))) return "yesterday";
+  return "earlier";
+}
+
+/** Groups a newest-first list into today, yesterday and earlier, keeping the order. */
+export function groupByRecency(
   items: readonly ApiNotification[],
-): readonly { readonly day: string; readonly date: Date; readonly items: ApiNotification[] }[] {
-  const groups: { day: string; date: Date; items: ApiNotification[] }[] = [];
+  now: number,
+): readonly { readonly recency: Recency; readonly items: ApiNotification[] }[] {
+  const groups: { recency: Recency; items: ApiNotification[] }[] = [];
   for (const item of items) {
-    const date = new Date(item.createdAt);
-    const day = dayKey(date);
+    const recency = recencyOf(item.createdAt, now);
     const last = groups.at(-1);
-    if (last?.day === day) last.items.push(item);
-    else groups.push({ day, date, items: [item] });
+    if (last?.recency === recency) last.items.push(item);
+    else groups.push({ recency, items: [item] });
   }
   return groups;
+}
+
+/* ---------------------------------------------------------------- filtering */
+
+/** What the feed's filter pills sort a notification under; the other types are under "all" only. */
+export type NotificationCategory = "booking" | "message" | "payment";
+
+const CATEGORY: Partial<Record<NotificationType, NotificationCategory>> = {
+  BOOKING_CONFIRMED: "booking",
+  BOOKING_RECEIVED: "booking",
+  SESSION_REMINDER: "booking",
+  NEW_MESSAGE: "message",
+  PAYMENT_SUCCEEDED: "payment",
+  PAYOUT_SENT: "payment",
+};
+
+export function notificationCategory(type: NotificationType): NotificationCategory | null {
+  return CATEGORY[type] ?? null;
 }

@@ -59,9 +59,8 @@
      display would take. */
   --text-hero: 2.5rem;
   --text-hero--line-height: 3rem;
-  /* The ring cards' name and role. fastwork sets them at 10 and 7.7px so the
-     photograph is the card; Thai at those sizes stops being legible, so this
-     is the smallest that still reads, 12 over 10. */
+  /* The ring cards' name and role, kept small so the photograph is the card:
+     the smallest Thai that still reads, 12 over 10. */
   --text-hero-name: 0.75rem;
   --text-hero-name--line-height: 1rem;
   --text-hero-role: 0.625rem;
@@ -82,13 +81,36 @@
   --text-editorial: clamp(3rem, 8vw, 8rem);
   --text-editorial--line-height: 0.94;
   --text-editorial--letter-spacing: -0.03em;
+  /* A page title on a phone or an upright tablet when it shares its row with
+     the back chevron: between `xl` (read too small) and `2xl` (too loud). */
+  --text-title-compact: 1.3125rem;
+  --text-title-compact--line-height: 1.25;
   /* Nuxt UI's `sm` badge — 10/12. The console's tab counts are that badge. */
   --text-2xs: 0.625rem;
   --text-2xs--line-height: 0.75rem;
+  /* The type inside the app frame. A framed page is drawn in the 1710 space
+     and zoomed by `app-scale` (0.842 at 1440), so each step is its rendered
+     size and leading at ×1.1875: at 1440 it shows 32/35.2 the profile name,
+     19/28 a section head, 18/21.6 a figure or an empty state's title, 16/24 a
+     button, tab or body line, 14/21.5 a supporting line, 12/15.6 a figure's
+     label. */
+  --text-frame-title: 2.375rem;
+  --text-frame-title--line-height: 1.1;
+  --text-frame-heading: 1.41015625rem;
+  --text-frame-heading--line-height: 1.4737;
+  --text-frame-figure: 1.3359375rem;
+  --text-frame-figure--line-height: 1.2;
+  --text-frame-body: 1.1875rem;
+  --text-frame-body--line-height: 1.5;
+  --text-frame-meta: 1.0390625rem;
+  --text-frame-meta--line-height: 1.5385;
+  --text-frame-label: 0.890625rem;
+  --text-frame-label--line-height: 1.3;
 
   --color-success: var(--success);
   --color-success-foreground: var(--success-foreground);
   --color-success-surface: var(--success-surface);
+  --color-confirm: var(--confirm);
   --color-warning: var(--warning);
   --color-info: var(--info);
   /* Nuxt UI's text ramp, which the admin console is ported from: `highlighted`
@@ -137,8 +159,8 @@
      stuck onto it. */
   --shadow-hero: 0 24px 48px -20px color-mix(in srgb, var(--scrim) 22%, transparent),
     0 2px 6px color-mix(in srgb, var(--scrim) 4%, transparent);
-  /* The ring card's own edge, measured off fastwork's `orbit-card`: a 2px
-     shadow at 8% and a cool hairline, nothing heavier. */
+  /* The ring card's own edge: a 2px shadow at 8% and a cool hairline,
+     nothing heavier. */
   --shadow-hero-card: 0 2px 4px color-mix(in srgb, var(--scrim) 8%, transparent);
   --shadow-hero-card-hover: 0 6px 16px color-mix(in srgb, var(--scrim) 10%, transparent);
   --color-hero-card-border: var(--hero-card-border);
@@ -248,6 +270,10 @@
   --success: #65a30d;
   --success-foreground: #ffffff;
   --success-surface: #ecfccb;
+  /* The green of a confirmation that just happened (the toast's tick and its
+     countdown bar): a clean emerald. `--success` is the olive lime the status
+     pills were drawn in, which read muddy at a glance in a small mark. */
+  --confirm: #12b76a;
   --warning: #ca8a04;
   --info: #2563eb;
   --highlighted: #18181b;
@@ -323,9 +349,9 @@
      `--card`, not a literal `#ffffff`: `.dark` redefines `--card`, so the band
      follows the theme instead of staying a white strip on a dark page. */
   --hero-ground: var(--card);
-  /* The hero's headline and its search button, measured off fastwork.com's
-     own: a cool slate grey for the type rather than the near-black the rest
-     of the app sets in, and a near-black navy for the one button. */
+  /* The hero's headline and its search button: a cool slate grey for the
+     type rather than the near-black the rest of the app sets in, and a
+     near-black navy for the one button. */
   --hero-ink: #2b313b;
   --hero-card-border: rgb(228 232 239 / 97%);
   /* The legal pages' ground: the home hero's two lights from the top of the
@@ -628,6 +654,17 @@
   .doc-scale {
     zoom: clamp(0.75, tan(atan2(100vw, 1710px)), 1);
   }
+
+  /* The app frame (`AppFrame`: the rail and the page inside the white panel).
+     Drawn in the same 1710 space at its 1440 px × 1.1875, so it renders at
+     its intended size at 1440, and held there on any wider screen instead of
+     growing with the width (on a 1728 that made everything a fifth larger).
+     Narrower screens get the 1440 page shrunk by the width alone, rail and
+     page together, with no floor: a landscape iPad is that desktop made
+     smaller, in the same proportions, not a reflowed layout. */
+  .app-scale {
+    zoom: tan(atan2(min(100vw, 1440px), 1710px));
+  }
 }
 
 /* The turn is an animated angle every card adds to its own, not a rotation of
@@ -800,4 +837,22 @@
   .animate-hero-pop {
     animation: none;
   }
+}
+
+/* ── toast ── */
+/* The bar along a toast's foot that runs out over the time it stays, as Nuxt
+   UI's toast does in the admin console. Its length is the toast's own hold,
+   set inline as `animation-duration`. */
+@keyframes toast-countdown {
+  from {
+    transform: scaleX(1);
+  }
+  to {
+    transform: scaleX(0);
+  }
+}
+
+@utility animate-toast-countdown {
+  transform-origin: left;
+  animation: toast-countdown linear forwards;
 }

@@ -101,7 +101,7 @@ export type SocialProvider = "google" | "facebook" | "apple";
 const ALL_SOCIAL: readonly SocialProvider[] = ["google", "facebook", "apple"];
 
 /**
- * The social sign-in buttons the page draws: all three, fastwork's set, unless
+ * The social sign-in buttons the page draws: all three, unless
  * `NEXT_PUBLIC_AUTH_SOCIAL` (comma-separated, e.g. `google,facebook`) narrows
  * it. The API switches each provider on from its own env
  * (`socialProviders` in its `auth.config.ts`); one that is off answers

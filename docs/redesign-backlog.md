@@ -3,14 +3,17 @@
 รายการหน้าที่ยังต้อง redesign เรียงตามลำดับที่ควรทำ แต่ละข้อเป็นหนึ่ง ticket
 ติ๊ก `[x]` เมื่อพี่ดูแล้ว **ผ่าน** ไม่ใช่แค่เขียนโค้ดเสร็จ
 
-อัปเดตล่าสุด: 24 ตุลาคม 2569
+อัปเดตล่าสุด: 25 ตุลาคม 2569
 
 ## หลักที่ใช้กับทุกหน้า
 
 - desktop ออกแบบที่จอ 1710 × 985 แล้วย่อลงตามสัดส่วนบน iPad แนวนอน (`.auth-scale` / `.doc-scale` / `.page-scale` ใน `app/globals.css`)
 - iPad แนวตั้งใช้ layout แบบมือถือ (`MobileScreen wide="md"`)
 - มือถือย่อลงหนึ่งขั้น ปุ่มสูงอย่างน้อย 44px ช่องกรอกตัวหนังสือ 16px (กัน iPhone ซูม)
-- อ้างอิง fastwork ได้ แต่ห้ามลอกจนเหมือน ต้องเป็นหน้าตาของ Advisory
+- หน้าตาต้องเป็นของ Advisory และห้ามเขียนชื่อเว็บที่ใช้อ้างอิงลงในโค้ด คอมมิต หรือ PR
+- กรอบหน้าบัญชี: แถบไอคอนซ้าย ไม่มี navbar (`components/account/app-frame.tsx`)
+- หน้าในกรอบ `AppFrame` ใช้ `.app-scale`: วาดที่ 1440 ไม่ขยายตามจอที่กว้างกว่า และย่อตามจอที่แคบกว่า
+- อนิเมชันมีเฉพาะหน้า home ส่วนหน้าอื่นให้มีแค่ hover/focus (พี่สั่ง 24 ต.ค.)
 - ทุกข้อความมีสองภาษา (`messages/th.json` และ `messages/en.json`)
 - ใช้ปุ่มแคปซูล `authPill` / สีดำ `hero-action` ให้เข้าชุดกับหน้า home
 - ตรวจกับหน้าจริงที่ 1710, 1180 (iPad แนวนอน), 820 (iPad แนวตั้ง), 402 ก่อนบอกว่าเสร็จ
@@ -27,11 +30,36 @@
 
 ## ทำแล้วแต่ยังไม่ผ่าน
 
-### RD-01 · โปรไฟล์ผู้รับคำปรึกษา
-- [ ] `/profile`
-- [ ] `/settings/logout` (ใช้หน้าโปรไฟล์เป็นพื้นหลัง จะเปลี่ยนตามเอง)
+รอบ 24-25 ต.ค. 2569 ทำพร้อมกันหลาย agent ยังไม่ได้ commit
 
-สถานะ: redesign ไปแล้ว (โครง fastwork, กล่องนัดถัดไป, ตัวเลขจากการจองจริง) แต่พี่ยังไม่ให้ผ่าน ต้องคุยว่าไม่ผ่านตรงไหนก่อนแก้รอบใหม่
+### Home ใต้ hero
+- [ ] `/` ส่วนใต้ hero: concept "คำถามในใจ" (คำถามลายมือ คำตอบตัวพิมพ์) 4 บท + FAQ + ปิดท้ายบนรูปห้อง
+  พี่สั่งให้หยุดและเก็บแบบที่เห็นไว้ก่อน (25 ต.ค.) hero ไม่ได้แตะ
+
+### RD-01 / RD-12 · บัญชี (กรอบ `AppFrame` แถบไอคอนซ้าย, desktop ไม่มี navbar)
+- [ ] `/profile`: หัวโปรไฟล์ + กล่องตัวเลข + แบนเนอร์ + แท็บ
+- [ ] `/profile/edit`, `/profile/edit/save-failed`: หัวโปรไฟล์ชุดเดียวกันแบบแก้ได้
+- [ ] `/settings`: มีแถวภาษาและออกจากระบบ, `/settings/logout` เปิดทับหน้า settings
+- [ ] `/bookings`: ใส่กรอบและปรับขนาดตัวหนังสือ ข้างในยังไม่ redesign
+- หน้าย่อย settings (`/password`, `/email`, `/delete`, `/updated`) อยู่ในกรอบแล้ว แต่ข้างในยังเป็นการ์ด 800px แบบเก่าและยังไม่มีภาษาอังกฤษ
+
+### RD-02 · โปรไฟล์สาธารณะของผู้ให้คำปรึกษา
+- [ ] `/advisors/[advisorId]`, `/about`, `/services`, `/reviews`: หน้าโปรไฟล์สาธารณะ อยู่ใน `AppFrame`
+
+### RD-03 · หน้าบริการ
+- [ ] `/service/[id]`: หัว showcase + แกลเลอรี (ปก + 2 รูปจาก `service_images`) + กล่องจองติดขวา + รีวิว/ผู้เชี่ยวชาญ/บริการอื่น
+
+### RD-04 (บางส่วน) · ประวัติการชำระเงิน
+- [ ] `/transactions`, `/transactions/detail`, `/transactions/detail/failed`, `/transactions/detail/refunded`
+
+### RD-10 · สมัครเป็นผู้ให้คำปรึกษา
+- [ ] `/advisor/apply`
+- [ ] `/advisor-onboarding/stage-1`, `/stage-2`, `/stage-3`: กรอบเดียวกับ login ขนาดตัวอักษรเท่าหน้า login
+- [ ] `/advisor-onboarding/thank-you`, `/pending`, `/failed`
+
+### RD-11 · แชตและการแจ้งเตือน
+- [ ] `/chat`, `/chat/empty`, `/chat/session-banner`; ห้องแชตย้ายไป `/chat/room?id=…` (+ `/message-failed`, `/report`, `/report/submitted`)
+- [ ] `/notifications`, `/notifications/advisor`
 
 ## ยังไม่ได้ทำ
 
@@ -40,25 +68,14 @@
 
 ใช้ร่วมกันทุกหน้า แก้ครั้งเดียวได้ทุกหน้า ตอนนี้ยังเป็นแบบที่ลอก Systronic มา ต้อง redesign ให้เข้าชุดกับ home / login / terms (ปุ่มแคปซูล, Kanit, พื้นขาวหรือแสงฟ้า-ม่วงจางๆ) พร้อมสองภาษา และ scale จาก 1710 บน iPad แนวนอน
 
-### RD-02 · โปรไฟล์สาธารณะของผู้ให้คำปรึกษา ⭐ ทำก่อน
-- [ ] `/advisors/[advisorId]`
-- [ ] `/advisors/[advisorId]/about`
-- [ ] `/advisors/[advisorId]/services`
-- [ ] `/advisors/[advisorId]/reviews`
-
-หน้าที่ลูกค้าใช้ตัดสินใจจอง ควรมี: รูป ชื่อ badge ยืนยันตัวตนที่บอกชัดว่าตรวจอะไร คะแนน เวลาตอบ ราคาเริ่มต้น ปุ่มจองติดตลอด เวลาว่างถัดไป บริการ คุณวุฒิ รีวิว
-
-### RD-03 · ค้นหาและบริการ
-- [ ] `/search/browse`
-- [ ] `/service/[id]`
-- [ ] `/matching`, `/matching/searching`, `/matching/results`, `/matching/results/no-results`
+### RD-03 · จับคู่ผู้เชี่ยวชาญ
+- [ ] `/matching`, `/matching/searching`, `/matching/results`
 
 ### RD-04 · จองและชำระเงิน
-- [ ] `/checkout/card`, `/checkout/card/errors`, `/checkout/card/saved`
+- [ ] `/checkout/card`, `/checkout/card/saved`
 - [ ] `/checkout/processing`, `/checkout/success`, `/checkout/failed`
 - [ ] `/checkout/slot-taken`, `/checkout/unconfirmed`
-- [ ] `/bookings`
-- [ ] `/transactions`, `/transactions/detail`, `/transactions/detail/failed`, `/transactions/detail/refunded`
+- [ ] ข้างในของ `/bookings` (กรอบทำแล้ว ดู RD-01 / RD-12)
 
 ### RD-05 · โปรไฟล์และหน้าทำงานของผู้ให้คำปรึกษา ⭐
 - [ ] `/advisor/profile` (ควรเป็น dashboard: สวิตช์รับงาน นัดวันนี้ คำขอที่รอตอบ รายได้ สถานะยืนยันตัวตน)
@@ -73,7 +90,7 @@
 
 ### RD-07 · ตารางเวลาว่าง
 - [ ] `/availability`, `/availability/configured`, `/availability/custom`
-- [ ] `/availability/profiles`, `/availability/profiles/empty`, `/availability/profiles/add-date`, `/availability/profiles/delete`
+- [ ] `/availability/profiles`, `/availability/profiles/add-date`, `/availability/profiles/delete`
 - [ ] `/availability/profiles/new`, `/availability/profiles/new/blocked`, `/availability/profiles/new/from-list`, `/availability/profiles/new/specific`
 - [ ] `/availability/profiles/edit`, `/availability/profiles/edit/blocked`, `/availability/profiles/edit/error`, `/availability/profiles/edit/picker`, `/availability/profiles/edit/specific`
 
@@ -86,24 +103,8 @@
 - [ ] `/reviews`, `/reviews/empty`, `/reviews/replying`, `/reviews/reply-failed`
 - [ ] `/reviews/session`, `/reviews/session/submitted`
 
-### RD-10 · สมัครเป็นผู้ให้คำปรึกษา
-- [ ] `/advisor/apply`
-- [ ] `/advisor-onboarding/stage-1`, `/advisor-onboarding/stage-1/errors`
-- [ ] `/advisor-onboarding/stage-2`, `/advisor-onboarding/stage-2/uploaded`, `/advisor-onboarding/stage-2/rejected`
-- [ ] `/advisor-onboarding/stage-3`, `/advisor-onboarding/stage-3/missing-proof`
-- [ ] `/advisor-onboarding/pending`, `/advisor-onboarding/failed`, `/advisor-onboarding/thank-you`
-
-### RD-11 · แชตและการแจ้งเตือน
-- [ ] `/chat`, `/chat/empty`, `/chat/session-banner`
-- [ ] `/chat/[id]`, `/chat/[id]/message-failed`, `/chat/[id]/report`, `/chat/[id]/report/submitted`
-- [ ] `/notifications`, `/notifications/advisor`, `/notifications/empty`, `/notifications/push-primer`
-
-### RD-12 · บัญชีและการตั้งค่า
-- [ ] `/profile/edit`, `/profile/edit/photo-rejected`, `/profile/edit/save-failed`
-- [ ] `/settings`, `/settings/updated`
-- [ ] `/settings/email`, `/settings/email/in-use`, `/settings/email/verify`
-- [ ] `/settings/password`, `/settings/password/wrong`
-- [ ] `/settings/delete`, `/settings/delete/blocked`
+### RD-12 · ข้างในหน้าย่อยของการตั้งค่า
+- [ ] `/settings/email`, `/settings/email/verify`, `/settings/password`, `/settings/delete`, `/settings/updated` (กรอบทำแล้ว ข้างในยังเก่า ยังไม่มีภาษาอังกฤษ)
 
 ### RD-13 · หน้า auth ที่เหลือ (เร็ว ใช้ `AuthSplit` ได้เลย)
 - [ ] `/reset-password`
@@ -142,6 +143,9 @@
 `/checkout/card/errors`, `/notifications/empty`, `/availability/profiles/empty`,
 `/matching/results/no-results`
 
+`/search/browse` ก็ลบแล้ว: ซ้ำกับ `/search` ที่ไม่ใส่คำค้นก็แสดงบริการทั้งหมดพร้อมตัวกรองอยู่แล้ว
+ลิงก์ "หมวดหมู่" ใน footer ชี้ไป `/search` แทน
+
 เก็บ `/availability/profiles/edit/error` ไว้ เพราะเทส e2e ใช้เป็น fixture
 
 ## เรื่องค้างที่ไม่ใช่หน้า
@@ -152,3 +156,10 @@
 - [ ] เปิดแถบ dock แบบ Systronic/mochiice ในหน้าอื่นที่ควรมี (`TopBar dock`)
 - [ ] ปุ่มบน topbar มือถือสองปุ่มสูงแค่ 36px และ 24px (ต่ำกว่า 44px)
 - [ ] เพิ่มลิงก์ "เข้าสู่ระบบ" ข้างปุ่ม Get started บน desktop
+- [ ] `/bookings` แสดง id ดิบของบริการที่ปิดไปแล้วแทนชื่อ
+- [ ] `useQueryValue` ใน `components/bookings/booking-flow.ts` ค้างค่า query เก่าเมื่อหน้าลิงก์หาตัวเองด้วย query ใหม่ (หน้า service แก้แล้วด้วย `useSearchParams`)
+- [ ] advisor ที่โดนปฏิเสธแล้วสมัครใหม่ ต้องกรอกทักษะ/หลักฐานใหม่ทั้งหมด และหลักฐานอาจถูกส่งซ้ำ
+- [ ] API: ห้องแชตยังไม่บอกว่าคุยกับใคร (หน้าแชตเดาจากข้อความ/การจอง), ยังไม่มี route ส่งข้อความแบบตัวอักษร
+- [ ] key ข้อความที่ไม่มีใครใช้แล้วใน `messages/th.json` (`payment.*` หลายตัว, `home.promo*` ฯลฯ, ข้อความสมัคร advisor ที่ผิด เช่น 10 MB)
+- [ ] บัญชีเดโม `nattapong.d@advisory.demo` โดนแบนใน DB ที่ใช้อยู่ (ใช้ `supaporn.t` แทน)
+- [ ] งานฝั่ง API (รูป service ใน `service_images`, seed, ลบ service แล้วลบรูปด้วย) ยังไม่ได้ commit

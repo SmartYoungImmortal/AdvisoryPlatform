@@ -1,233 +1,486 @@
-import Image, { type StaticImageData } from "next/image";
-import { FileText, TriangleAlert } from "lucide-react";
-import type { ReactNode } from "react";
+"use client";
 
-import { ChatMark } from "@/components/chat/chat-avatar";
-import { StatusPill } from "@/components/mobile/status-pill";
+import {
+  FileImage,
+  FileText,
+  LoaderCircle,
+  RotateCw,
+  ShieldAlert,
+  TriangleAlert,
+  X,
+} from "lucide-react";
+import Link from "next/link";
+import { useFormatter, useTranslations } from "next-intl";
+import { useState, type ReactNode } from "react";
+
+import { Button } from "@/components/ui/button";
+import { CHAT_IMAGE_TYPES, getChatFileUrl, type ApiChatFile } from "@/components/chat/chat-data";
+import {
+  findOffPlatform,
+  offPlatformKinds,
+  splitByMatches,
+  type OffPlatformKind,
+} from "@/components/chat/chat-logic";
 import { cn } from "@/lib/utils";
 
 /**
- * The corners a bubble keeps, and the corner it gives up to point at its author.
+ * The pieces a thread is drawn with.
  *
- * Both sides were drawn at `md` (8px) with a square tail. 12px is the step the
- * rest of the app's cards now take, and a bubble is the smallest card in the
- * product, so it takes the same one — the tail stays square.
+ * Bubbles sit on the card ground: the other person's on the muted step, mine
+ * in the home hero's near-black, the one dark object on the page, so the eye
+ * finds its own side without reading. A run of one author opens on a bubble
+ * whose top corner tucks in towards the author (the face sits there, for the
+ * other person), and the bubbles after it sit close and fully round, which is
+ * what makes three lines read as one turn rather than three.
  */
-const BUBBLE = "flex max-w-[276px] shrink-0 overflow-hidden px-3 py-2";
 
-/**
- * A day break in the thread.
- *
- * It used to be a filled `bg-border` pill at the same 12px semibold as the copy
- * around it, which made a separator the loudest object on the screen. A day
- * break is chrome: a hairline across the column with the date sitting in it, so
- * the eye reads it as structure and moves on.
- */
+/** The bubble's corners, from its place in a run. */
+function corners(mine: boolean, first: boolean): string {
+  return cn("rounded-2xl", first && (mine ? "rounded-tr-md" : "rounded-tl-md"));
+}
+
+/** Type for a line people read: one step up on a desktop, where the 1710 frame is scaled down. */
+const READING = "text-base lg:text-lg";
+
+/** The width a bubble may take: most of a phone, a comfortable measure on a desktop. */
+const MEASURE = "max-w-[min(80%,34rem)] lg:max-w-[min(72%,36rem)]";
+
+/* --------------------------------------------------------------------- day */
+
+/** A day break: the date, quietly, in the middle of the column. */
 export function DayDivider({ children }: { readonly children: ReactNode }) {
   return (
-    <div className="flex w-full shrink-0 items-center gap-3 py-1">
-      <span aria-hidden className="h-px min-w-px flex-1 bg-border" />
-      <span className="shrink-0 text-xs font-medium whitespace-nowrap text-muted-foreground">
+    <div className="flex w-full shrink-0 justify-center pt-4 pb-2" role="separator">
+      <span className="text-xs text-muted-foreground lg:text-frame-label">
         {children}
       </span>
-      <span aria-hidden className="h-px min-w-px flex-1 bg-border" />
     </div>
   );
 }
 
-/** 12/14 Geist timestamp under a bubble — a number, so tabular and muted. */
-function Stamp({ children, className }: { readonly children: ReactNode; readonly className?: string }) {
-  return (
-    <p
-      className={cn(
-        "font-latin text-xs leading-3.5 font-normal tabular-nums text-muted-foreground",
-        className,
-      )}
-    >
-      {children}
-    </p>
-  );
-}
+/* ------------------------------------------------------------------- text */
 
 /**
- * Figma "Conversation Partner's Message" — 32px avatar, bubble with a square
- * bottom-left corner, then a timestamp indented 40px.
- *
- * The bubble was `bg-muted` on the page ground. Those two are now one step
- * apart, so the most-read screen in the product was grey text in a grey box on a
- * grey page — the "mush" the owner means. It sits on the card surface with the
- * hairline and the resting elevation instead: a white object on the thread's
- * ground, against the accent block the reader's own messages are.
- *
- * The portrait is `ChatMark`, not a photograph. `ChatMessageResponseDto` carries
- * a `senderUserId` and nothing else about the author, and no route presigns
- * another user's avatar, so there is no face to put here — see `ChatMark`.
+ * A line, with anything that leaves the platform marked where it stands. The
+ * parts are a fixed split of one string, so their position is their identity.
  */
-export function PartnerMessage({
-  time,
-  children,
-  bubbleClassName,
-}: {
-  readonly time: string;
-  readonly children: ReactNode;
-  readonly bubbleClassName?: string;
-}) {
-  return (
-    <div className="flex w-full shrink-0 flex-col items-start">
-      <div className="flex max-w-[320px] shrink-0 flex-col items-start justify-end gap-1">
-        <div className="flex shrink-0 items-end gap-2">
-          <ChatMark className="self-start" size={32} />
-          <div className="flex max-w-[276px] shrink-0 flex-col items-start gap-3">
-            <div
-              className={cn(
-                BUBBLE,
-                "items-center justify-center rounded-tl-card rounded-tr-card rounded-br-card border border-border bg-card shadow-card",
-                bubbleClassName,
-              )}
-            >
-              {children}
-            </div>
-          </div>
-        </div>
-        <div className="flex w-full shrink-0 items-center pl-10">
-          <Stamp className="min-w-px flex-1">{time}</Stamp>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-/** Plain Thai body text inside a partner bubble (14/20, the bubble's measure). */
-export function PartnerText({ children }: { readonly children: ReactNode }) {
-  return (
-    <p className="max-w-63 min-w-px flex-1 text-sm font-normal whitespace-pre-line text-foreground">
-      {children}
-    </p>
-  );
-}
-
-/**
- * Figma "My Message" — right-aligned stack with 10px padding, an accent bubble with
- * a square bottom-right corner, then a right-aligned timestamp.
- *
- * The accent fill already separates this side; what it was missing is the weight
- * to match the partner's new card, so it carries the same resting elevation.
- */
-export function MyMessage({
-  time,
-  children,
-  bubbleClassName,
-}: {
-  readonly time: string;
-  readonly children: ReactNode;
-  readonly bubbleClassName?: string;
-}) {
-  return (
-    <div className="flex w-full shrink-0 flex-col items-end justify-end">
-      <div className="flex max-w-[296px] shrink-0 flex-col items-end justify-end gap-2.5 p-2.5">
-        <div className="flex max-w-[276px] shrink-0 flex-col items-start">
-          <div
-            className={cn(
-              BUBBLE,
-              "items-start rounded-tl-card rounded-tr-card rounded-bl-card bg-primary shadow-card",
-              bubbleClassName,
-            )}
-          >
-            {children}
-          </div>
-        </div>
-        <div className="flex shrink-0 items-end justify-end">
-          <Stamp>{time}</Stamp>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-/** Thai body text inside my bubble (14/20, the accent's paired ink). */
-export function MyText({ children }: { readonly children: ReactNode }) {
-  return (
-    <p className="max-w-63 text-sm font-normal whitespace-pre-line text-primary-foreground">
-      {children}
-    </p>
-  );
-}
-
-/**
- * Figma file bubble body — 36px file glyph, then a 214px name/meta stack.
- *
- * The glyph now sits in its own tinted chip: a bare 36px outline against 14px
- * copy was the largest thing in the bubble and the least informative. The meta
- * line drops to the app's 12px meta step and takes tabular figures, since it is
- * a date and a file size.
- */
-export function FileBody({
-  name,
-  meta,
-}: {
-  readonly name: string;
-  readonly meta: string;
-}) {
+function MarkedText({ text }: { readonly text: string }) {
+  const matches = findOffPlatform(text);
+  if (matches.length === 0) return <>{text}</>;
   return (
     <>
-      <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-primary/10">
-        <FileText aria-hidden className="size-4.5 text-primary" />
-      </span>
-      <div className="flex w-[214px] shrink-0 flex-col items-start gap-1 font-normal">
-        <p className="font-latin w-full text-sm font-medium text-foreground">
-          {name}
-        </p>
-        <p className="w-full text-xs tabular-nums whitespace-pre-wrap text-muted-foreground">
-          {meta}
-        </p>
-      </div>
+      {splitByMatches(text, matches).map((part, index) =>
+        part.kind ? (
+          <span
+            className="underline decoration-warning decoration-wavy decoration-2 underline-offset-4"
+            key={`${index}-${part.kind}`}
+          >
+            {part.text}
+          </span>
+        ) : (
+          <span key={`${index}-text`}>{part.text}</span>
+        ),
+      )}
     </>
   );
 }
 
-/** Figma image bubble body — fills the fixed bubble box. */
-export function ImageBody({
-  src,
-  alt = "",
+export function TextBubble({
+  text,
+  mine,
+  first,
 }: {
-  readonly src: StaticImageData;
-  readonly alt?: string;
+  readonly text: string;
+  readonly mine: boolean;
+  readonly first: boolean;
 }) {
   return (
-    <span className="relative block h-full min-w-px flex-1 overflow-hidden">
-      <Image alt={alt} className="absolute inset-0 size-full object-cover" src={src} />
+    <p
+      className={cn(
+        MEASURE,
+        corners(mine, first),
+        READING,
+        "px-4 py-2.5 whitespace-pre-wrap wrap-break-word",
+        mine ? "bg-hero-action text-hero-action-foreground" : "bg-muted text-foreground",
+      )}
+    >
+      <MarkedText text={text} />
+    </p>
+  );
+}
+
+/**
+ * Under a line that carries a phone number, a LINE id, an email, an account
+ * number or an outside link: what it is and why it matters, in the reader's
+ * terms. The other person's gets a way to report; my own gets the rule.
+ */
+export function OffPlatformNotice({
+  text,
+  mine,
+  reportHref,
+}: {
+  readonly text: string;
+  readonly mine: boolean;
+  readonly reportHref?: string;
+}) {
+  const t = useTranslations("chat");
+  const format = useFormatter();
+  const kinds = offPlatformKinds(findOffPlatform(text));
+  if (kinds.length === 0) return null;
+  const listed = format.list(
+    kinds.map((kind: OffPlatformKind) => t(`flag.${kind}`)),
+    { type: "conjunction" },
+  );
+
+  return (
+    <div
+      className={cn(
+        MEASURE,
+        "mt-1 flex items-start gap-2 rounded-xl bg-warning/10 px-3 py-2 text-xs text-foreground lg:gap-2.5 lg:px-4 lg:py-2.5 lg:text-base",
+        mine && "self-end",
+      )}
+    >
+      <ShieldAlert aria-hidden className="mt-px size-4 shrink-0 text-warning" />
+      <p className="min-w-0 flex-1">
+        {mine ? t("flagMine", { kinds: listed }) : t("flagTheirs", { kinds: listed })}
+        {!mine && reportHref ? (
+          <>
+            {" "}
+            <Link
+              className="font-semibold whitespace-nowrap underline underline-offset-2"
+              href={reportHref}
+            >
+              {t("flagReport")}
+            </Link>
+          </>
+        ) : null}
+      </p>
+    </div>
+  );
+}
+
+/* ------------------------------------------------------------------- files */
+
+/** `kB` / `MB` with no decimals: a file size is a magnitude, not a measurement. */
+export function fileSize(size: number): string {
+  if (size >= 1024 * 1024) return `${Math.round(size / (1024 * 1024))} MB`;
+  if (size >= 1024) return `${Math.round(size / 1024)} kB`;
+  return `${size} B`;
+}
+
+/** The glyph tile a file leads with. */
+function FileTile({ image, mine }: { readonly image: boolean; readonly mine: boolean }) {
+  const Icon = image ? FileImage : FileText;
+  return (
+    <span
+      className={cn(
+        "flex size-11 shrink-0 items-center justify-center rounded-xl",
+        mine ? "bg-hero-action-foreground/12" : "bg-card",
+      )}
+    >
+      <Icon aria-hidden className={cn("size-5", mine ? "text-hero-action-foreground" : "text-primary")} />
     </span>
   );
 }
 
 /**
- * Figma "Failed Message" — a bubble with a destructive hairline and a retry hint
- * below.
- *
- * The fill was `bg-muted`, which is now the page's own step; on a destructive
- * hairline a faint destructive tint says the same thing and reads as one object
- * with the warning under it. The hint becomes a pill so the state is a status
- * rather than a stray red line.
+ * A file in the thread. It opens through a fresh presigned URL fetched at the
+ * press (`GET .../files/:id`), since the link expires in minutes and is never
+ * stored. The tab is opened first and pointed at the file once the URL lands,
+ * so the press still counts as the gesture a popup blocker wants.
  */
-export function FailedMessage({
-  text,
+export function FileBubble({
+  file,
+  mine,
+  first,
+  now,
+}: {
+  readonly file: ApiChatFile;
+  readonly mine: boolean;
+  readonly first: boolean;
+  readonly now: number;
+}) {
+  const t = useTranslations("chat");
+  const format = useFormatter();
+  const [opening, setOpening] = useState(false);
+  const [failed, setFailed] = useState<string | null>(null);
+  const expired = file.expiryDate !== null && Date.parse(file.expiryDate) <= now;
+  const image = CHAT_IMAGE_TYPES.includes(file.mimeType);
+  const meta = [
+    fileSize(file.fileSizeBytes),
+    expired
+      ? t("fileExpired")
+      : file.expiryDate
+        ? t("fileAvailableUntil", {
+            date: format.dateTime(new Date(file.expiryDate), { day: "numeric", month: "short" }),
+          })
+        : null,
+  ]
+    .filter(Boolean)
+    .join(" · ");
+
+  async function open() {
+    setFailed(null);
+    setOpening(true);
+    const tab = window.open("about:blank", "_blank");
+    try {
+      const { url } = await getChatFileUrl(file.chatRoomId, file.id);
+      if (tab) {
+        tab.opener = null;
+        tab.location.replace(url);
+      } else {
+        window.location.assign(url);
+      }
+    } catch (cause) {
+      tab?.close();
+      setFailed(cause instanceof Error ? cause.message : String(cause));
+    } finally {
+      setOpening(false);
+    }
+  }
+
+  return (
+    <div className={cn("flex flex-col", mine ? "items-end" : "items-start")}>
+      <Button
+        aria-label={`${t("fileDownload")} ${file.originalFileName}`}
+        className={cn(
+          MEASURE,
+          corners(mine, first),
+          "h-auto w-72 justify-start gap-3 px-3 py-3 text-left whitespace-normal",
+          mine
+            ? "bg-hero-action text-hero-action-foreground hover:bg-hero-action/90"
+            : "bg-muted text-foreground hover:bg-accented/60",
+        )}
+        disabled={expired || opening}
+        onClick={() => void open()}
+        type="button"
+        variant="ghost"
+      >
+        <FileTile image={image} mine={mine} />
+        <span className="flex min-w-0 flex-1 flex-col gap-0.5">
+          <span className="line-clamp-2 text-sm font-medium wrap-break-word lg:text-lg">
+            {file.originalFileName}
+          </span>
+          <span
+            className={cn(
+              "font-latin text-xs tabular-nums lg:text-base",
+              mine ? "text-hero-action-foreground/70" : "text-muted-foreground",
+            )}
+          >
+            {meta}
+          </span>
+        </span>
+        {opening ? <LoaderCircle aria-hidden className="size-4 shrink-0 animate-spin motion-reduce:animate-none" /> : null}
+      </Button>
+      {failed ? (
+        <p className="mt-1 text-xs text-destructive lg:text-base" role="alert">
+          {t("fileOpenFailed")} · {failed}
+        </p>
+      ) : null}
+    </div>
+  );
+}
+
+/* ---------------------------------------------------------------- outgoing */
+
+/**
+ * Something of mine that has not reached the room: a file on its way up, or
+ * one the API turned down. A failed one says why in the API's own sentence
+ * and offers the two ways on, trying again or letting it go.
+ */
+export function OutgoingBubble({
+  name,
   meta,
+  status,
+  reason,
+  onRetry,
+  onDismiss,
+  image = false,
+}: {
+  readonly name: string;
+  readonly meta?: string;
+  readonly status: "sending" | "failed";
+  readonly reason?: string | null;
+  readonly onRetry?: () => void;
+  readonly onDismiss?: () => void;
+  /** A picture rather than a document, for the glyph. */
+  readonly image?: boolean;
+}) {
+  const t = useTranslations("chat");
+  const failed = status === "failed";
+
+  return (
+    <div className="flex w-full flex-col items-end gap-1.5">
+      <div
+        className={cn(
+          MEASURE,
+          corners(true, true),
+          "flex w-72 items-center gap-3 px-3 py-3",
+          failed
+            ? "border border-destructive/40 bg-destructive/8 text-foreground"
+            : "bg-hero-action/75 text-hero-action-foreground",
+        )}
+      >
+        {failed ? (
+          <span className="flex size-11 shrink-0 items-center justify-center rounded-xl bg-card">
+            <TriangleAlert aria-hidden className="size-5 text-destructive" />
+          </span>
+        ) : (
+          <FileTile image={image} mine />
+        )}
+        <span className="flex min-w-0 flex-1 flex-col gap-0.5">
+          <span className="line-clamp-2 text-sm font-medium wrap-break-word lg:text-lg">{name}</span>
+          {meta ? (
+            <span
+              className={cn(
+                "font-latin text-xs tabular-nums lg:text-base",
+                failed ? "text-muted-foreground" : "text-hero-action-foreground/70",
+              )}
+            >
+              {meta}
+            </span>
+          ) : null}
+        </span>
+        {failed ? null : <LoaderCircle aria-hidden className="size-4 shrink-0 animate-spin motion-reduce:animate-none" />}
+      </div>
+
+      <div className="flex max-w-full flex-wrap items-center justify-end gap-x-2 gap-y-1" role={failed ? "alert" : "status"}>
+        <span
+          className={cn(
+            "flex items-center gap-1.5 text-xs lg:text-base",
+            failed ? "font-medium text-destructive" : "text-muted-foreground",
+          )}
+        >
+          {failed ? <TriangleAlert aria-hidden className="size-3.5" /> : null}
+          {failed ? t("notSent") : t("uploading")}
+        </span>
+        {failed && onRetry ? (
+          <Button
+            className="h-11 gap-1.5 rounded-full px-4 text-sm font-medium lg:h-12 lg:px-5 lg:text-base"
+            onClick={onRetry}
+            type="button"
+            variant="outline"
+          >
+            <RotateCw aria-hidden className="size-4" />
+            {t("retry")}
+          </Button>
+        ) : null}
+        {failed && onDismiss ? (
+          <Button
+            className="h-11 gap-1.5 rounded-full px-3 text-sm font-medium text-muted-foreground lg:h-12 lg:px-4 lg:text-base"
+            onClick={onDismiss}
+            type="button"
+            variant="ghost"
+          >
+            <X aria-hidden className="size-4" />
+            {t("dismiss")}
+          </Button>
+        ) : null}
+      </div>
+      {failed && reason ? <Reason>{reason}</Reason> : null}
+    </div>
+  );
+}
+
+/** Why something of mine did not go: the API's own sentence, on a line of its own. */
+function Reason({ children }: { readonly children: ReactNode }) {
+  return <p className={cn(MEASURE, "text-right text-xs text-muted-foreground lg:text-base")}>{children}</p>;
+}
+
+/**
+ * A line of mine that the server has not stored yet: on its way (the bubble in
+ * my colour, lighter, with "sending" under it), or not sent, with why and the two
+ * ways on, trying again or letting it go, as a file that failed offers.
+ */
+export function PendingTextBubble({
+  text,
+  status,
+  reason,
+  onRetry,
+  onDismiss,
 }: {
   readonly text: string;
-  readonly meta: string;
+  readonly status: "sending" | "failed";
+  readonly reason?: string | null;
+  readonly onRetry?: () => void;
+  readonly onDismiss?: () => void;
 }) {
+  const t = useTranslations("chat");
+  const failed = status === "failed";
   return (
-    <div className="flex w-full shrink-0 items-start justify-end overflow-clip px-4">
-      <div className="flex shrink-0 flex-col items-end gap-1.5 overflow-clip">
-        {/* Figma "Bubble" is 260px wide with the stroke drawn inside. */}
-        <div className="flex w-[260px] shrink-0 items-start overflow-clip rounded-tl-card rounded-tr-card rounded-bl-card border border-destructive bg-destructive/8 px-3.5 py-2.5">
-          <p className="min-w-px flex-1 text-sm font-normal text-foreground">
-            {text}
-          </p>
-        </div>
-        <StatusPill icon={TriangleAlert} tone="danger">
-          {meta}
-        </StatusPill>
+    <div className="flex w-full flex-col items-end gap-1.5">
+      <p
+        className={cn(
+          MEASURE,
+          corners(true, true),
+          READING,
+          "px-4 py-2.5 whitespace-pre-wrap wrap-break-word",
+          failed
+            ? "border border-destructive/40 bg-destructive/8 text-foreground"
+            : "bg-hero-action/75 text-hero-action-foreground",
+        )}
+      >
+        <MarkedText text={text} />
+      </p>
+      <div className="flex max-w-full flex-wrap items-center justify-end gap-x-2 gap-y-1" role={failed ? "alert" : "status"}>
+        <span
+          className={cn(
+            "flex items-center gap-1.5 text-xs lg:text-base",
+            failed ? "font-medium text-destructive" : "text-muted-foreground",
+          )}
+        >
+          {failed ? <TriangleAlert aria-hidden className="size-3.5 lg:size-4" /> : null}
+          {failed ? t("notSent") : t("uploading")}
+        </span>
+        {failed && onRetry ? (
+          <Button
+            className="h-11 gap-1.5 rounded-full px-4 text-sm font-medium lg:h-12 lg:px-5 lg:text-base"
+            onClick={onRetry}
+            type="button"
+            variant="outline"
+          >
+            <RotateCw aria-hidden className="size-4" />
+            {t("retry")}
+          </Button>
+        ) : null}
+        {failed && onDismiss ? (
+          <Button
+            className="h-11 gap-1.5 rounded-full px-3 text-sm font-medium text-muted-foreground lg:h-12 lg:px-4 lg:text-base"
+            onClick={onDismiss}
+            type="button"
+            variant="ghost"
+          >
+            <X aria-hidden className="size-4" />
+            {t("dismiss")}
+          </Button>
+        ) : null}
+      </div>
+      {failed && reason ? <Reason>{reason}</Reason> : null}
+    </div>
+  );
+}
+
+
+/* ---------------------------------------------------------------- skeleton */
+
+/** The thread's shape while it loads, so nothing jumps when it lands. */
+export function ThreadSkeleton() {
+  const bar = "bg-muted";
+  return (
+    <div aria-hidden className="flex w-full flex-col gap-3 py-4">
+      <div className="flex items-start gap-2">
+        <span className={cn(bar, "size-8 rounded-full")} />
+        <span className={cn(bar, "h-11 w-52 rounded-2xl rounded-tl-md")} />
+      </div>
+      <div className="flex justify-end">
+        <span className={cn(bar, "h-11 w-40 rounded-2xl rounded-tr-md")} />
+      </div>
+      <div className="flex justify-end">
+        <span className={cn(bar, "h-16 w-60 rounded-2xl")} />
+      </div>
+      <div className="flex items-start gap-2">
+        <span className={cn(bar, "size-8 rounded-full")} />
+        <span className={cn(bar, "h-16 w-64 rounded-2xl rounded-tl-md")} />
       </div>
     </div>
   );

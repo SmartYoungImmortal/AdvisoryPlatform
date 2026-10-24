@@ -24,7 +24,7 @@ import { cn } from "@/lib/utils";
  * "somebody got here first", "the record is not in that state" and "your own admin
  * account is not set up" — and an admin can act on each one differently. A
  * translated "something went wrong" would throw all of that away, so `ApiError`'s
- * message is printed verbatim, as `components/home/browse-list` does.
+ * message is printed verbatim, as `ApiErrorCard` in `components/service/parts.tsx` does.
  *
  * Copy is borrowed from `errorStates.*` rather than invented: the console has no
  * load-failure copy of its own, and `errorStates` is the shared namespace for

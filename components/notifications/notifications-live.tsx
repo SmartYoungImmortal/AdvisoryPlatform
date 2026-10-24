@@ -12,55 +12,65 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import { useFormatter, useTranslations } from "next-intl";
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import { useMountTime } from "@/components/bookings/booking-flow";
+import { useElapsedLabel } from "@/components/mobile/live-state";
 import {
-  LoadErrorNotice,
-  LoadingBlock,
-  loadErrorKind,
-  useElapsedLabel,
-} from "@/components/mobile/live-state";
-import {
+  CATEGORY_ORDER,
   DayGroup,
   EmptyFeed,
+  FeedFilters,
+  FeedSkeleton,
+  FilteredEmpty,
   NotificationCenterFrame,
   NotificationCenterScreen,
   NotificationRow,
-  type NotificationKind,
+  type FeedFilter,
 } from "@/components/notifications/notification-center-screen";
-import {
+import { DeviceAlertsCard } from "@/components/notifications/device-alerts-card";import {
   loadMoreFeed,
   readAllNotifications,
   readNotification,
   retryFeed,
   useNotificationFeed,
+  useNotificationPulse,
 } from "@/components/notifications/notification-store";
 import {
-  dayKey,
-  groupByDay,
-  notificationHref,
+  groupByRecency,
+  notificationCategory,
+  notificationTarget,
+  rememberNotification,
+  type ApiNotification,
   type NotificationType,
+  type Recency,
 } from "@/components/notifications/notifications-data";
+import { ApiErrorCard } from "@/components/service/parts";
 import { isApiConfigured } from "@/lib/api/client";
-import { READING_COLUMN } from "@/lib/layout";
 import { useSession } from "@/lib/session";
-import { cn } from "@/lib/utils";
 
-/** The icon and color for each notification type (colors come from `KINDS`). */
-const LOOK: Record<NotificationType, { readonly icon: LucideIcon; readonly kind: NotificationKind }> = {
-  BOOKING_CONFIRMED: { icon: CalendarDays, kind: "booking" },
-  BOOKING_RECEIVED: { icon: CalendarDays, kind: "booking" },
-  SESSION_REMINDER: { icon: CalendarClock, kind: "booking" },
-  PAYMENT_SUCCEEDED: { icon: CreditCard, kind: "money" },
-  PAYOUT_SENT: { icon: CreditCard, kind: "money" },
-  NEW_MESSAGE: { icon: MessageSquare, kind: "message" },
-  SCREENING_REQUESTED: { icon: FileText, kind: "request" },
-  SCREENING_DECIDED: { icon: FileText, kind: "request" },
-  REVIEW_RECEIVED: { icon: Star, kind: "review" },
-  VERIFICATION_DECIDED: { icon: BadgeCheck, kind: "verified" },
-  POLICY_WARNING: { icon: ShieldAlert, kind: "request" },
+/**
+ * The line icon for each notification type. The API's record names no person
+ * and carries no photo, so a live row always shows its kind's icon.
+ */
+const ICON: Record<NotificationType, LucideIcon> = {
+  BOOKING_CONFIRMED: CalendarDays,
+  BOOKING_RECEIVED: CalendarDays,
+  SESSION_REMINDER: CalendarClock,
+  PAYMENT_SUCCEEDED: CreditCard,
+  PAYOUT_SENT: CreditCard,
+  NEW_MESSAGE: MessageSquare,
+  SCREENING_REQUESTED: FileText,
+  SCREENING_DECIDED: FileText,
+  REVIEW_RECEIVED: Star,
+  VERIFICATION_DECIDED: BadgeCheck,
+  POLICY_WARNING: ShieldAlert,
 };
+
+const RECENCY_LABEL = { today: "today", yesterday: "yesterday", earlier: "earlier" } as const satisfies Record<
+  Recency,
+  string
+>;
 
 /**
  * `/notifications`: uses the API whenever the build has one. Without an API it
@@ -71,89 +81,136 @@ export function NotificationsRoute() {
 }
 
 /**
- * The signed-in user's notifications, newest first, grouped by day. More load as
- * the user scrolls down. Tapping a row marks it read and opens what it is about.
- * The list comes from the shared store (`notification-store.ts`), so changes show
- * without a reload.
+ * The signed-in user's notifications, newest first, grouped into today,
+ * yesterday and earlier, and filtered on this page by state or kind. More
+ * load as the user scrolls down. Tapping a row marks it read and opens what it
+ * is about. The list comes from the shared store (`notification-store.ts`), so
+ * changes show without a reload.
  */
 function LiveNotificationCenter() {
   const t = useTranslations("notifications");
   const format = useFormatter();
   const session = useSession();
-  const advisor = session.status === "authenticated" && session.account.role === "advisor";
+  const signedIn = session.status === "authenticated";
+  const advisor = signedIn && session.account.role === "advisor";
   const now = useMountTime();
   const elapsed = useElapsedLabel(now);
   const feed = useNotificationFeed();
+  // The server's own count: it also covers unread rows on pages not loaded yet.
+  const pulse = useNotificationPulse(signedIn);
+  const [filter, setFilter] = useState<FeedFilter>("all");
 
   const hasMore = feed.status === "ready" && feed.nextCursor !== null;
   const sentinel = useRef<HTMLDivElement>(null);
   useEffect(() => {
     const node = sentinel.current;
     if (!node || !hasMore) return;
-    const observer = new IntersectionObserver((entries) => {
-      if (entries.some((entry) => entry.isIntersecting)) void loadMoreFeed();
-    });
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries.some((entry) => entry.isIntersecting)) void loadMoreFeed();
+      },
+      // The page scrolls inside `ScreenBody`, not the window.
+      { root: node.closest('[data-slot="screen-body"]'), rootMargin: "0px 0px 240px 0px" },
+    );
     observer.observe(node);
     return () => observer.disconnect();
   }, [hasMore]);
 
-  const today = dayKey(new Date(now));
-  const yesterday = dayKey(new Date(now - 24 * 60 * 60 * 1000));
-  const dayLabel = (day: string, date: Date) => {
-    if (day === today) return t("today");
-    if (day === yesterday) return t("yesterday");
-    return format.dateTime(date, { day: "numeric", month: "long" });
+  // Today's rows say how long ago; yesterday's the time of day; earlier ones
+  // the date, since their heading does not name the day.
+  const when = (recency: Recency, iso: string) => {
+    if (recency === "today") return elapsed(iso);
+    const date = new Date(iso);
+    return recency === "yesterday"
+      ? format.dateTime(date, { hour: "2-digit", minute: "2-digit", hourCycle: "h23" })
+      : format.dateTime(date, { day: "numeric", month: "short" });
+  };
+  const matches = (item: ApiNotification) => {
+    if (filter === "all") return true;
+    return notificationCategory(item.type) === filter;
   };
 
-  // The loading and error blocks have the phone's 24px side padding; on desktop
-  // they sit in the same 800px column as the list.
-  const column = cn("w-full shrink-0 lg:pt-2 lg:*:px-0", READING_COLUMN);
-
   let body;
+  let unread: number | null = null;
+  let filters = null;
   if (feed.status === "loading") {
-    body = (
-      <div className={column}>
-        <LoadingBlock />
-      </div>
-    );
+    body = <FeedSkeleton />;
   } else if (feed.status === "failed") {
+    // The API's own sentence: it tells "signed out" apart from "the server is
+    // down". The card is drawn at phone sizes; from `lg` it takes the frame's
+    // type steps, since the column is zoomed down from 1710 there.
     body = (
-      <div className={column}>
-        <LoadErrorNotice kind={loadErrorKind(feed.error)} onRetry={retryFeed} />
-      </div>
+      <ApiErrorCard
+        className="lg:gap-4 lg:p-7 lg:[&_[data-slot=button]]:h-12 lg:[&_[data-slot=button]]:px-5 lg:[&_[data-slot=button]]:text-frame-meta lg:[&_p]:text-frame-meta lg:[&_p:first-child]:text-frame-figure"
+        error={feed.error}
+        onRetry={retryFeed}
+        title={t("loadFailed")}
+      />
     );
   } else if (feed.items.length === 0) {
     body = <EmptyFeed />;
   } else {
+    const loadedUnread = feed.items.filter((item) => !item.isRead).length;
+    unread = Math.max(pulse.unread ?? 0, loadedUnread);
+    const kinds = CATEGORY_ORDER.filter((kind) =>
+      feed.items.some((item) => notificationCategory(item.type) === kind),
+    );
+    filters = <FeedFilters kinds={kinds} onChange={setFilter} value={filter} />;
+    const visible = feed.items.filter(matches);
     body = (
       <>
-        {groupByDay(feed.items).map((group) => (
-          <DayGroup key={group.day} label={dayLabel(group.day, group.date)}>
-            {group.items.map((item) => (
-              <NotificationRow
-                body={item.content ?? ""}
-                href={notificationHref(item)}
-                icon={LOOK[item.type].icon}
-                key={item.id}
-                kind={LOOK[item.type].kind}
-                onClick={item.isRead ? undefined : () => void readNotification(item.id)}
-                time={elapsed(item.createdAt)}
-                title={item.title}
-                unread={!item.isRead}
-              />
+        {/* What the filter left, for a reader who cannot see the list change. */}
+        <p aria-live="polite" className="sr-only">
+          {t("showing", { count: visible.length })}
+        </p>
+        {visible.length === 0 ? (
+          <FilteredEmpty onShowAll={() => setFilter("all")} />
+        ) : (
+          // A hairline between the stretches of the feed, none between rows.
+          <div className="flex flex-col divide-y divide-border">
+            {groupByRecency(visible, now).map((group) => (
+              <DayGroup key={group.recency} label={t(RECENCY_LABEL[group.recency])}>
+                {group.items.map((item) => (
+                  <NotificationRow
+                    body={item.content}
+                    href={notificationTarget(item)}
+                    icon={ICON[item.type]}
+                    key={item.id}
+                    onClick={() => {
+                      rememberNotification(item);
+                      if (!item.isRead) void readNotification(item.id);
+                    }}
+                    time={when(group.recency, item.createdAt)}
+                    title={item.title}
+                    unread={!item.isRead}
+                  />
+                ))}
+              </DayGroup>
             ))}
-          </DayGroup>
-        ))}
-        <div aria-hidden className="h-px w-full shrink-0" ref={sentinel} />
+          </div>
+        )}
+        {feed.loadingMore ? (
+          <div aria-busy className="flex items-center gap-4 py-4 lg:gap-5 lg:py-6">
+            <span className="sr-only">{t("loading")}</span>
+            <span aria-hidden className="size-5 shrink-0 animate-pulse rounded bg-muted motion-reduce:animate-none lg:size-6" />
+            <span aria-hidden className="h-4 w-1/3 animate-pulse rounded bg-muted motion-reduce:animate-none" />
+          </div>
+        ) : null}
+        {hasMore ? <div aria-hidden className="h-px w-full shrink-0" ref={sentinel} /> : null}
       </>
     );
   }
 
+  // Held (disabled) while the list loads so the heading does not shift when it
+  // lands; gone when there is nothing to mark, empty or failed.
+  const offerMarkAll = feed.status === "loading" || (feed.status === "ready" && feed.items.length > 0);
+
   return (
     <NotificationCenterFrame
       advisor={advisor}
-      markAllDisabled={feed.status !== "ready" || feed.items.every((item) => item.isRead)}
-      onMarkAllRead={() => void readAllNotifications()}
+      filters={filters}
+      aside={<DeviceAlertsCard />}      onMarkAllRead={offerMarkAll ? () => void readAllNotifications() : undefined}
+      unread={unread}
     >
       {body}
     </NotificationCenterFrame>

@@ -115,6 +115,28 @@ function buildUrl(path: string, query?: Query, unprefixed = false): string {
 }
 
 /**
+ * Where a Socket.IO namespace of the API lives, from the same `NEXT_PUBLIC_API_URL`.
+ *
+ * Not a request, so not `buildUrl`: the Socket.IO server hangs off the API's root
+ * at `/socket.io`, outside `/api/v1`, and a namespace is named by the URL's path.
+ * So the URL is the API's origin plus the namespace, and `path` keeps whatever
+ * path the API itself is mounted under. `null` when the build has no API, or an
+ * address that is not a URL.
+ */
+export function apiSocketTarget(namespace: string): { readonly url: string; readonly path: string } | null {
+  if (!isApiConfigured) return null;
+  try {
+    const base = new URL(BASE_URL);
+    return {
+      url: `${base.origin}/${namespace.replace(/^\/+/, "")}`,
+      path: `${base.pathname.replace(/\/+$/, "")}/socket.io`,
+    };
+  } catch {
+    return null;
+  }
+}
+
+/**
  * The body, unwrapped if it is enveloped, or a typed error.
  *
  * **Only `/api/v1` responses carry the envelope.** better-auth is mounted as
