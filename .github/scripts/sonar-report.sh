@@ -21,13 +21,22 @@ BRANCH="${HEAD_REF:-}"
 if [[ -n "${PR}" ]]; then MODE="pr"; else MODE="branch"; fi
 
 # ── helpers ──────────────────────────────────────────────────────────
-rating() { case "${1%%.*}" in 1) echo A;; 2) echo B;; 3) echo C;; 4) echo D;; 5) echo E;; *) echo "?";; esac; }
+rating() {
+  local value="$1"
+  case "${value%%.*}" in 1) echo A;; 2) echo B;; 3) echo C;; 4) echo D;; 5) echo E;; *) echo "?";; esac
+  return 0
+}
 debt() { # minutes -> "2d 3h", "24m", "0m"
   local m=${1:-0}; local d=$((m/480)); local h=$(((m%480)/60)); local mm=$((m%60)); local o=""
   [[ "$d" -gt 0 ]] && o="${d}d "; [[ "$h" -gt 0 ]] && o="${o}${h}h "; [[ -z "$o" || "$mm" -gt 0 ]] && o="${o}${mm}m"
   echo "${o% }"
+  return 0
 }
-mval() { jq -r --arg k "$1" '.component.measures[]? | select(.metric==$k) | .value' "$2" 2>/dev/null; }
+mval() {
+  local metric="$1" file="$2"
+  jq -r --arg k "$metric" '.component.measures[]? | select(.metric==$k) | .value' "$file" 2>/dev/null
+  return 0
+}
 
 # ── 1. wait for SonarCloud to analyse *this* commit ──────────────────
 # Automatic Analysis is asynchronous, so the job has to wait for it. The check
@@ -110,13 +119,21 @@ GATE=${GATE:-NONE}
 [[ -z "${FRESH}" ]] && GATE="PENDING"
 
 # severity facet counts
-sev() { jq -r --arg s "$1" '(.facets[]?|select(.property=="severities").values[]?|select(.val==$s).count) // 0' /tmp/i.json 2>/dev/null | head -1; }
+sev() {
+  local severity="$1"
+  jq -r --arg s "$severity" '(.facets[]?|select(.property=="severities").values[]?|select(.val==$s).count) // 0' /tmp/i.json 2>/dev/null | head -1
+  return 0
+}
 BLOCKER=$(sev BLOCKER); CRITICAL=$(sev CRITICAL); MAJOR=$(sev MAJOR); MINOR=$(sev MINOR); INFO=$(sev INFO)
 BLOCKER=${BLOCKER:-0}; CRITICAL=${CRITICAL:-0}; MAJOR=${MAJOR:-0}; MINOR=${MINOR:-0}; INFO=${INFO:-0}
 ISSUE_TOTAL=$(jq -r '.total // 0' /tmp/i.json)
 
 # overall score /10 = average of the three ratings (A=10,B=8,C=6,D=4,E=2)
-rscore() { case "$1" in A) echo 10;; B) echo 8;; C) echo 6;; D) echo 4;; E) echo 2;; *) echo 0;; esac; }
+rscore() {
+  local grade="$1"
+  case "$grade" in A) echo 10;; B) echo 8;; C) echo 6;; D) echo 4;; E) echo 2;; *) echo 0;; esac
+  return 0
+}
 OVERALL=$(( ( $(rscore "$REL") + $(rscore "$SEC") + $(rscore "$MNT") ) / 3 ))
 
 case "${GATE}" in
@@ -222,7 +239,7 @@ case "${GATE}" in
   OK)
     echo "::notice::Quality Gate PASSED"; exit 0 ;;
   ERROR)
-    echo "::error::Quality Gate FAILED"; exit 1 ;;
+    echo "::error::Quality Gate FAILED" >&2; exit 1 ;;
   *)
     echo "::warning::SonarCloud has not analysed ${COMMIT_SHORT} yet (last analysed: ${ANALYSED_SHORT:-none}) — not failing the build on another commit's verdict"
     exit 0 ;;
