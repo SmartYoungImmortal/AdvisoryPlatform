@@ -275,9 +275,64 @@ export type OffPlatformMatch = {
   readonly end: number;
 };
 
-// The domain as dot-ended labels, then the top level: no class overlaps the
-// `.` after it, so a long run cannot backtrack.
-const EMAIL = /[a-z0-9._%+-]+@(?:[a-z0-9-]+\.)+[a-z]{2,}/gi;
+const EMAIL_LOCAL = /[a-z0-9._%+-]/i;
+const EMAIL_DOMAIN = /[a-z0-9.-]/i;
+const LETTER = /[a-z]/i;
+
+/**
+ * Email addresses, as `name@label.label.tld` with a top level of two letters
+ * or more: the matches `/[a-z0-9._%+-]+@(?:[a-z0-9-]+\.)+[a-z]{2,}/gi` gives,
+ * found by scanning out from each `@` instead, because that pattern's labels
+ * and top level overlap and backtrack on a long run.
+ */
+export function findEmails(text: string): { readonly start: number; readonly end: number }[] {
+  const found: { start: number; end: number }[] = [];
+  let floor = 0;
+  let at = text.indexOf("@");
+  while (at >= 0) {
+    const email = emailAround(text, at, floor);
+    if (email) {
+      found.push(email);
+      floor = email.end;
+    }
+    // The next search starts after this address, or after this "@".
+    at = text.indexOf("@", email ? email.end : at + 1);
+  }
+  return found;
+}
+
+/**
+ * The address around the "@" at `at`, its name reaching back no further than
+ * `floor` (the end of the previous one); null when there is none.
+ */
+function emailAround(text: string, at: number, floor: number): { start: number; end: number } | null {
+  let start = at;
+  while (start > floor && EMAIL_LOCAL.test(text[start - 1])) start -= 1;
+  if (start === at) return null;
+  let stop = at + 1;
+  while (stop < text.length && EMAIL_DOMAIN.test(text[stop])) stop += 1;
+  const end = emailDomainEnd(text, at + 1, stop);
+  return end === null ? null : { start, end };
+}
+
+/**
+ * Where the domain in `text[from, to)` ends: after the longest run of
+ * non-empty labels, each closed by a dot, that is followed by two letters or
+ * more (the top level, as many letters as follow). Null when there is none.
+ */
+function emailDomainEnd(text: string, from: number, to: number): number | null {
+  let best: number | null = null;
+  let labelStart = from;
+  for (let i = from; i < to; i += 1) {
+    if (text[i] !== ".") continue;
+    if (i === labelStart) break; // An empty label: no label run reaches past it.
+    let tld = i + 1;
+    while (tld < text.length && LETTER.test(text[tld])) tld += 1;
+    if (tld - (i + 1) >= 2) best = tld;
+    labelStart = i + 1;
+  }
+  return best;
+}
 
 const LINK =
   /\b(?:https?:\/\/|www\.)\S+|\b(?:line\.me|lin\.ee|wa\.me|t\.me|m\.me|fb\.me|facebook\.com|instagram\.com)\/\S*/gi;
@@ -314,7 +369,7 @@ export function findOffPlatform(text: string): OffPlatformMatch[] {
     }
   };
 
-  add("email", EMAIL);
+  for (const email of findEmails(text)) found.push({ kind: "email", ...email });
   add("link", LINK);
   for (const re of LINE_ID) add("line", re);
 

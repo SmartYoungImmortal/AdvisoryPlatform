@@ -344,9 +344,9 @@ export function OutgoingBubble({
       {failed ? (
         <UploadFailedRow onDismiss={onDismiss} onRetry={onRetry} />
       ) : (
-        <div className="flex max-w-full flex-wrap items-center justify-end gap-x-2 gap-y-1" role="status">
+        <output className="flex max-w-full flex-wrap items-center justify-end gap-x-2 gap-y-1">
           <span className="flex items-center gap-1.5 text-xs text-muted-foreground lg:text-base">{t("uploading")}</span>
-        </div>
+        </output>
       )}
       {failed && reason ? <Reason>{reason}</Reason> : null}
     </div>

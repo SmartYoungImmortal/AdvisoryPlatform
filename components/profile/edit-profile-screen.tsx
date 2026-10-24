@@ -145,6 +145,57 @@ function photoProblem(file: File): "photoTypeError" | "photoSizeError" | null {
   return null;
 }
 
+/** Focus the first field with an error; true when there was one. */
+function focusFirstError(
+  found: NameFields,
+  nameField: RefObject<HTMLInputElement | null>,
+  fullField: RefObject<HTMLInputElement | null>,
+): boolean {
+  if (found.displayName) nameField.current?.focus();
+  else if (found.fullName) fullField.current?.focus();
+  return Boolean(found.displayName || found.fullName);
+}
+
+/** The save button's word: saving while it goes, "try again" after a failure. */
+function saveLabelKey(saving: boolean, failed: boolean): "saving" | "retry" | "save" {
+  if (saving) return "saving";
+  return failed ? "retry" : "save";
+}
+
+/** What went wrong, in the API's own sentence when it gave one. */
+function messageOf(cause: unknown): string {
+  return cause instanceof Error ? cause.message : String(cause);
+}
+
+/**
+ * The photo control's upload: checked against the API's rules before it is
+ * sent, `uploading` while it goes, and the reason when it is refused.
+ * `onUploaded` refreshes whatever shows the portrait.
+ */
+function usePhotoUpload(rejected: boolean, onUploaded: () => void) {
+  const t = useTranslations("profileEdit");
+  const [photoError, setPhotoError] = useState<string | null>(rejected ? t("photoTypeError") : null);
+  const [uploading, setUploading] = useState(false);
+
+  async function changePhoto(file: File | undefined) {
+    if (!file) return;
+    const problem = photoProblem(file);
+    setPhotoError(problem ? t(problem) : null);
+    if (problem) return;
+    setUploading(true);
+    try {
+      await uploadOwnAvatar(file);
+      onUploaded();
+    } catch (cause) {
+      setPhotoError(messageOf(cause));
+    } finally {
+      setUploading(false);
+    }
+  }
+
+  return { photoError, uploading, changePhoto };
+}
+
 /** The way to the account settings inside the email note (`t.rich`'s `<link>`). */
 function settingsLink(chunks: ReactNode) {
   return (
@@ -228,10 +279,13 @@ export function EditProfileScreen({
   const [saveError, setSaveError] = useState<string | null>(
     state === "save-failed" ? t("saveFailedHint") : null,
   );
-  const [photoError, setPhotoError] = useState<string | null>(
-    state === "photo-rejected" ? t("photoTypeError") : null,
-  );
-  const [uploading, setUploading] = useState(false);
+  const { photoError, uploading, changePhoto } = usePhotoUpload(state === "photo-rejected", () => {
+    // The presigned URL and the profile's `avatarKey` both changed; asking
+    // again redraws every portrait on the page, the sidebar's included.
+    invalidate("users/me");
+    avatar.reload();
+    profile.reload();
+  });
 
   // The form is seeded from the profile once it lands and is the reader's own
   // after that, so the fields are null until then rather than mirroring the
@@ -257,14 +311,7 @@ export function EditProfileScreen({
 
     const found = nameErrors(nextName, nextFull, profile.data, t);
     setErrors(found);
-    if (found.displayName) {
-      nameField.current?.focus();
-      return;
-    }
-    if (found.fullName) {
-      fullField.current?.focus();
-      return;
-    }
+    if (focusFirstError(found, nameField, fullField)) return;
 
     const changes = nameChanges(nextName, nextFull, profile.data);
     if (Object.keys(changes).length === 0) {
@@ -280,37 +327,15 @@ export function EditProfileScreen({
       invalidate("users/me");
       router.push("/profile");
     } catch (cause) {
-      setSaveError(cause instanceof Error ? cause.message : String(cause));
+      setSaveError(messageOf(cause));
     } finally {
       setSaving(false);
     }
   }
 
-  async function changePhoto(file: File | undefined) {
-    if (!file) return;
-    const problem = photoProblem(file);
-    setPhotoError(problem ? t(problem) : null);
-    if (problem) return;
-    setUploading(true);
-    try {
-      await uploadOwnAvatar(file);
-      // The presigned URL and the profile's `avatarKey` both changed; asking
-      // again redraws every portrait on the page, the sidebar's included.
-      invalidate("users/me");
-      avatar.reload();
-      profile.reload();
-    } catch (cause) {
-      setPhotoError(cause instanceof Error ? cause.message : String(cause));
-    } finally {
-      setUploading(false);
-    }
-  }
-
   const pick = () => picker.current?.click();
   const photoBusy = !profile.data || uploading;
-  let saveLabel = t("save");
-  if (saving) saveLabel = t("saving");
-  else if (saveError) saveLabel = t("retry");
+  const saveLabel = t(saveLabelKey(saving, saveError !== null));
 
   return (
     // White under the back chevron too, so the phone's top strip is the page

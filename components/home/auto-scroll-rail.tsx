@@ -163,7 +163,9 @@ export function AutoScrollRail({
       // The rail scrolls itself, so it is a scrollable region a keyboard user can
       // reach and read; without a name it is an unlabelled tab stop.
       role="group"
-      tabIndex={0}
+      // A scrollable region must be reachable by keyboard (axe's
+      // scrollable-region-focusable; WCAG 2.1.1), so this tab stop is deliberate.
+      tabIndex={0} // NOSONAR: S6845 conflicts with the keyboard-access rule above
     >
       {/* Stretched, so a card whose title runs to two lines does not stand
           taller than its neighbours. */}

@@ -15,7 +15,8 @@ import {formats} from './requests';
  * Adding a second locale means a `Record<Locale, Messages>` of static imports
  * here, not a return to the template.
  */
-export default getRequestConfig(async () => ({
+// Nothing to wait for (the messages are a static import), so a plain function.
+export default getRequestConfig(() => ({
   locale: 'th',
   formats,
   messages
