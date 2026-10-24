@@ -204,7 +204,9 @@ export function HeroShapes({ className }: { readonly className?: string }) {
                 // fastwork's `orbit-card`, to the pixel where Thai allows: 208
                 // wide, 12px corners, a cool hairline and a 2px shadow. The
                 // photograph is the card; the type under it is small on purpose.
-                "hero-card animate-hero-pop pointer-events-auto flex w-52 flex-col overflow-hidden rounded-[0.75rem] border border-hero-card-border bg-card shadow-hero-card outline-none",
+                // The link is the still hit area; the face inside it is what
+                // grows on hover (see `.hero-card-face`).
+                "hero-card animate-hero-pop pointer-events-auto block w-52 rounded-[0.75rem] outline-none",
                 // The ring every other interactive surface in the app focuses
                 // with, from `components/ui/button.tsx`.
                 "focus-visible:ring-3 focus-visible:ring-ring/50",
@@ -215,32 +217,34 @@ export function HeroShapes({ className }: { readonly className?: string }) {
               // clockwise.
               style={{ "--angle": `${i * STEP}deg` } as CSSProperties}
             >
-              {/* Eager and first in the queue: these are the first screen, and
-                  left lazy they arrived after the cards had already been
-                  thrown out, so the ring burst out empty and filled in late. */}
-              <Image
-                alt=""
-                // 202:191, the reference's own frame, a touch wider than square.
-                className="aspect-[202/191] w-full object-cover"
-                fetchPriority="high"
-                loading="eager"
-                src={heroCards[n].photo}
-              />
-              <div className="flex flex-col px-2.5 pb-2.5">
-                {/* Laid well into the photograph's bottom edge, as the
-                    reference does (33px of a 40px face), with only a hairline
-                    of white round it. */}
+              <span className="hero-card-face flex flex-col overflow-hidden rounded-[0.75rem] border border-hero-card-border bg-card shadow-hero-card">
+                {/* Eager and first in the queue: these are the first screen, and
+                    left lazy they arrived after the cards had already been
+                    thrown out, so the ring burst out empty and filled in late. */}
                 <Image
                   alt=""
-                  className="-mt-8 mb-1.5 size-10 rounded-full object-cover ring-1 ring-card"
+                  // 202:191, the reference's own frame, a touch wider than square.
+                  className="aspect-[202/191] w-full object-cover"
+                  fetchPriority="high"
                   loading="eager"
-                  src={heroCards[n].face}
+                  src={heroCards[n].photo}
                 />
-                <span className="truncate text-hero-name font-medium text-foreground">{name}</span>
-                <span className="truncate text-hero-role font-medium text-muted-foreground">
-                  {role}
+                <span className="flex flex-col px-2.5 pb-2.5">
+                  {/* Laid well into the photograph's bottom edge, as the
+                      reference does (33px of a 40px face), with only a hairline
+                      of white round it. */}
+                  <Image
+                    alt=""
+                    className="-mt-8 mb-1.5 size-10 rounded-full object-cover ring-1 ring-card"
+                    loading="eager"
+                    src={heroCards[n].face}
+                  />
+                  <span className="truncate text-hero-name font-medium text-foreground">{name}</span>
+                  <span className="truncate text-hero-role font-medium text-muted-foreground">
+                    {role}
+                  </span>
                 </span>
-              </div>
+              </span>
             </Link>
           );
         })}

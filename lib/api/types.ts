@@ -30,6 +30,8 @@ export interface ApiPublicService {
   readonly screeningRequired: boolean;
   readonly trialEnabled: boolean;
   readonly trialDurationMinutes: number | null;
+  /** ISO timestamp the service was listed. */
+  readonly createdAt: string;
 }
 
 /** `PublicServiceQueryDto` — the filters `GET /services` accepts. */
@@ -42,6 +44,8 @@ export interface ApiPublicServiceQuery {
   readonly advisorId?: string;
   readonly minPriceSatang?: number;
   readonly maxPriceSatang?: number;
+  /** `YYYY-MM-DD`: only services with an open slot that day. */
+  readonly availableOn?: string;
 }
 
 /** `PublicAdvisorResponseDto` — advisors/dtos/public-advisor-response.dto.ts */

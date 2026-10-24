@@ -3,20 +3,22 @@
  * "any" value, so the empty state is `DEFAULT_FILTERS` and "how many filters
  * are on" is a count of the fields that differ from it.
  *
- * Only what the API can answer: the bundled catalogue also knew who was free
- * today and who was verified, the live one does not say, so those filters went
- * rather than filter on nothing.
+ * Only what the API can answer. Who is verified is not a filter because the API
+ * lists verified advisors only; who is free today comes from the API's
+ * `availableOn` search (`useOpenToday`) and is passed in as a set of ids.
  */
 export type PriceBand = "any" | "under" | "mid" | "over";
 export type LengthBand = "any" | "short" | "hour" | "long";
 export type MinRating = "any" | "4.5" | "4.8";
-export type SortKey = "recommended" | "priceLow" | "priceHigh" | "rating";
+export type SortKey = "recommended" | "newest" | "priceLow" | "priceHigh" | "rating";
 
 export type Filters = {
   readonly category: string | null;
   readonly price: PriceBand;
   readonly length: LengthBand;
   readonly rating: MinRating;
+  /** Only services with a slot left today. */
+  readonly today: boolean;
 };
 
 export const DEFAULT_FILTERS: Filters = {
@@ -24,10 +26,14 @@ export const DEFAULT_FILTERS: Filters = {
   price: "any",
   length: "any",
   rating: "any",
+  today: false,
 };
 
 /** The fields a result has to carry to be filtered and sorted. */
 export type Filterable = {
+  readonly id: string;
+  /** Epoch ms the service was listed. */
+  readonly listedAt: number;
   readonly category: string;
   /** Baht. */
   readonly price: number;
@@ -52,8 +58,15 @@ const LENGTH: Readonly<Record<LengthBand, (minutes: number) => boolean>> = {
   long: (minutes) => minutes > 60,
 };
 
-function matches(item: Filterable, filters: Filters): boolean {
+function matches(
+  item: Filterable,
+  filters: Filters,
+  openToday: ReadonlySet<string> | null,
+): boolean {
   return (
+    // While today's answer is still loading the list is left as it is, rather
+    // than emptied and then refilled.
+    (!filters.today || openToday === null || openToday.has(item.id)) &&
     (filters.category === null || item.category === filters.category) &&
     PRICE[filters.price](item.price) &&
     LENGTH[filters.length](item.minutes) &&
@@ -67,6 +80,7 @@ function matches(item: Filterable, filters: Filters): boolean {
  */
 const ORDER: Readonly<Record<SortKey, (a: Filterable, b: Filterable) => number>> = {
   recommended: (a, b) => b.reviews - a.reviews || (b.rating ?? 0) - (a.rating ?? 0),
+  newest: (a, b) => b.listedAt - a.listedAt,
   priceLow: (a, b) => a.price - b.price,
   priceHigh: (a, b) => b.price - a.price,
   rating: (a, b) => (b.rating ?? 0) - (a.rating ?? 0) || b.reviews - a.reviews,
@@ -76,8 +90,9 @@ export function applyFilters<T extends Filterable>(
   list: readonly T[],
   filters: Filters,
   sort: SortKey,
+  openToday: ReadonlySet<string> | null = null,
 ): readonly T[] {
-  return list.filter((item) => matches(item, filters)).toSorted(ORDER[sort]);
+  return list.filter((item) => matches(item, filters, openToday)).toSorted(ORDER[sort]);
 }
 
 /** How many filters are set, for the phone's "Filters (2)" button. */

@@ -53,31 +53,8 @@ export function MobileScreen({
   );
 }
 
-/**
- * The region between the status bar and the tab bar / home indicator. Content that
- * outgrows the 874px frame scrolls here instead of pushing the chrome off-screen.
- */
-export function ScreenBody({
-  children,
-  className,
-}: {
-  readonly children: ReactNode;
-  readonly className?: string;
-}) {
-  return (
-    <div
-      // Named so a sticky child can resolve its scroll container — the landing bar
-      // observes this element rather than the window.
-      data-slot="screen-body"
-      className={cn(
-        "flex w-full min-h-0 flex-1 flex-col items-center overflow-y-auto",
-        className,
-      )}
-    >
-      {children}
-    </div>
-  );
-}
+// A client component: it carries the desktop smooth scrolling.
+export { ScreenBody } from "@/components/mobile/screen-body";
 
 /** Figma "Spacer" — the flexible gap that pushes the action block to the bottom. */
 export function ScreenSpacer({ className }: { readonly className?: string }) {

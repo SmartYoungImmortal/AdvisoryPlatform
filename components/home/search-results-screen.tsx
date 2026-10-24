@@ -255,7 +255,7 @@ const RESULT_IDS = [
 const SUGGESTED_TERMS = [
   "termTax",
   "termTaxPlanning",
-  "termBusinessTax",
+  "termFreelanceTax",
   "termPersonalFinance",
   "termAccounting",
 ] as const;

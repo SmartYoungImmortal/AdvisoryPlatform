@@ -1,6 +1,6 @@
 "use client";
 
-import { ChevronLeft, ChevronRight, RotateCw, SlidersHorizontal, Star, X } from "lucide-react";
+import { ChevronLeft, ChevronRight, RotateCw, SearchX, SlidersHorizontal, Star, X } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 import { useFormatter, useTranslations } from "next-intl";
@@ -10,13 +10,14 @@ import { authPill } from "@/components/auth/auth-split";
 import { HeroSearch } from "@/components/home/hero-search";
 import { SiteFooter } from "@/components/marketing/site-footer";
 import { MobileScreen, ScreenBody } from "@/components/mobile/screen";
+import { HandwrittenWord } from "@/components/search/handwritten-word";
 import { BottomBar } from "@/components/bottombar";
 import { TopBar } from "@/components/topbar";
 import { Button } from "@/components/ui/button";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Sheet, SheetContent, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
-import { errorSearch } from "@/lib/assets/r2";
+import { Switch } from "@/components/ui/switch";
 import {
   DEFAULT_FILTERS,
   activeCount,
@@ -29,20 +30,21 @@ import {
   type PriceBand,
   type SortKey,
 } from "@/lib/catalogue/filters";
-import { useLiveCatalogue, type LiveService } from "@/lib/catalogue/live";
+import { useLiveCatalogue, useOpenToday, type LiveService } from "@/lib/catalogue/live";
 import { cn } from "@/lib/utils";
 
 /** The terms the empty state offers back, from the `search` namespace. */
 const SUGGESTED_TERMS = [
   "termTax",
   "termTaxPlanning",
-  "termBusinessTax",
+  "termFreelanceTax",
   "termPersonalFinance",
   "termAccounting",
 ] as const;
 
 const SORTS: readonly { key: SortKey; label: string }[] = [
   { key: "recommended", label: "sortRecommended" },
+  { key: "newest", label: "sortNewest" },
   { key: "priceLow", label: "sortPriceLow" },
   { key: "priceHigh", label: "sortPriceHigh" },
   { key: "rating", label: "sortRating" },
@@ -206,6 +208,7 @@ function ActiveFilters({
 }) {
   const t = useTranslations("search");
   const pills: { key: keyof Filters; label: string }[] = [];
+  if (filters.today) pills.push({ key: "today", label: t("availableToday") });
   for (const [key, label] of [
     ["price", chosen(PRICES, filters.price)],
     ["length", chosen(LENGTHS, filters.length)],
@@ -275,6 +278,10 @@ function FilterPanel({
           ))}
         </div>
       </fieldset>
+      <label className="-mx-2 flex h-11 cursor-pointer items-center justify-between gap-3 rounded-xl px-2 text-sm font-semibold text-foreground transition-colors hover:bg-muted">
+        {t("availableToday")}
+        <Switch checked={filters.today} onCheckedChange={(on) => set("today", on)} />
+      </label>
       <OptionGroup onChange={(v) => set("price", v)} options={PRICES} title={t("priceTitle")} value={filters.price} />
       <OptionGroup onChange={(v) => set("length", v)} options={LENGTHS} title={t("durationTitle")} value={filters.length} />
       <OptionGroup onChange={(v) => set("rating", v)} options={RATINGS} title={t("ratingTitle")} value={filters.rating} />
@@ -426,24 +433,23 @@ function EmptyResults({
   const t = useTranslations("search");
 
   return (
-    <div className="flex flex-col items-center gap-5 px-6 py-16 text-center">
-      <Image alt="" className="h-28 w-auto" src={errorSearch} />
+    <div className="flex flex-col items-center gap-5 px-6 py-16 text-center lg:py-32">
+      {/* A plain glyph on the muted step, not an illustration: the page around
+          it is photographs and type, and a drawn scene read as another site. */}
+      <span className="flex size-14 items-center justify-center rounded-full bg-muted">
+        <SearchX aria-hidden className="size-6 text-muted-foreground" />
+      </span>
       <div className="flex max-w-md flex-col gap-1.5">
         <h2 className="text-xl font-bold text-foreground">
           {query ? t("emptyTitle", { query }) : t("noResults")}
         </h2>
         <p className="text-sm text-muted-foreground">{t("emptyBody")}</p>
       </div>
-      <div className="flex flex-wrap justify-center gap-2">
-        {filtered ? (
-          <Button className={cn(authPill(true), "w-auto")} onClick={onClear} type="button">
-            {t("clearFilters")}
-          </Button>
-        ) : null}
-        <Button className={cn(authPill(), "w-auto")} nativeButton={false} render={<Link href="/search" />} variant="outline">
-          {t("browseAll")}
+      {filtered ? (
+        <Button className={cn(authPill(true), "w-auto")} onClick={onClear} type="button">
+          {t("clearFilters")}
         </Button>
-      </div>
+      ) : null}
       <div className="flex flex-col items-center gap-2.5 pt-2">
         <p className="text-sm font-medium text-foreground">{t("tryTerms")}</p>
         <div className="flex flex-wrap justify-center gap-2">
@@ -679,7 +685,8 @@ export function SearchScreen({
   const catalogue = useLiveCatalogue();
 
   const matched = matchQuery(catalogue.items, query);
-  const results = applyFilters(matched, filters, sort);
+  const openToday = useOpenToday(filters.today);
+  const results = applyFilters(matched, filters, sort, openToday);
   const categories = categoriesOf(catalogue.items);
   const filtered = activeCount(filters) > 0;
   const clear = () => setFilters(DEFAULT_FILTERS);
@@ -702,7 +709,10 @@ export function SearchScreen({
           {/* The hero's own stack: heading, field, categories, centred. */}
           <header className="mx-auto flex w-full max-w-170 flex-col items-center gap-5 text-center lg:gap-6">
             <h1 className="font-hero text-2xl font-normal tracking-tight text-hero-ink md:text-hero">
-              {t("pageTitle")}
+              <span className="sr-only">{t("pageTitle")}</span>
+              <span aria-hidden>
+                {t("pageTitleLead")} <HandwrittenWord />
+              </span>
             </h1>
             <div className="flex w-full">
               {/* Keyed by the query: a new search from this field is a new
@@ -730,8 +740,7 @@ export function SearchScreen({
           <section aria-live="polite" className="mt-10 flex min-w-0 flex-col gap-4 lg:mt-14">
             <div className="flex items-center justify-between gap-3">
               <p className="min-w-0 truncate text-sm text-muted-foreground">
-                {/* The phone has the query in the field right above; the count is what fits. */}
-                {query ? <span className="hidden md:inline">{`${t("resultsTitle", { query })} · `}</span> : null}
+                {/* The query is in the field right above; repeating it here is noise. */}
                 <span className="font-medium text-foreground">{t("count", { count: results.length })}</span>
               </p>
               <div className="flex shrink-0 items-center gap-2">
