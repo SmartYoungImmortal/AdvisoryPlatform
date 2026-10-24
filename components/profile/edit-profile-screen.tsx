@@ -145,6 +145,40 @@ function photoProblem(file: File): "photoTypeError" | "photoSizeError" | null {
   return null;
 }
 
+/** What went wrong, in the API's own sentence when it gave one. */
+function messageOf(cause: unknown): string {
+  return cause instanceof Error ? cause.message : String(cause);
+}
+
+/**
+ * The photo control's upload: checked against the API's rules before it is
+ * sent, `uploading` while it goes, and the reason when it is refused.
+ * `onUploaded` refreshes whatever shows the portrait.
+ */
+function usePhotoUpload(rejected: boolean, onUploaded: () => void) {
+  const t = useTranslations("profileEdit");
+  const [photoError, setPhotoError] = useState<string | null>(rejected ? t("photoTypeError") : null);
+  const [uploading, setUploading] = useState(false);
+
+  async function changePhoto(file: File | undefined) {
+    if (!file) return;
+    const problem = photoProblem(file);
+    setPhotoError(problem ? t(problem) : null);
+    if (problem) return;
+    setUploading(true);
+    try {
+      await uploadOwnAvatar(file);
+      onUploaded();
+    } catch (cause) {
+      setPhotoError(messageOf(cause));
+    } finally {
+      setUploading(false);
+    }
+  }
+
+  return { photoError, uploading, changePhoto };
+}
+
 /** The way to the account settings inside the email note (`t.rich`'s `<link>`). */
 function settingsLink(chunks: ReactNode) {
   return (
@@ -228,10 +262,13 @@ export function EditProfileScreen({
   const [saveError, setSaveError] = useState<string | null>(
     state === "save-failed" ? t("saveFailedHint") : null,
   );
-  const [photoError, setPhotoError] = useState<string | null>(
-    state === "photo-rejected" ? t("photoTypeError") : null,
-  );
-  const [uploading, setUploading] = useState(false);
+  const { photoError, uploading, changePhoto } = usePhotoUpload(state === "photo-rejected", () => {
+    // The presigned URL and the profile's `avatarKey` both changed; asking
+    // again redraws every portrait on the page, the sidebar's included.
+    invalidate("users/me");
+    avatar.reload();
+    profile.reload();
+  });
 
   // The form is seeded from the profile once it lands and is the reader's own
   // after that, so the fields are null until then rather than mirroring the
@@ -280,29 +317,9 @@ export function EditProfileScreen({
       invalidate("users/me");
       router.push("/profile");
     } catch (cause) {
-      setSaveError(cause instanceof Error ? cause.message : String(cause));
+      setSaveError(messageOf(cause));
     } finally {
       setSaving(false);
-    }
-  }
-
-  async function changePhoto(file: File | undefined) {
-    if (!file) return;
-    const problem = photoProblem(file);
-    setPhotoError(problem ? t(problem) : null);
-    if (problem) return;
-    setUploading(true);
-    try {
-      await uploadOwnAvatar(file);
-      // The presigned URL and the profile's `avatarKey` both changed; asking
-      // again redraws every portrait on the page, the sidebar's included.
-      invalidate("users/me");
-      avatar.reload();
-      profile.reload();
-    } catch (cause) {
-      setPhotoError(cause instanceof Error ? cause.message : String(cause));
-    } finally {
-      setUploading(false);
     }
   }
 

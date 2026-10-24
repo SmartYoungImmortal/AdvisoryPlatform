@@ -231,13 +231,12 @@ export function CmsTable<Row extends { readonly id: string }>({
               </TableHead>
             ))}
           </TableRow>
-          {/* `UTable`'s separator: a 1px accented rule laid over the top of the
-              first row, so it adds no height to the head. */}
-          {/* A rule, not a row: `presentation` keeps it out of the table's
-              rows for assistive tech without `aria-hidden` on a table part. */}
-          <tr className="absolute start-0 z-1 h-px w-full bg-accented" role="presentation" />
         </TableHeader>
-        <TableBody className="divide-y divide-table-rule">
+        {/* `UTable`'s separator: a 1px accented rule laid over the top of the
+            first row, so it adds no height to the head. Drawn as the first
+            row's inset top shadow rather than an extra empty row, so the table
+            has no element that is neither a row nor a cell. */}
+        <TableBody className="divide-y divide-table-rule [&>tr:first-child]:shadow-[inset_0_1px_0_var(--color-accented)]">
           {rows.length === 0 ? (
             <TableRow className="hover:bg-transparent">
               {/* `UTable`'s empty slot: one centred line at py-6, no artwork. */}

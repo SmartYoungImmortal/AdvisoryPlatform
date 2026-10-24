@@ -9,6 +9,7 @@ import { Fragment, Suspense, useEffect, useRef, useState, type ReactNode } from 
 import { authPill } from "@/components/auth/auth-split";
 import { liveAdvisorHref, useMountTime } from "@/components/bookings/booking-flow";
 import { Button } from "@/components/ui/button";
+import type { CursorPage } from "@/lib/api/client";
 import { PersonAvatar } from "@/components/chat/chat-avatar";
 import { ChatError, ChatFrame, Composer, counterpartName, ThreadHeader } from "@/components/chat/chat-chrome";
 import {
@@ -381,6 +382,93 @@ function LoadEarlier({
   );
 }
 
+/** What went wrong, in the API's own sentence when it gave one. */
+function messageOf(cause: unknown): string {
+  return cause instanceof Error ? cause.message : String(cause);
+}
+
+type EarlierPages = {
+  readonly items: readonly ApiChatMessage[];
+  readonly cursor: string | null;
+  readonly busy: boolean;
+  readonly failed: string | null;
+};
+
+/**
+ * The history before the first page. The first page is the cached read;
+ * anything before it is fetched on asking, a page at a time on the API's own
+ * cursor, and kept here for this room. `complete` once the first page has
+ * nothing before it, or everything before it has been read.
+ */
+function useEarlierPages(roomId: string, firstPage: CursorPage<ApiChatMessage> | undefined) {
+  const [earlier, setEarlier] = useState<EarlierPages>({ items: [], cursor: null, busy: false, failed: null });
+  let cursor: string | null = null;
+  if (earlier.items.length > 0) cursor = earlier.cursor;
+  else if (firstPage?.hasMore) cursor = firstPage.nextCursor;
+  const complete = firstPage !== undefined && cursor === null;
+
+  async function loadEarlier() {
+    if (!cursor || earlier.busy) return;
+    setEarlier((state) => ({ ...state, busy: true, failed: null }));
+    try {
+      const page = await listChatMessages(roomId, { cursor, limit: 50 });
+      setEarlier((state) => ({
+        items: [...state.items, ...page.items],
+        cursor: page.hasMore ? page.nextCursor : null,
+        busy: false,
+        failed: null,
+      }));
+    } catch (cause) {
+      setEarlier((state) => ({ ...state, busy: false, failed: messageOf(cause) }));
+    }
+  }
+
+  return { earlier, complete, loadEarlier };
+}
+
+/**
+ * Files on their way up from this tab: each shows as sending, then goes once
+ * the API has it (the room's file list takes over), or stays failed with the
+ * reason until it is tried again or let go.
+ */
+function useUploads(roomId: string) {
+  const t = useTranslations("chat");
+  const [outgoing, setOutgoing] = useState<readonly Outgoing[]>([]);
+  const nextKey = useRef(0);
+
+  async function send(file: File, key: number) {
+    const update = (patch: Partial<Outgoing>) =>
+      setOutgoing((all) => all.map((item) => (item.key === key ? { ...item, ...patch } : item)));
+    const fail = (reason: string) => update({ status: "failed", reason });
+
+    // The API refuses more (a CHECK in Postgres too); saying so here spares the upload.
+    if (file.size > MAX_CHAT_FILE_BYTES) {
+      fail(t("tooLarge", { size: fileSize(MAX_CHAT_FILE_BYTES) }));
+      return;
+    }
+    update({ status: "sending", reason: null });
+    try {
+      const created = await uploadChatFile(roomId, file);
+      noteFileSent(created);
+      setOutgoing((all) => all.filter((item) => item.key !== key));
+    } catch (cause) {
+      // The API's own sentence: "That file type is not accepted in chat", "File
+      // storage is currently unavailable", each of which the reader needs told apart.
+      fail(messageOf(cause));
+    }
+  }
+
+  function pick(file: File) {
+    const key = nextKey.current++;
+    setOutgoing((all) => [...all, { key, file, status: "sending", reason: null }]);
+    void send(file, key);
+  }
+
+  const dismissUpload = (key: number) => setOutgoing((all) => all.filter((item) => item.key !== key));
+
+  return { outgoing, send, pick, dismissUpload };
+}
+
 function ThreadPane({ roomId, state }: { readonly roomId: string; readonly state: "default" | "message-failed" }) {
   const t = useTranslations("chat");
   const format = useFormatter();
@@ -405,38 +493,8 @@ function ThreadPane({ roomId, state }: { readonly roomId: string; readonly state
 
   /* ---- older pages ------------------------------------------------------ */
 
-  // The first page is the cached read; anything before it is fetched on asking,
-  // a page at a time on the API's own cursor, and kept here for this room.
-  const [earlier, setEarlier] = useState<{
-    readonly items: readonly ApiChatMessage[];
-    readonly cursor: string | null;
-    readonly busy: boolean;
-    readonly failed: string | null;
-  }>({ items: [], cursor: null, busy: false, failed: null });
   const firstPage = messages.data;
-  const cursor =
-    earlier.items.length > 0 ? earlier.cursor : firstPage?.hasMore ? firstPage.nextCursor : null;
-  const complete = firstPage !== undefined && cursor === null;
-
-  async function loadEarlier() {
-    if (!cursor || earlier.busy) return;
-    setEarlier((state) => ({ ...state, busy: true, failed: null }));
-    try {
-      const page = await listChatMessages(roomId, { cursor, limit: 50 });
-      setEarlier((state) => ({
-        items: [...state.items, ...page.items],
-        cursor: page.hasMore ? page.nextCursor : null,
-        busy: false,
-        failed: null,
-      }));
-    } catch (cause) {
-      setEarlier((state) => ({
-        ...state,
-        busy: false,
-        failed: cause instanceof Error ? cause.message : String(cause),
-      }));
-    }
-  }
+  const { earlier, complete, loadEarlier } = useEarlierPages(roomId, firstPage);
 
   // Server files first; a file sent from this tab stays until a read lists it.
   const listed = files.data?.items ?? [];
@@ -482,36 +540,7 @@ function ThreadPane({ roomId, state }: { readonly roomId: string; readonly state
 
   /* ---- uploads ---------------------------------------------------------- */
 
-  const [outgoing, setOutgoing] = useState<readonly Outgoing[]>([]);
-  const nextKey = useRef(0);
-
-  async function send(file: File, key: number) {
-    const update = (patch: Partial<Outgoing>) =>
-      setOutgoing((all) => all.map((item) => (item.key === key ? { ...item, ...patch } : item)));
-    const fail = (reason: string) => update({ status: "failed", reason });
-
-    // The API refuses more (a CHECK in Postgres too); saying so here spares the upload.
-    if (file.size > MAX_CHAT_FILE_BYTES) {
-      fail(t("tooLarge", { size: fileSize(MAX_CHAT_FILE_BYTES) }));
-      return;
-    }
-    update({ status: "sending", reason: null });
-    try {
-      const created = await uploadChatFile(roomId, file);
-      noteFileSent(created);
-      setOutgoing((all) => all.filter((item) => item.key !== key));
-    } catch (cause) {
-      // The API's own sentence: "That file type is not accepted in chat", "File
-      // storage is currently unavailable", each of which the reader needs told apart.
-      fail(cause instanceof Error ? cause.message : String(cause));
-    }
-  }
-
-  function pick(file: File) {
-    const key = nextKey.current++;
-    setOutgoing((all) => [...all, { key, file, status: "sending", reason: null }]);
-    void send(file, key);
-  }
+  const { outgoing, send, pick, dismissUpload } = useUploads(roomId);
 
   /* ---- the failed-message frame ----------------------------------------- */
 
@@ -584,7 +613,7 @@ function ThreadPane({ roomId, state }: { readonly roomId: string; readonly state
               image={item.file.type.startsWith("image/")}
               meta={fileSize(item.file.size)}
               name={item.file.name}
-              onDismiss={() => setOutgoing((all) => all.filter((other) => other.key !== item.key))}
+              onDismiss={() => dismissUpload(item.key)}
               onRetry={() => void send(item.file, item.key)}
               reason={item.reason}
               status={item.status}
