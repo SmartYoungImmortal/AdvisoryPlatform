@@ -69,16 +69,16 @@ function MarkedText({ text }: { readonly text: string }) {
   if (matches.length === 0) return <>{text}</>;
   return (
     <>
-      {splitByMatches(text, matches).map((part, index) =>
+      {splitByMatches(text, matches).map((part) =>
         part.kind ? (
           <span
             className="underline decoration-warning decoration-wavy decoration-2 underline-offset-4"
-            key={`${index}-${part.kind}`}
+            key={part.start}
           >
             {part.text}
           </span>
         ) : (
-          <span key={`${index}-text`}>{part.text}</span>
+          <span key={part.start}>{part.text}</span>
         ),
       )}
     </>
@@ -206,18 +206,15 @@ export function FileBubble({
   const [failed, setFailed] = useState<string | null>(null);
   const expired = file.expiryDate !== null && Date.parse(file.expiryDate) <= now;
   const image = CHAT_IMAGE_TYPES.includes(file.mimeType);
-  const meta = [
-    fileSize(file.fileSizeBytes),
-    expired
-      ? t("fileExpired")
-      : file.expiryDate
-        ? t("fileAvailableUntil", {
-            date: format.dateTime(new Date(file.expiryDate), { day: "numeric", month: "short" }),
-          })
-        : null,
-  ]
-    .filter(Boolean)
-    .join(" · ");
+  let expiry: string | null = null;
+  if (expired) {
+    expiry = t("fileExpired");
+  } else if (file.expiryDate) {
+    expiry = t("fileAvailableUntil", {
+      date: format.dateTime(new Date(file.expiryDate), { day: "numeric", month: "short" }),
+    });
+  }
+  const meta = [fileSize(file.fileSizeBytes), expiry].filter(Boolean).join(" · ");
 
   async function open() {
     setFailed(null);
@@ -344,40 +341,49 @@ export function OutgoingBubble({
         {failed ? null : <LoaderCircle aria-hidden className="size-4 shrink-0 animate-spin motion-reduce:animate-none" />}
       </div>
 
-      <div className="flex max-w-full flex-wrap items-center justify-end gap-x-2 gap-y-1" role={failed ? "alert" : "status"}>
-        <span
-          className={cn(
-            "flex items-center gap-1.5 text-xs lg:text-base",
-            failed ? "font-medium text-destructive" : "text-muted-foreground",
-          )}
-        >
-          {failed ? <TriangleAlert aria-hidden className="size-3.5" /> : null}
-          {failed ? t("notSent") : t("uploading")}
-        </span>
-        {failed && onRetry ? (
-          <Button
-            className="h-11 gap-1.5 rounded-full px-4 text-sm font-medium lg:h-12 lg:px-5 lg:text-base"
-            onClick={onRetry}
-            type="button"
-            variant="outline"
-          >
-            <RotateCw aria-hidden className="size-4" />
-            {t("retry")}
-          </Button>
-        ) : null}
-        {failed && onDismiss ? (
-          <Button
-            className="h-11 gap-1.5 rounded-full px-3 text-sm font-medium text-muted-foreground lg:h-12 lg:px-4 lg:text-base"
-            onClick={onDismiss}
-            type="button"
-            variant="ghost"
-          >
-            <X aria-hidden className="size-4" />
-            {t("dismiss")}
-          </Button>
-        ) : null}
-      </div>
+      {failed ? (
+        <UploadFailedRow onDismiss={onDismiss} onRetry={onRetry} />
+      ) : (
+        <div className="flex max-w-full flex-wrap items-center justify-end gap-x-2 gap-y-1" role="status">
+          <span className="flex items-center gap-1.5 text-xs text-muted-foreground lg:text-base">{t("uploading")}</span>
+        </div>
+      )}
       {failed && reason ? <Reason>{reason}</Reason> : null}
+    </div>
+  );
+}
+
+/** Under a file that did not go: "not sent", then trying again and letting it go. */
+function UploadFailedRow({ onRetry, onDismiss }: { readonly onRetry?: () => void; readonly onDismiss?: () => void }) {
+  const t = useTranslations("chat");
+  return (
+    <div className="flex max-w-full flex-wrap items-center justify-end gap-x-2 gap-y-1" role="alert">
+      <span className="flex items-center gap-1.5 text-xs font-medium text-destructive lg:text-base">
+        <TriangleAlert aria-hidden className="size-3.5" />
+        {t("notSent")}
+      </span>
+      {onRetry ? (
+        <Button
+          className="h-11 gap-1.5 rounded-full px-4 text-sm font-medium lg:h-12 lg:px-5 lg:text-base"
+          onClick={onRetry}
+          type="button"
+          variant="outline"
+        >
+          <RotateCw aria-hidden className="size-4" />
+          {t("retry")}
+        </Button>
+      ) : null}
+      {onDismiss ? (
+        <Button
+          className="h-11 gap-1.5 rounded-full px-3 text-sm font-medium text-muted-foreground lg:h-12 lg:px-4 lg:text-base"
+          onClick={onDismiss}
+          type="button"
+          variant="ghost"
+        >
+          <X aria-hidden className="size-4" />
+          {t("dismiss")}
+        </Button>
+      ) : null}
     </div>
   );
 }

@@ -18,6 +18,7 @@ import {
   MAX_CHAT_FILE_BYTES,
   uploadChatFile,
   type ApiChatMessage,
+  type ApiChatRoom,
 } from "@/components/chat/chat-data";
 import { DetailsSheet, ThreadDetails } from "@/components/chat/chat-details";
 import {
@@ -144,6 +145,12 @@ export function NewestThread() {
   return <ThreadPane key={roomId} roomId={roomId} state="default" />;
 }
 
+/** The room the address names outright: `?id=`, else the route's own slug when it is a room id. */
+function directRoomId(queried: string | null, slug: string): string | null {
+  if (queried && isChatRoomId(queried)) return queried;
+  return isChatRoomId(slug) ? slug : null;
+}
+
 function ThreadRoute({ slug, state }: { readonly slug: string; readonly state: "default" | "message-failed" }) {
   const params = useSearchParams();
   const inbox = useInbox();
@@ -151,7 +158,7 @@ function ThreadRoute({ slug, state }: { readonly slug: string; readonly state: "
 
   const queried = params.get("id");
   const withUser = params.get("with");
-  const direct = queried && isChatRoomId(queried) ? queried : isChatRoomId(slug) ? slug : null;
+  const direct = directRoomId(queried, slug);
 
   let roomId: string | null | undefined = direct;
   if (!roomId && withUser && isChatRoomId(withUser)) roomId = roomWith(withUser, inbox, people);
@@ -255,6 +262,125 @@ type Outgoing = {
   readonly reason: string | null;
 };
 
+type ChatT = ReturnType<typeof useTranslations<"chat">>;
+
+/**
+ * Whether anything here is unread: a line from them after both my mark in this
+ * tab and the room's own, or (before this tab marked anything) the room's count.
+ */
+function roomUnread({
+  me,
+  room,
+  messages,
+  readThrough,
+}: {
+  readonly me: string;
+  readonly room: ApiChatRoom | undefined;
+  readonly messages: readonly ApiChatMessage[];
+  readonly readThrough: number | undefined;
+}): boolean {
+  const floor = Math.max(
+    readThrough ?? Number.NEGATIVE_INFINITY,
+    room?.lastReadAt ? Date.parse(room.lastReadAt) : Number.NEGATIVE_INFINITY,
+  );
+  if (messages.some((message) => message.senderUserId !== me && Date.parse(message.createdAt) > floor)) return true;
+  return readThrough === undefined && (room?.unreadCount ?? 0) > 0;
+}
+
+/** Why a line did not go, in words; the API's own sentence when it gave one. */
+function sendFailureText(failure: SendFailure | null, t: ChatT): string | null {
+  if (!failure) return null;
+  if (failure.kind === "offline") return t("sendOffline");
+  // The API's own sentence ("Chat room not found", "Validation failed").
+  if (failure.kind === "server" && failure.message) return failure.message;
+  return t("sendUnconfirmed");
+}
+
+/** A day's divider: today, yesterday, else the date (with the year only when it is not this one). */
+function threadDayLabel({
+  day,
+  at,
+  now,
+  timeZone,
+  t,
+  format,
+}: {
+  readonly day: string;
+  readonly at: number;
+  readonly now: number;
+  readonly timeZone: string;
+  readonly t: ChatT;
+  readonly format: ReturnType<typeof useFormatter>;
+}): string {
+  const today = dayKey(now, timeZone);
+  const ago = daysBetween(day, today);
+  if (ago === 0) return t("today");
+  if (ago === 1) return t("yesterday");
+  return format.dateTime(new Date(at), {
+    weekday: "short",
+    day: "numeric",
+    month: "short",
+    ...(day.slice(0, 4) === today.slice(0, 4) ? {} : { year: "numeric" }),
+  });
+}
+
+/** The thread could not be read: the API's sentence and a retry, centred. */
+function ThreadLoadFailed({ error, onRetry }: { readonly error: Error; readonly onRetry: () => void }) {
+  const t = useTranslations("chat");
+  return (
+    <div className="flex flex-1 items-center justify-center py-10">
+      <ChatError className="max-w-md" error={error} onRetry={onRetry} title={t("threadLoadFailedTitle")} />
+    </div>
+  );
+}
+
+/** A room with nothing in it yet. */
+function ThreadEmpty() {
+  const t = useTranslations("chat");
+  return (
+    <div className="flex flex-1 flex-col items-center justify-center gap-3 py-16 text-center">
+      <span className="flex size-14 items-center justify-center rounded-full bg-muted">
+        <MessagesSquare aria-hidden className="size-6 text-muted-foreground" />
+      </span>
+      <p className="text-base font-semibold text-foreground lg:text-lg">{t("threadEmptyTitle")}</p>
+      <p className="max-w-xs text-sm text-muted-foreground lg:max-w-sm lg:text-base">{t("threadEmptyBodyLive")}</p>
+    </div>
+  );
+}
+
+/** The way further back, at the top of a history that is not all here yet. */
+function LoadEarlier({
+  busy,
+  failed,
+  onLoad,
+}: {
+  readonly busy: boolean;
+  readonly failed: string | null;
+  readonly onLoad: () => void;
+}) {
+  const t = useTranslations("chat");
+  return (
+    <div className="flex flex-col items-center gap-1.5 pt-6 pb-2">
+      <Button
+        aria-busy={busy || undefined}
+        className="h-11 gap-2 rounded-full px-5 text-sm font-medium lg:h-12 lg:text-base"
+        disabled={busy}
+        onClick={onLoad}
+        type="button"
+        variant="outline"
+      >
+        {busy ? <LoaderCircle aria-hidden className="size-4 animate-spin motion-reduce:animate-none" /> : null}
+        {t("loadEarlier")}
+      </Button>
+      {failed ? (
+        <p className="text-xs text-destructive lg:text-base" role="alert">
+          {t("loadEarlierFailed")} · {failed}
+        </p>
+      ) : null}
+    </div>
+  );
+}
+
 function ThreadPane({ roomId, state }: { readonly roomId: string; readonly state: "default" | "message-failed" }) {
   const t = useTranslations("chat");
   const format = useFormatter();
@@ -330,17 +456,8 @@ function ThreadPane({ roomId, state }: { readonly roomId: string; readonly state
   // ref stops a re-render from writing it twice.
   const marked = useRef<string | null>(null);
   const newest = newestOf(allMessages);
-  let unread = false;
-  if (me && !inbox.loading) {
-    const readThrough = readMarks.get(roomId);
-    const floor = Math.max(
-      readThrough ?? Number.NEGATIVE_INFINITY,
-      room?.lastReadAt ? Date.parse(room.lastReadAt) : Number.NEGATIVE_INFINITY,
-    );
-    unread =
-      allMessages.some((message) => message.senderUserId !== me && Date.parse(message.createdAt) > floor) ||
-      (readThrough === undefined && (room?.unreadCount ?? 0) > 0);
-  }
+  const unread =
+    me !== undefined && !inbox.loading && roomUnread({ me, room, messages: allMessages, readThrough: readMarks.get(roomId) });
   useEffect(() => {
     if (!visible || !newest || !unread) return;
     const stamp = `${roomId}:${newest.id}`;
@@ -361,13 +478,7 @@ function ThreadPane({ roomId, state }: { readonly roomId: string; readonly state
     log.current?.scrollTo({ top: 0 });
   }
 
-  const failureText = (failure: SendFailure | null): string | null => {
-    if (!failure) return null;
-    if (failure.kind === "offline") return t("sendOffline");
-    // The API's own sentence ("Chat room not found", "Validation failed").
-    if (failure.kind === "server" && failure.message) return failure.message;
-    return t("sendUnconfirmed");
-  };
+  const failureText = (failure: SendFailure | null) => sendFailureText(failure, t);
 
   /* ---- uploads ---------------------------------------------------------- */
 
@@ -411,71 +522,26 @@ function ThreadPane({ roomId, state }: { readonly roomId: string; readonly state
 
   /* ---- what the column shows -------------------------------------------- */
 
-  const dayLabel = (day: string, at: number) => {
-    const ago = daysBetween(day, dayKey(now, timeZone));
-    if (ago === 0) return t("today");
-    if (ago === 1) return t("yesterday");
-    return format.dateTime(new Date(at), {
-      weekday: "short",
-      day: "numeric",
-      month: "short",
-      ...(day.slice(0, 4) === dayKey(now, timeZone).slice(0, 4) ? {} : { year: "numeric" }),
-    });
-  };
+  const dayLabel = (day: string, at: number) => threadDayLabel({ day, at, now, timeZone, t, format });
 
   const loading = messages.loading || people.me.loading;
   const nothing = entries.length === 0 && outgoing.length === 0 && pending.length === 0 && !failedLine;
 
   let column: ReactNode;
   if (messages.error) {
-    column = (
-      <div className="flex flex-1 items-center justify-center py-10">
-        <ChatError
-          className="max-w-md"
-          error={messages.error}
-          onRetry={messages.reload}
-          title={t("threadLoadFailedTitle")}
-        />
-      </div>
-    );
+    column = <ThreadLoadFailed error={messages.error} onRetry={messages.reload} />;
   } else if (loading) {
     column = <ThreadSkeleton />;
   } else if (nothing) {
-    column = (
-      <div className="flex flex-1 flex-col items-center justify-center gap-3 py-16 text-center">
-        <span className="flex size-14 items-center justify-center rounded-full bg-muted">
-          <MessagesSquare aria-hidden className="size-6 text-muted-foreground" />
-        </span>
-        <p className="text-base font-semibold text-foreground lg:text-lg">{t("threadEmptyTitle")}</p>
-        <p className="max-w-xs text-sm text-muted-foreground lg:max-w-sm lg:text-base">{t("threadEmptyBodyLive")}</p>
-      </div>
-    );
+    column = <ThreadEmpty />;
   } else {
     column = (
       <div className="flex flex-col pb-2">
         {/* With the whole history here, the top of it is the start of the
             conversation, and says so; otherwise it is the way further back. */}
-        {complete ? (
-          <ThreadIntro counterpart={counterpart} openedAt={room?.createdAt} />
-        ) : (
-          <div className="flex flex-col items-center gap-1.5 pt-6 pb-2">
-            <Button
-              aria-busy={earlier.busy || undefined}
-              className="h-11 gap-2 rounded-full px-5 text-sm font-medium lg:h-12 lg:text-base"
-              disabled={earlier.busy}
-              onClick={() => void loadEarlier()}
-              type="button"
-              variant="outline"
-            >
-              {earlier.busy ? <LoaderCircle aria-hidden className="size-4 animate-spin motion-reduce:animate-none" /> : null}
-              {t("loadEarlier")}
-            </Button>
-            {earlier.failed ? (
-              <p className="text-xs text-destructive lg:text-base" role="alert">
-                {t("loadEarlierFailed")} · {earlier.failed}
-              </p>
-            ) : null}
-          </div>
+        {complete ? <ThreadIntro counterpart={counterpart} openedAt={room?.createdAt} /> : null}
+        {complete ? null : (
+          <LoadEarlier busy={earlier.busy} failed={earlier.failed} onLoad={() => void loadEarlier()} />
         )}
         {days.map((day) => (
           <Fragment key={day.key}>

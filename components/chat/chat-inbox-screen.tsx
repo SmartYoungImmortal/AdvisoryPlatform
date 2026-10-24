@@ -315,19 +315,16 @@ function SessionBanner({ forced, people }: { readonly forced: boolean; readonly 
     hour,
     minute: "2-digit",
   });
+  let bannerTitle = t("bannerNext", { name });
+  if (underway) bannerTitle = t("bannerLive", { name });
+  else if (minutes <= 60) bannerTitle = t("bannerStartsIn", { name, count: minutes });
 
   return (
     <BannerCard
       action={{ href: "/bookings", label: t("bannerAction") }}
       body={[service?.name, when].filter(Boolean).join(" · ")}
       live={underway || minutes <= 60}
-      title={
-        underway
-          ? t("bannerLive", { name })
-          : minutes <= 60
-            ? t("bannerStartsIn", { name, count: minutes })
-            : t("bannerNext", { name })
-      }
+      title={bannerTitle}
     />
   );
 }
@@ -345,13 +342,12 @@ function BannerCard({
   readonly live?: boolean;
 }) {
   return (
-    <div
+    <output
       className={cn(
         "flex items-start gap-3 rounded-2xl p-3.5",
         live ? "bg-accent-surface" : "border border-hero-card-border bg-card shadow-hero-card",
       )}
       data-slot="session-banner"
-      role="status"
     >
       <span className="flex size-10 shrink-0 items-center justify-center rounded-full bg-card">
         <CalendarClock aria-hidden className="size-5 text-primary" />
@@ -369,7 +365,7 @@ function BannerCard({
           {action.label}
         </Button>
       </span>
-    </div>
+    </output>
   );
 }
 
@@ -475,7 +471,8 @@ export function ChatList({
           />
         </div>
 
-        <div aria-label={t("filterLabel")} className="-my-2 flex gap-4" role="group">
+        {/* `<fieldset>`: a group by its own semantics; reset so it lays out as the row it was. */}
+        <fieldset aria-label={t("filterLabel")} className="-my-2 flex min-w-0 gap-4 border-0 p-0">
           <FilterChip active={!onlyUnread} onClick={() => setOnlyUnread(false)}>
             {t("filterAll")}
           </FilterChip>
@@ -485,7 +482,7 @@ export function ChatList({
               <span className="font-latin tabular-nums opacity-70">{unreadTotal}</span>
             ) : null}
           </FilterChip>
-        </div>
+        </fieldset>
       </div>
 
       {/* Its own scroller on a desktop (the page does not move there), the

@@ -6,7 +6,7 @@ import type { ReactNode } from "react";
 import { HandQuestion } from "@/components/home/hand-question";
 import { priceLadder, priceRange, type OpenDay } from "@/components/home/home-data";
 import { OpenTodayStrip } from "@/components/home/open-today";
-import { FRAME, SectionLead, SectionTitle } from "@/components/home/section-parts";
+import { FRAME, latinFigure, SectionLead, SectionTitle } from "@/components/home/section-parts";
 import { ServiceCard } from "@/components/home/service-card";
 import { Rise, Throw } from "@/components/motion";
 import type { LiveService } from "@/lib/catalogue/live";
@@ -73,7 +73,7 @@ export function ChapterCost({
                   {t.rich("costRange", {
                     min: format.number(range.min, "baht"),
                     max: format.number(range.max, "baht"),
-                    n: (chunks) => <span className="font-latin font-semibold text-foreground tabular-nums">{chunks}</span>,
+                    n: latinFigure,
                   })}
                 </p>
               ) : null}

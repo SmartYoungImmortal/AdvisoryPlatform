@@ -4,11 +4,14 @@ import { Dialog as DialogPrimitive } from "@base-ui/react/dialog";
 import { ChevronLeft, ChevronRight, Images, X } from "lucide-react";
 import Image from "next/image";
 import { useTranslations } from "next-intl";
-import { useCallback, useRef, useState, type KeyboardEvent, type ReactNode } from "react";
+import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogClose, DialogOverlay, DialogPortal, DialogTitle } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
+
+/** How far each arrow key steps through the photos. */
+const ARROW_STEP: Partial<Record<string, number>> = { ArrowRight: 1, ArrowLeft: -1 };
 
 /**
  * The photographs, large, one at a time: a swipeable track that fills the
@@ -41,10 +44,20 @@ function ViewerBody({ photos, start }: { readonly photos: readonly string[]; rea
     el.scrollTo({ left: ((to + total) % total) * el.clientWidth, behavior: "instant" });
   };
 
-  const onKey = (event: KeyboardEvent) => {
-    if (event.key === "ArrowRight") go(current + 1);
-    else if (event.key === "ArrowLeft") go(current - 1);
-  };
+  // The arrow keys, on the window while the viewer is open (the dialog keeps
+  // focus inside it), so no plain element has to listen for keys. The photo
+  // on screen is read off the track, the same source as the counter.
+  useEffect(() => {
+    const onKey = (event: KeyboardEvent) => {
+      const step = ARROW_STEP[event.key];
+      const el = track.current;
+      if (!step || !el) return;
+      const at = Math.round(el.scrollLeft / el.clientWidth);
+      el.scrollTo({ left: ((at + step + total) % total) * el.clientWidth, behavior: "instant" });
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [total]);
 
   const round = "size-11 rounded-full text-on-media hover:bg-on-media/15 hover:text-on-media";
   // Centred by `top`, not a translate: the button's own press nudge is a
@@ -52,7 +65,7 @@ function ViewerBody({ photos, start }: { readonly photos: readonly string[]; rea
   const side = "absolute top-[calc(50%-1.375rem)] hidden bg-on-media/10 md:inline-flex";
 
   return (
-    <div className="flex size-full flex-col" onKeyDown={onKey}>
+    <div className="flex size-full flex-col">
       <div className="flex shrink-0 items-center justify-between px-4 py-3 md:px-6">
         <span className="font-latin text-base text-on-media tabular-nums">
           {t("photoCounter", { current: current + 1, total })}

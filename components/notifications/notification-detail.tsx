@@ -58,15 +58,17 @@ export function NotificationDetailRoute() {
               </p>
             ) : null}
           </>
-        ) : settled ? (
+        ) : null}
+        {!item && settled ? (
           <p className="mt-6 text-sm text-muted-foreground lg:text-frame-body">{t("detailMissing")}</p>
-        ) : (
+        ) : null}
+        {!item && !settled ? (
           <div aria-busy className="mt-4 flex flex-col gap-3 lg:mt-6">
             <span className="h-5 w-2/3 animate-pulse rounded bg-muted motion-reduce:animate-none" />
             <span className="h-3 w-1/3 animate-pulse rounded bg-muted motion-reduce:animate-none" />
             <span className="mt-3 h-4 w-full animate-pulse rounded bg-muted motion-reduce:animate-none" />
           </div>
-        )}
+        ) : null}
       </article>
     </NotificationsShell>
   );

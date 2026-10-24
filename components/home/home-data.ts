@@ -110,7 +110,8 @@ export function priceLadder(items: readonly LiveService[]): readonly LiveService
   const byPrice = items.toSorted((a, b) => a.price - b.price || b.reviews - a.reviews);
   if (byPrice.length <= 3) return byPrice;
   const low = byPrice[0];
-  const high = byPrice.findLast((item) => item.advisorId !== low.advisorId) ?? byPrice[byPrice.length - 1];
+  // More than three here, so `.at(-1)` is always there.
+  const high = byPrice.findLast((item) => item.advisorId !== low.advisorId) ?? byPrice.at(-1) ?? low;
   const middle = byPrice.slice(Math.floor(byPrice.length / 3), Math.ceil((byPrice.length * 2) / 3));
   const mid =
     middle.find((item) => item.advisorId !== low.advisorId && item.advisorId !== high.advisorId && item.price !== low.price && item.price !== high.price) ??
@@ -159,7 +160,7 @@ export function useSoonestOpen(): OpenDay {
     `services?limit=100&availableOn=${today}`,
     useCallback((signal: AbortSignal) => listServices({ limit: 100, availableOn: today }, signal), [today]),
   );
-  const closedToday = first.data !== undefined && first.data.items.length === 0;
+  const closedToday = first.data?.items.length === 0;
 
   // One resource for the rest of the week, asked a day at a time and only
   // as far as the first open one.

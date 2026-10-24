@@ -210,9 +210,9 @@ describe("off-platform scanner", () => {
     const text = "โทร 089-123-4567 ได้เลย";
     const parts = splitByMatches(text, findOffPlatform(text));
     expect(parts).toEqual([
-      { text: "โทร ", kind: null },
-      { text: "089-123-4567", kind: "phone" },
-      { text: " ได้เลย", kind: null },
+      { text: "โทร ", kind: null, start: 0 },
+      { text: "089-123-4567", kind: "phone", start: 4 },
+      { text: " ได้เลย", kind: null, start: 16 },
     ]);
   });
 });

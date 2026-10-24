@@ -13,7 +13,7 @@ import { authPill } from "@/components/auth/auth-split";
 import { HandQuestion } from "@/components/home/hand-question";
 import type { HomeCategory } from "@/components/home/home-data";
 import { heroTrack, pulledIn } from "@/components/home/hold";
-import { FRAME } from "@/components/home/section-parts";
+import { FRAME, latinFigure } from "@/components/home/section-parts";
 import { THROW, Tilt, onFirstView, scrollerOf } from "@/components/motion";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -50,7 +50,9 @@ const FILL_SCREEN = "lg:min-h-[calc((100dvh_-_6rem)/tan(atan2(100vw,1710px)))]";
  */
 function TopicTile({ topic, size }: { readonly topic: HomeCategory; readonly size: Size }) {
   const t = useTranslations("home");
-  const examples = size === "lead" ? topic.examples : topic.examples.slice(0, size === "wide" ? 1 : 0);
+  // The lead tile lists every example, a wide one the first, the rest none.
+  const shown: Record<Size, number> = { lead: topic.examples.length, wide: 1, small: 0 };
+  const examples = topic.examples.slice(0, shown[size]);
   return (
     <Link
       className={cn(
@@ -94,7 +96,7 @@ function TopicTile({ topic, size }: { readonly topic: HomeCategory; readonly siz
             <span className="text-sm text-muted-foreground lg:text-lg">
               {t.rich("categoryCount", {
                 count: topic.count,
-                n: (chunks) => <span className="font-latin font-semibold text-foreground tabular-nums">{chunks}</span>,
+                n: latinFigure,
               })}
             </span>
             {examples.length > 0 ? (

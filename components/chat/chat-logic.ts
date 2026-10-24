@@ -124,7 +124,7 @@ export function groupThread(
   for (const entry of entries) {
     const day = dayKey(entry.at, timeZone);
     let block = days.at(-1);
-    if (!block || block.day !== day) {
+    if (block?.day !== day) {
       block = { key: `day-${day}`, day, at: entry.at, runs: [] };
       days.push(block);
     }
@@ -275,7 +275,9 @@ export type OffPlatformMatch = {
   readonly end: number;
 };
 
-const EMAIL = /[a-z0-9._%+-]+@[a-z0-9.-]+\.[a-z]{2,}/gi;
+// The domain as dot-ended labels, then the top level: no class overlaps the
+// `.` after it, so a long run cannot backtrack.
+const EMAIL = /[a-z0-9._%+-]+@(?:[a-z0-9-]+\.)+[a-z]{2,}/gi;
 
 const LINK =
   /\b(?:https?:\/\/|www\.)\S+|\b(?:line\.me|lin\.ee|wa\.me|t\.me|m\.me|fb\.me|facebook\.com|instagram\.com)\/\S*/gi;
@@ -285,7 +287,7 @@ const LINK =
  * word, so it takes an "id", a colon or an @-handle to count.
  */
 const LINE_ID = [
-  /(?:\bline\s*id|ไลน์\s*ไอดี|ไอดีไลน์)\s*[:：]?\s*@?[a-z0-9][a-z0-9._-]{2,}/gi,
+  /(?:\bline\s*id|ไลน์\s*ไอดี|ไอดีไลน์)\s*(?:[:：]\s*)?@?[a-z0-9][a-z0-9._-]{2,}/gi,
   /(?:\bline|ไลน์|ไลน)\s*[:：]\s*@?[a-z0-9][a-z0-9._-]{2,}/gi,
   /(?:\bline|ไลน์|ไลน)\s*@[a-z0-9][a-z0-9._-]{2,}/gi,
 ];
@@ -351,15 +353,16 @@ export function offPlatformKinds(matches: readonly OffPlatformMatch[]): OffPlatf
 export function splitByMatches(
   text: string,
   matches: readonly OffPlatformMatch[],
-): { readonly text: string; readonly kind: OffPlatformKind | null }[] {
-  const parts: { text: string; kind: OffPlatformKind | null }[] = [];
+): { readonly text: string; readonly kind: OffPlatformKind | null; readonly start: number }[] {
+  // `start` is where the part begins in `text`: unique, so it keys the part.
+  const parts: { text: string; kind: OffPlatformKind | null; start: number }[] = [];
   let cursor = 0;
   for (const match of matches) {
-    if (match.start > cursor) parts.push({ text: text.slice(cursor, match.start), kind: null });
-    parts.push({ text: text.slice(match.start, match.end), kind: match.kind });
+    if (match.start > cursor) parts.push({ text: text.slice(cursor, match.start), kind: null, start: cursor });
+    parts.push({ text: text.slice(match.start, match.end), kind: match.kind, start: match.start });
     cursor = match.end;
   }
-  if (cursor < text.length) parts.push({ text: text.slice(cursor), kind: null });
+  if (cursor < text.length) parts.push({ text: text.slice(cursor), kind: null, start: cursor });
   return parts;
 }
 

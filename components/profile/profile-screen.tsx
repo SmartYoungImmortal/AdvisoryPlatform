@@ -97,7 +97,10 @@ function StatePill({ state }: { readonly state: ApiBookingState }) {
  * An advisor's face, as `/search` draws it: their ring card's portrait if they
  * stand on the home hero, otherwise the API's own `image`.
  */
-function faceOf(entry: { readonly service?: BookingEntry["service"]; readonly advisor?: ApiPublicAdvisor }) {
+function faceOf(entry: {
+  readonly service?: NonNullable<BookingEntry["service"]>;
+  readonly advisor?: ApiPublicAdvisor;
+}) {
   if (entry.service?.face) return entry.service.face;
   const advisor = entry.advisor;
   if (!advisor) return null;
@@ -158,6 +161,15 @@ function PillLink({
  * advisee and no field to write one in, so this is the one sentence the
  * bookings can honestly say: how many sessions, on what.
  */
+/** The way to the search inside a sentence (`t.rich`'s `<link>`). */
+function searchLink(chunks: ReactNode) {
+  return (
+    <Link className="font-medium text-foreground underline underline-offset-4" href="/search">
+      {chunks}
+    </Link>
+  );
+}
+
 function Summary({ history }: { readonly history: BookingHistory }) {
   const t = useTranslations("profile");
   const { bookings, completed, upcoming, categories } = history;
@@ -178,13 +190,7 @@ function Summary({ history }: { readonly history: BookingHistory }) {
   if (upcoming.length > 0) return <p className={line}>{t("summaryFirst")}</p>;
   return (
     <p className={line}>
-      {t.rich("summaryNew", {
-        link: (chunks) => (
-          <Link className="font-medium text-foreground underline underline-offset-4" href="/search">
-            {chunks}
-          </Link>
-        ),
-      })}
+      {t.rich("summaryNew", { link: searchLink })}
     </p>
   );
 }

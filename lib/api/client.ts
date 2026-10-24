@@ -114,6 +114,13 @@ function buildUrl(path: string, query?: Query, unprefixed = false): string {
   return url.toString();
 }
 
+/** The path without its trailing slashes; a loop rather than `/\/+$/`, which backtracks. */
+function trimTrailingSlashes(path: string): string {
+  let end = path.length;
+  while (end > 0 && path[end - 1] === "/") end -= 1;
+  return path.slice(0, end);
+}
+
 /**
  * Where a Socket.IO namespace of the API lives, from the same `NEXT_PUBLIC_API_URL`.
  *
@@ -129,7 +136,7 @@ export function apiSocketTarget(namespace: string): { readonly url: string; read
     const base = new URL(BASE_URL);
     return {
       url: `${base.origin}/${namespace.replace(/^\/+/, "")}`,
-      path: `${base.pathname.replace(/\/+$/, "")}/socket.io`,
+      path: `${trimTrailingSlashes(base.pathname)}/socket.io`,
     };
   } catch {
     return null;

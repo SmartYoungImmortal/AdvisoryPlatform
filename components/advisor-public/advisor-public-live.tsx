@@ -47,7 +47,7 @@ import type {
   ApiRatingSummary,
   ApiReview,
 } from "@/lib/api/types";
-import { useResource } from "@/lib/api/use-resource";
+import { useResource, type Resource } from "@/lib/api/use-resource";
 import { useLiveCatalogue } from "@/lib/catalogue/live";
 import type { ProfileTab } from "@/lib/catalogue/profiles";
 
@@ -128,6 +128,125 @@ function ratingOf(summary: ApiRatingSummary | undefined): RatingModel | null {
     return { stars, count, share: total > 0 ? (count / total) * 100 : 0 };
   });
   return { average: averageOf(summary) ?? 0, total, bars };
+}
+
+/**
+ * The four figures in the stats box, each real or absent: the lowest price
+ * (held as pending while the services load), the counts, and the rating.
+ */
+function profileFigures({
+  t,
+  formatBaht,
+  advisor,
+  services,
+  own,
+  summary,
+}: {
+  readonly t: ReturnType<typeof useTranslations<"advisorProfile">>;
+  readonly formatBaht: (satang: number) => string;
+  readonly advisor: ApiPublicAdvisor;
+  readonly services: Resource<Paginated<ApiPublicService>>;
+  readonly own: readonly ApiPublicService[];
+  readonly summary: Resource<ApiRatingSummary>;
+}): ProfileFigure[] {
+  const figures: ProfileFigure[] = [];
+  const prices = own.map((service) => service.priceSatang);
+  if (services.loading) {
+    figures.push({ key: "from", label: t("statFrom"), value: null });
+  } else if (prices.length > 0) {
+    figures.push({ key: "from", label: t("statFrom"), value: formatBaht(Math.min(...prices)) });
+  }
+  figures.push(
+    { key: "services", label: t("statServices"), value: String(advisor.publishedServiceCount) },
+    { key: "skills", label: t("statSkills"), value: String(advisor.skills.length) },
+  );
+  if (summary.loading) {
+    figures.push({ key: "rating", label: t("statRating"), value: null, star: true });
+  } else if (summary.data) {
+    // An unrated advisor reads "★ 0"; the count beside it on the handle row
+    // says why.
+    const average = averageOf(summary.data);
+    figures.push({
+      key: "rating",
+      label: t("statRating"),
+      value: average === null ? "0" : average.toFixed(1),
+      star: true,
+    });
+  }
+  return figures;
+}
+
+/** The review count on the handle row: the number, pending (undefined), or unknown (null). */
+function reviewCountOf(summary: Resource<ApiRatingSummary>): number | null | undefined {
+  if (summary.data) return summary.data.total;
+  return summary.loading ? undefined : null;
+}
+
+/** The first service with a photograph, as the featured cover; null when none has one. */
+function featuredOf(
+  own: readonly ApiPublicService[],
+  coverOf: (service: ApiPublicService) => Photo | null,
+): ProfileModel["featured"] {
+  const service = own.find((candidate) => coverOf(candidate) !== null);
+  const cover = service ? coverOf(service) : null;
+  if (!service || !cover) return null;
+  return { cover, title: service.name, href: liveServiceHref(service.id) };
+}
+
+/** The services tab: pending, failed, the grid, or the empty sketch. */
+function ServicesTab({
+  services,
+  cards,
+  name,
+  photos,
+}: {
+  readonly services: Resource<Paginated<ApiPublicService>>;
+  readonly cards: readonly ServiceCardModel[];
+  readonly name: string;
+  readonly photos: readonly Photo[];
+}) {
+  const t = useTranslations("advisorProfile");
+  if (services.loading) return <ServiceGridPending />;
+  if (services.error) {
+    return <PanelError error={services.error} onRetry={services.reload} title={t("servicesError")} />;
+  }
+  if (cards.length > 0) return <ServiceGrid cards={cards} />;
+  return (
+    <EmptyNotice
+      body={t("noServicesBody", { name })}
+      figure={<ServicesSketch photos={photos} />}
+      title={t("noServicesTitle")}
+    />
+  );
+}
+
+/** The reviews tab: pending, failed, the list under its rating, or the empty collage. */
+function ReviewsTab({
+  reviews,
+  reviewCards,
+  rating,
+  name,
+  photos,
+}: {
+  readonly reviews: Resource<Paginated<ApiReview>>;
+  readonly reviewCards: readonly ReviewModel[];
+  readonly rating: RatingModel | null;
+  readonly name: string;
+  readonly photos: readonly Photo[];
+}) {
+  const t = useTranslations("advisorProfile");
+  if (reviews.loading) return <ReviewListPending />;
+  if (reviews.error) {
+    return <PanelError error={reviews.error} onRetry={reviews.reload} title={t("reviewsError")} />;
+  }
+  if (reviewCards.length > 0) return <ReviewList rating={rating} reviews={reviewCards} />;
+  return (
+    <EmptyNotice
+      body={t("noReviewsBody", { name })}
+      figure={<PhotoCollage photos={photos} />}
+      title={t("noReviewsTitle")}
+    />
+  );
 }
 
 export function LiveAdvisorProfileScreen({
@@ -234,57 +353,26 @@ export function LiveAdvisorProfileScreen({
 
   const live = advisor.data;
   const { role, place } = splitHeadline(live.headline);
-  const prices = own.map((service) => service.priceSatang);
+  const figures = profileFigures({
+    t,
+    formatBaht: (satang) => format.number(baht(satang), "baht"),
+    advisor: live,
+    services,
+    own,
+    summary,
+  });
 
-  const figures: ProfileFigure[] = [];
-  if (services.loading) {
-    figures.push({ key: "from", label: t("statFrom"), value: null });
-  } else if (prices.length > 0) {
-    figures.push({
-      key: "from",
-      label: t("statFrom"),
-      value: format.number(baht(Math.min(...prices)), "baht"),
-    });
-  }
-  figures.push(
-    { key: "services", label: t("statServices"), value: String(live.publishedServiceCount) },
-    { key: "skills", label: t("statSkills"), value: String(live.skills.length) },
-  );
-  if (summary.loading) {
-    figures.push({ key: "rating", label: t("statRating"), value: null, star: true });
-  } else if (summary.data) {
-    // An unrated advisor reads "★ 0"; the count beside it on the handle row
-    // says why.
-    const average = averageOf(summary.data);
-    figures.push({
-      key: "rating",
-      label: t("statRating"),
-      value: average === null ? "0" : average.toFixed(1),
-      star: true,
-    });
-  }
-
-  const featuredService = own.find((service) => coverOf(service) !== null);
-  const featuredCover = featuredService ? coverOf(featuredService) : null;
   const model: ProfileModel = {
     name: live.displayName,
     portrait: live.image ?? null,
     initials: initialsOf(live.displayName),
     verified: true,
-    reviewCount: summary.data ? summary.data.total : summary.loading ? undefined : null,
+    reviewCount: reviewCountOf(summary),
     role: role || null,
     place,
     figures,
     featured:
-      services.loading || (catalogue.loading && own.length > 0)
-        ? undefined
-        : featuredService && featuredCover
-          ? {
-              cover: featuredCover,
-              title: featuredService.name,
-              href: liveServiceHref(featuredService.id),
-            }
-          : null,
+      services.loading || (catalogue.loading && own.length > 0) ? undefined : featuredOf(own, coverOf),
     skills: live.skills,
     chatHref: chatWithHref(advisorId),
     servicesHref: hrefFor("services"),
@@ -331,35 +419,17 @@ export function LiveAdvisorProfileScreen({
       <ProfileTabs current={tab} items={tabItems} label={t("tabsLabel")} onSelect={select} />
       <TabPanel>
         {tab === "services" ? (
-          services.loading ? (
-            <ServiceGridPending />
-          ) : services.error ? (
-            <PanelError error={services.error} onRetry={services.reload} title={t("servicesError")} />
-          ) : cards.length > 0 ? (
-            <ServiceGrid cards={cards} />
-          ) : (
-            <EmptyNotice
-              body={t("noServicesBody", { name: live.displayName })}
-              figure={<ServicesSketch photos={photos} />}
-              title={t("noServicesTitle")}
-            />
-          )
+          <ServicesTab cards={cards} name={live.displayName} photos={photos} services={services} />
         ) : null}
 
         {tab === "reviews" ? (
-          reviews.loading ? (
-            <ReviewListPending />
-          ) : reviews.error ? (
-            <PanelError error={reviews.error} onRetry={reviews.reload} title={t("reviewsError")} />
-          ) : reviewCards.length > 0 ? (
-            <ReviewList rating={ratingOf(summary.data)} reviews={reviewCards} />
-          ) : (
-            <EmptyNotice
-              body={t("noReviewsBody", { name: live.displayName })}
-              figure={<PhotoCollage photos={photos} />}
-              title={t("noReviewsTitle")}
-            />
-          )
+          <ReviewsTab
+            name={live.displayName}
+            photos={photos}
+            rating={ratingOf(summary.data)}
+            reviewCards={reviewCards}
+            reviews={reviews}
+          />
         ) : null}
 
         {tab === "about" ? (

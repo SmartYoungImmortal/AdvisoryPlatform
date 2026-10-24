@@ -101,7 +101,8 @@ export function ConnectionNote({ className }: { readonly className?: string }) {
   if (!connection.noticeable) return null;
   const signedOut = connection.status === "unauthorized";
   return (
-    <p className={cn("flex items-start gap-1.5 text-xs text-muted-foreground lg:text-frame-meta", className)} role="status">
+    // `<output>`: a status region by its own semantics (polite, implicit `status` role).
+    <output className={cn("flex items-start gap-1.5 text-xs text-muted-foreground lg:text-frame-meta", className)}>
       <WifiOff aria-hidden className="mt-0.5 size-3.5 shrink-0 lg:mt-1 lg:size-4" />
       <span className="min-w-0">
         {signedOut ? t("liveSignedOut") : t("reconnecting")}
@@ -114,7 +115,7 @@ export function ConnectionNote({ className }: { readonly className?: string }) {
           </>
         ) : null}
       </span>
-    </p>
+    </output>
   );
 }
 
@@ -158,7 +159,8 @@ export function ChatError({
         <Button className={cn(authPill(true), "w-auto")} nativeButton={false} render={<Link href="/login" />}>
           {c("login")}
         </Button>
-      ) : onRetry ? (
+      ) : null}
+      {!signedOut && onRetry ? (
         <Button className={cn(authPill(), "w-auto")} onClick={onRetry} type="button" variant="outline">
           <RotateCw aria-hidden />
           {t("retry")}
@@ -431,7 +433,7 @@ export function Composer({
       {/* At most one quiet line under the row: what the draft would take off
           the platform, else how close it is to the limit. */}
       {kinds.length > 0 ? (
-        <p className="mt-2 flex items-start gap-1.5 px-1 text-xs text-muted-foreground lg:text-frame-meta" role="status">
+        <output className="mt-2 flex items-start gap-1.5 px-1 text-xs text-muted-foreground lg:text-frame-meta">
           <ShieldAlert aria-hidden className="mt-0.5 size-3.5 shrink-0 text-warning lg:mt-1 lg:size-4" />
           {t("flagDraft", {
             kinds: format.list(
@@ -439,8 +441,9 @@ export function Composer({
               { type: "conjunction" },
             ),
           })}
-        </p>
-      ) : nearLimit ? (
+        </output>
+      ) : null}
+      {kinds.length === 0 && nearLimit ? (
         <p className="mt-2 px-1 text-right font-latin text-xs text-muted-foreground tabular-nums lg:text-frame-meta">
           {format.number(draft.length)}/{format.number(CHAT_MESSAGE_MAX_LENGTH)}
         </p>

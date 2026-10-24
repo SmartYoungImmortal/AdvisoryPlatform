@@ -16,6 +16,11 @@ import { cn } from "@/lib/utils";
 /** The 1344 column of the 1710 frame (the footer's), with the phone's 24px inset below `lg`. */
 export const FRAME = "w-full px-6 lg:mx-auto lg:max-w-336 lg:px-0";
 
+/** A figure inside a sentence (`t.rich`'s `<n>`), set in the Latin face at full ink. */
+export function latinFigure(chunks: ReactNode) {
+  return <span className="font-latin font-semibold text-foreground tabular-nums">{chunks}</span>;
+}
+
 /**
  * A section's one headline: the hero's own Kanit at its regular weight, drawn
  * in a little and set in the hero's slate rather than the near-black of the

@@ -73,10 +73,10 @@ export function FeedFilters({
   const options: readonly FeedFilter[] = ["all", ...kinds];
 
   return (
-    <div
+    // `<fieldset>`: a group by its own semantics; reset so it lays out as the row it was.
+    <fieldset
       aria-label={t("filterLabel")}
-      className="-mx-5 flex gap-2 overflow-x-auto px-5 md:-mx-10 md:px-10 lg:mx-0 lg:gap-3 lg:px-0"
-      role="group"
+      className="-mx-5 flex min-w-0 gap-2 overflow-x-auto border-0 px-5 py-0 md:-mx-10 md:px-10 lg:mx-0 lg:gap-3 lg:px-0"
     >
       {options.map((key) => {
         const active = key === value;
@@ -98,7 +98,7 @@ export function FeedFilters({
           </Button>
         );
       })}
-    </div>
+    </fieldset>
   );
 }
 
@@ -214,6 +214,11 @@ export function FeedSkeleton() {
   );
 }
 
+/** The line break in the empty state's body (`t.rich`'s `<br>`), on a phone or upright tablet only. */
+function phoneBreak() {
+  return <br className="lg:hidden" />;
+}
+
 /**
  * Nothing yet, unboxed at the top of the column: one muted icon, what will
  * arrive here, and the way to start (a booking sends the first one).
@@ -234,7 +239,7 @@ export function EmptyFeed() {
         <p className="text-xs text-muted-foreground lg:text-frame-meta">
           {/* Broken in two on a phone or an upright tablet, at the phrase
               rather than wherever the width runs out; one line from `lg`. */}
-          {t.rich("emptyBody", { br: () => <br className="lg:hidden" /> })}
+          {t.rich("emptyBody", { br: phoneBreak })}
         </p>
       </div>
       <Button

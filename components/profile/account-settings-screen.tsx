@@ -51,10 +51,11 @@ function LanguageRow() {
       <span className="min-w-0 flex-1 text-sm font-medium text-foreground" id="settings-language">
         {t("language")}
       </span>
-      <div aria-labelledby="settings-language" className="flex items-center gap-1 rounded-full bg-muted p-1" role="group">
+      {/* `<fieldset>`: a group by its own semantics; `border-0` keeps the capsule as it was. */}
+      <fieldset aria-labelledby="settings-language" className="flex min-w-0 items-center gap-1 rounded-full border-0 bg-muted p-1">
         {option("th", t("languageTh"))}
         {option("en", t("languageEn"))}
-      </div>
+      </fieldset>
     </div>
   );
 }
