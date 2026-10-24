@@ -2,39 +2,27 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
 import { useEffect, useRef, useState, type CSSProperties } from "react";
 import { useGSAP } from "@gsap/react";
 import gsap from "gsap";
 import { useTranslations } from "next-intl";
-import { Bell, ChevronLeft, LogIn } from "lucide-react";
+import { Bell, ChevronLeft } from "lucide-react";
 
 import { logo } from "@/lib/assets/r2";
 import { avatarImage, initials } from "@/lib/mock-db/avatars";
 import { useAppLocale } from "@/lib/i18n/locale-provider";
 import { useSession, useSessionStatusHint } from "@/lib/session";
 import { useUnreadDot } from "@/components/notifications/notification-store";
-import { NeutralButton, PrimaryButton } from "@/components/mobile/buttons";
 import { Button } from "@/components/ui/button";
-import {
-  Sheet,
-  SheetContent,
-  SheetTitle,
-  SheetTrigger,
-} from "@/components/ui/sheet";
 import { cn } from "@/lib/utils";
 
 gsap.registerPlugin(useGSAP);
 
 /**
- * The one navigation bar, on every screen.
- *
- * Figma "Nav Bar" — 16px side padding, a leading glyph, the Advisory lockup, and
- * a 22px bell — or, on the pre-auth landing frame, a sign-in link — trailing. The design packs a 63px lockup into 66px, which
- * leaves it all but touching both edges. The lockup is scaled to 56px instead, so
- * it sits inside a 64px row — shorter than the design's bar and still with real
- * breathing room. Pinning the height is what stops the lockup's own slack from
- * growing the row further.
+ * The one navigation bar, on every screen and at every width: the desktop's
+ * floating capsule, the lockup at the left and TH / EN, the bell (or "Get
+ * started" for a guest) and the portrait at the right. The phone has no menu
+ * of its own here; its navigation is the tab bar along the bottom.
  *
  * It has no surface of its own at the top of a screen and frosts into a
  * translucent one once the content scrolls under it — the treatment the Mochi Ice
@@ -58,33 +46,6 @@ gsap.registerPlugin(useGSAP);
  * Multi-stop gradients are past what a utility can express, so this is the one
  * raw declaration — still driven off the token rather than a literal white.
  */
-/**
- * Lucide's `Menu` fixes its bars at `M4 5h16 / M4 12h16 / M4 19h16` — 16 wide on
- * a 7-unit pitch — and exposes only size and stroke width, so neither the gap nor
- * the bar length can be tuned. This is that glyph with the pitch eased to 6.5 and
- * the bars run out to 18, drawn on lucide's own 24 grid with its stroke and round
- * caps so it still reads as one set with the other icons.
- */
-function MenuGlyph({ className }: { readonly className?: string }) {
-  return (
-    <svg
-      aria-hidden
-      className={className}
-      fill="none"
-      stroke="currentColor"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      strokeWidth={2}
-      viewBox="0 0 24 24"
-      xmlns="http://www.w3.org/2000/svg"
-    >
-      <path d="M3 5.5h18" />
-      <path d="M3 12h18" />
-      <path d="M3 18.5h18" />
-    </svg>
-  );
-}
-
 /**
  * The wordmark, with a light sweeping across it.
  *
@@ -155,19 +116,13 @@ function Lockup({ reversed }: { readonly reversed: boolean }) {
     // That is the flat wordmark; this asset is the script over PLATFORM, so it
     // needs the height its two lines ask for — 36px lands the script on the same
     // cap height as the frame's mark without crowding the 68px row.
-    <span className="relative flex h-14 shrink-0 items-center lg:h-9">
-      {/* The asset is #18181b, so the reversed bar flattens it to white. */}
-      {/* The capsule is the brand's dark ground at every desktop width, so the
-          mark reverses there whatever the phone bar is doing. */}
+    <span className="relative flex h-9 shrink-0 items-center">
+      {/* The asset is #18181b, so a reversed lockup flattens it to white. The
+          bar's capsule carries its own light surface at every width, so the bar
+          itself never asks for that. */}
       <Image
         alt="Advisory Platform"
-        className={cn(
-          "h-8 w-auto lg:h-6",
-          // Over a hero the phone bar reverses the mark to white; the capsule
-          // carries its own light surface at every desktop width, so there it
-          // stays in the brand's own colours.
-          reversed && "brightness-0 invert lg:brightness-100 lg:invert-0",
-        )}
+        className={cn("h-6 w-auto", reversed && "brightness-0 invert")}
         priority
         src={logo}
       />
@@ -192,7 +147,7 @@ function Lockup({ reversed }: { readonly reversed: boolean }) {
         >
           <Image
             alt=""
-            className="h-8 w-auto brightness-0 invert"
+            className="h-6 w-auto brightness-0 invert"
             priority
             src={logo}
           />
@@ -233,7 +188,7 @@ export function LanguageSwitch({ className }: { readonly className?: string }) {
     <span
       aria-label={t("language")}
       className={cn(
-        "hidden h-10 shrink-0 items-center gap-1.5 px-1 font-latin text-xs font-bold lg:inline-flex",
+        "inline-flex h-10 shrink-0 items-center gap-1.5 px-1 font-latin text-xs font-bold",
         className,
       )}
       role="group"
@@ -273,7 +228,7 @@ function NavAvatar() {
       // A little clear of the capsule's edge: with the capsule's own 8px of
       // padding this holds the portrait 12px in, so the round shape does not
       // crowd the corner it sits in.
-      className="hidden shrink-0 rounded-full ring-2 ring-transparent transition-[box-shadow,--tw-ring-color] duration-150 hover:ring-border motion-reduce:transition-none lg:mr-1 lg:block"
+      className="mr-1 block shrink-0 rounded-full ring-2 ring-transparent transition-[box-shadow,--tw-ring-color] duration-150 hover:ring-border motion-reduce:transition-none"
       href="/profile"
     >
       {image ? (
@@ -281,7 +236,7 @@ function NavAvatar() {
           alt=""
           // 48px from `lg`, which is the height every other control in the
           // cluster stands at; 36 left the portrait visibly short beside them.
-          className="size-9 rounded-full object-cover lg:size-10"
+          className="size-10 rounded-full object-cover"
           height={40}
           src={image}
           width={40}
@@ -289,7 +244,7 @@ function NavAvatar() {
       ) : (
         <span
           aria-hidden
-          className="flex size-9 items-center justify-center rounded-full bg-muted text-sm font-medium text-muted-foreground lg:size-10"
+          className="flex size-10 items-center justify-center rounded-full bg-muted text-sm font-medium text-muted-foreground"
         >
           {initials(account)}
         </span>
@@ -337,20 +292,15 @@ export function TopBar({
   /** Swaps the leading menu glyph for a back chevron pointing here. */
   readonly backHref?: string;
   /**
-   * Floats the bar over what follows instead of sitting above it, and reverses
-   * the ink to white until it frosts. For frames that open on a photo or video.
+   * Floats the bar over what follows instead of sitting above it, for frames
+   * that open on a photo or video. The capsule carries its own light surface,
+   * so its ink stays dark over the photo.
    */
   readonly overlay?: boolean;
   readonly className?: string;
 }) {
   const t = useTranslations("common");
-  const nav = useTranslations("navigation");
-  // The site-wide link labels live in `landing`, beside the footer that also uses
-  // them — the two should never disagree about what a destination is called.
-  const l = useTranslations("landing");
-  const pathname = usePathname();
   const [frosted, setFrosted] = useState(false);
-  const [menuOpen, setMenuOpen] = useState(false);
   const sentinelRef = useRef<HTMLDivElement>(null);
   // Read here as well as in `NavAvatar`, so the two halves of the trailing slot
   // agree about whether anyone is signed in. `useSession` is a subscription to
@@ -369,32 +319,6 @@ export function TopBar({
   const sessionKnown = sessionStatus !== "loading";
   const showUnreadDot = useUnreadDot(signedIn, unreadNotifications);
 
-  // Figma's desktop nav carries four: find an advisor, bookings, chat, about.
-  /**
-   * The bar carried four. The footer carries eleven, so the nav was the narrowest
-   * view of the site anywhere in it — and two of its four were `bookings` and
-   * `chat`, which are signed-in destinations sitting in a bar a guest also sees.
-   *
-   * Seven now, in the order a reader meets them: find, browse, how it works, then
-   * their own two, then the two the site wants to sell. Every label is a key that
-   * already existed; nothing here is new copy.
-   *
-   * The last two are `xl`-only. At 1024 seven Thai labels at 18px plus the lockup
-   * and the actions do not leave a single line, and a nav that wraps is broken —
-   * so the tablet keeps five and the desktop takes all seven.
-   */
-  const links = [
-    { label: t("findAdvisor"), href: "/search" },
-    // The Thai `footerLink*` set, not the English uppercase `footer*` set — the
-    // latter is the phone footer's English link list and would drop ENGLISH CAPS
-    // into a Thai nav.
-    { label: l("footerLinkCategories"), href: "/search/browse" },
-    { label: l("footerLinkHowItWorks"), href: "/landing#how-it-works" },
-    { label: nav("bookings"), href: "/bookings" },
-    { label: nav("chat"), href: "/chat" },
-    { label: l("footerLinkAbout"), href: "/landing#about", wide: true },
-    { label: l("footerLinkBecomeAdvisor"), href: "/advisor/apply", wide: true },
-  ];
 
   useEffect(() => {
     const sentinel = sentinelRef.current;
@@ -409,23 +333,15 @@ export function TopBar({
     return () => observer.disconnect();
   }, []);
 
-  const onMedia = overlay && !frosted;
-  // This is a touch UI — the ghost variant's hover tint only ever fires as a
-  // stuck highlight after a tap, so the bar opts out of it entirely.
-  // The opt-out is now scoped to the phone. A pointer has no reason to lose
-  // hover feedback, and the desktop bar had none at all: every control on it
-  // answered a click with nothing, which is most of why it read as unfinished
-  // beside the phone bar. From `lg` each glyph gets a real 36px target with a
-  // hover ground, and `before:inset-0` retires the phone's invisible 40px
-  // padded hit area, which would otherwise make the new grounds overlap.
-  const trigger = cn(
-    "relative flex size-6 shrink-0 items-center justify-center before:absolute before:-inset-2 before:content-['']",
-    "max-lg:hover:bg-transparent",
-    "lg:size-9 lg:rounded-lg lg:transition-colors lg:duration-150 lg:before:inset-0 lg:hover:bg-accent motion-reduce:lg:transition-none",
-  );
-  const ink = onMedia
-    ? "text-on-media hover:text-on-media lg:text-foreground lg:hover:text-foreground"
-    : "text-foreground hover:text-foreground";
+  // One bar at every width: the desktop's floating capsule, with the lockup at
+  // the left and TH / EN, the bell (or "Get started") and the portrait at the
+  // right. The phone used to get its own full-width strip with a menu glyph and
+  // a centred lockup; it now gets the same capsule, and its navigation stays on
+  // the tab bar along the bottom. The capsule carries its own light surface,
+  // so the ink is the same over a photo as over the page.
+  const trigger =
+    "relative flex size-9 shrink-0 items-center justify-center rounded-lg transition-colors duration-150 hover:bg-accent motion-reduce:transition-none";
+  const ink = "text-foreground hover:text-foreground";
 
   return (
     <>
@@ -435,46 +351,20 @@ export function TopBar({
       <div className={cn("sticky top-0 z-10 w-full shrink-0", overlay && "h-0")}>
         <div
           className={cn(
-            "flex h-20 w-full items-center justify-between border-b px-4 py-2",
-            // `filter` is in the list so the wordmark fades between its reversed
-            // and normal colourway instead of snapping.
-            "transition-[background,backdrop-filter,border-color,box-shadow,filter,padding] duration-500 ease-in-out",
-            frosted
-              // The desktop row keeps its 24px gutter in both states — the
-              // capsule is what cancels it when docking, which is the only way
-              // the lockup can stay on the same x through the change.
-              ? "border-on-media/20 backdrop-blur-sm lg:border-b-0 lg:bg-transparent lg:px-6 lg:backdrop-blur-none"
-              : "border-transparent bg-transparent lg:border-b-0 lg:px-6 lg:backdrop-blur-none",
-            // Figma "Top Nav" (1564:24844): 68px on the card surface behind a
-            // real border, not the phone bar's glass. The wash is an inline
-            // gradient, which a class cannot outrank, hence the `!` pair.
-            // A hairline alone left the bar floating on a ground that is now a
-            // real step darker; the resting elevation is what seats it.
-            // The glass is kept at every width. This used to read
-            // `lg:bg-card! lg:bg-none! lg:backdrop-blur-none`, which threw the
-            // frosted treatment away and put a flat card band in its place — the
-            // same mistake the footer was making, and the reason the phone bar
-            // looked considered while the desktop one looked like a placeholder.
-            // What changes with the width is the height and the layout, not the
-            // material.
-            //
-            // 72px, not 68: the desktop bar was *shorter* than the phone's 80,
-            // which is backwards, since the wider viewport is where a bar has
-            // room to be a band rather than a strip.
-            // From `lg` the material moves off this row and onto the capsule
-            // inside it, so the row itself is only the gutter the capsule floats
-            // in. The wash rides on a custom property because an inline style
-            // cannot be answered by a media query, and `lg:bg-none` is what takes
-            // it back off at desktop width.
-            "bg-[image:var(--bar-wash)]",
+            // The row is only the gutter the capsule floats in: 12px on the
+            // phone, the desktop's 24px from `md`. It keeps that gutter in both
+            // states; the capsule is what cancels it when docking, which is the
+            // only way the lockup stays on the same x through the change.
+            "flex w-full items-center px-3 py-3 md:px-6",
+            // From `lg` the bar shrinks with the page it sits on (the 1710 frame
+            // zoomed down on a landscape tablet), instead of staying full size
+            // above a content column that is not.
+            "doc-scale",
+            "transition-[padding] duration-500 ease-in-out",
             // The capsule floats clear of the top edge at every scroll
             // position, unless the page docks it (`dock`), when the row gives
-            // up its 12px and its 24px gutters so the band can meet the top
-            // and both edges. The capsule's padding is a percentage of this
-            // row, which is 48px wider once the gutters go, so the same
-            // formula still lands the lockup on its old x.
-            "lg:h-auto lg:bg-none lg:py-3",
-            dock && frosted && "lg:px-0 lg:py-0",
+            // up its gutters so the band can meet the top and both edges.
+            dock && frosted && "px-0 py-0 md:px-0",
             className,
           )}
           style={frosted ? ({ "--bar-wash": FROSTED } as CSSProperties) : undefined}
@@ -508,17 +398,17 @@ export function TopBar({
               text crisp throughout. */}
           <div
             className={cn(
-              "relative flex w-full items-center justify-between",
-              // 984 x 64 with 32px corners, measured off the reference bar. The
-              // capsule keeps that box at every scroll position — only the glass
-              // behind it deepens as content passes under, which is what the
-              // reference does too.
-              "lg:h-16 lg:justify-start lg:rounded-[2rem] lg:py-2 lg:pr-2 lg:pl-6 lg:backdrop-blur-[20px]",
-              "lg:mx-[max(0px,calc((100%-984px)/2))]",
-              "lg:transition-[margin,padding,height,border-radius,background-color] lg:duration-500 lg:ease-out motion-reduce:lg:transition-none",
+              "relative flex w-full items-center justify-start",
+              // 984 x 64 with 32px corners, measured off the reference bar, and
+              // as wide as the screen allows below that. The capsule keeps that
+              // box at every scroll position; only the glass behind it deepens
+              // as content passes under, which is what the reference does too.
+              "h-14 rounded-[2rem] py-2 pr-2 pl-4 backdrop-blur-[20px] md:h-16 md:pl-6",
+              "mx-[max(0px,calc((100%-984px)/2))]",
+              "transition-[margin,padding,height,border-radius,background-color] duration-500 ease-out motion-reduce:transition-none",
               // The glass deepens as content passes under the floating pill;
               // a docked bar replaces the fill entirely (below, merged last).
-              frosted ? "lg:bg-card/55" : "lg:bg-card/25",
+              frosted ? "bg-card/55" : "bg-card/25",
               dock && frosted
                 ? // Docked: the margin each side becomes padding of the same
                   // width (a percentage in either resolves against the same
@@ -532,17 +422,12 @@ export function TopBar({
                   // 45% veil) on a light `blur-sm`, with a faint white rule,
                   // so the band dissolves into the page instead of ending
                   // on a hard edge.
-                  "lg:mx-0 lg:h-18 lg:rounded-none lg:border-b lg:border-on-media/20 lg:bg-transparent lg:bg-[image:var(--bar-wash)] lg:backdrop-blur-sm lg:pr-[calc(max(0px,calc((100%-984px)/2))+0.5rem)] lg:pl-[calc(max(0px,calc((100%-984px)/2))+1.5rem)]"
+                  "mx-0 h-16 rounded-none border-b border-on-media/20 bg-transparent bg-[image:var(--bar-wash)] pr-[calc(max(0px,calc((100%-984px)/2))+0.5rem)] pl-[calc(max(0px,calc((100%-984px)/2))+1rem)] backdrop-blur-sm md:h-18 md:pl-[calc(max(0px,calc((100%-984px)/2))+1.5rem)]"
                 : undefined,
             )}
           >
-            <div
-              className={cn(
-                "flex flex-1 items-center justify-start",
-                backHref ? "lg:flex-none lg:pr-4" : "lg:hidden",
-              )}
-            >
-              {backHref ? (
+            {backHref ? (
+              <div className="flex flex-none items-center pr-2 md:pr-4">
                 <Button
                   aria-label={t("back")}
                   className={cn(trigger, ink)}
@@ -553,128 +438,14 @@ export function TopBar({
                 >
                   <ChevronLeft className="size-6" />
                 </Button>
-              ) : (
-                /* It was a `<Button>` with no handler and no href: the one
-                   control on the phone bar, and pressing it did nothing. It opens
-                   the navigation now — the links the desktop bar shows inline,
-                   which the phone had no way to reach at all. */
-                <Sheet onOpenChange={setMenuOpen} open={menuOpen}>
-                  <SheetTrigger
-                    aria-label={t("menu")}
-                    className={cn(trigger, ink, "size-9")}
-                  >
-                    <MenuGlyph className="size-7" />
-                  </SheetTrigger>
-                  {/* A full-screen panel, not a narrow side drawer. On a 402px
-                      frame a 4/5-width sheet leaves a useless 80px sliver of the
-                      page behind it and forces the links into a column narrower
-                      than the screen; the reference header opens
-                      `inset-x-0 bottom-0 top-14` and sets its links large and
-                      centred, which is what a phone menu should be. The `!`s
-                      outrank `sheet`'s own `w-3/4` / `sm:max-w-sm` / `h-auto`
-                      side variants. */}
-                  {/* The reference's panel: the brand ground as a vertical
-                      ramp rather than the page's own white, the list centred in
-                      the middle of the screen at one size, and the whole sheet
-                      closing on a tap anywhere off it. A translucent panel over
-                      a photographic hero left the links unreadable, so this one
-                      is solid. */}
-                  <SheetContent
-                    className="h-dvh! w-full! max-w-none! gap-0 border-0 bg-linear-to-b from-footer-surface-deep to-footer-surface p-0 text-on-media"
-                    side="top"
-                  >
-                    <SheetTitle className="sr-only">{t("menu")}</SheetTitle>
-                    {/* A band the height of the bar it opened from, so the
-                        lockup does not jump when the panel appears. */}
-                    <div className="flex h-20 w-full shrink-0 items-center px-4">
-                      <Link
-                        className="shrink-0"
-                        href="/"
-                        onClick={() => setMenuOpen(false)}
-                      >
-                        <Lockup reversed />
-                      </Link>
-                    </div>
-
-                    {/* Centred, at 24px, 24px apart, each a 44px target, with the
-                        current section stated in the accent and nothing else —
-                        the shape `everyday-cat-clinic-v2`'s drawer uses
-                        (`items-center gap-6`, `min-h-11`, `text-2xl`, colour for
-                        state). The first attempt here was a left-aligned list of
-                        20px rows with a tinted background behind the current one,
-                        which is a settings list, not a menu: four destinations on
-                        a phone want to be the only thing on the screen. */}
-                    <nav className="mx-auto flex min-h-0 w-full max-w-md flex-1 flex-col items-center justify-center gap-6 overflow-y-auto overscroll-contain px-5 py-10">
-                      {links.map(({ label, href }) => {
-                        const path = href.split("#")[0];
-                        const current =
-                          path === "/"
-                            ? pathname === "/"
-                            : pathname === path || pathname.startsWith(`${path}/`);
-                        return (
-                          <Link
-                            aria-current={current ? "page" : undefined}
-                            className={cn(
-                              // One size for every item in the list, as the
-                              // reference sets it: 22px bold, centred, a 44px
-                              // target, and the current section in the accent.
-                              "flex min-h-11 w-full items-center justify-center rounded-md px-2 text-2xl leading-snug font-bold transition-colors duration-200 motion-reduce:transition-none",
-                              current ? "text-primary" : "text-on-media hover:text-primary",
-                            )}
-                            href={href}
-                            key={href}
-                            onClick={() => setMenuOpen(false)}
-                          >
-                            {label}
-                          </Link>
-                        );
-                      })}
-                    </nav>
-
-                    {/* The way in or the way to your own account, at the thumb
-                        end of the panel. Without it the menu listed four
-                        marketing pages and nothing about the reader. */}
-                    <div className="mx-auto flex w-full max-w-80 shrink-0 flex-col items-stretch px-5 pt-8 pb-10">
-                      {signedIn ? (
-                        <NeutralButton
-                          block
-                          href="/profile"
-                          onClick={() => setMenuOpen(false)}
-                          size="lg"
-                        >
-                          {t("profile")}
-                        </NeutralButton>
-                      ) : (
-                        <PrimaryButton
-                          block
-                          href="/login"
-                          onClick={() => setMenuOpen(false)}
-                          size="lg"
-                        >
-                          {t("login")}
-                        </PrimaryButton>
-                      )}
-                    </div>
-                  </SheetContent>
-                </Sheet>
-              )}
-            </div>
-
-            {/* The lockup is the way home from anywhere — the convention every
-                site the readers already use follows, and the only one this app had
-                no affordance for once the back chevron came off the detail bar. */}
+              </div>
+            ) : null}
+            {/* The lockup is the way home from anywhere. */}
             <Link className="shrink-0" href="/">
-              <Lockup reversed={onMedia} />
+              <Lockup reversed={false} />
             </Link>
 
-
-            {/* Figma "Links" (1564:24858) — 48px after the lockup, 28px apart,
-                14/20 medium, the current section in full ink. No phone frame
-
-            {/* `xl:flex-1` again, to balance the lockup's side: two equal groups
-                are what let the absolutely-centred nav land on the bar's centre
-                rather than the centre of what is left over. */}
-            <div className="flex flex-1 items-center justify-end gap-1 lg:ml-auto lg:flex-none lg:gap-3">
+            <div className="ml-auto flex flex-none items-center gap-1.5 md:gap-3">
               {/* `sessionKnown` gates the whole either/or: until the session has
                   answered, neither the sign-in link nor the bell is drawn, so the
                   slot is empty for one request rather than showing the wrong one.
@@ -682,29 +453,16 @@ export function TopBar({
                   moves when the answer lands. */}
               <LanguageSwitch />
               {!sessionKnown && login ? null : login && !signedIn ? (
-                <>
-                  <Link
-                    className={cn(
-                      "flex shrink-0 items-center gap-1.5 text-sm font-semibold whitespace-nowrap lg:hidden",
-                      onMedia ? "text-on-media" : "text-foreground",
-                    )}
-                    href="/login"
-                  >
-                    <LogIn className="size-4 shrink-0" />
-                    {t("login")}
-                  </Link>
-                  {/* fastwork's "Get started": a black pill with white type that
-                      opens sign-up, the one thing on the bar for a guest to
-                      press. Signing in is still a tap away on the phone link
-                      above and on the register screen itself. */}
-                  <Button
-                    className="hidden h-10 rounded-full bg-hero-action px-5 text-sm font-semibold text-hero-action-foreground hover:bg-hero-action/85 lg:inline-flex"
-                    nativeButton={false}
-                    render={<Link href="/register" />}
-                  >
-                    {t("getStarted")}
-                  </Button>
-                </>
+                /* fastwork's "Get started": a black pill with white type that
+                   opens sign-up, the one thing on the bar for a guest to press.
+                   Signing in is a tap away on the register screen itself. */
+                <Button
+                  className="inline-flex h-9 rounded-full bg-hero-action px-4 text-xs font-semibold text-hero-action-foreground hover:bg-hero-action/85 md:h-10 md:px-5 md:text-sm"
+                  nativeButton={false}
+                  render={<Link href="/register" />}
+                >
+                  {t("getStarted")}
+                </Button>
               ) : (
                 <Button
                   aria-label={t("notifications")}
@@ -714,22 +472,20 @@ export function TopBar({
                     // A bare glyph at every width: the capsule already carries
                     // the surface, and a ring around one icon beside the plain
                     // TH / EN pair read as two different kinds of control.
-                    "lg:size-10 lg:rounded-full lg:hover:bg-muted/60",
+                    "size-10 rounded-full hover:bg-muted/60",
                   )}
                   nativeButton={false}
                   render={<Link href="/notifications" />}
                   size="icon"
                   variant="ghost"
                 >
-                  <Bell className="size-6 lg:size-5" />
+                  <Bell className="size-5" />
                   {showUnreadDot ? (
-                    <span className="absolute top-px left-[15px] size-2 rounded-full bg-primary ring-2 ring-card lg:top-1.5 lg:right-1.5 lg:left-auto lg:size-2" />
+                    <span className="absolute top-1.5 right-1.5 size-2 rounded-full bg-primary ring-2 ring-card" />
                   ) : null}
                 </Button>
               )}
-              {/* Figma "Actions" (1564:24863) pairs the bell with a 36px
-                  portrait. The phone frame has no room for it and keeps the
-                  profile on its tab bar, which is why this is `lg`-only. */}
+              {/* Figma "Actions" (1564:24863) pairs the bell with the portrait. */}
               <NavAvatar />
             </div>
           </div>

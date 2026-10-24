@@ -1,8 +1,9 @@
 "use client";
 
+import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { BadgeCheck, MessageSquare, Star } from "lucide-react";
+import { ArrowLeft, MessageSquare, Star } from "lucide-react";
 import { useCallback, useMemo, useState } from "react";
 import { useFormatter, useTranslations } from "next-intl";
 
@@ -14,12 +15,9 @@ import {
   getAdvisorRatingSummary,
   getService,
   listAdvisorReviews,
-  listServiceCategories,
   listServiceSlots,
-  listServices,
 } from "@/lib/api/resources";
 import type {
-  ApiNamedRecord,
   ApiPublicAdvisor,
   ApiPublicService,
   ApiRatingSummary,
@@ -27,164 +25,105 @@ import type {
   ApiSlot,
 } from "@/lib/api/types";
 import { useResource } from "@/lib/api/use-resource";
-import {
-  addDays,
-  baht,
-  isoDay,
-  liveAdvisorHref,
-  liveServiceHref,
-} from "@/components/bookings/booking-flow";
-import {
-  Breadcrumb,
-  BreadcrumbItem,
-  BreadcrumbLink,
-  BreadcrumbList,
-  BreadcrumbPage,
-  BreadcrumbSeparator,
-} from "@/components/ui/breadcrumb";
-import { Button } from "@/components/ui/button";
-import { FaqSection } from "@/components/marketing/faq-section";
+import { useLiveCatalogue, type LiveService } from "@/lib/catalogue/live";
+import { addDays, baht, isoDay, liveAdvisorHref } from "@/components/bookings/booking-flow";
+import { authPill } from "@/components/auth/auth-split";
 import { SiteFooter } from "@/components/marketing/site-footer";
-import { NeutralButton, PrimaryButton } from "@/components/mobile/buttons";
 import { MobileScreen, ScreenBody } from "@/components/mobile/screen";
-import { StatusPill } from "@/components/mobile/status-pill";
-import { Surface, surfaceClass } from "@/components/mobile/surface";
-import { ThaiText } from "@/components/mobile/thai-text";
-import {
-  ApiErrorCard,
-  DistributionRow,
-  SECTION_HEAD,
-  StepList,
-} from "@/components/service/parts";
+import { ApiErrorCard } from "@/components/service/parts";
 import { TopBar } from "@/components/topbar";
-import { PAGE, PAGE_INSET_BLOCKS, SPLIT_WITH_ASIDE } from "@/lib/layout";
+import { Button } from "@/components/ui/button";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { cn } from "@/lib/utils";
 
 /**
- * `/service/…` when the uuid is known — the same page, read from the API.
+ * `/service/…?serviceId=<uuid>`: one service, read from the API, and the place
+ * it is booked.
  *
- * ## How the uuid gets here
+ * Laid out the way fastwork's seller showcase (`fastwork.com/selling`) lays
+ * out a profile, applied to a service: on the left the advisor's face beside
+ * the service's name, a line about it and a box of four figures; on the right
+ * the cover as a wide band with the topics under it; then tabs (book a time,
+ * reviews, about the advisor) beside a rail of the advisor's other services.
+ * Only what the API knows is shown: there is no sales count or online status
+ * behind a service, so neither is drawn.
  *
- * `?serviceId=<uuid>` on any of the prerendered slug routes, or a uuid in the
- * path where the route can serve one. `output: "export"` emits only the slugs
- * `generateStaticParams` lists, so the query string is the reachable form — see
- * `components/bookings/booking-flow.ts`. When it is absent the slug route renders
- * its fixtures exactly as before and none of this mounts.
+ * The cover and the advisor's face come from the live catalogue (the same
+ * cached `GET /services` + `GET /advisors` the search page reads), since the
+ * service response has no image of its own.
  *
- * ## What the API has, and what this page therefore does not draw
- *
- * `PublicServiceResponseDto` carries name, description, `priceSatang`,
- * `durationMinutes`, `screeningRequired` and the trial pair. It has **no cover
- * image**, so there is no gallery here: `service_images` holds SeaweedFS keys the
- * API presigns and the frontend's photographs live in R2, and a 16:9 grey
- * rectangle where a photograph belongs is worse than no rectangle.
- *
- * It has **no rating and no booked count** either. The score comes from
- * `GET /advisors/:id/reviews/summary`, which is the advisor's and not the
- * service's, and it prints only once `total > 0` — with the seed at zero reviews
- * the API answers `average: null`, and "0.0 ★" is a claim about quality that no
- * row supports.
- *
- * The three-tier package card is gone. `packagesFor` derived brief/standard/deep
- * from one fixture price; the API sells one duration at one price, and inventing
- * two more tiers around it would be inventing prices.
- *
- * `verified` is gone from the advisor card: `PublicAdvisorResponseDto` has no such
- * field. Being listed at all already means an active, unbanned account with a
- * profile and a published service — but that is not the identity check the badge
- * claims, so the badge stays off.
+ * Booking: `GET /services/:id/slots` (a session is required, and a screened
+ * service answers 400 until the screening is accepted), then `POST /bookings`,
+ * which holds the slot as `PENDING_PAYMENT` and opens the checkout; a slot
+ * taken meanwhile answers 409 and goes to `/checkout/slot-taken`.
  */
 
-/** Seven days is the window the slot rail offers, from today. */
+/** Seven days is the window the booking tab offers, from today. */
 const SLOT_WINDOW_DAYS = 7;
 
+type Tab = "book" | "reviews" | "about";
+
 /**
- * The advisor's score, or undefined when nothing has been scored.
- *
- * Three blocks on this page want it, and `useResource` is keyed by request, so
- * three calls to this hook are one fetch and the cache hands the same entry to
- * each. That is also why the summary is not fetched in the screen and threaded
- * down: the advisor's id lives on the service, so the parent's first render has
- * no id and a hook there would fire `advisors/undefined/reviews/summary`.
- *
- * `average` is `null` — not 0 — whenever `total` is 0, which the seed's zero
- * reviews make the normal case. Undefined here means "no score to show", and every
- * caller then renders nothing rather than "0.0 ★".
+ * The advisor's score, or undefined when nothing has been scored: `average`
+ * is `null`, not 0, while `total` is 0, and a zero would read as the lowest
+ * score. One fetch however many blocks ask (`useResource` is keyed by request).
  */
 function useRatingSummary(advisorId: string): ApiRatingSummary | undefined {
   const fetcher = useCallback(
     (signal: AbortSignal) => getAdvisorRatingSummary(advisorId, signal),
     [advisorId],
   );
-  const summary = useResource<ApiRatingSummary>(
-    `advisors/${advisorId}/reviews/summary`,
-    fetcher,
-  );
-  const { data } = summary;
+  const { data } = useResource<ApiRatingSummary>(`advisors/${advisorId}/reviews/summary`, fetcher);
   return data && data.average !== null && data.total > 0 ? data : undefined;
 }
 
-/** The score beside the price, when there is one. */
-function HeaderRating({ advisorId }: { readonly advisorId: string }) {
-  const rating = useRatingSummary(advisorId);
-  if (!rating?.average) return null;
+/** The public advisor (`GET /advisors/:id`), shared by every block that asks. */
+function useAdvisor(advisorId: string): ApiPublicAdvisor | undefined {
+  const fetcher = useCallback((signal: AbortSignal) => getAdvisor(advisorId, signal), [advisorId]);
+  return useResource<ApiPublicAdvisor>(`advisors/${advisorId}`, fetcher).data;
+}
 
+/** The advisor's face from the catalogue, or their initial. */
+function Face({ item, name, className }: { readonly item?: LiveService; readonly name: string; readonly className: string }) {
+  if (item?.face) return <Image alt="" className={cn(className, "rounded-full object-cover")} src={item.face} />;
   return (
-    <span className="flex shrink-0 items-center gap-1 overflow-clip">
-      <Star className="size-3.5 shrink-0 fill-primary text-primary" />
-      <span className="font-latin text-sm font-semibold tabular-nums whitespace-nowrap text-foreground">
-        {rating.average.toFixed(1)}
-      </span>
-      <span className="font-latin text-sm font-normal tabular-nums whitespace-nowrap text-muted-foreground">
-        ({rating.total})
-      </span>
+    <span
+      aria-hidden
+      className={cn(className, "flex items-center justify-center rounded-full bg-muted font-semibold text-muted-foreground")}
+    >
+      {name.slice(0, 1)}
     </span>
   );
 }
 
-/* ------------------------------------------------------------------- slots */
+/* ---------------------------------------------------------------- booking */
 
 /**
- * The bookable times, and the one write this app can honestly make.
- *
- * `GET /services/:id/slots` needs a session and **that is not a bug**:
- * `AvailabilityService.assertCanViewSlots` gates slots on whether *this advisee*
- * has passed the service's screening when `screeningRequired` is true, which it
- * cannot answer for a visitor it does not know. So three outcomes, each shown as
- * itself rather than folded into one "could not load":
- *
- * - **401 "Authentication required"** — signed out. The card prints the API's own
- *   sentence and offers the way in. No retry: pressing it again changes nothing.
- * - **400 "Accepted screening is required before viewing slots"** — signed in,
- *   but this service screens first. The card says so and points at the screening
- *   questions, which is the actual next step and not an error to shrug at.
- * - **200 with an empty array** — the advisor has published no availability in
- *   this window. An empty list, not a failure.
- *
- * Picking a time calls `POST /bookings`, which answers `PENDING_PAYMENT`: the
- * range is held, nothing is charged. A slot somebody else took in the meantime
- * comes back 409, which is what `/checkout/slot-taken` is for.
+ * The week as seven days (a day with nothing open is shown, and cannot be
+ * chosen, so the week reads as a week), that day's times, and the button that
+ * books the chosen one. The API's other answers each get their own state:
+ * signed out (401) asks to sign in, a screened service (400) points at its
+ * questions, and an empty week says so plainly.
  */
-function SlotsBlock({ serviceId }: { readonly serviceId: string }) {
+function BookingPicker({ serviceId }: { readonly serviceId: string }) {
   const t = useTranslations("service");
-  const s = useTranslations("search");
   const sc = useTranslations("screening");
   const format = useFormatter();
   const router = useRouter();
   const [day, setDay] = useState<string | null>(null);
-  const [booking, setBooking] = useState<string | null>(null);
+  const [time, setTime] = useState<string | null>(null);
+  const [booking, setBooking] = useState(false);
   const [failure, setFailure] = useState<string | null>(null);
 
-  // Anchored to midnight so the range is stable across a render that crosses a
-  // minute boundary, which would otherwise change the resource key and refetch.
+  // Anchored to midnight so a render that crosses a minute keeps the same key.
   const range = useMemo(() => {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
-    return { from: isoDay(today), to: isoDay(addDays(today, SLOT_WINDOW_DAYS)) };
+    const week = Array.from({ length: SLOT_WINDOW_DAYS }, (_, i) => isoDay(addDays(today, i)));
+    return { from: isoDay(today), to: isoDay(addDays(today, SLOT_WINDOW_DAYS)), week };
   }, []);
-
   const fetcher = useCallback(
-    (signal: AbortSignal) => listServiceSlots(serviceId, range, signal),
+    (signal: AbortSignal) => listServiceSlots(serviceId, { from: range.from, to: range.to }, signal),
     [serviceId, range],
   );
   const slots = useResource<readonly ApiSlot[]>(
@@ -192,668 +131,459 @@ function SlotsBlock({ serviceId }: { readonly serviceId: string }) {
     fetcher,
   );
 
-  // Grouped in the viewer's own zone: the API answers UTC instants, and a 09:00
-  // Bangkok slot is 02:00Z, so grouping on the ISO string would file half a day
-  // under the day before.
+  // Grouped in the viewer's own zone: the API answers UTC instants.
   const byDay = new Map<string, ApiSlot[]>();
   for (const slot of slots.data ?? []) {
     const key = isoDay(new Date(slot.startTime));
-    const existing = byDay.get(key);
-    if (existing) existing.push(slot);
+    const list = byDay.get(key);
+    if (list) list.push(slot);
     else byDay.set(key, [slot]);
   }
-  const days = [...byDay.keys()].toSorted((a, b) => a.localeCompare(b));
-  const selected = day && byDay.has(day) ? day : (days[0] ?? null);
+  const firstOpen = range.week.find((key) => byDay.has(key)) ?? null;
+  const selected = day && byDay.has(day) ? day : firstOpen;
+  const hour = (iso: string) => format.dateTime(new Date(iso), { hour: "2-digit", minute: "2-digit" });
 
-  const onPick = useCallback(
-    (startTime: string) => {
-      setBooking(startTime);
-      setFailure(null);
-      void bookSlot({ serviceId, startTime })
-        .then((created) => {
-          router.push(`/checkout/card?bookingId=${created.id}`);
-        })
-        .catch((cause: unknown) => {
-          if (cause instanceof ApiError && cause.status === 409) {
-            router.push(
-              `/checkout/slot-taken?startTime=${encodeURIComponent(startTime)}&serviceId=${serviceId}`,
-            );
-            return;
-          }
-          setFailure(cause instanceof Error ? cause.message : String(cause));
-        })
-        .finally(() => setBooking(null));
-    },
-    [router, serviceId],
-  );
+  const book = () => {
+    if (!time) return;
+    setBooking(true);
+    setFailure(null);
+    void bookSlot({ serviceId, startTime: time })
+      .then((created) => router.push(`/checkout/card?bookingId=${created.id}`))
+      .catch((cause: unknown) => {
+        if (cause instanceof ApiError && cause.status === 409) {
+          router.push(`/checkout/slot-taken?startTime=${encodeURIComponent(time)}&serviceId=${serviceId}`);
+          return;
+        }
+        setFailure(cause instanceof Error ? cause.message : String(cause));
+      })
+      .finally(() => setBooking(false));
+  };
 
-  return (
-    // `scroll-mt` so the anchor the booking card points at does not land under
-    // the sticky nav bar.
-    <div
-      className="flex w-full shrink-0 scroll-mt-24 flex-col items-start gap-3"
-      id="slots"
-    >
-      <p className={cn(SECTION_HEAD, "px-6")}>{t("slotsTitle")}</p>
-
-      {slots.loading ? (
-        <div className="flex w-full shrink-0 items-start gap-2 overflow-clip px-6">
-          {[0, 1, 2, 3].map((index) => (
-            <div
-              className="h-13 w-24 shrink-0 rounded-card bg-muted"
-              key={index}
-            />
-          ))}
-        </div>
-      ) : slots.error ? (
-        <div className="w-full px-6">
-          <ApiErrorCard
-            error={slots.error}
-            extra={
-              // The 400 the screening gate answers with. It is not a failure to
-              // retry — it names the step that comes first.
-              slots.error instanceof ApiError && slots.error.status === 400 ? (
-                <>
-                  <StatusPill tone="info">{s("screeningRequired")}</StatusPill>
-                  <NeutralButton
-                    className="w-auto shrink-0"
-                    href={`/screening/questions?serviceId=${serviceId}`}
-                    size="sm"
-                  >
-                    {sc("answerTitle")}
-                  </NeutralButton>
-                </>
-              ) : undefined
-            }
-            onRetry={slots.reload}
-            title={t("slotsTitle")}
-          />
-        </div>
-      ) : selected === null ? (
-        <p className="w-full px-6 text-sm font-normal text-muted-foreground">
-          {s("noResults")}
-        </p>
-      ) : (
-        <>
-          {/* The day rail. A week of a 30-minute service is well over a hundred
-              slots, which is why the chips are two levels rather than the one
-              row the phone frame draws: a day, then that day's times. */}
-          <div className="flex w-full shrink-0 items-start gap-2 overflow-x-auto px-6">
-            {days.map((key) => (
-              <Button
-                aria-pressed={key === selected}
-                className={cn(
-                  "h-auto shrink-0 flex-col items-start gap-0.5 rounded-card px-3 py-2 shadow-none",
-                  key === selected
-                    ? "border-primary bg-accent-surface text-primary hover:bg-accent-surface"
-                    : "bg-card",
-                )}
-                key={key}
-                onClick={() => setDay(key)}
-                variant="outline"
-              >
-                <span className="text-sm font-semibold whitespace-nowrap">
-                  {format.dateTime(new Date(`${key}T00:00:00`), {
-                    weekday: "short",
-                    day: "numeric",
-                    month: "short",
-                  })}
-                </span>
-                <span className="font-latin text-xs font-normal tabular-nums">
-                  {s("count", { count: byDay.get(key)?.length ?? 0 })}
-                </span>
-              </Button>
-            ))}
-          </div>
-
-          <div className="flex w-full shrink-0 flex-wrap items-start gap-2 px-6">
-            {(byDay.get(selected) ?? []).map((slot) => (
-              <Button
-                className="h-auto shrink-0 rounded-card bg-card px-3 py-2 shadow-none"
-                disabled={booking !== null}
-                key={slot.startTime}
-                onClick={() => onPick(slot.startTime)}
-                variant="outline"
-              >
-                <span className="font-latin text-sm font-semibold tabular-nums whitespace-nowrap">
-                  {format.dateTime(new Date(slot.startTime), {
-                    hour: "2-digit",
-                    minute: "2-digit",
-                  })}
-                </span>
-              </Button>
-            ))}
-          </div>
-
-          {failure ? (
-            <p className="w-full px-6 text-sm font-normal text-destructive">
-              {failure}
-            </p>
-          ) : null}
-        </>
-      )}
-    </div>
-  );
-}
-
-/* ----------------------------------------------------------------- advisor */
-
-/**
- * Figma "Advisor Card", from `GET /advisors/:advisorId`.
- *
- * Mounted only once the service has resolved, because the advisor's id is on the
- * service — which is also why this is its own component rather than a second
- * `useResource` in the parent with a key that would be `advisors/undefined` on
- * the first pass.
- *
- * A 404 here is meaningful and not a bug: `GET /advisors/:id` lists only a
- * discoverable advisor, so a suspended one 404s while their published service
- * still answers. The card then says nothing about them rather than guessing.
- */
-function AdvisorBlock({ advisorId }: { readonly advisorId: string }) {
-  const t = useTranslations("service");
-  const a = useTranslations("advisorProfile");
-  const summary = useRatingSummary(advisorId);
-
-  const fetcher = useCallback(
-    (signal: AbortSignal) => getAdvisor(advisorId, signal),
-    [advisorId],
-  );
-  const advisor = useResource<ApiPublicAdvisor>(
-    `advisors/${advisorId}`,
-    fetcher,
-  );
-
-  if (advisor.loading) {
+  if (slots.loading) {
     return (
-      <div className="flex w-full shrink-0 flex-col items-start px-6">
-        <div
-          className={cn(
-            surfaceClass(),
-            "flex w-full shrink-0 flex-col items-start gap-3 p-4",
-          )}
-        >
-          <div className="h-5 w-2/5 rounded-md bg-muted" />
-          <div className="h-4 w-4/5 rounded-md bg-muted" />
-          <div className="h-4 w-3/5 rounded-md bg-muted" />
-        </div>
+      <div aria-hidden className="flex flex-col gap-3">
+        <span className="h-14 animate-pulse rounded-xl bg-muted" />
+        <span className="h-24 animate-pulse rounded-xl bg-muted" />
       </div>
     );
   }
-  if (advisor.error || !advisor.data) return null;
-
-  const { data } = advisor;
+  if (slots.error instanceof ApiError && slots.error.status === 401) {
+    return (
+      <div className="flex flex-col gap-3">
+        <p className="text-sm text-muted-foreground">{t("signInForSlots")}</p>
+        <Button className={cn(authPill(true), "w-full sm:w-auto sm:px-8")} nativeButton={false} render={<Link href="/login" />}>
+          {t("signIn")}
+        </Button>
+      </div>
+    );
+  }
+  if (slots.error instanceof ApiError && slots.error.status === 400) {
+    return (
+      <Button
+        className={cn(authPill(true), "w-full sm:w-auto sm:px-8")}
+        nativeButton={false}
+        render={<Link href={`/screening/questions?serviceId=${serviceId}`} />}
+      >
+        {sc("answerTitle")}
+      </Button>
+    );
+  }
+  if (slots.error) return <ApiErrorCard error={slots.error} onRetry={slots.reload} title={t("slotsTitle")} />;
+  if (selected === null) return <p className="text-sm text-muted-foreground">{t("noSlots")}</p>;
 
   return (
-    <div className="flex w-full shrink-0 flex-col items-start overflow-clip px-6">
-      <Surface className="flex w-full shrink-0 flex-col items-start gap-3 overflow-clip p-4">
-        <div className="flex w-full shrink-0 flex-col items-start gap-1.5 overflow-clip">
-          <p className="w-full truncate text-base font-semibold text-foreground">
-            {data.displayName}
-          </p>
-          <p className="w-full text-xs font-normal text-muted-foreground">
-            <ThaiText>{data.headline}</ThaiText>
-          </p>
+    <div className="flex flex-col gap-5">
+      <div className="flex flex-col gap-2">
+        <span className="text-xs font-medium text-muted-foreground">{t("pickDay")}</span>
+        {/* Seven equal columns: the whole week fits, nothing scrolls off it. */}
+        <div className="grid grid-cols-7 gap-1.5 sm:gap-2">
+          {range.week.map((key) => {
+            const date = new Date(`${key}T00:00:00`);
+            const open = byDay.has(key);
+            const active = key === selected;
+            return (
+              <Button
+                aria-pressed={active}
+                className={cn(
+                  "h-auto flex-col gap-0 rounded-xl px-0 py-2 shadow-none",
+                  active
+                    ? "border-transparent bg-hero-action text-hero-action-foreground hover:bg-hero-action/85 hover:text-hero-action-foreground"
+                    : "border-border bg-card",
+                )}
+                disabled={!open}
+                key={key}
+                onClick={() => {
+                  setDay(key);
+                  setTime(null);
+                }}
+                variant="outline"
+              >
+                <span className="text-2xs font-normal sm:text-xs">{format.dateTime(date, { weekday: "short" })}</span>
+                <span className="font-latin text-sm font-semibold tabular-nums sm:text-base">{date.getDate()}</span>
+              </Button>
+            );
+          })}
         </div>
+      </div>
 
-        {data.bio ? (
-          <p className="w-full text-sm font-normal text-muted-foreground">
-            <ThaiText>{data.bio}</ThaiText>
-          </p>
-        ) : null}
+      <div className="flex flex-col gap-2">
+        <span className="text-xs font-medium text-muted-foreground">{t("pickHour")}</span>
+        <div className="grid grid-cols-3 gap-1.5 sm:grid-cols-4 sm:gap-2 lg:grid-cols-5">
+          {(byDay.get(selected) ?? []).map((slot) => {
+            const active = slot.startTime === time;
+            return (
+              <Button
+                aria-pressed={active}
+                className={cn(
+                  "h-10 rounded-xl px-0 shadow-none",
+                  active
+                    ? "border-foreground bg-card ring-1 ring-foreground hover:bg-card"
+                    : "border-border bg-card hover:border-foreground/40",
+                )}
+                key={slot.startTime}
+                onClick={() => setTime(slot.startTime)}
+                variant="outline"
+              >
+                <span className="font-latin text-sm font-medium tabular-nums">{hour(slot.startTime)}</span>
+              </Button>
+            );
+          })}
+        </div>
+      </div>
 
-        {/* `publishedServiceCount` and the review total are the only two counts
-            the API keeps about an advisor. The third stat the frame draws —
-            consultations delivered — has no field, so the row is two wide. */}
-        <Surface
-          className="flex w-full shrink-0 items-start gap-2 overflow-clip p-3"
-          tier="well"
-        >
-          <div className="flex min-w-px flex-1 flex-col items-center gap-0.5 text-center">
-            <p className="w-full font-latin text-base font-semibold tabular-nums text-foreground">
-              {data.publishedServiceCount}
-            </p>
-            <p className="w-full text-xs font-normal text-muted-foreground">
-              {a("tab.services")}
-            </p>
-          </div>
-          <div className="flex min-w-px flex-1 flex-col items-center gap-0.5 text-center">
-            <p className="w-full font-latin text-base font-semibold tabular-nums text-foreground">
-              {summary?.total ?? 0}
-            </p>
-            <p className="w-full text-xs font-normal text-muted-foreground">
-              {t("statReviews")}
-            </p>
-          </div>
-        </Surface>
-
-        {data.skills.length > 0 ? (
-          <ul className="flex w-full shrink-0 flex-col items-start gap-2">
-            {data.skills.map((skill) => (
-              <li className="flex w-full shrink-0 items-start gap-2" key={skill}>
-                <BadgeCheck
-                  aria-hidden
-                  className="mt-0.5 size-4 shrink-0 text-primary"
-                />
-                <span className="min-w-px flex-1 text-sm font-normal text-foreground">
-                  {skill}
-                </span>
-              </li>
-            ))}
-          </ul>
-        ) : null}
-
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-4">
         <Button
-          className="h-auto p-0 text-sm font-medium whitespace-nowrap"
-          nativeButton={false}
-          render={<Link href={liveAdvisorHref(advisorId)} />}
-          variant="link"
+          aria-busy={booking || undefined}
+          className={cn(authPill(true), "w-full sm:w-auto sm:min-w-56 sm:px-8")}
+          disabled={!time || booking}
+          onClick={book}
+          type="button"
         >
-          {t("viewProfile")}
+          {booking ? t("booking") : time ? t("bookAt", { time: hour(time) }) : t("pickTimeFirst")}
         </Button>
-      </Surface>
+        <p className="text-center text-xs text-muted-foreground sm:text-left">{t("pickTimeHint")}</p>
+      </div>
+      {failure ? <p className="text-sm text-destructive">{failure}</p> : null}
     </div>
   );
 }
 
-/* ----------------------------------------------------------------- reviews */
+/* --------------------------------------------------------------- the tabs */
 
-/**
- * Figma "Reviews", from `GET /advisors/:advisorId/reviews`.
- *
- * The reviews are the advisor's, not this service's — there is no per-service
- * review route — so each card names the service it was left about. `reviewer`
- * portraits are storage keys with no public presign, so the cards carry names and
- * no faces.
- *
- * `service_appointments` is seeded empty, so every advisor legitimately has zero
- * reviews and this block renders nothing at all rather than an empty shell.
- */
-function ReviewsBlock({ advisorId }: { readonly advisorId: string }) {
+/** The advisor's reviews (there is no per-service review route). */
+function ReviewsPanel({ advisorId }: { readonly advisorId: string }) {
   const t = useTranslations("service");
   const format = useFormatter();
-  const summary = useRatingSummary(advisorId);
-
   const fetcher = useCallback(
     (signal: AbortSignal) => listAdvisorReviews(advisorId, { limit: 6 }, signal),
     [advisorId],
   );
-  const reviews = useResource<Paginated<ApiReview>>(
-    `advisors/${advisorId}/reviews?limit=6`,
-    fetcher,
-  );
-
+  const reviews = useResource<Paginated<ApiReview>>(`advisors/${advisorId}/reviews?limit=6`, fetcher);
   const items = reviews.data?.items ?? [];
-  if (items.length === 0) return null;
-
-  const total = summary?.total ?? 0;
-  const bars = summary?.distribution ?? [];
+  if (reviews.loading) return <span aria-hidden className="block h-24 animate-pulse rounded-xl bg-muted" />;
+  if (items.length === 0) return <p className="text-sm text-muted-foreground">{t("noReviewsYet")}</p>;
 
   return (
-    <div className="flex w-full shrink-0 flex-col items-start gap-3 overflow-clip px-6">
-      <div className="flex w-full shrink-0 items-center overflow-clip">
-        <p className={cn(SECTION_HEAD, "min-w-px flex-1")}>{t("reviewsTitle")}</p>
-        <p className="shrink-0 text-sm font-normal whitespace-nowrap text-muted-foreground">
-          {t("reviewCount", { count: total })}
-        </p>
-      </div>
-
-      {summary?.average && total > 0 ? (
-        <Surface className="flex w-full shrink-0 items-center gap-4 overflow-clip p-4">
-          <div className="flex shrink-0 flex-col items-center gap-1 overflow-clip">
-            <p className="font-latin text-heading font-semibold tabular-nums whitespace-nowrap text-foreground">
-              {summary.average.toFixed(1)}
-            </p>
-            <div className="flex shrink-0 items-start gap-0.5">
-              {[0, 1, 2, 3, 4].map((i) => (
+    <ul className="grid grid-cols-1 gap-x-10 gap-y-8 md:grid-cols-2">
+      {items.map((review) => (
+        <li className="flex flex-col gap-2" key={review.appointmentId}>
+          <span className="text-sm font-medium text-foreground">{review.reviewerDisplayName}</span>
+          <span className="flex items-center gap-2 text-xs text-muted-foreground">
+            <span aria-label={`${review.stars}/5`} className="flex items-center gap-0.5">
+              {Array.from({ length: 5 }, (_, i) => (
                 <Star
-                  className="size-2.75 shrink-0 fill-primary text-primary"
+                  aria-hidden
+                  className={cn("size-3", i < review.stars ? "fill-foreground text-foreground" : "text-border")}
                   key={i}
                 />
               ))}
-            </div>
-            <p className="text-xs font-normal whitespace-nowrap text-muted-foreground">
-              {t("reviewCount", { count: total })}
-            </p>
-          </div>
-          <div className="flex min-w-px flex-1 flex-col items-start gap-1 overflow-clip">
-            {bars.map((bar) => (
-              <DistributionRow
-                fill={total === 0 ? 0 : (bar.count / total) * 100}
-                key={bar.stars}
-                label={String(bar.stars)}
-              />
-            ))}
-          </div>
-        </Surface>
-      ) : null}
+            </span>
+            {format.dateTime(new Date(review.createdAt), { dateStyle: "medium" })}
+          </span>
+          {review.comment ? <p className="text-sm leading-6 text-foreground">{review.comment}</p> : null}
+          <span className="text-xs text-muted-foreground">{review.serviceName}</span>
+        </li>
+      ))}
+    </ul>
+  );
+}
 
-      <div className="flex w-full flex-col gap-3 lg:grid lg:grid-cols-2 lg:gap-4">
-        {items.map((review) => (
-          <Surface
-            className="flex w-full shrink-0 flex-col items-start gap-2 overflow-clip p-3"
-            key={review.appointmentId}
-          >
-            <div className="flex w-full shrink-0 items-center gap-2 overflow-clip">
-              <div className="flex min-w-px flex-1 flex-col items-start gap-0.5 overflow-clip">
-                <p className="w-full text-sm font-semibold text-foreground">
-                  {review.reviewerDisplayName}
-                </p>
-                <p className="w-full text-xs font-normal text-muted-foreground">
-                  {format.dateTime(new Date(review.createdAt), "short")}
-                </p>
-              </div>
-              <span className="flex shrink-0 items-center gap-1 overflow-clip">
-                <Star className="size-3 shrink-0 fill-primary text-primary" />
-                <span className="font-latin text-sm font-semibold tabular-nums whitespace-nowrap text-foreground">
-                  {review.stars}
-                </span>
-              </span>
-            </div>
-            <StatusPill>{review.serviceName}</StatusPill>
-            {review.comment ? (
-              <p className="w-full text-sm font-normal text-foreground">
-                <ThaiText>{review.comment}</ThaiText>
-              </p>
-            ) : null}
-            {review.advisorReply ? (
-              <Surface className="w-full p-3" tier="well">
-                <p className="w-full text-sm font-normal text-muted-foreground">
-                  <ThaiText>{review.advisorReply}</ThaiText>
-                </p>
-              </Surface>
-            ) : null}
-          </Surface>
-        ))}
-      </div>
+/** The advisor in their own words, what they work on, and their profile. */
+function AboutPanel({ advisor, advisorId }: { readonly advisor?: ApiPublicAdvisor; readonly advisorId: string }) {
+  const t = useTranslations("service");
+  if (!advisor) return <span aria-hidden className="block h-24 animate-pulse rounded-xl bg-muted" />;
+  return (
+    <div className="flex max-w-2xl flex-col gap-4">
+      <p className="text-base font-medium text-foreground">{advisor.headline}</p>
+      {advisor.bio ? <p className="text-sm leading-7 text-muted-foreground">{advisor.bio}</p> : null}
+      <Link
+        className="self-start text-sm font-semibold text-foreground underline underline-offset-4"
+        href={liveAdvisorHref(advisorId)}
+      >
+        {t("viewProfile")}
+      </Link>
     </div>
   );
 }
 
-/* ----------------------------------------------------------------- related */
-
-/** The rest of the advisor's catalogue, from `GET /services?advisorId=`. */
-function RelatedBlock({
-  advisorId,
-  serviceId,
-}: {
-  readonly advisorId: string;
-  readonly serviceId: string;
-}) {
+/** fastwork's "Services" rail: the advisor's other services as small rows. */
+function ServicesRail({ advisorId, serviceId }: { readonly advisorId: string; readonly serviceId: string }) {
   const t = useTranslations("service");
   const s = useTranslations("search");
   const format = useFormatter();
-
-  const fetcher = useCallback(
-    (signal: AbortSignal) => listServices({ advisorId, limit: 20 }, signal),
-    [advisorId],
-  );
-  const related = useResource<Paginated<ApiPublicService>>(
-    `services?advisorId=${advisorId}&limit=20`,
-    fetcher,
-  );
-
-  const items = (related.data?.items ?? []).filter(
-    (item) => item.id !== serviceId,
-  );
+  const catalogue = useLiveCatalogue();
+  const items = catalogue.items.filter((item) => item.advisorId === advisorId && item.id !== serviceId);
   if (items.length === 0) return null;
 
   return (
-    <div className="flex w-full shrink-0 flex-col items-start gap-3 overflow-clip px-6">
-      <p className={SECTION_HEAD}>{t("relatedTitle")}</p>
-      {/* No covers on the API, so these are text cards rather than the fixture
-          screen's 16:9 photo tiles. */}
-      <div className="flex w-full flex-col gap-3 lg:grid lg:grid-cols-3 lg:gap-4">
-        {items.map((item) => (
-          <Link
-            className={cn(
-              surfaceClass({ interactive: true }),
-              "flex w-full flex-col items-start gap-1 p-3",
-            )}
-            href={liveServiceHref(item.id)}
-            key={item.id}
-          >
-            <p className="line-clamp-2 w-full text-base font-semibold text-foreground">
-              <ThaiText>{item.name}</ThaiText>
-            </p>
-            <p className="w-full text-xs font-normal text-muted-foreground">
-              {s("durationMinutes", { count: item.durationMinutes })}
-            </p>
-            <p className="font-latin mt-auto w-full text-base font-semibold tabular-nums text-foreground">
-              {format.number(baht(item.priceSatang), "baht")}
-            </p>
-          </Link>
-        ))}
+    <aside className="flex flex-col gap-4">
+      <div className="flex items-center justify-between">
+        <h2 className="text-lg font-semibold text-foreground">{t("relatedTitle")}</h2>
+        <Link className="text-sm font-medium text-foreground hover:underline hover:underline-offset-4" href={liveAdvisorHref(advisorId)}>
+          {t("viewAll")}
+        </Link>
       </div>
-    </div>
+      <ul className="flex flex-col gap-3">
+        {items.slice(0, 4).map((item) => (
+          <li key={item.id}>
+            <Link
+              className="group flex items-center gap-4 rounded-2xl border border-border bg-card p-3 transition-[box-shadow,border-color] hover:border-foreground/20 hover:shadow-hero-card"
+              href={item.href}
+            >
+              <span className="w-28 shrink-0 overflow-hidden rounded-xl bg-muted">
+                <Image alt="" className="aspect-[4/3] w-full object-cover" src={item.cover} />
+              </span>
+              <span className="flex min-w-0 flex-col gap-1">
+                <span className="line-clamp-2 text-sm font-semibold leading-snug text-foreground">{item.title}</span>
+                <span className="flex flex-wrap items-center gap-x-1.5 text-sm text-muted-foreground">
+                  <span className="font-latin font-semibold text-foreground tabular-nums">
+                    {format.number(item.price, { style: "currency", currency: "THB", maximumFractionDigits: 0 })}
+                  </span>
+                  <span aria-hidden>·</span>
+                  {item.reviews > 0 && item.rating ? (
+                    <span className="flex items-center gap-1">
+                      <Star aria-hidden className="size-3.5 fill-foreground text-foreground" />
+                      <span className="font-latin tabular-nums">{item.rating.toFixed(1)}</span>
+                      <span className="tabular-nums">({item.reviews})</span>
+                    </span>
+                  ) : (
+                    <span>{s("noReviews")}</span>
+                  )}
+                </span>
+              </span>
+            </Link>
+          </li>
+        ))}
+      </ul>
+    </aside>
   );
 }
 
 /* ------------------------------------------------------------------ screen */
 
-export function LiveServiceDetailScreen({
-  serviceId,
-}: {
-  readonly serviceId: string;
-}) {
+/** The frame every state shares: the docking bar over the 1710 column. */
+function Frame({ children }: { readonly children: React.ReactNode }) {
+  return (
+    <MobileScreen className="pb-0" wide="md">
+      <ScreenBody className="bg-card">
+        <TopBar dock unreadNotifications />
+        <div className="doc-scale mx-auto flex w-full max-w-310 flex-1 flex-col px-5 pt-3 pb-28 md:px-12 md:pt-4 lg:px-8 lg:pt-6 lg:pb-24">
+          {children}
+        </div>
+        <SiteFooter className="hidden lg:flex" />
+      </ScreenBody>
+    </MobileScreen>
+  );
+}
+
+/** One figure in the stats box: a value over its label. */
+function Stat({ value, label }: { readonly value: React.ReactNode; readonly label: string }) {
+  return (
+    <div className="flex min-w-0 flex-col items-center gap-0.5 text-center">
+      <strong className="font-latin text-base font-semibold whitespace-nowrap text-foreground tabular-nums md:text-lg">
+        {value}
+      </strong>
+      <span className="text-xs whitespace-nowrap text-muted-foreground">{label}</span>
+    </div>
+  );
+}
+
+export function LiveServiceDetailScreen({ serviceId }: { readonly serviceId: string }) {
   const t = useTranslations("service");
   const s = useTranslations("search");
   const sc = useTranslations("screening");
   const format = useFormatter();
+  const catalogue = useLiveCatalogue();
+  const [tab, setTab] = useState<Tab>("book");
 
-  const serviceFetcher = useCallback(
-    (signal: AbortSignal) => getService(serviceId, signal),
-    [serviceId],
-  );
-  const categoriesFetcher = useCallback(
-    (signal: AbortSignal) => listServiceCategories(signal),
-    [],
-  );
-  const service = useResource<ApiPublicService>(
-    `services/${serviceId}`,
-    serviceFetcher,
-  );
-  const categories = useResource<Paginated<ApiNamedRecord>>(
-    "service-categories",
-    categoriesFetcher,
-  );
+  const fetcher = useCallback((signal: AbortSignal) => getService(serviceId, signal), [serviceId]);
+  const service = useResource<ApiPublicService>(`services/${serviceId}`, fetcher);
+  const advisorId = service.data?.advisorId ?? "none";
+  const item = catalogue.items.find((entry) => entry.id === serviceId);
+  const rating = useRatingSummary(advisorId);
+  const advisor = useAdvisor(advisorId);
 
   if (service.loading) {
     return (
-      <MobileScreen className="pb-0" wide>
-        <ScreenBody>
-          <TopBar unreadNotifications />
-          <div className={cn("flex w-full flex-col gap-4 px-6 pt-6", PAGE)}>
-            <div className="h-7 w-3/5 rounded-md bg-muted" />
-            <div className="h-5 w-2/5 rounded-md bg-muted" />
-            <div className="h-24 w-full rounded-card bg-muted" />
-            <div className="h-40 w-full rounded-card bg-muted" />
-          </div>
-        </ScreenBody>
-      </MobileScreen>
+      <Frame>
+        <div aria-hidden className="grid gap-8 pt-8 lg:grid-cols-2">
+          <span className="flex flex-col gap-3">
+            <span className="h-9 w-4/5 animate-pulse rounded-md bg-muted" />
+            <span className="h-16 w-full animate-pulse rounded-md bg-muted" />
+          </span>
+          <span className="aspect-[7/2] w-full animate-pulse rounded-2xl bg-muted" />
+        </div>
+      </Frame>
     );
   }
-
   if (service.error || !service.data) {
     return (
-      <MobileScreen className="pb-0" wide>
-        <ScreenBody>
-          <TopBar unreadNotifications />
-          <div className={cn("w-full px-6 pt-6", PAGE)}>
-            <ApiErrorCard
-              error={service.error ?? new Error(t("notFoundBody"))}
-              extra={
-                <NeutralButton className="w-auto shrink-0" href="/search" size="sm">
-                  {s("browseAll")}
-                </NeutralButton>
-              }
-              onRetry={service.reload}
-              title={t("notFoundTitle")}
-            />
-          </div>
-        </ScreenBody>
-      </MobileScreen>
+      <Frame>
+        <ApiErrorCard
+          error={service.error ?? new Error(t("notFoundBody"))}
+          onRetry={service.reload}
+          title={t("notFoundTitle")}
+        />
+      </Frame>
     );
   }
 
   const live = service.data;
   const price = format.number(baht(live.priceSatang), "baht");
-  const duration = s("durationMinutes", { count: live.durationMinutes });
-  const categoryName = (categories.data?.items ?? []).find(
-    (item) => item.id === live.categoryId,
-  )?.name;
+  const name = item?.advisorName ?? advisor?.displayName ?? "";
+  const tags = [...new Set([item?.category, ...(advisor?.skills ?? [])].filter(Boolean))].slice(0, 4);
+  const openBooking = () => {
+    setTab("book");
+    document.getElementById("service-tabs")?.scrollIntoView({ behavior: "smooth", block: "start" });
+  };
 
   return (
-    <MobileScreen className="pb-0" wide>
-      <ScreenBody>
-        <TopBar unreadNotifications />
+    <>
+      <Frame>
+        <Link
+          className="flex items-center gap-1.5 self-start text-sm text-muted-foreground hover:text-foreground"
+          href="/search"
+        >
+          <ArrowLeft aria-hidden className="size-4" />
+          {t("back")}
+        </Link>
 
-        <div className={cn("w-full shrink-0 px-6 py-3 lg:pt-6", PAGE)}>
-          <Breadcrumb aria-label={t("breadcrumbLabel")}>
-            <BreadcrumbList className="gap-1 text-xs sm:gap-1">
-              <BreadcrumbItem>
-                <BreadcrumbLink render={<Link href="/search" />}>
-                  {t("breadcrumbAll")}
-                </BreadcrumbLink>
-              </BreadcrumbItem>
-              {categoryName ? (
-                <>
-                  <BreadcrumbSeparator />
-                  <BreadcrumbItem>
-                    <BreadcrumbLink render={<Link href="/search" />}>
-                      {categoryName}
-                    </BreadcrumbLink>
-                  </BreadcrumbItem>
-                </>
-              ) : null}
-              <BreadcrumbSeparator />
-              <BreadcrumbItem>
-                <BreadcrumbPage className="line-clamp-1">
+        {/* The showcase head: who and what on the left, the cover on the right. */}
+        <div className="grid items-start gap-8 pt-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.05fr)] lg:gap-12 lg:pt-8">
+          <div className="flex flex-col gap-4">
+            <p className="text-sm text-muted-foreground">{t("crumb", { name })}</p>
+            <div className="flex items-start gap-4 md:gap-5">
+              <Link className="shrink-0" href={liveAdvisorHref(live.advisorId)}>
+                <Face className="size-16 text-xl md:size-22" item={item} name={name} />
+              </Link>
+              <div className="flex min-w-0 flex-col gap-2">
+                <h1 className="font-hero text-2xl leading-tight font-normal tracking-tight text-hero-ink md:text-3xl lg:text-4xl">
                   {live.name}
-                </BreadcrumbPage>
-              </BreadcrumbItem>
-            </BreadcrumbList>
-          </Breadcrumb>
-        </div>
-
-        <div className={cn("w-full lg:pb-14", PAGE_INSET_BLOCKS, SPLIT_WITH_ASIDE)}>
-          <div className="flex w-full flex-col lg:px-6">
-            <div className="flex w-full shrink-0 flex-col items-center gap-6 pb-6 lg:px-0">
-              {/* Figma "Service Header". No gallery above it — the API has no
-                  cover, and this page does not draw a rectangle for one. */}
-              <div className="flex w-full shrink-0 flex-col items-start gap-3 overflow-clip px-6 pt-4">
-                <div className="flex w-full shrink-0 flex-wrap items-center gap-1.5">
-                  {live.screeningRequired ? (
-                    <StatusPill tone="info">{s("screeningRequired")}</StatusPill>
-                  ) : null}
-                  {live.trialEnabled && live.trialDurationMinutes !== null ? (
-                    <StatusPill tone="success">
-                      {sc("trialLabel")}{" "}
-                      {s("durationMinutes", {
-                        count: live.trialDurationMinutes,
-                      })}
-                    </StatusPill>
-                  ) : null}
-                </div>
-
-                <h1 className="w-full text-2xl font-semibold text-foreground lg:text-heading">
-                  <ThaiText>{live.name}</ThaiText>
                 </h1>
-
-                <div className="flex w-full shrink-0 items-center gap-2 overflow-clip">
-                  <p className="font-latin shrink-0 text-2xl font-semibold tabular-nums whitespace-nowrap text-foreground lg:text-heading">
-                    {price}
-                  </p>
-                  <p className="min-w-px flex-1 text-sm font-normal text-muted-foreground">
-                    {t("priceUnit", { duration })}
-                  </p>
-                  {/* Only when reviews exist. The seed has none, so this is
-                      normally absent rather than "0.0". */}
-                  <HeaderRating advisorId={live.advisorId} />
-                </div>
-
-                {live.description ? (
-                  <p className="w-full text-sm font-normal text-foreground lg:text-base">
-                    <ThaiText>{live.description}</ThaiText>
-                  </p>
-                ) : null}
+                <p className="text-sm text-muted-foreground">
+                  <Link className="font-medium text-foreground underline underline-offset-4" href={liveAdvisorHref(live.advisorId)}>
+                    {name}
+                  </Link>
+                  {advisor?.headline ? ` · ${advisor.headline}` : null}
+                </p>
               </div>
-
-              <AdvisorBlock advisorId={live.advisorId} />
-
-              <SlotsBlock serviceId={live.id} />
-
-              <div className="flex w-full shrink-0 flex-col items-start gap-3 overflow-clip px-6">
-                <p className={SECTION_HEAD}>{t("stepsTitle")}</p>
-                <StepList />
-              </div>
-
-              <ReviewsBlock advisorId={live.advisorId} />
-
-              <div className="flex w-full shrink-0 flex-col items-start gap-3 overflow-clip px-6">
-                <p className={SECTION_HEAD}>{t("faqTitle")}</p>
-                <FaqSection limit={4} />
-              </div>
-
-              <RelatedBlock advisorId={live.advisorId} serviceId={live.id} />
+            </div>
+            {live.description ? (
+              <p className="text-base leading-7 text-muted-foreground lg:pl-27">{live.description}</p>
+            ) : null}
+            {live.trialEnabled && live.trialDurationMinutes !== null ? (
+              <p className="text-sm text-muted-foreground lg:pl-27">
+                {sc("trialLabel")} {s("durationMinutes", { count: live.trialDurationMinutes })}
+              </p>
+            ) : null}
+            {/* fastwork's figures box, with the four this service actually has. */}
+            <div className="grid grid-cols-4 gap-2 rounded-2xl border border-border px-3 py-4 md:inline-grid md:w-auto md:gap-10 md:self-start md:px-6 lg:ml-27">
+              <Stat label={t("statPrice")} value={price} />
+              <Stat label={t("statLength")} value={s("durationMinutes", { count: live.durationMinutes })} />
+              <Stat label={t("statRating")} value={rating?.average ? `★${rating.average.toFixed(1)}` : "–"} />
+              <Stat label={t("statReviews")} value={rating?.total ?? 0} />
             </div>
           </div>
 
-          {/* Figma "Booking Card". The action scrolls the reader back to the
-              times rather than jumping to a checkout: a booking cannot be made
-              without picking one, and the slot chips are the control that does
-              it. */}
-          <aside className="hidden lg:sticky lg:top-24 lg:me-6 lg:block lg:rounded-card lg:border lg:border-border lg:bg-card lg:p-5 lg:shadow-panel">
-            <p className="flex items-baseline gap-2">
-              <span className="font-latin text-2xl font-semibold tabular-nums text-foreground">
-                {price}
+          <div className="flex flex-col gap-3">
+            {item ? (
+              <span className="overflow-hidden rounded-2xl bg-muted shadow-hero-card">
+                <Image alt="" className="aspect-[16/9] w-full object-cover lg:aspect-[7/3]" priority src={item.cover} />
               </span>
-              <span className="text-sm font-normal text-muted-foreground">
-                {t("perSession", { duration })}
-              </span>
-            </p>
-            {live.screeningRequired ? (
-              <div className="flex flex-wrap items-center gap-1.5 pt-2.5">
-                <StatusPill tone="info">{s("screeningRequired")}</StatusPill>
-              </div>
             ) : null}
-            <div className="flex flex-col gap-2.5 pt-5">
-              <PrimaryButton block href="#slots" size="lg">
-                {t("book")}
-              </PrimaryButton>
-              <NeutralButton block href={`/chat/${live.advisorId}`}>
-                {t("message")}
-              </NeutralButton>
-            </div>
-            <p className="pt-4 text-xs font-normal text-muted-foreground">
-              <ThaiText>{t("packagesNote")}</ThaiText>
-            </p>
-          </aside>
+            {tags.length > 0 ? (
+              <ul className="flex flex-wrap gap-2">
+                {tags.map((tag) => (
+                  <li className="rounded-full border border-border px-3 py-1 text-xs text-foreground" key={tag}>
+                    {tag}
+                  </li>
+                ))}
+              </ul>
+            ) : null}
+          </div>
         </div>
 
-        <SiteFooter className="hidden lg:flex" />
-      </ScreenBody>
-
-      <div className="flex w-full shrink-0 items-center gap-3 overflow-clip border-t border-border bg-card px-6 py-3 shadow-panel lg:hidden">
-        <div className="flex shrink-0 flex-col items-start gap-0.5 overflow-clip">
-          <p className="font-latin text-base font-semibold tabular-nums whitespace-nowrap text-foreground">
-            {price}
-          </p>
-          <p className="text-xs font-normal whitespace-nowrap text-muted-foreground">
-            {t("perSession", { duration })}
-          </p>
-        </div>
-        <NeutralButton
-          aria-label={t("message")}
-          className="size-9 shrink-0 border-input px-0 shadow-none [&_svg]:size-4.5"
-          href={`/chat/${live.advisorId}`}
+        {/* Tabs on the left, the advisor's other services in a rail beside them. */}
+        <Tabs
+          className="mt-10 scroll-mt-28 gap-0 lg:mt-14"
+          id="service-tabs"
+          onValueChange={(value) => setTab(value as Tab)}
+          value={tab}
         >
-          <MessageSquare />
-        </NeutralButton>
-        <PrimaryButton className="w-auto min-w-px flex-1" href="#slots">
-          {t("book")}
-        </PrimaryButton>
+          <TabsList className="h-auto w-full justify-start gap-6 border-b border-border p-0 md:gap-8" variant="line">
+            {(
+              [
+                ["book", t("tabBook")],
+                ["reviews", `${t("tabReviews")}${rating?.total ? ` (${rating.total})` : ""}`],
+                ["about", t("tabAbout")],
+              ] as const
+            ).map(([value, label]) => (
+              <TabsTrigger
+                className="h-11 flex-none rounded-none px-0 text-base font-normal data-active:font-semibold md:text-lg"
+                key={value}
+                value={value}
+              >
+                {label}
+              </TabsTrigger>
+            ))}
+          </TabsList>
+
+          <div className="grid items-start gap-10 pt-8 lg:grid-cols-[minmax(0,1fr)_26rem] lg:gap-14">
+            <div className="min-w-0">
+              <TabsContent value="book">
+                <div className="flex flex-col gap-5">
+                  <BookingPicker serviceId={live.id} />
+                  <Link
+                    className="flex items-center gap-2 self-start text-sm font-medium text-foreground hover:underline hover:underline-offset-4"
+                    href={`/chat/${live.advisorId}`}
+                  >
+                    <MessageSquare aria-hidden className="size-4" />
+                    {t("message")}
+                  </Link>
+                </div>
+              </TabsContent>
+              <TabsContent value="reviews">
+                <ReviewsPanel advisorId={live.advisorId} />
+              </TabsContent>
+              <TabsContent value="about">
+                <AboutPanel advisor={advisor} advisorId={live.advisorId} />
+              </TabsContent>
+            </div>
+            <ServicesRail advisorId={live.advisorId} serviceId={live.id} />
+          </div>
+        </Tabs>
+      </Frame>
+
+      {/* The phone keeps the price and the way to the times in reach. */}
+      <div className="fixed inset-x-0 bottom-0 z-20 flex items-center gap-3 border-t border-border bg-card px-5 py-3 lg:hidden">
+        <span className="flex min-w-0 flex-col">
+          <span className="font-latin text-base font-bold text-foreground tabular-nums">{price}</span>
+          <span className="text-xs text-muted-foreground">{s("perSession", { minutes: live.durationMinutes })}</span>
+        </span>
+        <Button className={cn(authPill(true), "ml-auto w-auto px-6")} onClick={openBooking} type="button">
+          {t("pickTime")}
+        </Button>
       </div>
-    </MobileScreen>
+    </>
   );
 }

@@ -102,10 +102,11 @@ function Chip({
     <Button
       aria-pressed={active}
       className={cn(
-        "h-9 shrink-0 rounded-full px-4 text-sm font-medium",
+        "h-8 shrink-0 rounded-full px-3 text-xs font-medium md:h-9 md:px-4 md:text-sm",
         className,
         active
-          ? "border-transparent bg-hero-action text-hero-action-foreground hover:bg-hero-action/85"
+          ? // The outline variant turns hover ink dark; the chosen chip keeps its white.
+            "border-transparent bg-hero-action text-hero-action-foreground hover:bg-hero-action/85 hover:text-hero-action-foreground"
           : "border-border bg-card text-foreground hover:bg-muted",
       )}
       onClick={onClick}
@@ -327,7 +328,7 @@ function AdvisorFace({ item }: { readonly item: LiveService }) {
  * Nothing invented to fill the card: there is no reply time or sales count
  * behind it, so neither is drawn. The whole card is the link to the service.
  */
-function ResultCard({ item }: { readonly item: LiveService }) {
+export function ResultCard({ item }: { readonly item: LiveService }) {
   const t = useTranslations("search");
   const format = useFormatter();
   return (
@@ -370,11 +371,11 @@ function ResultCard({ item }: { readonly item: LiveService }) {
   );
 }
 
-// Two across on the phone, three on a tablet held upright, and from `lg` the
-// desktop's four, which a landscape tablet shows as the 1710 frame scaled down
-// (`doc-scale`) rather than as a layout of its own.
+// Two across on the phone and on a tablet held upright (roomier there), and
+// from `lg` the desktop's four, which a landscape tablet shows as the 1710
+// frame scaled down (`doc-scale`) rather than as a layout of its own.
 const GRID =
-  "grid grid-cols-2 gap-x-4 gap-y-8 md:grid-cols-3 md:gap-x-6 md:gap-y-10 lg:grid-cols-4 lg:gap-x-10 lg:gap-y-14";
+  "grid grid-cols-2 gap-x-4 gap-y-8 md:gap-x-8 md:gap-y-12 lg:grid-cols-4 lg:gap-x-10 lg:gap-y-14";
 
 /** Twelve at a time: three full rows at the widest grid, enough to choose from at once. */
 const PAGE_SIZE = 12;
@@ -486,7 +487,7 @@ function FilterSheet({
     <Sheet onOpenChange={setOpen} open={open}>
       <SheetTrigger
         className={cn(
-          "flex h-10 shrink-0 items-center gap-2 rounded-full border px-4 text-sm font-medium transition-colors",
+          "flex h-9 shrink-0 items-center gap-1.5 rounded-full border px-3 text-xs font-medium transition-colors md:h-10 md:gap-2 md:px-4 md:text-sm",
           count > 0
             ? "border-transparent bg-hero-action text-hero-action-foreground"
             : "border-border bg-card text-foreground hover:bg-muted",
@@ -531,11 +532,13 @@ function SortSelect({ value, onChange }: { readonly value: SortKey; readonly onC
     <Select items={items} onValueChange={(next) => onChange(next as SortKey)} value={value}>
       <SelectTrigger
         aria-label={t("sortLabel")}
-        className="h-10! rounded-full border-border bg-card pr-3 pl-4 font-medium shadow-none"
+        className="h-9! rounded-full border-border bg-card pr-2.5 pl-3 text-xs font-medium shadow-none md:h-10! md:pr-3 md:pl-4 md:text-sm"
       >
         <SelectValue />
       </SelectTrigger>
-      <SelectContent>
+      {/* Opens below the pill, not over it: lining the chosen item up with the
+          trigger hid the button the reader had just pressed. */}
+      <SelectContent align="end" alignItemWithTrigger={false} sideOffset={8}>
         {items.map((item) => (
           <SelectItem key={item.value} value={item.value}>
             {item.label}
@@ -614,7 +617,7 @@ function PagedResults({ results }: { readonly results: readonly LiveService[] })
                 className={cn(
                   "size-10 rounded-full font-latin text-sm tabular-nums",
                   n === page
-                    ? "bg-hero-action text-hero-action-foreground hover:bg-hero-action/85"
+                    ? "bg-hero-action text-hero-action-foreground hover:bg-hero-action/85 hover:text-hero-action-foreground"
                     : "text-foreground",
                 )}
                 key={n}
@@ -689,21 +692,25 @@ export function SearchScreen({
   ];
 
   return (
-    <MobileScreen className="pb-0" wide>
+    // Full width from `md`: a portrait tablet gets its own three-column grid,
+    // not the phone frame centred between grey margins.
+    <MobileScreen className="pb-0" wide="md">
       <ScreenBody className="bg-card pb-18 lg:pb-0">
         <TopBar dock unreadNotifications />
 
-        <div className="doc-scale mx-auto flex w-full max-w-300 flex-1 flex-col px-5 pt-8 pb-14 md:px-8 lg:pt-14 lg:pb-24">
+        <div className="doc-scale mx-auto flex w-full max-w-300 flex-1 flex-col px-5 pt-3 pb-14 md:px-20 md:pt-4 lg:px-8 lg:pt-6 lg:pb-24">
           {/* The hero's own stack: heading, field, categories, centred. */}
           <header className="mx-auto flex w-full max-w-170 flex-col items-center gap-5 text-center lg:gap-6">
-            <h1 className="font-hero text-3xl font-normal tracking-tight text-hero-ink md:text-hero">
+            <h1 className="font-hero text-2xl font-normal tracking-tight text-hero-ink md:text-hero">
               {t("pageTitle")}
             </h1>
             <div className="flex w-full">
               {/* Keyed by the query: a new search from this field is a new
                   page view, and the field should open holding it. */}
+              {/* No categories in the suggestions here: the chips right under
+                  the field are the categories, and the panel listed them again. */}
               <HeroSearch
-                categories={categories}
+                categories={[]}
                 defaultValue={query}
                 examples={examples}
                 key={query}
@@ -723,7 +730,8 @@ export function SearchScreen({
           <section aria-live="polite" className="mt-10 flex min-w-0 flex-col gap-4 lg:mt-14">
             <div className="flex items-center justify-between gap-3">
               <p className="min-w-0 truncate text-sm text-muted-foreground">
-                {query ? `${t("resultsTitle", { query })} · ` : null}
+                {/* The phone has the query in the field right above; the count is what fits. */}
+                {query ? <span className="hidden md:inline">{`${t("resultsTitle", { query })} · `}</span> : null}
                 <span className="font-medium text-foreground">{t("count", { count: results.length })}</span>
               </p>
               <div className="flex shrink-0 items-center gap-2">
