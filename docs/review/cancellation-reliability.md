@@ -4,7 +4,7 @@ Cancellation now checks the booking after an ambiguous or conflicting response i
 
 ## Review the recordings
 
-The pull request contains seven labelled edge-case videos and one Swagger video as native GitHub attachments. Media is stored outside Git. Frontend recordings are slowed twice for readability.
+[PR #84](https://github.com/SmartYoungImmortal/AdvisoryPlatform/pull/84) contains seven labelled edge-case videos and one Swagger video as native GitHub attachments. Media is stored outside Git. Frontend recordings are slowed twice for readability.
 
 | Scenario | What the recording proves |
 | --- | --- |
