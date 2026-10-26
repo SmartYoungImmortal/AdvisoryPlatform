@@ -51,44 +51,10 @@ import { SPLIT_WITH_RAIL } from "@/lib/layout";
 import { cn } from "@/lib/utils";
 
 /**
- * `/bookings`, read from the API.
- *
- * ## What one booking row actually is
- *
- * `BookingResponseDto` is the appointment and nothing else: two timestamps, a
- * state, and three ids. No service name, no advisor name, no amount. So the
- * screen makes three requests — the bookings page, the services page and the
- * advisors page — and joins them by id: one request per page rather than one
- * per row. A service or advisor that is no longer published
- * simply resolves to nothing, and the row states the booking without naming it
- * rather than printing a blank.
- *
- * The amount is `priceSatang` off the joined service, which is the price **now**
- * and not the price the booking was taken at. Nothing on the appointment records
- * what was quoted; `service_invoices` would, and there is no advisee route that
- * reads it. Worth knowing before this number is treated as a receipt.
- *
- * ## What is gone, and why
- *
- * The portraits. Every seeded advisor has `avatarKey: null`, and the only avatar
- * route is `GET /users/me/avatar` — there is no public presign for someone else's
- * — so there is no image to put in a 40px circle. A glyph chip holds the row's
- * rhythm instead of a grey disc pretending to be a face.
- *
- * The per-row link. It pointed at `/transactions/detail`, which is a fixture
- * invoice, and `service_invoices` has no rows and no advisee-facing route. A card
- * that lifts under the pointer and opens someone else's numbers is worse than a
- * card that does not claim to open.
- *
- * The countdown on the next-session card. It was the string "อีก 19 นาที" in a
- * fixture. The card shows the real date and time and the booking's own state,
- * which is what a reader needs and what the API can prove.
- *
- * ## The tabs
- *
- * Real client state now, not an index-0 highlight: `BOOKING_BUCKET` maps all six
- * appointment states onto the three tabs the frame draws, exhaustively, so a new
- * state in the API is a type error here rather than a row that vanishes.
+ * API-backed booking list. Public service/advisor records supply display names;
+ * unavailable records retain the appointment's own date and state.
+ * Prices shown here are current catalogue prices, not historical invoice totals.
+ * Details opens the participant-authorized booking resource.
  */
 
 /** Figma "Meta" — a 16px glyph and a 14/20 line, on an 8px gap. */
@@ -110,7 +76,7 @@ function MetaRow({
 }
 
 /**
- * Figma "Tabs" (1326:18659) — a segmented control on the muted surface.
+ * Main-page Figma "My bookings" (1594:28110) — a segmented control on the muted surface.
  *
  * Not `SegmentedTabs`: that control is a row of links between sibling routes, and
  * these three filter one list in place. `Button` rather than a styled `<button>`
@@ -163,7 +129,7 @@ type Joined = {
 };
 
 /** The state, in its own colour and its own words. `neutral` is never bare. */
-function StatePill({ state }: { readonly state: ApiBookingState }) {
+export function BookingStatePill({ state }: { readonly state: ApiBookingState }) {
   const t = useTranslations("bookings");
   const p = useTranslations("payment");
 
@@ -182,7 +148,7 @@ function StatePill({ state }: { readonly state: ApiBookingState }) {
 }
 
 /**
- * Figma booking card (1326:18680) — header, a hairline, then the two meta rows.
+ * Main-page Figma booking card (1594:28110) — header, a hairline, then the two meta rows.
  *
  * The amount leads and the state is a pill, so the row answers "is this settled?"
  * before it is read. A booking the API will still let you call off carries the one
@@ -201,6 +167,7 @@ function BookingCard({
   readonly cancelling: boolean;
 }) {
   const c = useTranslations("common");
+  const t = useTranslations("bookings");
   const s = useTranslations("search");
   const format = useFormatter();
   const { booking, service, advisorName } = entry;
@@ -225,7 +192,7 @@ function BookingCard({
             </span>
           ) : null}
         </span>
-        <StatePill state={booking.state} />
+        <BookingStatePill state={booking.state} />
       </div>
 
       <span className="h-px w-full shrink-0 bg-border" />
@@ -257,6 +224,9 @@ function BookingCard({
         </MetaRow>
       </div>
 
+      <NeutralButton className="w-auto" size="sm" href={`/bookings/detail?bookingId=${booking.id}`}>
+        {t("detailsAction")}
+      </NeutralButton>
       {isCancellable(booking.state) ? (
         <div className="flex w-full flex-wrap items-start gap-2">
           <NeutralButton
@@ -298,7 +268,7 @@ function CardSkeleton() {
 }
 
 /**
- * Figma "Next Session Card" (1326:18661) — the only card the accent outlines
+ * Main-page Figma next-session card (1594:28110) — the only card the accent outlines
  * rather than fills, because it is the one you can act on now.
  */
 function NextSessionCard({ entry }: { readonly entry: Joined }) {
@@ -314,7 +284,7 @@ function NextSessionCard({ entry }: { readonly entry: Joined }) {
           <p className="min-w-px flex-1 text-base font-semibold text-primary">
             {t("nextSession")}
           </p>
-          <StatePill state={booking.state} />
+          <BookingStatePill state={booking.state} />
         </div>
 
         <div className="flex w-full shrink-0 items-center gap-3 overflow-clip">
@@ -351,19 +321,14 @@ function NextSessionCard({ entry }: { readonly entry: Joined }) {
           className="w-auto shrink-0"
           href={chatWithHref(booking.advisorId)}
         >
-          {t("join")}
+          {t("detailsChat")}
         </NeutralButton>
       </Surface>
     </div>
   );
 }
 
-/**
- * Figma "My bookings (Light)" — 1326:18632, and its desktop frame 1952:32485,
- * which keeps every part of the phone frame and re-seats them: the title becomes
- * a band across the page, the tabs and the list take the wide column, and the
- * next session — which the phone stacks above the list — rides beside it.
- */
+/** Main-page Figma My bookings (1594:28110), adapted to the current app frame. */
 export function MyBookingsScreen() {
   const t = useTranslations("bookings");
   const c = useTranslations("common");
