@@ -271,7 +271,17 @@
     "detailsUnavailableValue": "ไม่สามารถแสดงข้อมูลนี้ได้",
     "detailsCancel": "ยกเลิกการจอง",
     "detailsCancelFailed": "ยกเลิกไม่สำเร็จ โปรดลองอีกครั้ง",
-    "detailsAction": "รายละเอียด"
+    "detailsAction": "รายละเอียด",
+    "cancellationConfirmed": "การจองนี้ถูกยกเลิกแล้ว",
+    "cancellationChanged": "สถานะการจองเปลี่ยนไปและไม่สามารถยกเลิกได้แล้ว โปรดตรวจสอบสถานะล่าสุด",
+    "cancellationRetry": "สถานะล่าสุดยังไม่ถูกยกเลิก คุณสามารถลองยกเลิกอีกครั้งได้",
+    "cancellationSignIn": "เซสชันหมดอายุ กรุณาเข้าสู่ระบบอีกครั้งเพื่อตรวจสอบการจอง",
+    "cancellationUnavailable": "ไม่พบการจองนี้หรือคุณไม่มีสิทธิ์เข้าถึงแล้ว",
+    "cancellationUncertain": "ยังยืนยันไม่ได้ว่าการจองถูกยกเลิกหรือไม่ กรุณาตรวจสอบสถานะก่อนลองอีกครั้ง",
+    "cancellationPending": "กำลังยกเลิกการจอง…",
+    "cancellationChecking": "กำลังตรวจสอบสถานะการจองล่าสุด…",
+    "cancellationCheck": "ตรวจสอบสถานะ",
+    "cancellationLogin": "เข้าสู่ระบบอีกครั้ง"
   },
   "service": {
     "advisorLabel": "ผู้ให้คำปรึกษา",

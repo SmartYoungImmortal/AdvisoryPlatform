@@ -13,7 +13,6 @@ import { useCallback, useState } from "react";
 import type { Paginated } from "@/lib/api/client";
 import { ApiError } from "@/lib/api/client";
 import {
-  cancelBooking,
   listAdvisors,
   listMyBookings,
   listServices,
@@ -35,6 +34,8 @@ import {
 } from "@/components/bookings/booking-flow";
 import { Button } from "@/components/ui/button";
 import { NeutralButton } from "@/components/mobile/buttons";
+import { useBookingCancellation } from "@/components/bookings/use-booking-cancellation";
+import { CancellationFeedback } from "@/components/bookings/cancellation-feedback";
 import { RescheduleBooking } from "@/components/bookings/reschedule-booking";
 import { EmptyState } from "@/components/mobile/empty-state";
 import { MobileScreen, ScreenBody } from "@/components/mobile/screen";
@@ -335,8 +336,6 @@ export function MyBookingsScreen() {
   const s = useTranslations("search");
   const now = useMountTime();
   const [bucket, setBucket] = useState<BookingBucket>("upcoming");
-  const [cancelling, setCancelling] = useState<string | null>(null);
-  const [cancelFailure, setCancelFailure] = useState<string | null>(null);
 
   const bookingsFetcher = useCallback(
     (signal: AbortSignal) => listMyBookings({ limit: 50 }, signal),
@@ -396,25 +395,7 @@ export function MyBookingsScreen() {
   );
   const shown = inBucket(bucket);
 
-  const onCancel = useCallback(
-    (bookingId: string) => {
-      setCancelling(bookingId);
-      setCancelFailure(null);
-      void cancelBooking(bookingId)
-        .then(() => {
-          bookings.reload();
-        })
-        .catch((cause: unknown) => {
-          // The API's own sentence — for a state that can no longer be cancelled
-          // it names the two that can, which is the whole explanation.
-          setCancelFailure(
-            cause instanceof Error ? cause.message : String(cause),
-          );
-        })
-        .finally(() => setCancelling(null));
-    },
-    [bookings],
-  );
+  const cancellation = useBookingCancellation(bookings.reload);
 
   const failed = bookings.error;
 
@@ -498,13 +479,7 @@ export function MyBookingsScreen() {
                     {t("upNext")}
                   </p>
 
-                  {cancelFailure ? (
-                    <Surface className="w-full p-3.5" tier="flat">
-                      <p className="w-full text-sm font-normal text-destructive">
-                        {cancelFailure}
-                      </p>
-                    </Surface>
-                  ) : null}
+                  <CancellationFeedback cancellation={cancellation} />
 
                   {/* Two across at `lg`: one column of these on a 1200 page left
                       half the width holding nothing. */}
@@ -514,10 +489,10 @@ export function MyBookingsScreen() {
                     ) : shown.length > 0 ? (
                       shown.map((entry) => (
                         <BookingCard
-                          cancelling={cancelling === entry.booking.id}
+                          cancelling={cancellation.blocked}
                           entry={entry}
                           key={entry.booking.id}
-                          onCancel={onCancel}
+                          onCancel={(id) => void cancellation.cancel(id)}
                           onRescheduled={bookings.reload}
                         />
                       ))

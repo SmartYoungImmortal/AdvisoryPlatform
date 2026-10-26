@@ -271,7 +271,17 @@
     "detailsAction": "Details",
     "detailsUnavailableValue": "This information is unavailable",
     "detailsCancel": "Cancel booking",
-    "detailsCancelFailed": "Unable to cancel. Please try again."
+    "detailsCancelFailed": "Unable to cancel. Please try again.",
+    "cancellationConfirmed": "This booking is cancelled.",
+    "cancellationChanged": "This booking has changed and can no longer be cancelled. Its latest status is shown below.",
+    "cancellationRetry": "The latest status is still active. You can try cancelling again.",
+    "cancellationSignIn": "Your session has expired. Sign in again to check the booking.",
+    "cancellationUnavailable": "This booking is unavailable or you no longer have access.",
+    "cancellationUncertain": "We could not confirm whether the booking was cancelled. Check its status before trying again.",
+    "cancellationPending": "Cancelling booking…",
+    "cancellationChecking": "Checking the latest booking status…",
+    "cancellationCheck": "Check status",
+    "cancellationLogin": "Sign in again"
   },
   "service": {
     "advisorLabel": "Advisor",

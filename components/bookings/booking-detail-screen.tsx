@@ -1,7 +1,7 @@
 "use client";
 
 import { CalendarDays, Clock3, UserRound } from "lucide-react";
-import { useCallback, useState } from "react";
+import { useCallback } from "react";
 import { useFormatter, useTranslations } from "next-intl";
 
 import { BookingStatePill } from "@/components/bookings/my-bookings-screen";
@@ -10,10 +10,12 @@ import { MobileScreen, ScreenBody, ScreenHeading, ScreenTopBar } from "@/compone
 import { Surface } from "@/components/mobile/surface";
 import { AppFrame } from "@/components/account/app-frame";
 import { chatWithHref } from "@/components/chat/chat-data";
-import { cancelBooking, getAdvisor, getBooking, getService } from "@/lib/api/resources";
+import { getAdvisor, getBooking, getService } from "@/lib/api/resources";
 import type { ApiBooking, ApiPublicAdvisor, ApiPublicService } from "@/lib/api/types";
-import { invalidate, useResource } from "@/lib/api/use-resource";
+import { useResource } from "@/lib/api/use-resource";
 import { asUuid, isCancellable, useQueryValue } from "@/components/bookings/booking-flow";
+import { useBookingCancellation } from "@/components/bookings/use-booking-cancellation";
+import { CancellationFeedback } from "@/components/bookings/cancellation-feedback";
 import { PAGE } from "@/lib/layout";
 import { cn } from "@/lib/utils";
 
@@ -27,7 +29,7 @@ export function BookingDetailScreen() {
     return <BookingDetailState title={t("detailsMissingTitle")} body={t("detailsMissingBody")} />;
   }
 
-  return <BookingDetailData bookingId={bookingId} />;
+  return <BookingDetailData key={bookingId} bookingId={bookingId} />;
 }
 
 function BookingDetailData({ bookingId }: { readonly bookingId: string }) {
@@ -37,6 +39,7 @@ function BookingDetailData({ bookingId }: { readonly bookingId: string }) {
     [bookingId],
   );
   const booking = useResource<ApiBooking>(`bookings/${bookingId}`, fetchBooking);
+  const cancellation = useBookingCancellation(booking.reload);
 
   if (booking.loading) return <BookingDetailState title={t("detailsLoadingTitle")} body={t("detailsLoadingBody")} />;
   if (booking.error || !booking.data) {
@@ -49,25 +52,10 @@ function BookingDetailData({ bookingId }: { readonly bookingId: string }) {
     );
   }
 
-  return <BookingDetailContent booking={booking.data} reload={booking.reload} />;
+  return <BookingDetailContent booking={booking.data} cancellation={cancellation} />;
 }
 
-function BookingDetailContent({ booking, reload }: { readonly booking: ApiBooking; readonly reload: () => void }) {
-  const [cancelling, setCancelling] = useState(false);
-  const [cancelFailure, setCancelFailure] = useState(false);
-  async function cancel() {
-    setCancelling(true);
-    setCancelFailure(false);
-    try {
-      await cancelBooking(booking.id);
-      invalidate("bookings/me?limit=50");
-      reload();
-    } catch {
-      setCancelFailure(true);
-    } finally {
-      setCancelling(false);
-    }
-  }
+function BookingDetailContent({ booking, cancellation }: { readonly booking: ApiBooking; readonly cancellation: ReturnType<typeof useBookingCancellation> }) {
   const t = useTranslations("bookings");
   const c = useTranslations("common");
   const format = useFormatter();
@@ -126,8 +114,8 @@ function BookingDetailContent({ booking, reload }: { readonly booking: ApiBookin
             </div>
           </Surface>
 
-          {cancelFailure ? <p role="alert" className="text-sm text-destructive">{t("detailsCancelFailed")}</p> : null}
-          {isCancellable(booking.state) ? <NeutralButton disabled={cancelling} onClick={() => void cancel()}>{t("detailsCancel")}</NeutralButton> : null}
+          <CancellationFeedback cancellation={cancellation} />
+          {isCancellable(booking.state) ? <NeutralButton disabled={cancellation.blocked} onClick={() => void cancellation.cancel(booking.id)}>{t("detailsCancel")}</NeutralButton> : null}
           <div className="flex w-full flex-col gap-3 sm:flex-row">
             <NeutralButton className="w-full" href={chatWithHref(booking.advisorId)}>{t("detailsChat")}</NeutralButton>
             <NeutralButton className="w-full" href="/bookings">{t("detailsBackToBookings")}</NeutralButton>
