@@ -1,13 +1,13 @@
 "use client";
 
-import { CircleCheck, Lock } from "lucide-react";
+import { Circle, CircleCheck } from "lucide-react";
 import Link from "next/link";
 import { useTranslations } from "next-intl";
 import { useRouter } from "next/navigation";
-import { useState, type FormEvent } from "react";
+import { useState, type ComponentProps, type FormEvent } from "react";
 
-import { AlertBanner, InfoRow } from "@/components/mobile/banner";
-import { Field } from "@/components/mobile/field";
+import { InfoRow } from "@/components/mobile/banner";
+import { Field, RevealPasswordButton } from "@/components/mobile/field";
 import { AccountSettingsScreen } from "@/components/profile/account-settings-screen";
 import {
   SETTINGS_DIALOG_ACTIONS,
@@ -19,14 +19,45 @@ import { Button } from "@/components/ui/button";
 import { changePassword } from "@/lib/api/account";
 import { ApiError } from "@/lib/api/client";
 
+/** The rules a new password answers to, in the order the list names them, as the API checks them. */
+function passwordRules(next: string, current: string): readonly boolean[] {
+  return [
+    next.length >= 8 && next.length <= 64,
+    /[^A-Za-z0-9]/.test(next),
+    /\d/.test(next),
+    next.length > 0 && next !== current,
+  ];
+}
+
+/** A password field with the sign-in form's eye at its end, to read back what was typed. */
+function PasswordField(props: Omit<ComponentProps<typeof Field>, "type" | "trailing" | "outline">) {
+  const t = useTranslations("login");
+  const [revealed, setRevealed] = useState(false);
+
+  return (
+    <Field
+      {...props}
+      outline
+      trailing={
+        <RevealPasswordButton
+          label={t("showPassword")}
+          onToggle={() => setRevealed((value) => !value)}
+          revealed={revealed}
+        />
+      }
+      type={revealed ? "text" : "password"}
+    />
+  );
+}
+
 /**
  * Figma "Change password" (995:7360) and its wrong-current-password state
- * (995:7404), which adds an alert banner and an inline field error.
+ * (995:7404), which marks the current password's field.
  *
  * A dialog over the settings (`SettingsDialog`) rather than a page of its own:
- * three fields and the rules they answer to, which the reader checks against
- * as they type, then the change. A wrong current password stays in the
- * dialog, under its field; a success goes to `/settings/updated`.
+ * three fields and the rules the new one answers to, each ticked as it is met
+ * while the reader types, then the change. A wrong current password stays in
+ * the dialog, said under its field; a success goes to `/settings/updated`.
  */
 function ChangePasswordForm({ state = "default" }: { readonly state?: "default" | "wrong-current" }) {
   const t = useTranslations("changePassword");
@@ -40,17 +71,12 @@ function ChangePasswordForm({ state = "default" }: { readonly state?: "default" 
   );
   const [submitting, setSubmitting] = useState(false);
   const isWrong = problem === "wrong-current";
+  const rules = passwordRules(newPassword, currentPassword);
+  const ruleText = [t("requirement1"), t("requirement2"), t("requirement3"), t("requirement4")];
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (
-      newPassword.length < 8 ||
-      newPassword.length > 64 ||
-      !/[^A-Za-z0-9]/.test(newPassword) ||
-      !/\d/.test(newPassword) ||
-      newPassword === currentPassword ||
-      newPassword !== confirmPassword
-    ) {
+    if (!rules.every(Boolean) || newPassword !== confirmPassword) {
       setProblem("invalid");
       return;
     }
@@ -68,65 +94,60 @@ function ChangePasswordForm({ state = "default" }: { readonly state?: "default" 
   return (
     <SettingsDialog title={t("title")}>
       <form className="flex w-full flex-col" onSubmit={submit}>
-        {isWrong ? (
-          <AlertBanner
-            body={t("wrongCurrentBody")}
-            className="mb-4 px-0 pt-0"
-            icon={Lock}
-            title={t("wrongCurrentTitle")}
-          />
-        ) : null}
-
-        <div className="flex w-full flex-col gap-4">
-          <Field
+        <div className="flex w-full flex-col gap-4 lg:gap-6">
+          <PasswordField
+            autoComplete="current-password"
             error={isWrong ? t("wrongCurrentFieldError") : undefined}
             id="current-password"
             invalid={isWrong}
             label={t("currentLabel")}
-            outline
             onChange={(event) => {
               setCurrentPassword(event.target.value);
               setProblem(null);
             }}
             placeholder={t("currentPlaceholder")}
-            type="password"
             value={currentPassword}
           />
-          <Field
+          <PasswordField
+            autoComplete="new-password"
             id="new-password"
             label={t("newLabel")}
-            outline
             onChange={(event) => {
               setNewPassword(event.target.value);
               setProblem(null);
             }}
             placeholder={t("newPlaceholder")}
-            type="password"
             value={newPassword}
           />
-          <Field
+          <PasswordField
+            autoComplete="new-password"
             id="confirm-password"
             label={t("confirmLabel")}
-            outline
             onChange={(event) => {
               setConfirmPassword(event.target.value);
               setProblem(null);
             }}
             placeholder={t("confirmPlaceholder")}
-            type="password"
             value={confirmPassword}
           />
         </div>
 
-        <SettingsDialogList caption={t("requirementsTitle")} className="mt-5">
-          <InfoRow icon={CircleCheck}>{t("requirement1")}</InfoRow>
-          <InfoRow icon={CircleCheck}>{isWrong ? t("requirement2Short") : t("requirement2")}</InfoRow>
-          <InfoRow icon={CircleCheck}>{t("requirement3")}</InfoRow>
-          <InfoRow icon={CircleCheck}>{t("requirement4")}</InfoRow>
+        {/* Ticked in the success green as each is met, so the reader sees
+            what is left rather than finding out on pressing. */}
+        <SettingsDialogList caption={t("requirementsTitle")} className="mt-5 lg:mt-7">
+          {ruleText.map((text, i) => (
+            <InfoRow
+              icon={rules[i] ? CircleCheck : Circle}
+              iconClassName={rules[i] ? "text-success" : undefined}
+              key={text}
+            >
+              {text}
+            </InfoRow>
+          ))}
         </SettingsDialogList>
 
         {problem === "invalid" ? (
-          <p className="mt-3 text-sm text-destructive" role="alert">
+          <p className="mt-4 text-sm text-destructive" role="alert">
             {t("invalid")}
           </p>
         ) : null}

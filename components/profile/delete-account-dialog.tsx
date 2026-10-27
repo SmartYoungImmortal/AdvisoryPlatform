@@ -135,7 +135,7 @@ function DeleteAccountForm({ onClose }: { readonly onClose: () => void }) {
       </SettingsDialogList>
 
       {isBlocked ? null : (
-        <div className="mt-5 flex w-full flex-col">
+        <div className="mt-5 flex w-full flex-col lg:mt-7">
           <Field
             id="delete-confirm"
             label={t("confirmLabel")}

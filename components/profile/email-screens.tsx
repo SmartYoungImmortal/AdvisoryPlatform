@@ -1,12 +1,10 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { Mail, MailCheck } from "lucide-react";
 import Link from "next/link";
 import { useTranslations } from "next-intl";
 import { useState, useSyncExternalStore, type FormEvent, type ReactNode } from "react";
 
-import { AlertBanner } from "@/components/mobile/banner";
 import { Field } from "@/components/mobile/field";
 import { AccountSettingsScreen } from "@/components/profile/account-settings-screen";
 import { SETTINGS_DIALOG_ACTIONS, SettingsDialog, settingsPill } from "@/components/profile/settings-dialog";
@@ -57,7 +55,7 @@ const noPendingEmail = () => null;
 
 /**
  * Figma "Change email" (995:7287) and its already-in-use state (995:7320),
- * which adds an alert banner and an inline error under the address field.
+ * which says so under the address field.
  *
  * A dialog over the settings (`SettingsDialog`): the address the account has
  * now, then the new one, then the request. The API sends a confirmation link
@@ -113,15 +111,6 @@ function ChangeEmailForm({ state = "default" }: { readonly state?: "default" | "
   return (
     <SettingsDialog description={t("subtitle")} title={t("title")}>
       <form className="flex w-full flex-col" noValidate onSubmit={submit}>
-        {inUse || problem === "request-failed" ? (
-          <AlertBanner
-            body={inUse ? t("inUseBody", { email: email.trim() || t("inUseValue") }) : t("requestFailed")}
-            className="mb-4 px-0 pt-0"
-            icon={Mail}
-            title={inUse ? t("inUseTitle") : t("requestFailedTitle")}
-          />
-        ) : null}
-
         <EmailCard caption={t("currentLabel")} value={currentEmail} />
 
         <div className="mt-5 flex w-full flex-col">
@@ -142,6 +131,13 @@ function ChangeEmailForm({ state = "default" }: { readonly state?: "default" | "
             value={email}
           />
         </div>
+        {/* A taken address is said under its field; a request that did not
+            go through, here, where the reader is about to press again. */}
+        {problem === "request-failed" ? (
+          <p className="mt-4 text-sm text-destructive" role="alert">
+            {t("requestFailed")}
+          </p>
+        ) : null}
 
         <div className={SETTINGS_DIALOG_ACTIONS}>
           <Button className={settingsPill("solid")} disabled={!email.trim() || submitting} type="submit">
@@ -158,8 +154,8 @@ function ChangeEmailForm({ state = "default" }: { readonly state?: "default" | "
 
 /**
  * Figma "Verify email" (995:7766) — where the change lands once the link is on
- * its way: the badge, where the link went, the address the session still
- * answers to, then back to the settings or send the link again.
+ * its way: where the link went, the address the session still answers to,
+ * then back to the settings or send the link again.
  *
  * The pending address rides the query string rather than a store: nothing is
  * written until the link is opened. Until it is read — the static render, and
@@ -193,10 +189,7 @@ function VerifyEmailNote() {
   return (
     <SettingsDialog description={t("subtitle", { email })} title={t("title")}>
       <div className="flex w-full flex-col">
-        <span className="flex size-14 shrink-0 items-center justify-center rounded-full bg-muted lg:size-16">
-          <MailCheck aria-hidden className="size-6 text-primary lg:size-7" />
-        </span>
-        <EmailCard caption={t("stillLabel")} className="mt-5" value={account?.email ?? c("emailValue")} />
+        <EmailCard caption={t("stillLabel")} value={account?.email ?? c("emailValue")} />
         {resendStatus ? (
           <output className="mt-3 block text-sm text-muted-foreground">
             {resendStatus === "sent" ? t("resent") : t("resendFailed")}
