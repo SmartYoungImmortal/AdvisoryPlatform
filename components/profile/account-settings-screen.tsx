@@ -58,7 +58,7 @@ function RowAction({
   readonly destructive?: boolean;
 } & ({ readonly href: string; readonly onClick?: never } | { readonly href?: never; readonly onClick: () => void })) {
   const className = cn(
-    "h-8 shrink-0 rounded-full px-3.5 text-xs font-medium lg:h-11 lg:px-5 lg:text-frame-meta",
+    "h-8 shrink-0 rounded-full px-3.5 text-xs font-medium md:text-sm lg:h-11 lg:px-5 lg:text-frame-meta",
     destructive
       ? "bg-destructive/10 text-destructive hover:bg-destructive/15 hover:text-destructive"
       : "bg-muted text-foreground hover:bg-muted/70 hover:text-foreground",
@@ -101,7 +101,7 @@ function SettingRow({
   readonly children: ReactNode;
 }) {
   return (
-    <li className="flex items-center gap-4 border-b border-border py-3 lg:gap-8 lg:py-5">
+    <li className="flex items-center gap-4 border-b border-border py-3 md:py-3.5 lg:gap-8 lg:py-5">
       <div className="flex min-w-0 flex-1 flex-col gap-0.5 lg:gap-1">
         <span
           className={cn("text-sm font-medium lg:text-frame-body", destructive ? "text-destructive" : "text-foreground")}
@@ -147,8 +147,8 @@ function SettingsSection({
           running the panel's whole width from the menu's edge, the glyph solid
           on its tile as the chosen category's is in the menu. */}
       <header className="flex items-center gap-1.5 lg:h-22 lg:shrink-0 lg:gap-3 lg:border-b lg:border-border lg:px-12">
-        {/* The glyph bare and small before the label below `lg`; the tile from `lg`. */}
-        <Icon aria-hidden className="size-3.5 shrink-0 text-muted-foreground lg:hidden" strokeWidth={1.75} />
+        {/* The glyph bare and small before the label on a phone; the tile from `lg`. */}
+        <Icon aria-hidden className="size-3.5 shrink-0 text-muted-foreground md:hidden" strokeWidth={1.75} />
         <span className="hidden size-12 shrink-0 items-center justify-center rounded-xl bg-muted text-foreground lg:flex">
           <Icon aria-hidden className={cn("size-6", SOLID_GLYPH)} strokeWidth={1.75} />
         </span>
@@ -259,7 +259,7 @@ function LanguageRow() {
     <Button
       aria-pressed={locale === value}
       className={cn(
-        "h-7 rounded-full px-3 text-xs font-medium lg:h-10 lg:px-4 lg:text-frame-meta",
+        "h-7 rounded-full px-3 text-xs font-medium md:text-sm lg:h-10 lg:px-4 lg:text-frame-meta",
         value === "en" && "font-latin",
         locale === value
           ? "bg-card text-foreground shadow-hero-card hover:bg-card hover:text-foreground"

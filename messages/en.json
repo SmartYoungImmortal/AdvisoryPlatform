@@ -853,7 +853,7 @@
   },
   "changeEmail": {
     "title": "Change email",
-    "subtitle": "We'll send a confirmation link to the new address. Your current email keeps working until you open it.",
+    "subtitle": "We'll send a confirmation link to the new address.",
     "newLabel": "New email",
     "newPlaceholder": "you@example.com",
     "passwordLabel": "Current password",

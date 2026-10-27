@@ -10,6 +10,7 @@ import '@fontsource/kanit/500.css';
 import '@fontsource/sriracha/400.css';
 import "./globals.css";
 import { cn } from "@/lib/utils";
+import { IosFocusZoom } from "@/components/mobile/ios-focus-zoom";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { LocaleProvider } from "@/lib/i18n/locale-provider";
 
@@ -69,6 +70,7 @@ export default function RootLayout({
             {children}
           </TooltipProvider>
         </LocaleProvider>
+        <IosFocusZoom />
       </body>
     </html>
   );

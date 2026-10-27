@@ -30,6 +30,10 @@
      instead of pinning `leading-[18px]` / `leading-[34px]` on every element.
      14/20, 16/24 and 20/28 already match the defaults exactly, so they need nothing. */
   --text-xs--line-height: 1.125rem; /* 18px — Tailwind default is 16px */
+  /* 11/16: a phone's footnote under a compact dialog's answers, a step under
+     the 12px caption it would otherwise share. */
+  --text-fine: 0.6875rem;
+  --text-fine--line-height: 1rem;
   --text-2xl--line-height: 2.125rem; /* 34px — Tailwind default is 32px */
   /* The two steps the screens were missing. Everything between body copy and the
      28px screen title was being set at 16, so a section head, a card title and a

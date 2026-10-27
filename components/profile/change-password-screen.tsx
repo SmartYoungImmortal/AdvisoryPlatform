@@ -230,9 +230,9 @@ function ChangeStep({
 
         {/* For a reader who does not know the password asked for first, a
             line under the answers, as the receipt's help line sits. */}
-        <p className="mt-4 text-center text-xs text-muted-foreground">
+        <p className="mt-3 text-center text-fine text-muted-foreground md:mt-4 md:text-xs">
           {t("forgotPrompt")}{" "}
-          <Button className={cn(AUTH_LINK, "h-auto p-0 text-xs")} onClick={onForgot} type="button" variant="link">
+          <Button className={cn(AUTH_LINK, "h-auto p-0 text-fine md:text-xs")} onClick={onForgot} type="button" variant="link">
             {t("forgotAction")}
           </Button>
         </p>

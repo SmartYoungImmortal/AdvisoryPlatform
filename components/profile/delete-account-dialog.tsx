@@ -117,7 +117,7 @@ function DeleteAccountForm({ onClose }: { readonly onClose: () => void }) {
             title={t("blocked1Title")}
           />
           {upcomingAppointments.map((appointment) => (
-            <p className="w-full pl-6.5 text-xs text-muted-foreground" key={appointment.appointmentId}>
+            <p className="w-full pl-6.5 text-xs text-muted-foreground md:text-sm" key={appointment.appointmentId}>
               {new Intl.DateTimeFormat(undefined, { dateStyle: "medium", timeStyle: "short" }).format(
                 new Date(appointment.startTime),
               )}
@@ -139,7 +139,7 @@ function DeleteAccountForm({ onClose }: { readonly onClose: () => void }) {
         />
       )}
       {failed ? (
-        <p className="mt-3 text-xs text-destructive" role="alert">
+        <p className="mt-3 text-xs text-destructive md:text-sm" role="alert">
           {t("deleteFailed")}
         </p>
       ) : null}

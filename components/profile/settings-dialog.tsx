@@ -8,14 +8,15 @@ import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/compone
 import { cn } from "@/lib/utils";
 
 /**
- * The fields at a thumb's 44 on a phone and an upright tablet (the card is a
- * phone's width there), and 44 in the frame's space from `lg`, a step over
- * the capsules under them. Descendant selectors, so the shared field itself
- * stays untouched. The dialogs draw it `outline`: the sign-up form's white
- * box on a hairline.
+ * The fields at 36 on a phone, 44 on an upright tablet and in the frame's
+ * space from `lg`. On a phone the label and the field's own type are 12, the
+ * placeholder centred with it; iOS no longer zooms into a field that small
+ * (`IosFocusZoom`).
+ * Descendant selectors, so the shared field itself stays untouched. The
+ * dialogs draw it `outline`: the sign-up form's white box on a hairline.
  */
 const FIELD_LIFT =
-  "[&_[data-slot=input-group]]:h-10 lg:[&_[data-slot=input-group]]:h-11 lg:[&_[data-slot=input-group]]:px-4 lg:[&_[data-slot=input-group-control]]:text-base [&_[data-slot=field-label]]:text-xs lg:[&_[data-slot=field-label]]:text-frame-label";
+  "[&_[data-slot=input-group]]:h-9 md:[&_[data-slot=input-group]]:h-11 lg:[&_[data-slot=input-group]]:px-4 lg:[&_[data-slot=input-group-control]]:text-base [&_[data-slot=field-label]]:text-xs md:[&_[data-slot=field-label]]:text-sm lg:[&_[data-slot=field-label]]:text-frame-label [&_[data-slot=input-group-control]]:text-xs md:[&_[data-slot=input-group-control]]:text-base";
 
 /**
  * The frame's type steps from `lg` for the shared blocks' captions and lines,
@@ -79,8 +80,10 @@ export function SettingsDialog({
   return (
     <Dialog {...state}>
       <DialogContent
-        // On a phone 16px clear of each edge.
-        className="block max-h-[calc(100dvh-2rem)] max-w-[calc(100%-2rem)] gap-0 overflow-y-auto overscroll-contain rounded-2xl bg-card p-0 text-foreground shadow-hero-card ring-0 outline-none sm:max-w-sm lg:w-auto lg:max-w-none"
+        // On a phone no wider than 320 (16 clear of the edges on a narrower
+        // one), a card over the page rather than a sheet across it; an
+        // upright tablet keeps its 384.
+        className="block max-h-[calc(100dvh-2rem)] max-w-[min(20rem,calc(100%-2rem))] gap-0 overflow-y-auto overscroll-contain rounded-2xl bg-card p-0 text-foreground shadow-hero-card ring-0 outline-none sm:max-w-80 md:max-w-sm lg:w-auto lg:max-w-none"
         // Opened by a press (or by its route), the dialog takes the focus
         // itself rather than its first field; from the keyboard it goes to
         // the first control as usual.
@@ -92,37 +95,37 @@ export function SettingsDialog({
         {Icon ? (
           // A step smaller on a phone, where the card is most of the screen.
           <div className="app-scale contents lg:block lg:w-110">
-            <div className="flex flex-col px-5 pt-6 pb-5 lg:px-6 lg:pt-8 lg:pb-6">
+            <div className="flex flex-col px-4 pt-5 pb-4 md:px-6 md:pt-8 md:pb-6">
               <div className="flex flex-col items-center text-center">
-                <span className="flex size-12 items-center justify-center rounded-full bg-muted lg:size-16">
-                  <Icon aria-hidden className="size-6 text-foreground lg:size-8" strokeWidth={1.75} />
+                <span className="flex size-10 items-center justify-center rounded-full bg-muted md:size-14 lg:size-16">
+                  <Icon aria-hidden className="size-5 text-foreground md:size-7 lg:size-8" strokeWidth={1.75} />
                 </span>
-                <DialogTitle className="mt-1.5 text-base leading-6 font-semibold text-foreground lg:text-frame-heading lg:leading-8">
+                <DialogTitle className="mt-1.5 text-sm leading-6 font-semibold text-foreground md:text-xl md:leading-8 lg:text-frame-heading">
                   {title}
                 </DialogTitle>
                 {description ? (
-                  <DialogDescription className="mt-0.5 text-xs text-balance text-muted-foreground lg:text-frame-label">
+                  <DialogDescription className="mt-0.5 text-xs text-balance text-muted-foreground md:text-sm lg:text-frame-label">
                     {description}
                   </DialogDescription>
                 ) : null}
               </div>
-              <div className={cn("mt-5 lg:mt-6", BODY_LIFT, FIELD_LIFT, "lg:[&_[data-slot=input-group]]:h-12")}>
+              <div className={cn("mt-4 md:mt-6", BODY_LIFT, FIELD_LIFT, "lg:[&_[data-slot=input-group]]:h-12")}>
                 {children}
               </div>
             </div>
           </div>
         ) : (
           <div className="app-scale contents lg:block lg:w-100">
-            <div className="flex flex-col p-5 lg:p-6">
-              <DialogTitle className="text-base leading-6 font-semibold text-foreground lg:text-frame-heading lg:leading-8">
+            <div className="flex flex-col p-4 md:p-6">
+              <DialogTitle className="text-sm leading-6 font-semibold text-foreground md:text-xl md:leading-8 lg:text-frame-heading">
                 {title}
               </DialogTitle>
               {description ? (
-                <DialogDescription className="mt-1 text-xs text-pretty text-muted-foreground lg:mt-2 lg:text-frame-body lg:leading-7">
+                <DialogDescription className="mt-1 text-xs text-pretty text-muted-foreground md:text-sm lg:mt-2 lg:text-frame-body lg:leading-7">
                   {description}
                 </DialogDescription>
               ) : null}
-              <div className={cn("mt-5 lg:mt-6", BODY_LIFT, FIELD_LIFT)}>{children}</div>
+              <div className={cn("mt-4 md:mt-6", BODY_LIFT, FIELD_LIFT)}>{children}</div>
             </div>
           </div>
         )}
@@ -132,7 +135,7 @@ export function SettingsDialog({
 }
 
 /** The dialog's answers: one line held to the right, the way out first and the thing being done last. */
-export const SETTINGS_DIALOG_ACTIONS = "mt-5 flex flex-wrap justify-end gap-2.5 lg:mt-6 lg:gap-3";
+export const SETTINGS_DIALOG_ACTIONS = "mt-4 flex flex-wrap justify-end gap-2 md:mt-6 md:gap-3";
 
 /**
  * The dialog's answers, 48 tall with 19px type in the frame's space (40 on a
@@ -142,7 +145,7 @@ export const SETTINGS_DIALOG_ACTIONS = "mt-5 flex flex-wrap justify-end gap-2.5 
  */
 export function settingsPill(kind: "solid" | "ghost" | "danger") {
   return cn(
-    "h-10 shrink-0 rounded-full border-0 px-4 text-xs font-medium shadow-none disabled:opacity-40 lg:h-12 lg:px-5 lg:text-frame-body",
+    "h-9 shrink-0 rounded-full border-0 px-4 text-xs font-medium shadow-none disabled:opacity-40 md:h-11 md:text-sm lg:h-12 lg:px-5 lg:text-frame-body",
     kind === "solid" && "bg-hero-action text-hero-action-foreground hover:bg-hero-action/85",
     kind === "ghost" && "bg-transparent text-foreground hover:bg-muted hover:text-foreground",
     kind === "danger" && "bg-destructive/25 text-destructive hover:bg-destructive/35 hover:text-destructive",
@@ -150,7 +153,7 @@ export function settingsPill(kind: "solid" | "ghost" | "danger") {
 }
 
 /** The centred card's capsules (`icon`), stacked full width under the form, the thing being done first. */
-export const SETTINGS_DIALOG_STACK = "mt-5 flex flex-col gap-2 lg:mt-6 lg:gap-2.5";
+export const SETTINGS_DIALOG_STACK = "mt-4 flex flex-col gap-2 md:mt-6 md:gap-2.5";
 
 /**
  * The centred card's capsules, 48 tall with 16px type in the frame's space
@@ -161,7 +164,7 @@ export const SETTINGS_DIALOG_STACK = "mt-5 flex flex-col gap-2 lg:mt-6 lg:gap-2.
  */
 export function settingsStackPill(kind: "solid" | "danger" | "soft") {
   return cn(
-    "h-10 w-full gap-2 rounded-full border-0 px-5 text-xs font-medium shadow-none disabled:opacity-40 lg:h-12 lg:px-6 lg:text-base",
+    "h-9 w-full gap-2 rounded-full border-0 px-5 text-xs font-medium shadow-none disabled:opacity-40 md:h-11 md:text-sm lg:h-12 lg:px-6 lg:text-base",
     kind === "solid" && "bg-hero-action text-hero-action-foreground hover:bg-hero-action/85",
     kind === "danger" && "bg-destructive text-primary-foreground hover:bg-destructive/90",
     kind === "soft" && "bg-muted text-foreground hover:bg-muted/70 hover:text-foreground",
