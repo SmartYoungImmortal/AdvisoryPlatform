@@ -160,8 +160,8 @@ function SettingsSection({
         </h2>
       </header>
       {lead}
-      {/* Straight under the band, inset from the panel's edge, no wider than 1200. */}
-      <ul className="flex flex-col max-lg:[&>li:last-child]:border-b-0 lg:mx-8 lg:max-w-300">{children}</ul>
+      {/* Straight under the band, the same inset from both of the panel's edges. */}
+      <ul className="flex flex-col max-lg:[&>li:last-child]:border-b-0 lg:mx-8">{children}</ul>
     </section>
   );
 }
