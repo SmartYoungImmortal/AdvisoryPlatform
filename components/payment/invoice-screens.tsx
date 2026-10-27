@@ -630,7 +630,7 @@ function ReceiptFacts({ receipt }: { readonly receipt: Receipt }) {
   const payer = signedIn.status === "authenticated" ? signedIn.account : null;
 
   return (
-    <dl className="mt-3 grid grid-cols-2 gap-x-5 gap-y-2.5 lg:mt-7 lg:gap-x-6 lg:gap-y-5">
+    <dl className="mt-2.5 grid grid-cols-2 gap-x-5 gap-y-2 md:mt-3 md:gap-y-2.5 lg:mt-7 lg:gap-x-6 lg:gap-y-5">
       <Fact label={t("advisorLabel")}>{receipt.advisor}</Fact>
       {session ? (
         <Fact label={receipt.booking === "unconfirmed" ? t("requestedDateLabel") : t("sessionDateLabel")}>
@@ -720,7 +720,7 @@ function ReceiptCard({
     >
       {/* In the popup the close sits outside the sheet below `lg`, so the
           header starts the sheet there; from `lg` the close row is above it. */}
-      <header className={cn("flex items-start justify-between gap-4", inDialog ? "pt-4 lg:pt-1" : "pt-6 lg:pt-9", SHEET_X)}>
+      <header className={cn("flex items-start justify-between gap-4", inDialog ? "pt-5 md:pt-4 lg:pt-1" : "pt-6 lg:pt-9", SHEET_X)}>
         <Image alt="Advisory" className="h-5 w-auto lg:h-8" src={logo} />
         <div className="flex flex-col items-end gap-0.5 text-right">
           <p className="text-xs text-muted-foreground lg:text-frame-label">{t("receiptLabel")}</p>
@@ -731,7 +731,7 @@ function ReceiptCard({
       {/* Below `lg` the sheet keeps its steps tight: on a phone or an upright
           tablet it opens as a popup, and every row it saves is one less to
           scroll inside it. */}
-      <section className={cn("flex flex-col pt-4 pb-4 lg:pt-9 lg:pb-8", SHEET_X)}>
+      <section className={cn("flex flex-col pt-3 pb-3 md:pt-4 md:pb-4 lg:pt-9 lg:pb-8", SHEET_X)}>
         <Heading
           className={cn("flex items-center gap-1.5 text-xs font-medium lg:gap-2 lg:text-frame-meta", look.ink)}
           id={titleId}
@@ -758,9 +758,9 @@ function ReceiptCard({
 
       {/* The line items on a faint ground of their own, the way a printed
           receipt boxes what was bought. */}
-      <section className={cn("border-t border-dashed border-border pt-3 pb-4 lg:pt-6 lg:pb-9", SHEET_X)}>
+      <section className={cn("border-t border-dashed border-border pt-2.5 pb-3 md:pt-3 md:pb-4 lg:pt-6 lg:pb-9", SHEET_X)}>
         <h2 className="text-xs font-medium text-muted-foreground lg:text-frame-label">{t("summaryHeading")}</h2>
-        <dl className="mt-2 flex flex-col gap-2 rounded-xl bg-muted/50 p-3 lg:mt-4 lg:gap-4 lg:p-5">
+        <dl className="mt-1.5 flex flex-col gap-1.5 rounded-xl bg-muted/50 p-2.5 md:mt-2 md:gap-2 md:p-3 lg:mt-4 lg:gap-4 lg:p-5">
           <Line label={<span className="text-foreground">{receipt.service}</span>} latin value={baht(receipt.price)} />
           <Line label={t("feeLabel")} latin value={baht(receipt.fee)} />
           {receipt.refund ? (
@@ -812,7 +812,7 @@ function NextSteps({ receipt, className }: { readonly receipt: Receipt; readonly
 
   return (
     <aside className={cn("w-full", className)}>
-      <div className="flex flex-col gap-3 lg:gap-4">
+      <div className="flex flex-col gap-2.5 md:gap-3 lg:gap-4">
         <div className="flex flex-col gap-2.5">
           {actions[receipt.status].map((action) => (
             <Button
@@ -874,6 +874,9 @@ function ReceiptDialog({
         // The popup itself only places things: the sheet below scrolls, and
         // below `lg` the close sits outside it.
         className="block max-w-[calc(100%-3rem)] gap-0 overflow-visible bg-transparent p-0 text-foreground ring-0 sm:max-w-sm lg:w-auto lg:max-w-none"
+        // Below `lg` the close sits out on the page in white, so the page
+        // under it is dimmed by half, as under the settings' dialogs.
+        overlayClassName="max-lg:bg-scrim/50"
         showCloseButton={false}
       >
         {receipt ? (
@@ -885,7 +888,7 @@ function ReceiptDialog({
               render={
                 <Button
                   aria-label={t("closeReceipt")}
-                  className="absolute -top-13 right-0 size-11 text-foreground hover:bg-transparent lg:hidden"
+                  className="absolute -top-12 right-0 size-11 text-on-media hover:bg-transparent hover:text-on-media md:-top-13 lg:hidden"
                   size="icon"
                   variant="ghost"
                 />
@@ -893,7 +896,10 @@ function ReceiptDialog({
             >
               <X aria-hidden className="size-6" />
             </DialogClose>
-            <div className="max-h-[calc(100dvh-8rem)] overflow-y-auto overscroll-contain rounded-card bg-card shadow-hero-card lg:max-h-[calc(100dvh-3rem)]">
+            {/* On a phone as tall as the screen allows under the close (its 48
+                and a margin), so the whole receipt fits without scrolling on
+                any phone the height of an SE or more. */}
+            <div className="max-h-[calc(100dvh-7rem)] overflow-y-auto overscroll-contain rounded-card bg-card shadow-hero-card md:max-h-[calc(100dvh-8rem)] lg:max-h-[calc(100dvh-3rem)]">
               <div className={cn("app-scale contents lg:block", SHEET_W)}>
                 {/* From `lg`, held at the top inside the sheet as before. */}
                 <div className="sticky top-0 z-10 hidden justify-end bg-card px-4 pt-4 lg:flex">
@@ -904,7 +910,7 @@ function ReceiptDialog({
                   </DialogClose>
                 </div>
                 <ReceiptCard inDialog receipt={receipt} titleId={title} />
-                <NextSteps className={cn("pb-4 lg:pb-6", SHEET_X)} receipt={receipt} />
+                <NextSteps className={cn("pb-5 md:pb-4 lg:pb-6", SHEET_X)} receipt={receipt} />
               </div>
             </div>
           </>
