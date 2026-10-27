@@ -6,6 +6,7 @@ import { useFormatter, useNow, useTimeZone, useTranslations } from "next-intl";
 import { useState, type ReactNode } from "react";
 
 import { authPill } from "@/components/auth/auth-split";
+import { FEED_COLUMN, GUTTER } from "@/components/notifications/notification-center-screen";
 import { useMountTime } from "@/components/bookings/booking-flow";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -428,6 +429,12 @@ export function ChatList({
         <RowSkeleton />
       </ul>
     );
+  } else if (empty) {
+    // Beside a thread's address that named no room; the inbox's own empty
+    // state is a page of its own (`InboxEmpty`).
+    body = (
+      <p className="px-6 py-12 text-center text-sm font-semibold text-foreground lg:text-frame-body">{t("emptyTitle")}</p>
+    );
   } else if (shown.length === 0) {
     body = (
       <div className="flex flex-col items-center gap-1.5 px-6 py-12 text-center">
@@ -446,8 +453,6 @@ export function ChatList({
       </ul>
     );
   }
-
-  if (empty) return <InboxEmpty className={className} />;
 
   return (
     <div className={cn("flex w-full flex-col", className)} data-slot="chat-list">
@@ -502,21 +507,41 @@ export function ChatList({
   );
 }
 
-/** No rooms at all: the honest reason, and the way to the one thing that opens one. */
-function InboxEmpty({ className }: { readonly className?: string }) {
+/**
+ * No rooms at all, as the bookings and the notifications say they have
+ * nothing: the page's own title, then one box filling the panel down to its
+ * foot (no box on a phone, the message centred there), the mark in a grey
+ * disc, the honest reason and the way to the one thing that opens a room.
+ *
+ * A page rather than a pane: with nothing to list there is no list beside a
+ * thread. The chat's shell is drawn edge to edge (`compact`), so this adds
+ * the inset every other account page has from its shell.
+ */
+function InboxEmpty() {
   const t = useTranslations("chat");
   return (
-    <div className={cn("flex w-full flex-1 flex-col items-center justify-center gap-5 px-6 py-16 text-center lg:py-0", className)}>
-      <span className="flex size-16 items-center justify-center rounded-full bg-muted">
-        <MessagesSquare aria-hidden className="size-7 text-muted-foreground" />
-      </span>
-      <div className="flex max-w-sm flex-col gap-1.5">
-        <h1 className="font-hero text-xl tracking-tight text-hero-ink lg:text-frame-heading">{t("emptyTitle")}</h1>
-        <p className="text-xs text-muted-foreground lg:text-frame-meta">{t("emptyBody")}</p>
+    <div className={cn("flex w-full min-w-0 flex-1 flex-col pt-2 pb-12 lg:px-[42.75px] lg:pt-[47.5px] lg:pb-16", GUTTER)}>
+      <div className={cn("flex w-full flex-1 flex-col", FEED_COLUMN)}>
+        <h1 className="font-hero text-title-compact font-normal tracking-tight text-hero-ink lg:text-frame-title">
+          {t("title")}
+        </h1>
+        <div className="mt-6 flex w-full flex-1 flex-col items-center justify-center gap-3 px-6 py-12 text-center lg:mt-8 lg:gap-5 lg:rounded-2xl lg:border lg:border-border lg:py-20">
+          <span className="flex size-11 items-center justify-center rounded-full bg-muted text-hero-ink/75 lg:size-14">
+            <MessagesSquare aria-hidden className="size-5 lg:size-7" strokeWidth={1.5} />
+          </span>
+          <div className="flex flex-col items-center gap-1">
+            <h2 className="text-base font-semibold text-foreground lg:text-frame-figure">{t("emptyTitle")}</h2>
+            <p className="text-xs text-balance text-muted-foreground lg:text-frame-meta">{t("emptyBody")}</p>
+          </div>
+          <Button
+            className={cn(authPill(true), "mt-1 h-10 w-auto px-4 text-sm md:h-10 md:px-5 md:text-sm lg:h-12 lg:px-6 lg:text-frame-body")}
+            nativeButton={false}
+            render={<Link href="/search" />}
+          >
+            {t("emptyAction")}
+          </Button>
+        </div>
       </div>
-      <Button className={cn(authPill(true), "w-auto")} nativeButton={false} render={<Link href="/search" />}>
-        {t("emptyAction")}
-      </Button>
     </div>
   );
 }
@@ -545,6 +570,8 @@ export function ChatInboxScreen({
 function InboxPanes({ forcedBanner }: { readonly forcedBanner: boolean }) {
   const inbox = useInbox();
   const desktop = useDesktop();
+  // `null`: the inbox answered with no rooms at all, the page's own empty state.
+  if (newestRoomId(inbox.data) === null) return <InboxEmpty />;
   const newest = desktop ? newestRoomId(inbox.data) : undefined;
   return (
     <>
