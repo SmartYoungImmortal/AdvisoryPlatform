@@ -20,6 +20,7 @@ import { Suspense, useCallback, useId, useState, type ReactNode } from "react";
 import { AccountShell } from "@/components/account/account-shell";
 import { AppFrame } from "@/components/account/app-frame";
 import { AUTH_LINK, authPill } from "@/components/auth/auth-split";
+import { asUuid, useQueryValue } from "@/components/bookings/booking-flow";
 import { Figures } from "@/components/figures";
 import { MobileScreen, ScreenBody, ScreenTopBar } from "@/components/mobile/screen";
 import {
@@ -509,9 +510,24 @@ function TransactionHistory({ history }: { readonly history: readonly Transactio
   // stays on screen while the dialog plays its exit.
   const [receipt, setReceipt] = useState<Receipt | null>(null);
   const [receiptOpen, setReceiptOpen] = useState(false);
+  // `?invoiceId=`, a link to one receipt (a payment notification's "see the
+  // receipt"): the history opens with it over the list, until the reader
+  // closes it or opens another.
+  const linkedId = asUuid(useQueryValue("invoiceId"));
+  const [linkSpent, setLinkSpent] = useState(false);
+  const linked = linkSpent || !linkedId ? undefined : history.find((row) => row.id === linkedId);
   const openReceipt = (next: Receipt) => {
+    setLinkSpent(true);
     setReceipt(next);
     setReceiptOpen(true);
+  };
+  const receiptOpenChange = (next: boolean) => {
+    // A linked receipt that closes keeps its sheet for the exit, as any other.
+    if (linked) {
+      setLinkSpent(true);
+      setReceipt(linked.receipt);
+    }
+    setReceiptOpen(next);
   };
   const rows = filter === "all" ? history : history.filter((row) => row.status === filter);
   const kinds = STATUS_ORDER.filter((status) => history.some((row) => row.status === status));
@@ -548,7 +564,11 @@ function TransactionHistory({ history }: { readonly history: readonly Transactio
           ))}
         </div>
       )}
-      <ReceiptDialog onOpenChange={setReceiptOpen} open={receiptOpen} receipt={receipt} />
+      <ReceiptDialog
+        onOpenChange={receiptOpenChange}
+        open={receiptOpen || linked !== undefined}
+        receipt={linked ? linked.receipt : receipt}
+      />
     </HistoryFrame>
   );
 }
@@ -798,15 +818,17 @@ function NextSteps({ receipt, className }: { readonly receipt: Receipt; readonly
   const t = useTranslations("transactions");
   const l = useTranslations("landing");
 
+  // The booking this was for, open over the list.
+  const bookings = receipt.bookingHref ?? "/bookings";
   const actions: Record<TransactionStatus, readonly { label: string; href: string; solid: boolean }[]> = {
-    paid: [{ label: t("viewBookings"), href: "/bookings", solid: true }],
+    paid: [{ label: t("viewBookings"), href: bookings, solid: true }],
     failed: [{ label: t("payAgain"), href: "/checkout/card", solid: true }],
     refunded: [
       { label: t("findExpert"), href: "/search", solid: true },
-      { label: t("viewBookings"), href: "/bookings", solid: false },
+      { label: t("viewBookings"), href: bookings, solid: false },
     ],
     // The booking it is for is where the reader picks it up again.
-    pending: [{ label: t("viewBookings"), href: "/bookings", solid: true }],
+    pending: [{ label: t("viewBookings"), href: bookings, solid: true }],
   };
   const subject = encodeURIComponent(t("supportSubject", { number: receipt.invoiceNo }));
 

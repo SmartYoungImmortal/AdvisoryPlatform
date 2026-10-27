@@ -7,7 +7,11 @@ import { useFormatter, useTranslations } from "next-intl";
 import { authPill } from "@/components/auth/auth-split";
 import { asUuid, useQueryValue } from "@/components/bookings/booking-flow";
 import { Figures } from "@/components/figures";
-import { GUTTER, NotificationsShell } from "@/components/notifications/notification-center-screen";
+import {
+  FEED_COLUMN,
+  GUTTER,
+  NotificationsShell,
+} from "@/components/notifications/notification-center-screen";
 import { useNotificationFeed } from "@/components/notifications/notification-store";
 import { notificationAction, rememberedNotification } from "@/components/notifications/notifications-data";
 import { Button } from "@/components/ui/button";
@@ -34,11 +38,8 @@ export function NotificationDetailRoute() {
   const action = item ? notificationAction(item) : null;
 
   return (
-    // From `lg` the whole panel, not the centred page column the feed sits in:
-    // one message reads from the panel's left edge, as settings does, rather
-    // than floating mid-panel on a wide screen. The inset is the column's own.
-    <NotificationsShell compact>
-      <article className={cn("flex w-full flex-col pt-6 pb-12", GUTTER, "lg:px-11 lg:pt-12 lg:pb-16")}>
+    <NotificationsShell>
+      <article className={cn("flex w-full flex-col pt-6 pb-12 lg:pt-0 lg:pb-0", FEED_COLUMN, GUTTER)}>
         <Button
           aria-label={c("back")}
           className="relative -ml-1.5 size-8 shrink-0 text-foreground before:absolute before:-inset-1.5 before:content-[''] lg:-ml-2 lg:size-10"

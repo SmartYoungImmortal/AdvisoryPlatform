@@ -11,7 +11,7 @@
  */
 
 import { liveServiceHref } from "@/components/bookings/booking-flow";
-import { invoiceHref } from "@/components/payment/transactions-data";
+import { receiptHref } from "@/components/payment/transactions-data";
 import { api, type CursorPage } from "@/lib/api/client";
 
 /* -------------------------------------------------------------------- shapes */
@@ -166,7 +166,8 @@ export function notificationAction(
     case "SCREENING_DECIDED":
       return id ? { href: liveServiceHref(id), label: "actionService" } : null;
     case "PAYMENT_SUCCEEDED":
-      return { href: id ? invoiceHref(id) : "/transactions", label: "actionReceipt" };
+      // The history with this receipt open over it, as a tap in the history opens it.
+      return { href: id ? receiptHref(id) : "/transactions", label: "actionReceipt" };
     case "PAYOUT_SENT":
       return { href: "/work", label: "actionEarnings" };
     case "REVIEW_RECEIVED":

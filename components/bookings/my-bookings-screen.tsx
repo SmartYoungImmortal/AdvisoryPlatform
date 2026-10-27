@@ -379,10 +379,13 @@ export function MyBookingsScreen() {
   // the booking as the list reads it again after a change.
   const [openId, setOpenId] = useState<string | null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
-  // `?bookingId=`, a link to one booking (a notification's "see the
-  // booking"): the list opens on its tab with the booking over it, until the
-  // reader closes it or opens another.
+  // A link to one booking: `?bookingId=` (a notification's "see the
+  // booking"), or `?serviceId=&startTime=` (a receipt's, whose invoice names
+  // no booking id). The list opens on its tab with the booking over it, until
+  // the reader closes it or opens another.
   const linkedId = asUuid(useQueryValue("bookingId"));
+  const linkedService = asUuid(useQueryValue("serviceId"));
+  const linkedStart = Date.parse(useQueryValue("startTime") ?? "");
   const [linkSpent, setLinkSpent] = useState(false);
 
   const bookingsFetcher = useCallback((signal: AbortSignal) => listMyBookings({ limit: 50 }, signal), []);
@@ -414,7 +417,11 @@ export function MyBookingsScreen() {
     cancelled: inPhase("cancelled").toReversed(),
   };
   const tabs = TABS.filter((tab) => tab !== "cancelled" || lists.cancelled.length > 0);
-  const landing = linkedId ? entries.find((entry) => entry.booking.id === linkedId) : undefined;
+  const landing = entries.find(
+    ({ booking }) =>
+      booking.id === linkedId ||
+      (booking.serviceId === linkedService && Date.parse(booking.startTime) === linkedStart),
+  );
   const linked = linkSpent ? undefined : landing;
   // The page always opens on what is ahead, empty or not, as scheduling apps
   // do: that is what a visit is for, and an empty one says how to book. A tab

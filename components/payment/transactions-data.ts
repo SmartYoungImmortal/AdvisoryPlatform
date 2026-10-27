@@ -39,6 +39,12 @@ export interface Receipt {
   readonly session: { readonly date: string; readonly from?: string; readonly to?: string } | null;
   /** What became of the booking, when it is not simply going ahead. */
   readonly booking?: "unconfirmed" | "cancelled";
+  /**
+   * The bookings list with this receipt's booking open over it. The invoice
+   * names no booking id, so the list finds it by its service and start
+   * (`MyBookingsScreen`). Absent on a sample, whose way on is the plain list.
+   */
+  readonly bookingHref?: string;
   /** Satang. */
   readonly price: number;
   /** Satang. */
@@ -76,6 +82,11 @@ export function invoiceHref(id: string): string {
   return `/transactions/detail?id=${encodeURIComponent(id)}`;
 }
 
+/** The history with one receipt open over it, as a tap on its row opens it (`TransactionHistory`). */
+export function receiptHref(id: string): string {
+  return `/transactions?invoiceId=${encodeURIComponent(id)}`;
+}
+
 /**
  * When the receipt says the outcome happened. The API keeps `createdAt` and
  * `paidAt` only, and `paidAt` is when the latest charge finished, success or
@@ -111,6 +122,9 @@ export function invoiceReceipt(invoice: ApiAdviseeInvoice): Receipt {
       : null,
     // A confirmed booking is simply going ahead: no booking fact.
     booking: booking === "unconfirmed" || booking === "cancelled" ? booking : undefined,
+    bookingHref: session
+      ? `/bookings?serviceId=${invoice.service.id}&startTime=${encodeURIComponent(session.startTime)}`
+      : undefined,
     price: invoice.priceSatang,
     fee: invoice.platformFeeSatang,
     refund: invoice.refundSatang ?? undefined,
