@@ -19,6 +19,7 @@ import { SuccessBanner } from "@/components/mobile/banner";
 import { MobileScreen, ScreenBody } from "@/components/mobile/screen";
 import { GUTTER } from "@/components/notifications/notification-center-screen";
 import { usePushToggle } from "@/components/notifications/push-toggle";
+import { DeleteAccountDialog } from "@/components/profile/delete-account-dialog";
 import { useOwnProfile } from "@/components/profile/profile-data";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
@@ -38,25 +39,33 @@ const SECTION = {
 
 /**
  * A row's action: a soft grey capsule (a destructive one in the destructive
- * tint), a link to the page that does it.
+ * tint), a link to the page that does it, or a button that opens its dialog.
  */
 function RowAction({
   href,
+  onClick,
   children,
   destructive = false,
 }: {
-  readonly href: string;
   readonly children: ReactNode;
   readonly destructive?: boolean;
-}) {
+} & ({ readonly href: string; readonly onClick?: never } | { readonly href?: never; readonly onClick: () => void })) {
+  const className = cn(
+    "h-9 shrink-0 rounded-full px-4 text-sm font-medium lg:h-11 lg:px-5 lg:text-frame-meta",
+    destructive
+      ? "bg-destructive/10 text-destructive hover:bg-destructive/15 hover:text-destructive"
+      : "bg-muted text-foreground hover:bg-muted/70 hover:text-foreground",
+  );
+  if (href === undefined) {
+    return (
+      <Button className={className} onClick={onClick} type="button" variant="ghost">
+        {children}
+      </Button>
+    );
+  }
   return (
     <Button
-      className={cn(
-        "h-9 shrink-0 rounded-full px-4 text-sm font-medium lg:h-11 lg:px-5 lg:text-frame-meta",
-        destructive
-          ? "bg-destructive/10 text-destructive hover:bg-destructive/15 hover:text-destructive"
-          : "bg-muted text-foreground hover:bg-muted/70 hover:text-foreground",
-      )}
+      className={className}
       nativeButton={false}
       render={href.startsWith("mailto:") ? <a href={href} /> : <Link href={href} />}
       variant="ghost"
@@ -262,7 +271,8 @@ function LanguageRow() {
  *
  * Logging out opens the existing confirm (`/settings/logout`), which draws
  * this page under its dialog (`overlay`); deleting is last, in the
- * destructive tint, with what it removes on its second line.
+ * destructive tint, with what it removes on its second line, and asks in a
+ * dialog over this page (`DeleteAccountDialog`).
  */
 export function AccountSettingsScreen({
   state = "default",
@@ -279,6 +289,7 @@ export function AccountSettingsScreen({
   const profile = useOwnProfile();
   const isUpdated = state === "updated";
   const [section, setSection] = useState<SectionKey>("account");
+  const [deleting, setDeleting] = useState(false);
 
   return (
     // `wide="md"`: a tablet held upright gets the phone layout at its own width.
@@ -346,7 +357,7 @@ export function AccountSettingsScreen({
                     <RowAction href="/settings/logout">{nav("logOut")}</RowAction>
                   </SettingRow>
                   <SettingRow destructive detail={t("deleteNote")} label={t("deleteAccount")}>
-                    <RowAction destructive href="/settings/delete">
+                    <RowAction destructive onClick={() => setDeleting(true)}>
                       {t("deleteAction")}
                     </RowAction>
                   </SettingRow>
@@ -374,6 +385,7 @@ export function AccountSettingsScreen({
         </ScreenBody>
       </AppFrame>
       {overlay}
+      <DeleteAccountDialog onOpenChange={setDeleting} open={deleting} />
     </MobileScreen>
   );
 }

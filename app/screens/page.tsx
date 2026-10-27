@@ -53,7 +53,6 @@ const SECTIONS: ReadonlyArray<{
       { href: "/settings", label: "Account settings" },
       { href: "/settings/updated", label: "Account settings – updated" },
       { href: "/settings/password", label: "Change password" },
-      { href: "/settings/delete", label: "Delete account" },
       { href: "/settings/logout", label: "Log out confirm" },
     ],
   },

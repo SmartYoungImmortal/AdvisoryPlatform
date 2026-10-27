@@ -105,7 +105,7 @@
 - [ ] `/reviews/session`, `/reviews/session/submitted`
 
 ### RD-12 · ข้างในหน้าย่อยของการตั้งค่า
-- [ ] `/settings/email`, `/settings/email/verify`, `/settings/password`, `/settings/delete`, `/settings/updated` (กรอบทำแล้ว ข้างในยังเก่า ยังไม่มีภาษาอังกฤษ)
+- [ ] `/settings/email`, `/settings/email/verify`, `/settings/password`, `/settings/updated` (กรอบทำแล้ว ข้างในยังเก่า ยังไม่มีภาษาอังกฤษ)
 
 ### RD-13 · หน้า auth ที่เหลือ (เร็ว ใช้ `AuthSplit` ได้เลย)
 - [ ] `/reset-password`

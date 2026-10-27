@@ -56,13 +56,6 @@ const PANEL =
 export const ACCOUNT_FORM_PANEL = `${PANEL} lg:w-[800px] lg:p-10`;
 
 /**
- * The 640px panel the confirmation screens sit in. Here the blocks keep the
- * phone's 24px inset — `WarningHero` carries its own and takes no class — so
- * the panel only adds the other 24 of Figma's 48.
- */
-export const ACCOUNT_CONFIRM_PANEL = `${PANEL} lg:w-[640px] lg:px-6 lg:py-8`;
-
-/**
  * Figma "Back Bar" — a 52px strip on the card surface below the nav: a 28px
  * chevron at the 120px page inset with its label 8px after it.
  *
