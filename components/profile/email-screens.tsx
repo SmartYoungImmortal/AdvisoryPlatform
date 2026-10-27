@@ -143,7 +143,7 @@ function ChangeEmailForm({ state = "default" }: { readonly state?: "default" | "
           <Button className={settingsPill("solid")} disabled={!email.trim() || submitting} type="submit">
             {t("submit")}
           </Button>
-          <Button className={settingsPill()} nativeButton={false} render={<Link href="/settings" />} variant="outline">
+          <Button className={settingsPill()} nativeButton={false} render={<Link href="/settings" />} variant="ghost">
             {c("cancel")}
           </Button>
         </div>
@@ -204,7 +204,7 @@ function VerifyEmailNote() {
             disabled={!pending || resending}
             onClick={resend}
             type="button"
-            variant="outline"
+            variant="ghost"
           >
             {t("resend")}
           </Button>

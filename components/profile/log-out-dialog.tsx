@@ -36,7 +36,7 @@ export function LogOutDialog({ cancelHref = "/profile" }: { readonly cancelHref?
         >
           {t("confirm")}
         </Button>
-        <Button className={settingsPill()} nativeButton={false} render={<Link href={cancelHref} />} variant="outline">
+        <Button className={settingsPill()} nativeButton={false} render={<Link href={cancelHref} />} variant="ghost">
           {t("cancel")}
         </Button>
       </div>

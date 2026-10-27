@@ -156,7 +156,7 @@ function ChangePasswordForm({ state = "default" }: { readonly state?: "default" 
           <Button className={settingsPill("solid")} disabled={submitting} type="submit">
             {t("submit")}
           </Button>
-          <Button className={settingsPill()} nativeButton={false} render={<Link href="/settings" />} variant="outline">
+          <Button className={settingsPill()} nativeButton={false} render={<Link href="/settings" />} variant="ghost">
             {c("cancel")}
           </Button>
         </div>
