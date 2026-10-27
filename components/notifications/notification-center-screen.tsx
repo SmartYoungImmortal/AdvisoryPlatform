@@ -122,8 +122,8 @@ export function NotificationRow({
   readonly time?: string;
   readonly unread?: boolean;
   /**
-   * What it opens (`notificationTarget`): the thing to act on, or for one
-   * that only informs, its own page with the whole message.
+   * What it opens: the notification's own page (`notificationPageHref`),
+   * which holds the way on to what it is about.
    */
   readonly href: string;
   readonly onClick?: () => void;
@@ -441,13 +441,22 @@ export function NotificationCenterFrame({
  * account page, so it keeps that rail rather than swapping to the app bar
  * and footer (which made the rail vanish for advisors on this one page).
  */
-export function NotificationsShell({ children }: { readonly children: ReactNode }) {
+export function NotificationsShell({
+  compact = false,
+  children,
+}: {
+  /** The whole panel, edge to edge (`AccountShell`'s), the page setting its own inset. */
+  readonly compact?: boolean;
+  readonly children: ReactNode;
+}) {
   return (
     // `wide="md"`: a tablet held upright gets the phone layout at its own width.
     <MobileScreen className="bg-card" wide="md">
       <AppFrame active="notifications">
         <ScreenBody className="bg-card">
-          <AccountShell active="notifications">{children}</AccountShell>
+          <AccountShell active="notifications" compact={compact}>
+            {children}
+          </AccountShell>
         </ScreenBody>
       </AppFrame>
     </MobileScreen>

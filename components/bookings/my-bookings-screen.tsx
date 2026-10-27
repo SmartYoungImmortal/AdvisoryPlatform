@@ -10,7 +10,7 @@ import { ApiError } from "@/lib/api/client";
 import { listAdvisors, listMyBookings, listServices } from "@/lib/api/resources";
 import type { ApiBooking, ApiPublicAdvisor, ApiPublicService } from "@/lib/api/types";
 import { invalidate, useLastAnswer, useResource } from "@/lib/api/use-resource";
-import { useMountTime } from "@/components/bookings/booking-flow";
+import { asUuid, useMountTime, useQueryValue } from "@/components/bookings/booking-flow";
 import { MiniMonth, dayDate, shiftMonth, useDayKey } from "@/components/bookings/mini-month";
 import {
   bookingPhase,
@@ -379,6 +379,11 @@ export function MyBookingsScreen() {
   // the booking as the list reads it again after a change.
   const [openId, setOpenId] = useState<string | null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
+  // `?bookingId=`, a link to one booking (a notification's "see the
+  // booking"): the list opens on its tab with the booking over it, until the
+  // reader closes it or opens another.
+  const linkedId = asUuid(useQueryValue("bookingId"));
+  const [linkSpent, setLinkSpent] = useState(false);
 
   const bookingsFetcher = useCallback((signal: AbortSignal) => listMyBookings({ limit: 50 }, signal), []);
   const servicesFetcher = useCallback((signal: AbortSignal) => listServices({ limit: 100 }, signal), []);
@@ -409,10 +414,14 @@ export function MyBookingsScreen() {
     cancelled: inPhase("cancelled").toReversed(),
   };
   const tabs = TABS.filter((tab) => tab !== "cancelled" || lists.cancelled.length > 0);
+  const landing = linkedId ? entries.find((entry) => entry.booking.id === linkedId) : undefined;
+  const linked = linkSpent ? undefined : landing;
   // The page always opens on what is ahead, empty or not, as scheduling apps
   // do: that is what a visit is for, and an empty one says how to book. A tab
   // that has emptied (the last called-off booking is gone) falls back there too.
-  const tab = chosen && tabs.includes(chosen) ? chosen : "ahead";
+  // A linked booking's tab instead, kept after its card closes.
+  const fallback = landing ? bookingPhase(landing.booking, now) : "ahead";
+  const tab = chosen && tabs.includes(chosen) ? chosen : fallback;
   const rows = lists[tab];
 
   const byDay = new Map<string, BookingEntry[]>();
@@ -424,10 +433,20 @@ export function MyBookingsScreen() {
   const next = lists.ahead[0];
   const month = shownMonth ?? (next ? dayKey(next.booking.startTime) : today).slice(0, 7);
 
-  const openEntry = entries.find((entry) => entry.booking.id === openId) ?? null;
+  const shownId = linked ? linked.booking.id : openId;
+  const openEntry = entries.find((entry) => entry.booking.id === shownId) ?? null;
   const open = (bookingId: string) => {
+    setLinkSpent(true);
     setOpenId(bookingId);
     setDialogOpen(true);
+  };
+  const openChange = (next: boolean) => {
+    // A linked card that closes keeps its booking for the exit, as any other.
+    if (linked) {
+      setLinkSpent(true);
+      setOpenId(linked.booking.id);
+    }
+    setDialogOpen(next);
   };
   // A booked day on the small month: the tab its first booking is in, then the
   // list scrolled to the day once the tab has drawn it.
@@ -539,8 +558,8 @@ export function MyBookingsScreen() {
         entry={openEntry}
         now={now}
         onChanged={changed}
-        onOpenChange={setDialogOpen}
-        open={dialogOpen}
+        onOpenChange={openChange}
+        open={dialogOpen || linked !== undefined}
       />
     </MobileScreen>
   );

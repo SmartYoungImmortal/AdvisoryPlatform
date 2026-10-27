@@ -42,7 +42,7 @@ import {
 import {
   groupByRecency,
   notificationCategory,
-  notificationTarget,
+  notificationPageHref,
   rememberNotification,
   type ApiNotification,
   type NotificationType,
@@ -134,7 +134,10 @@ function FeedGroups({ items, now }: { readonly items: readonly ApiNotification[]
           {group.items.map((item) => (
             <NotificationRow
               body={item.content}
-              href={notificationTarget(item)}
+              // Every row opens its own page, which says it whole and holds
+              // the way on (the chat, the booking, the receipt), so a tap
+              // never lands somewhere the reader did not expect.
+              href={notificationPageHref(item)}
               icon={iconFor(item.type)}
               key={item.id}
               onClick={() => {
