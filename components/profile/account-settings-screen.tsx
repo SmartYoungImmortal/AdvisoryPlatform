@@ -26,6 +26,13 @@ import { Switch } from "@/components/ui/switch";
 import { useAppLocale } from "@/lib/i18n/locale-provider";
 import { cn } from "@/lib/utils";
 
+/**
+ * The chosen category's glyph drawn solid: filled in ink with its inner lines
+ * in the soft grey it sits on, as an outline set's filled twin would be. The
+ * others keep the outline.
+ */
+const SOLID_GLYPH = "fill-current stroke-muted";
+
 /** The settings' categories, in the order the menu lists them. */
 const SECTIONS = ["account", "notifications", "language", "legal"] as const;
 type SectionKey = (typeof SECTIONS)[number];
@@ -51,7 +58,7 @@ function RowAction({
   readonly destructive?: boolean;
 } & ({ readonly href: string; readonly onClick?: never } | { readonly href?: never; readonly onClick: () => void })) {
   const className = cn(
-    "h-9 shrink-0 rounded-full px-4 text-sm font-medium lg:h-11 lg:px-5 lg:text-frame-meta",
+    "h-8 shrink-0 rounded-full px-3.5 text-xs font-medium lg:h-11 lg:px-5 lg:text-frame-meta",
     destructive
       ? "bg-destructive/10 text-destructive hover:bg-destructive/15 hover:text-destructive"
       : "bg-muted text-foreground hover:bg-muted/70 hover:text-foreground",
@@ -118,10 +125,13 @@ function SettingRow({
 function SettingsSection({
   section,
   active,
+  lead,
   children,
 }: {
   readonly section: SectionKey;
   readonly active: boolean;
+  /** What the category says before its rows, under its label or band (the password's success). */
+  readonly lead?: ReactNode;
   readonly children: ReactNode;
 }) {
   const t = useTranslations("accountSettings");
@@ -133,20 +143,25 @@ function SettingsSection({
       {/* Below `lg` the categories are stacked down one page, so each is the
           notifications' small grey label over its rows rather than a tile and
           a heading over a hairline, which is the desktop's one category. */}
-      <header className="flex items-center gap-1.5 lg:gap-4 lg:border-b lg:border-border lg:pb-6">
+      {/* From `lg` the band across the top of the panel: 88 tall, its hairline
+          running the panel's whole width from the menu's edge, the glyph solid
+          on its tile as the chosen category's is in the menu. */}
+      <header className="flex items-center gap-1.5 lg:h-22 lg:shrink-0 lg:gap-3 lg:border-b lg:border-border lg:px-7">
         {/* The glyph bare and small before the label below `lg`; the tile from `lg`. */}
         <Icon aria-hidden className="size-3.5 shrink-0 text-muted-foreground lg:hidden" strokeWidth={1.75} />
         <span className="hidden size-12 shrink-0 items-center justify-center rounded-xl bg-muted text-foreground lg:flex">
-          <Icon aria-hidden className="size-6" strokeWidth={1.75} />
+          <Icon aria-hidden className={cn("size-6", SOLID_GLYPH)} strokeWidth={1.75} />
         </span>
         <h2
-          className="text-xs font-medium text-muted-foreground lg:text-frame-heading lg:text-foreground"
+          className="text-xs font-medium text-muted-foreground lg:text-frame-heading lg:font-semibold lg:text-foreground"
           id={heading}
         >
           {t(SECTION[section].label)}
         </h2>
       </header>
-      <ul className="flex flex-col max-lg:[&>li:last-child]:border-b-0">{children}</ul>
+      {lead}
+      {/* Straight under the band, inset from the panel's edge, no wider than 1200. */}
+      <ul className="flex flex-col max-lg:[&>li:last-child]:border-b-0 lg:mx-8 lg:max-w-300">{children}</ul>
     </section>
   );
 }
@@ -169,7 +184,8 @@ function SettingsMenu({
     // panel: the menu is what fills the left of the page, not a margin.
     <nav
       aria-label={t("menuLabel")}
-      className="hidden lg:flex lg:flex-col lg:gap-6 lg:border-r lg:border-border lg:px-6 lg:pt-[47.5px] lg:pb-16"
+      // `pt-5`: the title's line centred on the category's 88 band beside it.
+      className="hidden lg:flex lg:flex-col lg:gap-5 lg:border-r lg:border-border lg:px-6 lg:pt-5 lg:pb-16"
     >
       <h1 className="font-hero text-frame-title font-normal tracking-tight text-hero-ink">{t("title")}</h1>
       <ul className="flex flex-col gap-1">
@@ -191,7 +207,7 @@ function SettingsMenu({
                 type="button"
                 variant="ghost"
               >
-                <Icon aria-hidden className="size-5" strokeWidth={1.75} />
+                <Icon aria-hidden className={cn("size-5", current && SOLID_GLYPH)} strokeWidth={1.75} />
                 {t(SECTION[key].label)}
               </Button>
             </li>
@@ -243,7 +259,7 @@ function LanguageRow() {
     <Button
       aria-pressed={locale === value}
       className={cn(
-        "h-8 rounded-full px-3.5 text-sm font-medium lg:h-10 lg:px-4 lg:text-frame-meta",
+        "h-7 rounded-full px-3 text-xs font-medium lg:h-10 lg:px-4 lg:text-frame-meta",
         value === "en" && "font-latin",
         locale === value
           ? "bg-card text-foreground shadow-hero-card hover:bg-card hover:text-foreground"
@@ -334,20 +350,24 @@ export function AccountSettingsScreen({
               {/* The page's own top inset from `lg` (the shell's 47.5px, which
                   `compact` drops), so the category's heading lines up with the
                   menu's title. */}
-              <div className="mt-4 flex min-w-0 flex-col gap-6 lg:mt-0 lg:gap-0 lg:px-16 lg:pt-[47.5px] lg:pb-16">
-                {isUpdated ? (
-                  // The banner is a shared phone block; the lift sets its type on the frame's steps.
-                  <div className={cn("lg:mb-8", DESKTOP_TYPE_LIFT)}>
-                    <SuccessBanner
-                      body={t("updatedBody")}
-                      className="px-0 pt-0"
-                      icon={CircleCheckBig}
-                      title={t("updatedTitle")}
-                    />
-                  </div>
-                ) : null}
-
-                <SettingsSection active={section === "account"} section="account">
+              <div className="mt-4 flex min-w-0 flex-col gap-6 lg:mt-0 lg:gap-0 lg:pb-16">
+                <SettingsSection
+                  active={section === "account"}
+                  lead={
+                    isUpdated ? (
+                      // The banner is a shared phone block; the lift sets its type on the frame's steps.
+                      <div className={cn("mt-3 lg:mx-8 lg:mt-8", DESKTOP_TYPE_LIFT)}>
+                        <SuccessBanner
+                          body={t("updatedBody")}
+                          className="px-0 pt-0"
+                          icon={CircleCheckBig}
+                          title={t("updatedTitle")}
+                        />
+                      </div>
+                    ) : null
+                  }
+                  section="account"
+                >
                   <SettingRow
                     // The account's own address, in the Latin face it is written in.
                     detail={profile.data?.email ? <span className="font-latin">{profile.data.email}</span> : null}

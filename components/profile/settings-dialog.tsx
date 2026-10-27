@@ -15,7 +15,7 @@ import { cn } from "@/lib/utils";
  * box on a hairline.
  */
 const FIELD_LIFT =
-  "[&_[data-slot=input-group]]:h-11 lg:[&_[data-slot=input-group]]:px-4 lg:[&_[data-slot=input-group-control]]:text-base md:[&_[data-slot=field-label]]:text-sm lg:[&_[data-slot=field-label]]:text-frame-label";
+  "[&_[data-slot=input-group]]:h-10 lg:[&_[data-slot=input-group]]:h-11 lg:[&_[data-slot=input-group]]:px-4 lg:[&_[data-slot=input-group-control]]:text-base md:[&_[data-slot=field-label]]:text-sm lg:[&_[data-slot=field-label]]:text-frame-label";
 
 /**
  * The frame's type steps from `lg` for the shared blocks' captions and lines,
@@ -36,8 +36,9 @@ const BODY_LIFT = "lg:[&_.text-xs]:text-frame-label lg:[&_.text-sm:not([data-slo
  *
  * Measured in the frame's 1710 space from `lg`, where the card takes the
  * account column's zoom (`app-scale`): 400 wide, 16 round, 24 in from every
- * edge; a 23/600 title, the 16/24 line 8 under it, the answers 40 tall, 12
- * apart, 24 under the line. Below `lg` the zoom wrapper is `contents`.
+ * edge; a 23/600 title, its 19/28 line 8 under it, the answers 48 tall, 12
+ * apart, 24 under the line. Below `lg` the zoom wrapper is `contents` and the
+ * card is a step smaller, 20 in from its edges.
  *
  * The route *is* the dialog's open state (`defaultOpen`), so
  * `/settings/password` still opens straight onto the form; closing it goes
@@ -89,13 +90,14 @@ export function SettingsDialog({
         showCloseButton={false}
       >
         {Icon ? (
+          // A step smaller on a phone, where the card is most of the screen.
           <div className="app-scale contents lg:block lg:w-110">
-            <div className="flex flex-col px-6 pt-8 pb-6">
+            <div className="flex flex-col px-5 pt-6 pb-5 lg:px-6 lg:pt-8 lg:pb-6">
               <div className="flex flex-col items-center text-center">
-                <span className="flex size-14 items-center justify-center rounded-full bg-muted lg:size-16">
-                  <Icon aria-hidden className="size-7 text-foreground lg:size-8" strokeWidth={1.75} />
+                <span className="flex size-12 items-center justify-center rounded-full bg-muted lg:size-16">
+                  <Icon aria-hidden className="size-6 text-foreground lg:size-8" strokeWidth={1.75} />
                 </span>
-                <DialogTitle className="mt-1.5 text-xl leading-8 font-semibold text-foreground lg:text-frame-heading">
+                <DialogTitle className="mt-1.5 text-lg leading-7 font-semibold text-foreground lg:text-frame-heading lg:leading-8">
                   {title}
                 </DialogTitle>
                 {description ? (
@@ -104,21 +106,23 @@ export function SettingsDialog({
                   </DialogDescription>
                 ) : null}
               </div>
-              <div className={cn("mt-6", BODY_LIFT, FIELD_LIFT, "lg:[&_[data-slot=input-group]]:h-12")}>{children}</div>
+              <div className={cn("mt-5 lg:mt-6", BODY_LIFT, FIELD_LIFT, "lg:[&_[data-slot=input-group]]:h-12")}>
+                {children}
+              </div>
             </div>
           </div>
         ) : (
           <div className="app-scale contents lg:block lg:w-100">
-            <div className="flex flex-col p-6">
-              <DialogTitle className="text-xl leading-8 font-semibold text-foreground lg:text-frame-heading">
+            <div className="flex flex-col p-5 lg:p-6">
+              <DialogTitle className="text-lg leading-7 font-semibold text-foreground lg:text-frame-heading lg:leading-8">
                 {title}
               </DialogTitle>
               {description ? (
-                <DialogDescription className="mt-1 text-sm text-pretty text-muted-foreground lg:mt-2 lg:text-base lg:leading-6">
+                <DialogDescription className="mt-1 text-sm text-pretty text-muted-foreground lg:mt-2 lg:text-frame-body lg:leading-7">
                   {description}
                 </DialogDescription>
               ) : null}
-              <div className={cn("mt-6", BODY_LIFT, FIELD_LIFT)}>{children}</div>
+              <div className={cn("mt-5 lg:mt-6", BODY_LIFT, FIELD_LIFT)}>{children}</div>
             </div>
           </div>
         )}
@@ -128,17 +132,17 @@ export function SettingsDialog({
 }
 
 /** The dialog's answers: one line held to the right, the way out first and the thing being done last. */
-export const SETTINGS_DIALOG_ACTIONS = "mt-6 flex flex-wrap justify-end gap-3";
+export const SETTINGS_DIALOG_ACTIONS = "mt-5 flex flex-wrap justify-end gap-2.5 lg:mt-6 lg:gap-3";
 
 /**
- * The dialog's answers, 40 tall with 16px type in the frame's space (a
- * thumb's 44 on a phone): the way out as bare words (`ghost`), the thing
- * being done filled in ink (`solid`), or in a soft red for leaving
- * (`danger`). None has a line round it.
+ * The dialog's answers, 48 tall with 19px type in the frame's space (40 on a
+ * phone): the way out as bare words (`ghost`), the thing being done filled
+ * in ink (`solid`), or in a soft red for leaving (`danger`). None has a line
+ * round it.
  */
 export function settingsPill(kind: "solid" | "ghost" | "danger") {
   return cn(
-    "h-11 shrink-0 rounded-full border-0 px-4 text-sm font-medium shadow-none disabled:opacity-40 lg:h-10 lg:text-base",
+    "h-10 shrink-0 rounded-full border-0 px-4 text-sm font-medium shadow-none disabled:opacity-40 lg:h-12 lg:px-5 lg:text-frame-body",
     kind === "solid" && "bg-hero-action text-hero-action-foreground hover:bg-hero-action/85",
     kind === "ghost" && "bg-transparent text-foreground hover:bg-muted hover:text-foreground",
     kind === "danger" && "bg-destructive/25 text-destructive hover:bg-destructive/35 hover:text-destructive",
@@ -146,17 +150,18 @@ export function settingsPill(kind: "solid" | "ghost" | "danger") {
 }
 
 /** The centred card's capsules (`icon`), stacked full width under the form, the thing being done first. */
-export const SETTINGS_DIALOG_STACK = "mt-6 flex flex-col gap-2.5";
+export const SETTINGS_DIALOG_STACK = "mt-5 flex flex-col gap-2 lg:mt-6 lg:gap-2.5";
 
 /**
- * The centred card's capsules, 48 tall with 16px type in the frame's space:
+ * The centred card's capsules, 48 tall with 16px type in the frame's space
+ * (40 on a phone):
  * the thing being done filled in ink (`solid`), or in red for what cannot be
  * undone (`danger`), and the way out in the soft grey of the settings rows'
  * own capsules (`soft`). None has a line round it.
  */
 export function settingsStackPill(kind: "solid" | "danger" | "soft") {
   return cn(
-    "h-11 w-full gap-2 rounded-full border-0 px-5 text-sm font-medium shadow-none disabled:opacity-40 lg:h-12 lg:px-6 lg:text-base",
+    "h-10 w-full gap-2 rounded-full border-0 px-5 text-sm font-medium shadow-none disabled:opacity-40 lg:h-12 lg:px-6 lg:text-base",
     kind === "solid" && "bg-hero-action text-hero-action-foreground hover:bg-hero-action/85",
     kind === "danger" && "bg-destructive text-primary-foreground hover:bg-destructive/90",
     kind === "soft" && "bg-muted text-foreground hover:bg-muted/70 hover:text-foreground",
