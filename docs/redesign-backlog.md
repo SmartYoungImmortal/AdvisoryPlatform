@@ -3,7 +3,7 @@
 รายการหน้าที่ยังต้อง redesign เรียงตามลำดับที่ควรทำ แต่ละข้อเป็นหนึ่ง ticket
 ติ๊ก `[x]` เมื่อพี่ดูแล้ว **ผ่าน** ไม่ใช่แค่เขียนโค้ดเสร็จ
 
-อัปเดตล่าสุด: 25 ตุลาคม 2569
+อัปเดตล่าสุด: 28 ตุลาคม 2569
 
 ## หลักที่ใช้กับทุกหน้า
 
@@ -28,6 +28,7 @@
 - [x] ของที่ใช้ร่วมกัน: navbar, เมนูมือถือ, ปุ่ม TH/EN
 - [x] `/search` และ `/search/no-results` (ใช้หน้าเดียวกัน)
 - [x] `/notifications` (+ `/notifications/view` หน้าข้อความเต็มของแจ้งเตือนที่อ่านอย่างเดียว) ผ่าน 25 ต.ค.
+- [x] `/settings` และ popup ของมัน: เปลี่ยนอีเมล (`/settings/email`, `/settings/email/verify`), เปลี่ยนรหัสผ่าน (`/settings/password` + ตั้งรหัสใหม่ทางอีเมลใน popup ถัดไป), ออกจากระบบ (`/settings/logout`), ลบบัญชี (popup ในหน้า), `/settings/updated` ผ่าน 28 ต.ค.
 
 ## ทำแล้วแต่ยังไม่ผ่าน
 
@@ -37,12 +38,10 @@
 - [ ] `/` ส่วนใต้ hero: concept "คำถามในใจ" (คำถามลายมือ คำตอบตัวพิมพ์) 4 บท + FAQ + ปิดท้ายบนรูปห้อง
   พี่สั่งให้หยุดและเก็บแบบที่เห็นไว้ก่อน (25 ต.ค.) hero ไม่ได้แตะ
 
-### RD-01 / RD-12 · บัญชี (กรอบ `AppFrame` แถบไอคอนซ้าย, desktop ไม่มี navbar)
+### RD-01 · บัญชี (กรอบ `AppFrame` แถบไอคอนซ้าย, desktop ไม่มี navbar)
 - [ ] `/profile`: หัวโปรไฟล์ + กล่องตัวเลข + แบนเนอร์ + แท็บ
 - [ ] `/profile/edit`, `/profile/edit/save-failed`: หัวโปรไฟล์ชุดเดียวกันแบบแก้ได้
-- [ ] `/settings`: มีแถวภาษาและออกจากระบบ, `/settings/logout` เปิดทับหน้า settings
 - [ ] `/bookings`: ใส่กรอบและปรับขนาดตัวหนังสือ ข้างในยังไม่ redesign
-- หน้าย่อย settings (`/password`, `/email`, `/delete`, `/updated`) อยู่ในกรอบแล้ว แต่ข้างในยังเป็นการ์ด 800px แบบเก่าและยังไม่มีภาษาอังกฤษ
 
 ### RD-02 · โปรไฟล์สาธารณะของผู้ให้คำปรึกษา
 - [ ] `/advisors/[advisorId]`, `/about`, `/services`, `/reviews`: หน้าโปรไฟล์สาธารณะ อยู่ใน `AppFrame`
@@ -104,9 +103,6 @@
 - [ ] `/reviews`, `/reviews/empty`, `/reviews/replying`, `/reviews/reply-failed`
 - [ ] `/reviews/session`, `/reviews/session/submitted`
 
-### RD-12 · ข้างในหน้าย่อยของการตั้งค่า
-- [ ] `/settings/email`, `/settings/email/verify`, `/settings/password`, `/settings/updated` (กรอบทำแล้ว ข้างในยังเก่า ยังไม่มีภาษาอังกฤษ)
-
 ### RD-13 · หน้า auth ที่เหลือ (เร็ว ใช้ `AuthSplit` ได้เลย)
 - [ ] `/reset-password`
 - [ ] `/verification-sent`: ทำแล้วบน `AuthSplit` รอพี่ดู (อีเมลยังไม่ถูกส่งจริง เพราะ API ยังไม่มีบริการส่งเมล)
@@ -143,6 +139,8 @@
 `/advisor-onboarding/stage-2/rejected`, `/advisor-onboarding/stage-3/missing-proof`,
 `/checkout/card/errors`, `/notifications/empty`, `/availability/profiles/empty`,
 `/matching/results/no-results`
+
+`/settings/delete` ลบแล้ว (28 ต.ค.): ลบบัญชีเป็น popup ในหน้า `/settings`
 
 `/search/browse` ก็ลบแล้ว: ซ้ำกับ `/search` ที่ไม่ใส่คำค้นก็แสดงบริการทั้งหมดพร้อมตัวกรองอยู่แล้ว
 ลิงก์ "หมวดหมู่" ใน footer ชี้ไป `/search` แทน
