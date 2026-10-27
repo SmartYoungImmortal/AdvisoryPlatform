@@ -54,38 +54,3 @@ export const REVIEW_TEXT_MAX_LENGTH = 4_000;
 
 export const REVIEW_STARS_MIN = 1;
 export const REVIEW_STARS_MAX = 5;
-
-/* ---------------------------------------------------------------------- copy */
-
-/**
- * The shape of a `useTranslations` result this file needs.
- *
- * Method shorthand, not function properties: `globals.ts` augments next-intl's
- * `AppConfig` with the catalogue, so the real `t.has` is typed to the keys the
- * catalogue *has*, and under `strictFunctionTypes` a property-style
- * `(key: string) => boolean` would refuse it.
- */
-type Translator = {
-  has(key: string): boolean;
-  raw(key: string): unknown;
-};
-
-/**
- * A string that belongs in `messages/th.json` and is not there yet: the key wins
- * the moment it exists, with no edit here.
- *
- * The twin of `pendingCopy` in `components/chat/chat-data.ts`, duplicated rather
- * than imported across two component directories that have no business depending
- * on each other. Both want to be one helper in a shared i18n module — that is a
- * file neither of these owns, so it is named here instead of reached for.
- */
-export function pendingCopy(t: Translator, key: string, fallback: string): string {
-  return t.has(key) ? String(t.raw(key)) : fallback;
-}
-
-/** Every `reviews.*` key these screens ask for and `messages/th.json` lacks. */
-export const PENDING_REVIEW_COPY = {
-  submitReview: "ส่งรีวิว",
-  noBookingTitle: "ไม่มีการปรึกษาที่จะรีวิว",
-  noBookingBody: "เปิดหน้านี้จากรายการจองที่จบแล้ว ระบบจะรู้ว่าคุณกำลังรีวิวครั้งไหน",
-} as const;

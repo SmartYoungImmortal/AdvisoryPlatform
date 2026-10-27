@@ -4,6 +4,7 @@ import { ChevronLeft } from "lucide-react";
 import Link from "next/link";
 import { useFormatter, useTranslations } from "next-intl";
 
+import { authPill } from "@/components/auth/auth-split";
 import { asUuid, useQueryValue } from "@/components/bookings/booking-flow";
 import { Figures } from "@/components/figures";
 import {
@@ -12,15 +13,17 @@ import {
   NotificationsShell,
 } from "@/components/notifications/notification-center-screen";
 import { useNotificationFeed } from "@/components/notifications/notification-store";
-import { rememberedNotification } from "@/components/notifications/notifications-data";
+import { notificationAction, rememberedNotification } from "@/components/notifications/notifications-data";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
 /**
- * `/notifications/view?id=`: one notification that only informs, on its own
- * page — the title, when, and the whole message, nothing else. The feed
- * opens it from the row, which has already marked it read and remembered it
- * (`rememberNotification`); a reload finds it in the feed's first page.
+ * `/notifications/view?id=`: one notification on its own page — the title,
+ * when, the whole message, then the way on as a capsule (the chat, the
+ * booking, the receipt: `notificationAction`), so the reader reads it before
+ * choosing to go. Every row of the feed opens it, having already marked it
+ * read and remembered it (`rememberNotification`); a reload finds it in the
+ * feed's first page.
  */
 export function NotificationDetailRoute() {
   const t = useTranslations("notifications");
@@ -32,6 +35,7 @@ export function NotificationDetailRoute() {
     (id ? rememberedNotification(id) : null) ??
     (id && feed.status === "ready" ? (feed.items.find((n) => n.id === id) ?? null) : null);
   const settled = !id || feed.status !== "loading";
+  const action = item ? notificationAction(item) : null;
 
   return (
     <NotificationsShell>
@@ -56,6 +60,18 @@ export function NotificationDetailRoute() {
               <p className="mt-5 text-sm leading-relaxed whitespace-pre-line text-foreground lg:mt-8 lg:max-w-3xl lg:text-frame-body">
                 {item.content}
               </p>
+            ) : null}
+            {action ? (
+              <Button
+                className={cn(
+                  authPill(true),
+                  "mt-6 h-10 w-auto self-start px-4 text-sm md:h-10 md:px-5 md:text-sm lg:mt-10 lg:h-12 lg:px-6 lg:text-frame-body",
+                )}
+                nativeButton={false}
+                render={<Link href={action.href} />}
+              >
+                {t(action.label)}
+              </Button>
             ) : null}
           </>
         ) : null}

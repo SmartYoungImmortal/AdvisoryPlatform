@@ -234,8 +234,7 @@ export type ApiRefundCaseStatus = "OPEN" | "APPROVED" | "REJECTED";
  * `RefundCaseResponseDto` — refunds/dtos/refund-case-response.dto.ts
  *
  * The requester's own view, which deliberately omits the admin who ruled on it.
- * It names an `invoiceId` and no amount, and there is no advisee-facing invoice
- * route to resolve that id against — see `openRefundCase`.
+ * It names an `invoiceId` and no amount; `getMyInvoice` is where the amount is.
  */
 export interface ApiRefundCase {
   readonly id: string;
@@ -254,6 +253,40 @@ export interface ApiRefundCaseInput {
 }
 
 /* ------------------------------------------------------------------ payment */
+
+/** Where an advisee's invoice ended up. `pending` is a checkout not yet charged. */
+export type ApiInvoiceStatus = "paid" | "refunded" | "failed" | "pending";
+
+/**
+ * One of the signed-in advisee's own invoices — `GET /payment/invoices` and
+ * `GET /payment/invoices/:id`.
+ *
+ * Already joined, unlike `ApiBooking`: the service and advisor names come with
+ * it (the service's in the reader's language), so a receipt needs no second
+ * call. `amountSatang` is what the card was asked for; `priceSatang` and
+ * `platformFeeSatang` are its two lines.
+ *
+ * The API keeps no instant for a refund or a decline, only `createdAt` and
+ * `paidAt`. `session` and `booking` are null when the invoice has no
+ * appointment to point at, and `card` when there is no card to name.
+ */
+export interface ApiAdviseeInvoice {
+  readonly id: string;
+  /** `INV-2026-000123`: what the reader quotes to support. */
+  readonly invoiceNumber: string;
+  readonly status: ApiInvoiceStatus;
+  readonly amountSatang: number;
+  readonly platformFeeSatang: number;
+  readonly priceSatang: number;
+  readonly refundSatang: number | null;
+  readonly createdAt: string;
+  readonly paidAt: string | null;
+  readonly service: { readonly id: string; readonly name: string };
+  readonly advisor: { readonly id: string; readonly displayName: string };
+  readonly session: { readonly startTime: string; readonly endTime: string } | null;
+  readonly booking: "confirmed" | "unconfirmed" | "cancelled" | null;
+  readonly card: { readonly brand: string; readonly lastDigits: string } | null;
+}
 
 /**
  * `CheckoutDto` — payment/dto/checkout.dto.ts

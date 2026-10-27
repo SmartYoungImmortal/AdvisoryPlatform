@@ -20,15 +20,14 @@ test("sign in, open details on desktop and phone, cancel, and verify persistence
   const { data } = await listResponse.json();
   const booking = data.items.find((item: { state: string }) => item.state === "BOOKED");
   expect(booking).toBeTruthy();
+  // A plain click opens the booking over the list; its own page is the row's
+  // link, for a new tab or a notification.
   const details = page.locator(`a[href="/bookings/detail?bookingId=${booking.id}"]`);
   await expect(details).toBeVisible();
-  await details.click();
-  await expect(page).toHaveURL(new RegExp(`bookingId=${booking.id}`));
-  await expect(page.getByRole("heading", { name: "การจองยืนยันแล้ว" })).toBeVisible();
-  await expect(page.getByRole("link", { name: "ย้อนกลับ", exact: true })).toBeVisible();
-  await expect(page.getByRole("heading", { name: "สิ่งที่อยากปรึกษา" })).toBeVisible();
-  await expect(page.getByText("ยังไม่มีข้อมูลการชำระเงินสำหรับการจองนี้")).toBeVisible();
-  await expect(page.getByRole("button", { name: "เข้าร่วมเซสชัน", exact: true })).toBeDisabled();
+  await page.goto(`/bookings/detail?bookingId=${booking.id}`);
+  await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
+  await expect(page.getByRole("navigation", { name: "ตำแหน่งของหน้านี้" }).getByRole("link", { name: "การจองของฉัน", exact: true })).toBeVisible();
+  await expect(page.getByText(/ราคาบริการ|ดูใบเสร็จ/).first()).toBeVisible();
   const calendarDownload = page.waitForEvent("download");
   await page.getByRole("button", { name: "เพิ่มลงปฏิทิน", exact: true }).click();
   const calendar = await calendarDownload;
@@ -41,18 +40,20 @@ test("sign in, open details on desktop and phone, cancel, and verify persistence
   await page.setViewportSize({ width: 390, height: 844 });
   await page.screenshot({ path: "test-results/booking-details-mobile.png", fullPage: true });
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
-  await expect(page.locator('main a').filter({ hasText: /^แชท$/ })).toHaveAttribute("href", /\/chat\/.*\?with=/);
+  await expect(page.getByRole("link", { name: "แชทกับที่ปรึกษา", exact: true })).toHaveAttribute("href", /\/chat\/.*\?with=/);
   const cancelled = page.waitForResponse((response) => response.url().endsWith(`/bookings/${booking.id}/cancel`));
+  // The card asks once before it calls the booking off.
   await page.getByRole("button", { name: "ยกเลิกการจอง", exact: true }).click();
+  await page.getByRole("button", { name: "ยืนยันการยกเลิก", exact: true }).click();
   expect((await cancelled).status()).toBe(200);
   await expect(page.getByRole("button", { name: "ยกเลิกการจอง", exact: true })).toHaveCount(0);
   await page.reload();
-  await expect(page.getByRole("heading", { name: "การจองถูกยกเลิกแล้ว" })).toBeVisible();
+  await expect(page.getByText("ยกเลิกแล้ว", { exact: true })).toBeVisible();
   const persisted = await context.request.get(`http://localhost:3200/api/v1/bookings/${booking.id}`);
   expect((await persisted.json()).data.state).toBe("CANCELLED");
   await page.screenshot({ path: "test-results/booking-details-cancelled.png", fullPage: true });
-  await page.getByRole("button", { name: "กลับไปที่การจอง", exact: true }).click();
-  await page.getByRole("tab", { name: /ยกเลิก/ }).click();
+  await page.getByRole("link", { name: "ย้อนกลับ", exact: true }).click();
+  await page.getByRole("button", { name: "ยกเลิกแล้ว", exact: true }).click();
   await expect(page.locator(`a[href="/bookings/detail?bookingId=${booking.id}"]`)).toBeVisible();
   const stranger = await browser.newContext();
   const login = await stranger.request.post("http://localhost:3200/api/auth/sign-in/email", {

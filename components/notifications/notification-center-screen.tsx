@@ -122,8 +122,8 @@ export function NotificationRow({
   readonly time?: string;
   readonly unread?: boolean;
   /**
-   * What it opens (`notificationTarget`): the thing to act on, or for one
-   * that only informs, its own page with the whole message.
+   * What it opens: the notification's own page (`notificationPageHref`),
+   * which holds the way on to what it is about.
    */
   readonly href: string;
   readonly onClick?: () => void;
@@ -193,23 +193,48 @@ export function DayGroup({
   );
 }
 
-/** The feed's own shape while it loads, so nothing shifts when it lands. */
+/** A placeholder's surface while the API answers, still for a reader who asks for less motion. */
+const BONE = "animate-pulse bg-muted motion-reduce:animate-none";
+
+/**
+ * The feed's own shape while it loads, so nothing shifts when it lands: the
+ * capsules' row where the frame puts the filters (everything and the three
+ * kinds), a day heading, and rows with the circle, the title over its line of
+ * body, and the time at the right. Each line is one line box of its text's
+ * step (`h-lh`) with the bone inside, so a row stands as tall as a real one.
+ */
 export function FeedSkeleton() {
   const t = useTranslations("notifications");
 
   return (
-    <div aria-busy className="flex w-full flex-col pt-6 lg:pt-8">
+    <div aria-busy className="flex w-full flex-col">
       <span className="sr-only">{t("loading")}</span>
-      <span aria-hidden className="h-3 w-16 animate-pulse rounded bg-muted motion-reduce:animate-none" />
-      {[0, 1, 2, 3].map((i) => (
-        <div aria-hidden className="flex items-start gap-4 py-4 lg:gap-5 lg:py-6" key={i}>
-          <span className="size-5 shrink-0 animate-pulse rounded bg-muted motion-reduce:animate-none lg:size-6" />
-          <span className="flex flex-1 flex-col gap-2">
-            <span className="h-4 w-1/2 animate-pulse rounded bg-muted motion-reduce:animate-none" />
-            <span className="h-3.5 w-4/5 animate-pulse rounded bg-muted motion-reduce:animate-none" />
-          </span>
-        </div>
-      ))}
+      <div aria-hidden className="mt-4 flex gap-2 lg:mt-8 lg:gap-3">
+        {["w-18 lg:w-23", "w-18.5 lg:w-23.5", "w-19 lg:w-24", "w-24 lg:w-30"].map((width) => (
+          <span className={cn(BONE, "h-9 shrink-0 rounded-full lg:h-12", width)} key={width} />
+        ))}
+      </div>
+      <div aria-hidden className="flex flex-col pt-5 lg:pt-8">
+        <span className="flex h-lh items-center text-xs lg:text-frame-label">
+          <span className={cn(BONE, "h-3 w-16 rounded lg:h-3.5 lg:w-20")} />
+        </span>
+        {[0, 1, 2, 3].map((i) => (
+          <div className="flex items-start gap-3 py-2.5 lg:gap-5 lg:py-3.5" key={i}>
+            <span className={cn(BONE, "size-9 shrink-0 rounded-full lg:size-12")} />
+            <span className="flex min-w-0 flex-1 flex-col gap-0.5 lg:gap-1">
+              <span className="flex h-lh items-center text-sm lg:text-frame-body">
+                <span className={cn(BONE, "h-3.5 w-1/2 rounded lg:h-4.5")} />
+              </span>
+              <span className="flex h-lh items-center text-xs lg:text-frame-meta">
+                <span className={cn(BONE, "h-3 w-4/5 rounded lg:h-4")} />
+              </span>
+            </span>
+            <span className="mt-0.5 flex h-lh shrink-0 items-center text-xs lg:text-frame-label">
+              <span className={cn(BONE, "h-3 w-10 rounded lg:h-3.5 lg:w-12")} />
+            </span>
+          </div>
+        ))}
+      </div>
     </div>
   );
 }
@@ -229,8 +254,9 @@ export function EmptyFeed() {
   return (
     // On a phone or an upright tablet there is no box: the message sits centred
     // in the space down to the page's foot padding (the heading and the switch
-    // take the 11rem above it). From `lg` it is a box of its own height.
-    <div className="mt-6 flex min-h-[calc(100dvh-11rem)] w-full flex-col items-center justify-center gap-3 px-6 py-12 text-center lg:mt-8 lg:min-h-0 lg:rounded-2xl lg:border lg:border-border lg:gap-5 lg:py-20">
+    // take the 11rem above it). From `lg` it is a box that fills the column
+    // down to the panel's foot, in a frame told to `fill`.
+    <div className="mt-6 flex min-h-[calc(100dvh-11rem)] w-full flex-col items-center justify-center gap-3 px-6 py-12 text-center lg:mt-8 lg:min-h-0 lg:flex-1 lg:rounded-2xl lg:border lg:border-border lg:gap-5 lg:py-20">
       <span className="flex size-11 items-center justify-center rounded-full bg-muted text-hero-ink/75 lg:size-14">
         <Bell aria-hidden className="size-5 lg:size-7" strokeWidth={1.5} />
       </span>
@@ -358,6 +384,7 @@ export function NotificationCenterFrame({
   filters,
   headerActions,
   aside,
+  fill = false,
   children,
 }: {
   readonly advisor?: boolean;
@@ -374,6 +401,11 @@ export function NotificationCenterFrame({
    * and this page is for reading.
    */
   readonly aside?: ReactNode;
+  /**
+   * From `lg` the column runs to the panel's foot and its content grows into
+   * it, for the empty feed's box (`EmptyFeed`) to fill the screen.
+   */
+  readonly fill?: boolean;
   readonly children: ReactNode;
 }) {
   // The advisee reaches this from their profile; the advisor from the desk.
@@ -381,7 +413,10 @@ export function NotificationCenterFrame({
   const content = (
     <div
       className={cn(
-        "flex w-full flex-col gap-8 pt-6 pb-12 lg:grid lg:grid-cols-[minmax(0,1fr)_25rem] lg:items-start lg:gap-10 lg:pt-0 lg:pb-0",
+        "flex w-full flex-col gap-8 pt-6 pb-12 lg:grid lg:gap-10 lg:pt-0 lg:pb-0",
+        // Without a card beside it the feed takes the whole column.
+        aside ? "lg:grid-cols-[minmax(0,1fr)_25rem]" : "lg:grid-cols-1",
+        fill ? "lg:flex-1" : "lg:items-start",
         FEED_COLUMN,
         GUTTER,
       )}
@@ -389,10 +424,10 @@ export function NotificationCenterFrame({
       <div className="flex min-w-0 flex-col">
         <FeedHeader actions={headerActions} back={back} onMarkAllRead={onMarkAllRead} unread={unread} />
         {filters ? <div className="mt-4 lg:mt-8">{filters}</div> : null}
-        <div className="flex w-full flex-col">{children}</div>
+        <div className={cn("flex w-full flex-col", fill && "lg:flex-1")}>{children}</div>
       </div>
       {/* Dropped by the heading row's height, so its top lines up with the
-          filters (or the empty-state box) rather than with the page title. */}
+          filters rather than with the page title. */}
       {aside ? <aside className="hidden lg:sticky lg:top-8 lg:mt-20 lg:block">{aside}</aside> : null}
     </div>
   );
@@ -574,7 +609,7 @@ export function NotificationCenterScreen({
 }) {
   if (state === "empty") {
     return (
-      <NotificationCenterFrame>
+      <NotificationCenterFrame fill>
         <EmptyFeed />
       </NotificationCenterFrame>
     );

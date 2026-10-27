@@ -2,9 +2,9 @@
 
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { ChevronLeft, CircleCheck, MessagesSquare, ShieldCheck } from "lucide-react";
+import { ChevronLeft, CircleCheck, MessagesSquare, ShieldCheck, X } from "lucide-react";
 import { useFormatter, useTranslations } from "next-intl";
-import { Suspense, useCallback, useState, type ReactNode } from "react";
+import { Suspense, useCallback, useId, useState, type ReactNode } from "react";
 
 import { AccountShell } from "@/components/account/account-shell";
 import { AppFrame } from "@/components/account/app-frame";
@@ -13,6 +13,7 @@ import { MobileScreen, ScreenBody, ScreenTopBar } from "@/components/mobile/scre
 import { StatusPill } from "@/components/mobile/status-pill";
 import { ThaiText } from "@/components/mobile/thai-text";
 import { Button } from "@/components/ui/button";
+import { Dialog, DialogClose, DialogContent } from "@/components/ui/dialog";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Textarea } from "@/components/ui/textarea";
 import { PersonAvatar } from "@/components/chat/chat-avatar";
@@ -160,10 +161,15 @@ function NotARoom() {
   );
 }
 
-function ReportForm({ roomId }: { readonly roomId: string }) {
+/**
+ * The report being filled in about a room's other person, for the page and
+ * the popup alike: who it is about, the chosen reason and the details, and
+ * `submit`, which files it and answers the report as stored (or null, with
+ * `failure` set to the API's own sentence).
+ */
+function useReportForm(roomId: string) {
   const t = useTranslations("report");
   const ct = useTranslations("chat");
-  const router = useRouter();
   const inbox = useInbox();
   const people = useChatPeople();
   const { messages } = useRoomTimeline(roomId);
@@ -180,23 +186,38 @@ function ReportForm({ roomId }: { readonly roomId: string }) {
   const resolving = messages.loading || inbox.loading || people.me.loading || people.bookings.loading;
   const reportable = counterpart.userId !== null;
 
-  async function submit() {
-    if (!counterpart.userId || sending) return;
+  async function submit(): Promise<ApiOwnReport | null> {
+    if (!counterpart.userId || sending) return null;
     setSending(true);
     setFailure(null);
     try {
-      const report = await submitReport({
+      return await submitReport({
         reportedUserId: counterpart.userId,
         chatRoomId: roomId,
         reason: [t(REASON_KEYS[category]), details.trim()].filter(Boolean).join("\n\n"),
       });
-      router.push(chatReportSentHref(roomId, report.id));
     } catch (cause) {
       // The API's own sentence ("Chat room not found", "You cannot report
       // yourself"), which says what went wrong better than a guess would.
+      // Only a failure gives the button back: a filed report moves on.
       setFailure(cause instanceof Error ? cause : new Error(String(cause)));
       setSending(false);
+      return null;
     }
+  }
+
+  return { counterpart, name, resolving, reportable, category, setCategory, details, setDetails, sending, failure, submit };
+}
+
+function ReportForm({ roomId }: { readonly roomId: string }) {
+  const t = useTranslations("report");
+  const router = useRouter();
+  const { counterpart, name, resolving, reportable, category, setCategory, details, setDetails, sending, failure, submit: file } =
+    useReportForm(roomId);
+
+  async function submit() {
+    const report = await file();
+    if (report) router.push(chatReportSentHref(roomId, report.id));
   }
 
   const who = (
@@ -437,5 +458,158 @@ function SubmittedBody({ report, roomId }: { readonly report: ApiOwnReport | nul
         </Button>
       </div>
     </div>
+  );
+}
+
+/* ------------------------------------------------------------------ popup */
+
+/**
+ * The report over the conversation, as a messenger asks it: a popup with its
+ * title and close button held at the top, the reasons as a list to pick one
+ * from, the details, and the button that files it; then, in the same popup,
+ * that it was sent. The conversation stays where it was behind it.
+ *
+ * `/chat/room/report` stays for a link opened on its own.
+ *
+ * Portalled out of the chat's column, so it takes that column's zoom itself
+ * (`app-scale`) from `lg`; below `lg` the wrapper is `contents`.
+ */
+export function ReportDialog({
+  roomId,
+  open,
+  onOpenChange,
+}: {
+  readonly roomId: string;
+  readonly open: boolean;
+  readonly onOpenChange: (open: boolean) => void;
+}) {
+  const title = useId();
+
+  return (
+    <Dialog onOpenChange={onOpenChange} open={open}>
+      <DialogContent
+        aria-labelledby={title}
+        className="block max-h-[calc(100dvh-3rem)] max-w-[calc(100%-3rem)] gap-0 overflow-y-auto overscroll-contain rounded-card bg-card p-0 text-foreground shadow-hero-card ring-0 sm:max-w-md lg:w-auto lg:max-w-none"
+        showCloseButton={false}
+      >
+        {/* Mounted while open only, so the next report starts from a clean form. */}
+        {open ? (
+          <div className="app-scale contents lg:block lg:w-140">
+            <ReportDialogBody roomId={roomId} titleId={title} />
+          </div>
+        ) : null}
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function ReportDialogBody({ roomId, titleId }: { readonly roomId: string; readonly titleId: string }) {
+  const t = useTranslations("report");
+  const c = useTranslations("common");
+  const { counterpart, name, resolving, reportable, category, setCategory, details, setDetails, sending, failure, submit } =
+    useReportForm(roomId);
+  const [filed, setFiled] = useState(false);
+  const known = counterpart.advisor !== null || counterpart.userId !== null;
+
+  let heading = t("title");
+  if (filed) heading = t("submittedTitle");
+  else if (known) heading = t("titleWith", { name });
+
+  return (
+    <>
+      <div className="sticky top-0 z-10 flex items-center justify-between gap-3 border-b border-border bg-card py-2 pr-2 pl-5 lg:py-3 lg:pr-4 lg:pl-7">
+        <h2 className="min-w-0 truncate text-base font-semibold text-foreground lg:text-frame-figure" id={titleId}>
+          {heading}
+        </h2>
+        <DialogClose render={<Button aria-label={c("close")} className="size-11 lg:size-12" size="icon" variant="ghost" />}>
+          <X aria-hidden className="size-6" />
+        </DialogClose>
+      </div>
+
+      {filed ? (
+        <div className="flex flex-col items-center gap-4 px-5 pt-6 pb-6 text-center lg:gap-5 lg:px-7 lg:pt-8 lg:pb-8">
+          <span className="flex size-14 items-center justify-center rounded-full bg-success-surface lg:size-16">
+            <CircleCheck aria-hidden className="size-7 text-success lg:size-8" />
+          </span>
+          <p className="text-sm text-muted-foreground lg:text-frame-meta">{t("submittedBody")}</p>
+          <p className="flex items-start gap-2 text-left text-xs text-muted-foreground lg:text-frame-label">
+            <ShieldCheck aria-hidden className="mt-px size-4 shrink-0 text-success" />
+            {t("submittedFootnote")}
+          </p>
+          <DialogClose render={<Button className={cn(authPill(true), "lg:h-12 lg:text-frame-meta")} />}>{t("done")}</DialogClose>
+        </div>
+      ) : (
+        <form
+          className="flex flex-col gap-5 px-5 pt-4 pb-5 lg:gap-6 lg:px-7 lg:pt-5 lg:pb-7"
+          onSubmit={(event) => {
+            event.preventDefault();
+            void submit().then((report) => {
+              if (report) setFiled(true);
+            });
+          }}
+        >
+          <p className="text-sm text-muted-foreground lg:text-frame-meta">
+            <ThaiText>{t("subtitle")}</ThaiText>
+          </p>
+
+          <fieldset className="flex flex-col gap-1.5">
+            <legend className="text-sm font-semibold text-foreground lg:text-frame-meta">{t("reasonLabel")}</legend>
+            {/* The reasons as a list to pick from, the mark at the right. */}
+            <RadioGroup
+              className="-mx-2 mt-1.5 flex flex-col gap-0.5"
+              onValueChange={(value) => setCategory(value as ReportCategory)}
+              value={category}
+            >
+              {reportCategories.map((option) => (
+                <label
+                  className="flex min-h-11 cursor-pointer items-center gap-3 rounded-xl px-2 py-2 transition-colors duration-150 hover:bg-muted/60 has-data-checked:bg-muted/60 motion-reduce:transition-none lg:min-h-12"
+                  key={option}
+                >
+                  <span className="min-w-0 flex-1 text-sm text-foreground lg:text-frame-meta">{t(REASON_KEYS[option])}</span>
+                  <RadioGroupItem className="size-5" value={option} />
+                </label>
+              ))}
+            </RadioGroup>
+          </fieldset>
+
+          <div className="flex flex-col gap-2">
+            <label className="text-sm font-semibold text-foreground lg:text-frame-meta" htmlFor={`${titleId}-details`}>
+              {t("detailsLabel")}
+            </label>
+            <Textarea
+              className="min-h-24 resize-none rounded-xl border-border bg-card px-3.5 py-3 text-sm shadow-none field-sizing-fixed md:text-sm lg:min-h-32 lg:text-frame-meta"
+              id={`${titleId}-details`}
+              maxLength={DETAILS_MAX}
+              onChange={(event) => setDetails(event.target.value)}
+              placeholder={t("detailsPlaceholder")}
+              value={details}
+            />
+            <p className="self-end font-latin text-xs text-muted-foreground tabular-nums lg:text-frame-label">
+              {details.length}/{DETAILS_MAX}
+            </p>
+          </div>
+
+          {/* The room is the evidence: the case view reads it whole. */}
+          <p className="flex items-start gap-2 text-xs text-muted-foreground lg:text-frame-label">
+            <MessagesSquare aria-hidden className="mt-px size-4 shrink-0 text-primary" />
+            {t("evidenceAuto")}
+          </p>
+
+          {failure ? <ChatError error={failure} title={t("failedTitle")} /> : null}
+          {!resolving && !reportable ? (
+            <output className="block rounded-xl bg-warning/10 p-3.5 text-sm text-foreground lg:text-frame-meta">{t("noCounterpart")}</output>
+          ) : null}
+
+          <Button
+            aria-busy={sending || undefined}
+            className={cn(authPill(true), "lg:h-12 lg:text-frame-meta")}
+            disabled={sending || resolving || !reportable}
+            type="submit"
+          >
+            {sending ? t("submitting") : t("submit")}
+          </Button>
+        </form>
+      )}
+    </>
   );
 }

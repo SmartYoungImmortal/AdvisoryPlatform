@@ -14,6 +14,7 @@ import { useLiveCatalogue, type LiveService } from "@/lib/catalogue/live";
 import { authPill } from "@/components/auth/auth-split";
 import { SiteFooter } from "@/components/marketing/site-footer";
 import { MobileScreen, ScreenBody } from "@/components/mobile/screen";
+import { TopBar } from "@/components/topbar";
 import {
   BookingBar,
   BookingPanel,
@@ -31,7 +32,6 @@ import {
   SessionSection,
   SimilarServices,
 } from "@/components/service/service-sections";
-import { TopBar } from "@/components/topbar";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
@@ -59,8 +59,8 @@ import { cn } from "@/lib/utils";
  */
 
 /**
- * The grid the page and its skeleton share: a 760 reading column and the
- * 400 panel, in the 1280 frame (`max-w-320`) drawn at 1710 and zoomed down.
+ * The grid the page and its skeleton share: the reading column and the 400
+ * panel, in the 1496 frame (`max-w-374`) drawn at 1710 and zoomed down.
  */
 const COLUMNS = "grid items-start gap-x-14 gap-y-10 lg:grid-cols-[minmax(0,1fr)_25rem]";
 
@@ -124,14 +124,23 @@ function similarTo(
  * The frame every state shares: the docking bar over the 1710 column, the
  * home hero's two lights at the top (`bg-legal-wash`, scrolling away with the
  * first screen), the footer on a desktop, and the phone's bar along the
- * bottom when there is one.
+ * bottom when there is one. No rail: this is a page of the marketplace, the
+ * search's next step, not an account page.
+ *
+ * The column is zoomed by `app-scale` (0.842 at 1440, held there on wider
+ * screens) rather than `doc-scale`, which reaches 1 on a 1710-wide window: the
+ * account pages are drawn at `app-scale`, and the same `frame-*` step has to
+ * read the same size here as there.
  */
 function Frame({ children, bar }: { readonly children: ReactNode; readonly bar?: ReactNode }) {
   return (
     <MobileScreen className="pb-0" wide="md">
       <ScreenBody className="bg-card bg-legal-wash bg-local bg-no-repeat">
         <TopBar dock unreadNotifications />
-        <div className="doc-scale mx-auto flex w-full max-w-320 flex-1 flex-col px-5 pt-2 pb-14 md:px-12 md:pt-4 lg:px-8 lg:pt-6 lg:pb-28">
+        {/* `max-w-374`, the account pages' column (`FEED_COLUMN`): at the
+            1280 it had, the page sat in a narrow strip with wide empty
+            margins either side of it. */}
+        <div className="app-scale mx-auto flex w-full max-w-374 flex-1 flex-col px-5 pt-2 pb-14 md:px-12 md:pt-4 lg:px-8 lg:pt-6 lg:pb-28">
           {children}
         </div>
         <SiteFooter className="hidden lg:flex" />
@@ -165,18 +174,18 @@ export function LiveServiceDetailSkeleton() {
         <div aria-hidden className="flex min-w-0 flex-col gap-6 lg:gap-7">
           <span className="h-5 w-48 animate-pulse rounded-full bg-muted lg:h-6" />
           <div className="flex items-center gap-6">
-            <span className="hidden size-28 shrink-0 animate-pulse rounded-full bg-muted lg:block" />
+            <span className="hidden size-20 shrink-0 animate-pulse rounded-full bg-muted lg:block" />
             <span className="flex flex-1 flex-col gap-3">
-              <span className="h-9 w-4/5 animate-pulse rounded-lg bg-muted lg:h-15" />
-              <span className="h-5 w-1/2 animate-pulse rounded-md bg-muted lg:h-7" />
+              <span className="h-9 w-4/5 animate-pulse rounded-lg bg-muted lg:h-11" />
+              <span className="h-5 w-1/2 animate-pulse rounded-md bg-muted lg:h-6" />
             </span>
           </div>
-          <span className="flex flex-col gap-2 lg:pl-34">
+          <span className="flex flex-col gap-2 lg:pl-26">
             <span className="h-4 w-full max-w-xl animate-pulse rounded-md bg-muted lg:h-5" />
             <span className="h-4 w-3/4 max-w-md animate-pulse rounded-md bg-muted lg:h-5" />
           </span>
-          <span className="h-16 w-full max-w-lg animate-pulse rounded-2xl bg-muted lg:ml-34 lg:h-18" />
-          <span className="aspect-[4/3] w-full animate-pulse rounded-2xl bg-muted lg:aspect-video" />
+          <span className="h-16 w-full max-w-lg animate-pulse rounded-2xl bg-muted lg:ml-26 lg:h-14" />
+          <span className="aspect-[4/3] w-full animate-pulse rounded-2xl bg-muted lg:aspect-[21/9]" />
         </div>
         <span aria-hidden className="hidden h-180 animate-pulse rounded-card bg-muted lg:block" />
       </div>
@@ -198,7 +207,7 @@ function Unavailable({ error, onRetry }: { readonly error: Error; readonly onRet
           <SearchX aria-hidden className="size-6 text-muted-foreground lg:size-8" />
         </span>
         <div className="flex max-w-md flex-col gap-1.5 lg:max-w-xl lg:gap-3">
-          <h1 className="font-hero text-2xl font-normal tracking-tight text-hero-ink lg:text-hero">{t("notFoundTitle")}</h1>
+          <h1 className="font-hero text-2xl font-normal tracking-tight text-hero-ink lg:text-frame-title">{t("notFoundTitle")}</h1>
           <p className="text-sm text-muted-foreground lg:text-lg">{t("notFoundBody")}</p>
         </div>
         <Button
@@ -213,7 +222,7 @@ function Unavailable({ error, onRetry }: { readonly error: Error; readonly onRet
   }
   return (
     <div className="mx-auto flex w-full max-w-xl flex-col gap-5 py-16 text-center lg:gap-7 lg:py-32">
-      <h1 className="font-hero text-2xl font-normal tracking-tight text-hero-ink lg:text-hero">{t("loadFailedTitle")}</h1>
+      <h1 className="font-hero text-2xl font-normal tracking-tight text-hero-ink lg:text-frame-title">{t("loadFailedTitle")}</h1>
       <FailedNotice error={error} onRetry={onRetry} />
     </div>
   );
@@ -241,12 +250,12 @@ function ServiceView({ service }: { readonly service: ApiPublicService }) {
   // reader pressed rather than whichever the API lists first.
   let gallery: ReactNode = null;
   if (catalogue.loading && !item) {
-    gallery = <span aria-hidden className="block aspect-[4/3] w-full animate-pulse rounded-2xl bg-muted lg:aspect-video" />;
+    gallery = <span aria-hidden className="block aspect-[4/3] w-full animate-pulse rounded-2xl bg-muted lg:aspect-[21/9]" />;
   } else if (photos.length > 0) {
     gallery = (
       <ServicePhotos
         chip={
-          <span className="inline-flex h-8 items-center gap-1.5 rounded-full bg-card/85 px-3 text-xs font-medium text-foreground shadow-hero-card backdrop-blur-md lg:h-11 lg:gap-2 lg:px-4 lg:text-base">
+          <span className="inline-flex h-8 items-center gap-1.5 rounded-full bg-card/85 px-3 text-xs font-medium text-foreground shadow-hero-card backdrop-blur-md lg:h-11 lg:gap-2 lg:px-4 lg:text-frame-meta">
             <Video aria-hidden className="size-3.5 lg:size-5" />
             {t("videoCallLength", { minutes: service.durationMinutes })}
           </span>

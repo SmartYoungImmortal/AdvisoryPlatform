@@ -1,44 +1,141 @@
 "use client";
 
-import { CircleCheck, Lock } from "lucide-react";
+import { KeyRound, LockKeyhole, MailCheck } from "lucide-react";
+import Link from "next/link";
 import { useTranslations } from "next-intl";
 import { useRouter } from "next/navigation";
-import { useState, type FormEvent } from "react";
+import { useState, type ComponentProps, type FormEvent } from "react";
 
-import { AppFrame } from "@/components/account/app-frame";
-import { AlertBanner, InfoCard, InfoRow } from "@/components/mobile/banner";
-import { PrimaryButton } from "@/components/mobile/buttons";
-import { Field } from "@/components/mobile/field";
-import {
-  MobileScreen,
-  ScreenActions,
-  ScreenBody,
-  ScreenHeading,
-  ScreenSpacer,
-  ScreenTopBar,
-} from "@/components/mobile/screen";
-import {
-  ACCOUNT_FORM_PANEL,
-  ACCOUNT_HEADING,
-  AccountBackBar,
-} from "@/components/profile/account-chrome";
+import { AUTH_LINK } from "@/components/auth/auth-split";
+import { Field, RevealPasswordButton } from "@/components/mobile/field";
+import { AccountSettingsScreen } from "@/components/profile/account-settings-screen";
+import { SETTINGS_DIALOG_STACK, SettingsDialog, settingsStackPill } from "@/components/profile/settings-dialog";
+import { useAccount } from "@/components/session/account-bits";
+import { Button } from "@/components/ui/button";
 import { changePassword } from "@/lib/api/account";
+import { requestPasswordReset } from "@/lib/api/auth";
 import { ApiError } from "@/lib/api/client";
 import { cn } from "@/lib/utils";
 
+/** The rules a new password answers to, as the API checks them; the hint under the field names them. */
+function passwordRules(next: string, current: string): readonly boolean[] {
+  return [
+    next.length >= 8 && next.length <= 64,
+    /[^A-Za-z0-9]/.test(next),
+    /\d/.test(next),
+    next.length > 0 && next !== current,
+  ];
+}
+
+/** A password field with the sign-in form's eye at its end, to read back what was typed. */
+function PasswordField(props: Omit<ComponentProps<typeof Field>, "type" | "trailing" | "outline">) {
+  const t = useTranslations("login");
+  const [revealed, setRevealed] = useState(false);
+
+  return (
+    <Field
+      {...props}
+      outline
+      trailing={
+        <RevealPasswordButton
+          label={t("showPassword")}
+          onToggle={() => setRevealed((value) => !value)}
+          revealed={revealed}
+        />
+      }
+      type={revealed ? "text" : "password"}
+    />
+  );
+}
+
 /**
  * Figma "Change password" (995:7360) and its wrong-current-password state
- * (995:7404), which adds an alert banner and an inline field error.
+ * (995:7404), which marks the current password's field.
  *
- * Figma "Desktop / Change password (Light)" (1787:25493) and its wrong-current
- * state (1787:25583) put the same form in an 800px panel and stand the rules
- * beside the fields instead of under them, so the reader can check what they
- * are typing against them as they type.
+ * A dialog over the settings (`SettingsDialog`) rather than a page of its own:
+ * three fields, the rules the new one answers to in one line under it, then
+ * the change. A wrong current password stays in the dialog, said under its
+ * field; a success goes to `/settings/updated`.
+ *
+ * A reader who does not know the current password takes the line under the
+ * capsules: the same dialog turns to sending the reset link to the address
+ * the account signs in with (`reset`), then says it went (`sent`). It never
+ * leaves for the signed-out pages: the reader is signed in.
  */
-export function ChangePasswordScreen({
-  state = "default",
+function ChangePasswordForm({ state = "default" }: { readonly state?: "default" | "wrong-current" }) {
+  const [step, setStep] = useState<"change" | "reset" | "sent">("change");
+
+  if (step === "change") return <ChangeStep onForgot={() => setStep("reset")} state={state} />;
+  return <ResetStep onBack={() => setStep("change")} onSent={() => setStep("sent")} sent={step === "sent"} />;
+}
+
+/** Sending the reset link from inside the settings, then saying it went. */
+function ResetStep({
+  sent,
+  onBack,
+  onSent,
 }: {
-  readonly state?: "default" | "wrong-current";
+  readonly sent: boolean;
+  readonly onBack: () => void;
+  readonly onSent: () => void;
+}) {
+  const t = useTranslations("changePassword");
+  const c = useTranslations("common");
+  const email = useAccount()?.email ?? null;
+  const [sending, setSending] = useState(false);
+  const [failed, setFailed] = useState(false);
+
+  async function send() {
+    if (!email) return;
+    setSending(true);
+    setFailed(false);
+    try {
+      await requestPasswordReset({ email, redirectTo: new URL("/reset-password", window.location.origin).toString() });
+      onSent();
+    } catch {
+      setFailed(true);
+    } finally {
+      setSending(false);
+    }
+  }
+
+  if (sent) {
+    return (
+      <SettingsDialog description={t("resetSentBody", { email: email ?? "" })} icon={MailCheck} title={t("resetSentTitle")}>
+        <div className={cn(SETTINGS_DIALOG_STACK, "mt-0")}>
+          <Button className={settingsStackPill("solid")} nativeButton={false} render={<Link href="/settings" />}>
+            {t("resetDone")}
+          </Button>
+        </div>
+      </SettingsDialog>
+    );
+  }
+
+  return (
+    <SettingsDialog description={t("resetBody", { email: email ?? "" })} icon={KeyRound} title={t("resetTitle")}>
+      {failed ? (
+        <p className="text-xs text-destructive" role="alert">
+          {t("resetFailed")}
+        </p>
+      ) : null}
+      <div className={cn(SETTINGS_DIALOG_STACK, !failed && "mt-0")}>
+        <Button className={settingsStackPill("solid")} disabled={!email || sending} onClick={() => void send()} type="button">
+          {t("resetSend")}
+        </Button>
+        <Button className={settingsStackPill("soft")} onClick={onBack} type="button" variant="ghost">
+          {c("back")}
+        </Button>
+      </div>
+    </SettingsDialog>
+  );
+}
+
+function ChangeStep({
+  state,
+  onForgot,
+}: {
+  readonly state: "default" | "wrong-current";
+  readonly onForgot: () => void;
 }) {
   const t = useTranslations("changePassword");
   const c = useTranslations("common");
@@ -46,13 +143,19 @@ export function ChangePasswordScreen({
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
-  const [problem, setProblem] = useState<"wrong-current" | "invalid" | null>(state === "wrong-current" ? "wrong-current" : null);
+  const [problem, setProblem] = useState<"wrong-current" | "invalid" | null>(
+    state === "wrong-current" ? "wrong-current" : null,
+  );
   const [submitting, setSubmitting] = useState(false);
   const isWrong = problem === "wrong-current";
+  const rules = passwordRules(newPassword, currentPassword);
+  // The capsule stays greyed until the three fields can be sent, as changing
+  // the email's does until there is an address.
+  const ready = currentPassword.length > 0 && rules.every(Boolean) && newPassword === confirmPassword;
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (newPassword.length < 8 || newPassword.length > 64 || !/[^A-Za-z0-9]/.test(newPassword) || !/\d/.test(newPassword) || newPassword === currentPassword || newPassword !== confirmPassword) {
+    if (!ready) {
       setProblem("invalid");
       return;
     }
@@ -68,91 +171,77 @@ export function ChangePasswordScreen({
   }
 
   return (
-    <MobileScreen wide="md">
-      <ScreenTopBar className="lg:hidden" href="/settings" label={c("back")} />
-      <AppFrame active="settings">
-      <ScreenBody>
-        <AccountBackBar href="/settings" label={c("back")} />
-
-        {/* Figma "Head Band" — the title on the card surface, above the page. */}
-        <div className="w-full shrink-0 lg:bg-card">
-          <ScreenHeading className={ACCOUNT_HEADING} title={t("title")} />
+    <SettingsDialog description={t("subtitle")} icon={LockKeyhole} title={t("title")}>
+      <form className="flex w-full flex-col" onSubmit={submit}>
+        <div className="flex w-full flex-col gap-4 lg:gap-6">
+          <PasswordField
+            autoComplete="current-password"
+            error={isWrong ? t("wrongCurrentFieldError") : undefined}
+            id="current-password"
+            invalid={isWrong}
+            label={t("currentLabel")}
+            onChange={(event) => {
+              setCurrentPassword(event.target.value);
+              setProblem(null);
+            }}
+            placeholder={t("currentPlaceholder")}
+            value={currentPassword}
+          />
+          <PasswordField
+            autoComplete="new-password"
+            hint={t("newHint")}
+            id="new-password"
+            label={t("newLabel")}
+            onChange={(event) => {
+              setNewPassword(event.target.value);
+              setProblem(null);
+            }}
+            placeholder={t("newPlaceholder")}
+            value={newPassword}
+          />
+          <PasswordField
+            autoComplete="new-password"
+            id="confirm-password"
+            label={t("confirmLabel")}
+            onChange={(event) => {
+              setConfirmPassword(event.target.value);
+              setProblem(null);
+            }}
+            placeholder={t("confirmPlaceholder")}
+            value={confirmPassword}
+          />
         </div>
 
-        {/* Figma "Form Band" — the panel the whole form moves into at 1440. */}
-        <form onSubmit={submit} className={cn("flex w-full flex-1 flex-col items-center", ACCOUNT_FORM_PANEL)}>
-          {isWrong ? (
-            <AlertBanner
-              body={t("wrongCurrentBody")}
-              className="lg:px-0 lg:pt-0"
-              icon={Lock}
-              title={t("wrongCurrentTitle")}
-            />
-          ) : null}
+        {problem === "invalid" ? (
+          // The fields' own error size: it is about them.
+          <p className="mt-3 text-xs text-destructive" role="alert">
+            {t("invalid")}
+          </p>
+        ) : null}
 
-          <div
-            className={cn(
-              "flex w-full shrink-0 flex-col items-start lg:grid lg:grid-cols-2 lg:items-start lg:gap-8",
-              isWrong && "lg:pt-6",
-            )}
-          >
-            {/* Figma "Form Fields": 16px top padding, 16px between fields. */}
-            <div className="flex w-full shrink-0 flex-col items-start gap-4 px-6 pt-4 lg:px-0 lg:pt-0">
-              <Field
-                value={currentPassword}
-                onChange={(event) => { setCurrentPassword(event.target.value); setProblem(null); }}
-                error={isWrong ? t("wrongCurrentFieldError") : undefined}
-                id="current-password"
-                invalid={isWrong}
-                label={t("currentLabel")}
-                placeholder={t("currentPlaceholder")}
-                type="password"
-              />
-              <Field
-                id="new-password"
-                value={newPassword}
-                onChange={(event) => { setNewPassword(event.target.value); setProblem(null); }}
-                label={t("newLabel")}
-                placeholder={t("newPlaceholder")}
-                type="password"
-              />
-              <Field
-                id="confirm-password"
-                value={confirmPassword}
-                onChange={(event) => { setConfirmPassword(event.target.value); setProblem(null); }}
-                label={t("confirmLabel")}
-                placeholder={t("confirmPlaceholder")}
-                type="password"
-              />
-            </div>
+        <div className={SETTINGS_DIALOG_STACK}>
+          <Button className={settingsStackPill("solid")} disabled={!ready || submitting} type="submit">
+            {t("submit")}
+          </Button>
+          <Button className={settingsStackPill("soft")} nativeButton={false} render={<Link href="/settings" />} variant="ghost">
+            {c("cancel")}
+          </Button>
+        </div>
 
-            {/* Figma "Requirements": card with a 12/18 caption and 14/20 check rows. */}
-            <div className="flex w-full shrink-0 flex-col items-start px-6 pt-4 lg:px-0 lg:pt-0">
-              {/* The card is the page surface on the phone; on the panel it
-                  would vanish into it, so it takes the muted tint there. */}
-              <InfoCard caption={t("requirementsTitle")} className="lg:bg-muted/50">
-                <InfoRow icon={CircleCheck}>{t("requirement1")}</InfoRow>
-                <InfoRow icon={CircleCheck}>
-                  {isWrong ? t("requirement2Short") : t("requirement2")}
-                </InfoRow>
-                <InfoRow icon={CircleCheck}>{t("requirement3")}</InfoRow>
-                <InfoRow icon={CircleCheck}>{t("requirement4")}</InfoRow>
-              </InfoCard>
-            </div>
-          </div>
-
-          {/* The phone frame pins the action to the bottom edge; on the panel it
-              sits under the two columns, held to the right. */}
-          <ScreenSpacer className="lg:hidden" />
-          {problem === "invalid" ? <p role="alert" className="px-6 pt-3 text-sm text-destructive">ตรวจสอบรหัสผ่านใหม่และการยืนยันอีกครั้ง</p> : null}
-          <ScreenActions className="lg:flex-row-reverse lg:justify-start lg:px-0 lg:pt-8 lg:pb-0">
-            <PrimaryButton className="lg:w-auto" disabled={submitting} type="submit">
-              {t("submit")}
-            </PrimaryButton>
-          </ScreenActions>
-        </form>
-      </ScreenBody>
-      </AppFrame>
-    </MobileScreen>
+        {/* For a reader who does not know the password asked for first, a
+            line under the answers, as the receipt's help line sits. */}
+        <p className="mt-3 text-center text-fine text-muted-foreground md:mt-4 md:text-xs">
+          {t("forgotPrompt")}{" "}
+          <Button className={cn(AUTH_LINK, "h-auto p-0 text-fine md:text-xs")} onClick={onForgot} type="button" variant="link">
+            {t("forgotAction")}
+          </Button>
+        </p>
+      </form>
+    </SettingsDialog>
   );
+}
+
+/** `/settings/password`: the settings, with the change-password dialog over them. */
+export function ChangePasswordScreen({ state = "default" }: { readonly state?: "default" | "wrong-current" }) {
+  return <AccountSettingsScreen overlay={<ChangePasswordForm state={state} />} />;
 }

@@ -1,5 +1,6 @@
 "use client";
 
+import { useLocale } from "next-intl";
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import { ApiUnreachableError, isApiConfigured } from "@/lib/api/client";
@@ -78,6 +79,18 @@ export type Resource<T> = {
   readonly reload: () => void;
 };
 
+/**
+ * The resource's answer, or while it is read again, the answer it last had.
+ * For a screen that reads again after a change made on it: without this the
+ * part showing the old answer unmounts for the read and forgets its own state
+ * (what it was telling the reader), and the screen blinks to its skeleton.
+ */
+export function useLastAnswer<T>(resource: Resource<T>): T | undefined {
+  const [last, setLast] = useState(resource.data);
+  if (resource.data !== undefined && resource.data !== last) setLast(resource.data);
+  return resource.data ?? (resource.loading ? last : undefined);
+}
+
 /** The reason every read fails when the build had no API to point at. */
 const NOT_CONFIGURED = new ApiUnreachableError(
   "NEXT_PUBLIC_API_URL was not set when this build was made",
@@ -86,11 +99,18 @@ const NOT_CONFIGURED = new ApiUnreachableError(
 /**
  * `key` identifies the request, not the route: include every parameter that
  * changes the answer, or two different queries will read each other's result.
+ *
+ * The reader's language is one of those parameters for every key (the API
+ * answers translated content in it), so it is added here rather than by each
+ * caller: switching language changes the key, and every mounted screen reads
+ * its data again in the new language. It is a suffix, so `invalidate(prefix)`
+ * still drops every language of a key.
  */
 export function useResource<T>(
-  key: string,
+  requestKey: string,
   fetcher: (signal: AbortSignal) => Promise<T>,
 ): Resource<T> {
+  const key = `${requestKey}#${useLocale()}`;
   // A counter, not a mirror of the data. Bumping it re-runs the render, which
   // re-reads the cache; the cache is the single place the result lives.
   const [, setRevision] = useState(0);

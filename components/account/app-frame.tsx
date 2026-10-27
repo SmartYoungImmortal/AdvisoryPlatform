@@ -123,18 +123,25 @@ function square(current: boolean) {
     "transition-colors duration-200 group-focus-visible/rail:ring-3 group-focus-visible/rail:ring-ring/50 motion-reduce:transition-none",
     current
       ? "bg-hero-ink/7 text-hero-ink"
-      : "text-hero-ink/80 group-hover/rail:bg-hero-ink/4 group-hover/rail:text-hero-ink",
+      : "text-hero-ink/70 group-hover/rail:bg-hero-ink/4 group-hover/rail:text-hero-ink",
   );
 }
 
 /** A 24px line icon at 1440. */
 const ICON = "size-[28.5px]";
 
+/** The icons' line: the feed rows' weight, lighter than lucide's 2 so the rail stays quiet. */
+const ICON_STROKE = 1.75;
+
 function Label({ current, children }: { readonly current: boolean; readonly children: ReactNode }) {
+  // An item is 76px wide in the 1710 space. At 16px the English labels ran past
+  // it ("Bookings" 72, "Transactions" 99) and were cut to an ellipsis; at the
+  // 14px step every label fits, Thai and English alike, and both languages
+  // are set the same size so switching between them does not change the rail.
   return (
     <span
       className={cn(
-        "max-w-full truncate px-0.5 text-center text-base leading-5 transition-colors duration-200 motion-reduce:transition-none",
+        "max-w-full truncate px-0.5 text-center text-sm leading-5 transition-colors duration-200 motion-reduce:transition-none",
         current ? "font-semibold text-hero-ink" : "font-semibold text-hero-ink/80 group-hover/rail:text-hero-ink",
       )}
     >
@@ -216,7 +223,7 @@ function LanguageItem() {
       <DropdownMenu>
         <DropdownMenuTrigger aria-label={t("language")} className={ITEM}>
           <span className={square(false)}>
-            <Globe aria-hidden className={ICON} strokeWidth={2} />
+            <Globe aria-hidden className={ICON} strokeWidth={ICON_STROKE} />
           </span>
           <Label current={false}>{t("language")}</Label>
         </DropdownMenuTrigger>
@@ -277,7 +284,7 @@ function Rail({ active }: { readonly active?: RailKey }) {
                 badge={key === "notifications" && unread !== null && unread > 0 ? <Badge count={unread} /> : undefined}
                 current={active === key}
                 href={href}
-                icon={<Icon aria-hidden className={ICON} strokeWidth={2} />}
+                icon={<Icon aria-hidden className={ICON} strokeWidth={ICON_STROKE} />}
                 key={key}
                 label={t(key)}
               />
@@ -288,7 +295,7 @@ function Rail({ active }: { readonly active?: RailKey }) {
           <RailLink
             current={false}
             href={`/login?next=${encodeURIComponent(pathname)}`}
-            icon={<CircleUserRound aria-hidden className={ICON} strokeWidth={2} />}
+            icon={<CircleUserRound aria-hidden className={ICON} strokeWidth={ICON_STROKE} />}
             label={t("login")}
           />
         ) : null}
@@ -300,7 +307,7 @@ function Rail({ active }: { readonly active?: RailKey }) {
           <RailLink
             current={active === "settings"}
             href="/settings"
-            icon={<Settings aria-hidden className={ICON} strokeWidth={2} />}
+            icon={<Settings aria-hidden className={ICON} strokeWidth={ICON_STROKE} />}
             label={t("settings")}
           />
         ) : null}

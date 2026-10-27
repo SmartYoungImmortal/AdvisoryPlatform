@@ -101,14 +101,11 @@ export function HeroShapes({ className }: { readonly className?: string }) {
             },
           })
           .fromTo(el, { "--hero-exit": 0 }, { "--hero-exit": 1, ease: "none" }, 0)
-          // The whole band dissolves where it stands, room, copy and all, from
-          // the first pixel of scroll, together with the cards leaving.
-          .fromTo(
-            band,
-            { autoAlpha: 1, filter: "blur(0px)" },
-            { autoAlpha: 0, filter: "blur(14px)", ease: "none", duration: 1 },
-            0,
-          );
+          // The whole band fades where it stands, room, copy and all, from the
+          // first pixel of scroll, together with the cards leaving. A fade, not
+          // a blur: re-blurring the full-screen band on every frame was the
+          // other half of the stutter, and opacity alone stays on the GPU.
+          .fromTo(band, { autoAlpha: 1 }, { autoAlpha: 0, ease: "none", duration: 1 }, 0);
 
         // What follows the hero, held still against the scroll while the band
         // holds, then faded in as the band clears: it appears where it stands

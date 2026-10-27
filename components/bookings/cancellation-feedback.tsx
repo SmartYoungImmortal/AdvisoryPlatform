@@ -13,18 +13,24 @@ const MESSAGE = {
   uncertain: "cancellationUncertain",
 } as const satisfies Record<CancellationOutcome, string>;
 
+/** The booking card's outlined capsule, so the way on here reads as one of the card's own. */
+const PILL = "h-10 w-auto rounded-full px-5 text-sm font-medium lg:h-12 lg:px-6 lg:text-frame-meta";
+
+/** Sits inside the booking card, so it is a tinted panel like the card's cancel prompt, not a second card. */
 export function CancellationFeedback({ cancellation }: { readonly cancellation: ReturnType<typeof useBookingCancellation> }) {
   const t = useTranslations("bookings");
   if (cancellation.state.kind === "idle") return null;
   if (cancellation.state.kind === "pending") {
-    return <p role="status" className="text-sm text-muted-foreground">{t(cancellation.state.action === "cancel" ? "cancellationPending" : "cancellationChecking")}</p>;
+    // `<output>`: a live status by its own semantics, announced without a role.
+    return <output className="block text-sm text-muted-foreground lg:text-frame-meta">{t(cancellation.state.action === "cancel" ? "cancellationPending" : "cancellationChecking")}</output>;
   }
   const { outcome } = cancellation.state;
   return (
-    <div role="status" aria-live="polite" className="flex w-full flex-col items-start gap-2 rounded-card border border-border bg-card p-3.5">
-      <p className="text-sm text-foreground">{t(MESSAGE[outcome])}</p>
-      {outcome === "uncertain" ? <NeutralButton size="sm" onClick={() => void cancellation.check()}>{t("cancellationCheck")}</NeutralButton> : null}
-      {outcome === "signIn" ? <NeutralButton size="sm" href="/login">{t("cancellationLogin")}</NeutralButton> : null}
-    </div>
+    <output aria-live="polite" className="flex w-full flex-col items-start gap-3 rounded-xl bg-muted p-4 lg:gap-4 lg:p-5">
+      {/* A `<span>`: `<output>` holds phrasing content only. */}
+      <span className="block text-sm text-foreground lg:text-frame-meta">{t(MESSAGE[outcome])}</span>
+      {outcome === "uncertain" ? <NeutralButton className={PILL} onClick={() => void cancellation.check()}>{t("cancellationCheck")}</NeutralButton> : null}
+      {outcome === "signIn" ? <NeutralButton className={PILL} href="/login">{t("cancellationLogin")}</NeutralButton> : null}
+    </output>
   );
 }

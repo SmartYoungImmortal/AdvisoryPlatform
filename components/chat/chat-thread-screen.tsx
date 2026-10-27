@@ -17,6 +17,7 @@ import {
   isChatRoomId,
   listChatMessages,
   MAX_CHAT_FILE_BYTES,
+  setChatRoomMuted,
   uploadChatFile,
   type ApiChatMessage,
   type ApiChatRoom,
@@ -35,6 +36,7 @@ import {
   useSentFiles,
 } from "@/components/chat/chat-hooks";
 import { CHAT_LIST_PANE, ChatList } from "@/components/chat/chat-inbox-screen";
+import { ReportDialog } from "@/components/chat/report-screens";
 import {
   dismissChatMessage,
   markRoomRead,
@@ -186,10 +188,18 @@ function ThreadRoute({ slug, state }: { readonly slug: string; readonly state: "
 
 /* ------------------------------------------------------------------- panes */
 
+/**
+ * The centre from `lg`: a rounded card of its own inside the panel, clear of
+ * the list beside it and of the panel's edges, as a messenger sets the open
+ * conversation apart from the inbox. The details beside it, when open, are a
+ * card of their own the same way.
+ */
+const PANE_CARD = "lg:m-1.5 lg:overflow-hidden lg:rounded-2xl lg:border lg:border-border";
+
 /** The centre's shape while the route is being worked out. */
 function PaneSkeleton() {
   return (
-    <section className="flex min-h-0 min-w-0 flex-1 flex-col border-border bg-card lg:border-l">
+    <section className={cn("flex min-h-0 min-w-0 flex-1 flex-col bg-card", PANE_CARD)}>
       <ThreadHeader counterpart={NO_COUNTERPART} loading />
       <div className="flex min-h-0 flex-1 flex-col justify-end px-4 lg:px-8">
         <ThreadSkeleton />
@@ -208,7 +218,7 @@ function NoRoom({ advisorId }: { readonly advisorId: string | null }) {
   const t = useTranslations("chat");
   const c = useTranslations("common");
   return (
-    <section className="flex min-h-0 min-w-0 flex-1 flex-col border-border bg-card lg:border-l">
+    <section className={cn("flex min-h-0 min-w-0 flex-1 flex-col bg-card", PANE_CARD)}>
       {/* Nobody to name, so the phone's bar is only the way back. */}
       <div className="flex h-16 items-center gap-1 border-b border-border px-1.5 lg:hidden">
         <Button
@@ -228,10 +238,10 @@ function NoRoom({ advisorId }: { readonly advisorId: string | null }) {
           <MessageCircleOff aria-hidden className="size-7 text-muted-foreground" />
         </span>
         <div className="flex max-w-md flex-col gap-1.5">
-          <h1 className="font-hero text-2xl tracking-tight text-hero-ink lg:text-3xl">
+          <h1 className="font-hero text-xl tracking-tight text-hero-ink lg:text-frame-heading">
             {advisorId ? t("noRoomWithTitle") : t("notARoomTitle")}
           </h1>
-          <p className="text-sm text-muted-foreground lg:text-base">
+          <p className="text-xs text-muted-foreground lg:text-frame-meta">
             {advisorId ? t("noRoomWithBody") : t("notARoomBody")}
           </p>
         </div>
@@ -344,8 +354,8 @@ function ThreadEmpty() {
       <span className="flex size-14 items-center justify-center rounded-full bg-muted">
         <MessagesSquare aria-hidden className="size-6 text-muted-foreground" />
       </span>
-      <p className="text-base font-semibold text-foreground lg:text-lg">{t("threadEmptyTitle")}</p>
-      <p className="max-w-xs text-sm text-muted-foreground lg:max-w-sm lg:text-base">{t("threadEmptyBodyLive")}</p>
+      <p className="text-sm font-semibold text-foreground lg:text-frame-body">{t("threadEmptyTitle")}</p>
+      <p className="max-w-xs text-xs text-muted-foreground lg:max-w-sm lg:text-frame-meta">{t("threadEmptyBodyLive")}</p>
     </div>
   );
 }
@@ -365,7 +375,7 @@ function LoadEarlier({
     <div className="flex flex-col items-center gap-1.5 pt-6 pb-2">
       <Button
         aria-busy={busy || undefined}
-        className="h-11 gap-2 rounded-full px-5 text-sm font-medium lg:h-12 lg:text-base"
+        className="h-11 gap-2 rounded-full px-5 text-sm font-medium lg:h-12 lg:text-frame-meta"
         disabled={busy}
         onClick={onLoad}
         type="button"
@@ -375,7 +385,7 @@ function LoadEarlier({
         {t("loadEarlier")}
       </Button>
       {failed ? (
-        <p className="text-xs text-destructive lg:text-base" role="alert">
+        <p className="text-xs text-destructive lg:text-frame-label" role="alert">
           {t("loadEarlierFailed")} · {failed}
         </p>
       ) : null}
@@ -622,6 +632,32 @@ function ThreadPane({ roomId, state }: { readonly roomId: string; readonly state
   // words to a real person that its reader never wrote.
   const [failedLine, setFailedLine] = useState(state === "message-failed");
 
+  // The report opens over the conversation (`ReportDialog`). From the phone's
+  // details sheet, the sheet closes first, so one popup is up at a time.
+  const [reportOpen, setReportOpen] = useState(false);
+  const openReport = () => {
+    setDetailsOpen(false);
+    setReportOpen(true);
+  };
+
+  // The room's notifications, off or on: the switch answers at once, and the
+  // inbox is read again once the API agrees (its rows carry `isMuted`); a
+  // refusal puts the switch back and says so.
+  const [muteWish, setMuteWish] = useState<boolean | null>(null);
+  const [muteFailed, setMuteFailed] = useState(false);
+  const muted = muteWish ?? room?.isMuted ?? false;
+  const toggleMute = () => {
+    const next = !muted;
+    setMuteWish(next);
+    setMuteFailed(false);
+    void setChatRoomMuted(roomId, next)
+      .then(() => inbox.reload())
+      .catch(() => {
+        setMuteWish(null);
+        setMuteFailed(true);
+      });
+  };
+
   /* ---- what the column shows -------------------------------------------- */
 
   const dayLabel = (day: string, at: number) => threadDayLabel({ day, at, now, timeZone, t, format });
@@ -650,7 +686,7 @@ function ThreadPane({ roomId, state }: { readonly roomId: string; readonly state
           <Fragment key={day.key}>
             <DayDivider>{dayLabel(day.day, day.at)}</DayDivider>
             {day.runs.map((run) => (
-              <Run counterpart={counterpart} key={run.key} now={now} roomId={roomId} run={run} />
+              <Run counterpart={counterpart} key={run.key} now={now} onReport={openReport} roomId={roomId} run={run} />
             ))}
           </Fragment>
         ))}
@@ -677,6 +713,10 @@ function ThreadPane({ roomId, state }: { readonly roomId: string; readonly state
       anonymous={room?.isAnonymous ?? false}
       bookings={people.bookings.data?.items ?? []}
       counterpart={counterpart}
+      muteFailed={muteFailed}
+      muted={muted}
+      onReport={openReport}
+      onToggleMute={toggleMute}
       roomId={roomId}
       services={people.services.data?.items ?? []}
     />
@@ -688,7 +728,7 @@ function ThreadPane({ roomId, state }: { readonly roomId: string; readonly state
 
   return (
     <>
-      <section className="flex min-h-0 min-w-0 flex-1 flex-col bg-card lg:border-l lg:border-border" data-slot="chat-thread">
+      <section className={cn("flex min-h-0 min-w-0 flex-1 flex-col bg-card", PANE_CARD)} data-slot="chat-thread">
         <ThreadHeader
           counterpart={counterpart}
           detailsOpen={detailsOpen}
@@ -720,13 +760,15 @@ function ThreadPane({ roomId, state }: { readonly roomId: string; readonly state
       </section>
 
       <ThreadDetailsPanel details={details} naming={naming} onOpenChange={setDetailsOpen} open={detailsOpen} />
+      <ReportDialog onOpenChange={setReportOpen} open={reportOpen} roomId={roomId} />
     </>
   );
 }
 
 /**
- * The details beside the thread: a column on a desktop, a sheet on a phone,
- * closed until asked for (the conversation has the room); a skeleton while
+ * The details beside the thread: a column on a desktop, a page of its own over
+ * the conversation below `lg`, closed until asked for (the conversation has
+ * the room); a skeleton while
  * the person is still being named.
  */
 function ThreadDetailsPanel({
@@ -744,14 +786,33 @@ function ThreadDetailsPanel({
   const desktop = useDesktop();
   return (
     <>
-      {open && desktop ? (
-        <aside
-          aria-label={t("details")}
-          className="flex w-80 shrink-0 flex-col overflow-y-auto overscroll-contain border-l border-border px-5 py-8"
-          data-lenis-prevent
+      {desktop ? (
+        // The column opens out from the right edge and folds back into it:
+        // its width runs between nothing and the card's own width plus its
+        // right margin (88 + 1.5), the card fading with it, so the thread
+        // beside it narrows and widens instead of jumping. Closed, it is out
+        // of the tab order and the accessibility tree (`inert`).
+        <div
+          className={cn(
+            "flex shrink-0 overflow-hidden transition-[width] duration-200 ease-out motion-reduce:transition-none",
+            open ? "w-89.5" : "w-0",
+          )}
+          inert={!open}
         >
-          {naming ? <DetailsSkeleton /> : details}
-        </aside>
+          <aside
+            aria-label={t("details")}
+            // `ml-0`: the thread's card already keeps the gap between the two.
+            className={cn(
+              "flex w-88 shrink-0 flex-col overflow-y-auto overscroll-contain px-5 py-8 transition-opacity duration-200 ease-out motion-reduce:transition-none",
+              PANE_CARD,
+              "lg:ml-0",
+              open ? "opacity-100" : "opacity-0",
+            )}
+            data-lenis-prevent
+          >
+            {naming ? <DetailsSkeleton /> : details}
+          </aside>
+        </div>
       ) : null}
 
       <DetailsSheet onOpenChange={onOpenChange} open={open && !desktop}>
@@ -774,9 +835,9 @@ function ThreadIntro({ counterpart, openedAt }: { readonly counterpart: Counterp
         size={64}
         verified={counterpart.advisor !== null}
       />
-      <p className="font-hero text-lg tracking-tight text-hero-ink lg:text-2xl">{counterpartName(counterpart, t)}</p>
+      <p className="font-hero text-base tracking-tight text-hero-ink lg:text-frame-figure">{counterpartName(counterpart, t)}</p>
       {openedAt ? (
-        <p className="text-xs text-muted-foreground lg:text-base">
+        <p className="text-xs text-muted-foreground lg:text-frame-label">
           {t("openedOn", { date: format.dateTime(new Date(openedAt), { day: "numeric", month: "long", year: "numeric" }) })}
         </p>
       ) : null}
@@ -806,11 +867,14 @@ function Run({
   counterpart,
   roomId,
   now,
+  onReport,
 }: {
   readonly run: SenderRun;
   readonly counterpart: Counterpart;
   readonly roomId: string;
   readonly now: number;
+  /** Opens the report over the conversation, from a line that asks to leave it. */
+  readonly onReport: () => void;
 }) {
   const clock = useClock();
   const last = run.items.at(-1);
@@ -826,7 +890,12 @@ function Run({
               <Fragment key={entry.id}>
                 <TextBubble first={first} mine={mine} text={entry.message.message} />
                 {findOffPlatform(entry.message.message).length > 0 ? (
-                  <OffPlatformNotice mine={mine} reportHref={chatReportHref(roomId)} text={entry.message.message} />
+                  <OffPlatformNotice
+                    mine={mine}
+                    onReport={onReport}
+                    reportHref={chatReportHref(roomId)}
+                    text={entry.message.message}
+                  />
                 ) : null}
               </Fragment>
             ) : (
@@ -837,7 +906,7 @@ function Run({
       </div>
       {last ? (
         <time
-          className={cn("mt-1 font-latin text-xs text-muted-foreground tabular-nums lg:text-base", mine ? "pr-1" : "pl-10")}
+          className={cn("mt-1 font-latin text-xs text-muted-foreground tabular-nums lg:text-frame-label", mine ? "pr-1" : "pl-10")}
           dateTime={new Date(last.entry.at).toISOString()}
         >
           {clock(last.entry.at)}

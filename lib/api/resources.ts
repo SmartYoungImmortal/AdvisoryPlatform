@@ -21,6 +21,7 @@
 
 import { api, type Paginated } from "@/lib/api/client";
 import type {
+  ApiAdviseeInvoice,
   ApiAvatarUrl,
   ApiBooking,
   ApiBookingInput,
@@ -331,11 +332,9 @@ export function putBookingReview(
  * Gated on the `refund:submitSelf` permission, and the invoice's ownership is
  * resolved through its appointment rather than trusted from the body.
  *
- * Unreachable from this app today, and not because of the permission: the id it
- * needs belongs to `service_invoices`, and **no advisee-facing route returns an
- * invoice**. `GET /refunds/me` hands back an `invoiceId` on a case that already
- * exists, which is the wrong direction. Wiring a refund button needs a
- * `GET /invoices/me` first.
+ * The id it needs belongs to `service_invoices`, which is what
+ * `listMyInvoices` returns. Nothing in the app opens a case yet: there is no
+ * refund button on a receipt.
  */
 export function openRefundCase(
   input: ApiRefundCaseInput,
@@ -353,6 +352,31 @@ export function listMyRefundCases(
 }
 
 /* ------------------------------------------------------------------ payment */
+
+/**
+ * `GET /payment/invoices` — the signed-in advisee's own invoices, newest first.
+ *
+ * Every status, `pending` included, each joined with its service, advisor,
+ * session and card, so the history and its receipts need nothing else.
+ */
+export function listMyInvoices(
+  query: ApiPageQuery = {},
+  signal?: AbortSignal,
+): Promise<Paginated<ApiAdviseeInvoice>> {
+  return api.get("payment/invoices", { query: { ...query }, signal });
+}
+
+/**
+ * `GET /payment/invoices/:invoiceId` — one of them. 404 for anyone else's, as
+ * for a missing one. The id comes from an address bar, so it is encoded: a
+ * stray `?` or `/` in it must not become part of the route.
+ */
+export function getMyInvoice(
+  invoiceId: string,
+  signal?: AbortSignal,
+): Promise<ApiAdviseeInvoice> {
+  return api.get(`payment/invoices/${encodeURIComponent(invoiceId)}`, { signal });
+}
 
 /**
  * `POST /payment/checkout` — recorded here, callable by nothing.
