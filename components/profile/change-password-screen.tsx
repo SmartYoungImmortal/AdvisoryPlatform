@@ -1,17 +1,24 @@
 "use client";
 
 import { CircleCheck, Lock } from "lucide-react";
+import Link from "next/link";
 import { useTranslations } from "next-intl";
 import { useRouter } from "next/navigation";
 import { useState, type FormEvent } from "react";
 
 import { AlertBanner, InfoCard, InfoRow } from "@/components/mobile/banner";
-import { NeutralButton, PrimaryButton } from "@/components/mobile/buttons";
 import { Field } from "@/components/mobile/field";
 import { AccountSettingsScreen } from "@/components/profile/account-settings-screen";
-import { SETTINGS_DIALOG_ACTIONS, SettingsDialog } from "@/components/profile/settings-dialog";
+import {
+  SETTINGS_DIALOG_ACTIONS,
+  SETTINGS_DIALOG_PANEL,
+  SettingsDialog,
+  settingsPill,
+} from "@/components/profile/settings-dialog";
+import { Button } from "@/components/ui/button";
 import { changePassword } from "@/lib/api/account";
 import { ApiError } from "@/lib/api/client";
+import { cn } from "@/lib/utils";
 
 /**
  * Figma "Change password" (995:7360) and its wrong-current-password state
@@ -77,6 +84,7 @@ function ChangePasswordForm({ state = "default" }: { readonly state?: "default" 
             id="current-password"
             invalid={isWrong}
             label={t("currentLabel")}
+            outline
             onChange={(event) => {
               setCurrentPassword(event.target.value);
               setProblem(null);
@@ -88,6 +96,7 @@ function ChangePasswordForm({ state = "default" }: { readonly state?: "default" 
           <Field
             id="new-password"
             label={t("newLabel")}
+            outline
             onChange={(event) => {
               setNewPassword(event.target.value);
               setProblem(null);
@@ -99,6 +108,7 @@ function ChangePasswordForm({ state = "default" }: { readonly state?: "default" 
           <Field
             id="confirm-password"
             label={t("confirmLabel")}
+            outline
             onChange={(event) => {
               setConfirmPassword(event.target.value);
               setProblem(null);
@@ -109,7 +119,7 @@ function ChangePasswordForm({ state = "default" }: { readonly state?: "default" 
           />
         </div>
 
-        <InfoCard caption={t("requirementsTitle")} className="mt-4 bg-muted/50">
+        <InfoCard caption={t("requirementsTitle")} className={cn("mt-5", SETTINGS_DIALOG_PANEL)}>
           <InfoRow icon={CircleCheck}>{t("requirement1")}</InfoRow>
           <InfoRow icon={CircleCheck}>{isWrong ? t("requirement2Short") : t("requirement2")}</InfoRow>
           <InfoRow icon={CircleCheck}>{t("requirement3")}</InfoRow>
@@ -123,12 +133,12 @@ function ChangePasswordForm({ state = "default" }: { readonly state?: "default" 
         ) : null}
 
         <div className={SETTINGS_DIALOG_ACTIONS}>
-          <PrimaryButton className="lg:w-auto" disabled={submitting} type="submit">
+          <Button className={settingsPill("solid")} disabled={submitting} type="submit">
             {t("submit")}
-          </PrimaryButton>
-          <NeutralButton className="lg:w-auto" href="/settings">
+          </Button>
+          <Button className={settingsPill()} nativeButton={false} render={<Link href="/settings" />} variant="outline">
             {c("cancel")}
-          </NeutralButton>
+          </Button>
         </div>
       </form>
     </SettingsDialog>

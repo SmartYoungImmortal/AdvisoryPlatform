@@ -1,20 +1,19 @@
 "use client";
 
-import { CalendarDays, Trash2, TriangleAlert } from "lucide-react";
+import { CalendarDays, Trash2 } from "lucide-react";
+import Link from "next/link";
 import { useTranslations } from "next-intl";
 import { useState, type FormEvent } from "react";
 
-import {
-  AlertDialog,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
 import { InfoCard, InfoRow, InfoStackRow } from "@/components/mobile/banner";
-import { DestructiveButton, NeutralButton, PrimaryButton } from "@/components/mobile/buttons";
 import { Field } from "@/components/mobile/field";
+import {
+  SETTINGS_DIALOG_ACTIONS,
+  SETTINGS_DIALOG_PANEL,
+  SettingsDialog,
+  settingsPill,
+} from "@/components/profile/settings-dialog";
+import { Button } from "@/components/ui/button";
 import { ApiError, api } from "@/lib/api/client";
 import { deleteOwnAccount } from "@/lib/api/account";
 import { signOut } from "@/lib/session";
@@ -29,14 +28,15 @@ interface AccountDeletionBlockers {
 }
 
 /**
- * Deleting the account, over the settings rather than on a page of its own:
- * the warning, what goes with the account, then the word to type before the
- * button gives way. When the API refuses because bookings are still ahead,
- * the same dialog lists them in place of the losses and drops the field.
+ * Deleting the account, over the settings rather than on a page of its own,
+ * in the same dialog as changing the email or the password
+ * (`SettingsDialog`): what goes with the account, then the word to type
+ * before the red capsule gives way. When the API refuses because bookings are
+ * still ahead, the same dialog lists them in place of the losses and drops
+ * the field.
  *
- * Laid out as the log-out confirm (`LogOutDialog`) is, its sibling in the
- * same list: the actions stacked on a phone, on one line held right from
- * `lg`, the way out first and the thing being confirmed last.
+ * Held by the settings page (`open`), not by a route: there is nothing to
+ * link to.
  */
 export function DeleteAccountDialog({
   open,
@@ -45,13 +45,13 @@ export function DeleteAccountDialog({
   readonly open: boolean;
   readonly onOpenChange: (open: boolean) => void;
 }) {
+  const t = useTranslations("deleteAccount");
+
   return (
-    <AlertDialog onOpenChange={onOpenChange} open={open}>
-      <AlertDialogContent className="max-h-[calc(100dvh-3rem)] gap-0 overflow-y-auto overscroll-contain p-5 shadow-none data-[size=default]:max-w-[calc(100%-3rem)] data-[size=default]:sm:max-w-md lg:p-6">
-        {/* Its own component, so each opening starts with an empty field. */}
-        <DeleteAccountForm onClose={() => onOpenChange(false)} />
-      </AlertDialogContent>
-    </AlertDialog>
+    <SettingsDialog description={t("subtitle")} onOpenChange={onOpenChange} open={open} title={t("title")}>
+      {/* Its own component, so each opening starts with an empty field. */}
+      <DeleteAccountForm onClose={() => onOpenChange(false)} />
+    </SettingsDialog>
   );
 }
 
@@ -101,26 +101,13 @@ function DeleteAccountForm({ onClose }: { readonly onClose: () => void }) {
   }
 
   return (
-    <form className="flex flex-col gap-5" onSubmit={submit}>
-      <AlertDialogHeader className="place-items-start gap-4 text-left">
-        <span className="flex size-14 shrink-0 items-center justify-center rounded-full bg-muted">
-          <TriangleAlert aria-hidden className="size-6.5 text-destructive" />
-        </span>
-        <div className="flex flex-col gap-2">
-          <AlertDialogTitle className="text-xl leading-7 font-semibold">{t("title")}</AlertDialogTitle>
-          <AlertDialogDescription className="text-left">
-            {isBlocked ? t("subtitleBlocked") : t("subtitle")}
-          </AlertDialogDescription>
-        </div>
-      </AlertDialogHeader>
-
-      {/* Outlined in destructive while bookings are in the way; the plain
-          loss list has no border. The muted tint keeps it a block of its own
-          on the dialog's surface. */}
+    <form className="flex w-full flex-col" onSubmit={submit}>
+      {/* What goes with the account, on the destructive tint the booking
+          card's cancel prompt wears; outlined in destructive while bookings
+          are in the way. */}
       <InfoCard
         caption={isBlocked ? t("blockedTitle") : t("lossTitle")}
-        className={cn("border-0 bg-muted/50 shadow-none", isBlocked && "ring-1 ring-destructive ring-inset")}
-        gap="gap-2.5"
+        className={cn(SETTINGS_DIALOG_PANEL, "bg-destructive/5", isBlocked && "ring-1 ring-destructive ring-inset")}
       >
         {isBlocked ? (
           <>
@@ -154,47 +141,52 @@ function DeleteAccountForm({ onClose }: { readonly onClose: () => void }) {
       </InfoCard>
 
       {isBlocked ? null : (
-        <Field
-          // 16px below `lg`: iOS zooms the page into a smaller field when it takes focus.
-          className="text-base lg:text-sm"
-          id="delete-confirm"
-          label={t("confirmLabel")}
-          latin
-          onChange={(event) => {
-            setConfirmation(event.target.value);
-            setFailed(false);
-          }}
-          placeholder={t("confirmPlaceholder")}
-          value={confirmation}
-        />
+        <div className="mt-5 flex w-full flex-col">
+          <Field
+            id="delete-confirm"
+            label={t("confirmLabel")}
+            latin
+            onChange={(event) => {
+              setConfirmation(event.target.value);
+              setFailed(false);
+            }}
+            outline
+            placeholder={t("confirmPlaceholder")}
+            value={confirmation}
+          />
+        </div>
       )}
       {failed ? (
-        <p className="-mt-2 text-sm text-destructive" role="alert">
+        <p className="mt-3 text-sm text-destructive" role="alert">
           {t("deleteFailed")}
         </p>
       ) : null}
 
-      <AlertDialogFooter className="flex flex-col gap-2.5 sm:flex-col lg:flex-row-reverse lg:justify-start">
+      <div className={SETTINGS_DIALOG_ACTIONS}>
         {isBlocked ? (
           <>
-            <PrimaryButton className="lg:w-auto" href="/bookings">
+            <Button className={settingsPill("solid")} nativeButton={false} render={<Link href="/bookings" />}>
               {t("viewBookings")}
-            </PrimaryButton>
-            <NeutralButton className="lg:w-auto" onClick={onClose} type="button">
+            </Button>
+            <Button className={settingsPill()} onClick={onClose} type="button" variant="outline">
               {t("backToSettings")}
-            </NeutralButton>
+            </Button>
           </>
         ) : (
           <>
-            <DestructiveButton className="lg:w-auto" disabled={confirmation !== "DELETE" || submitting} type="submit">
+            <Button
+              className={settingsPill("destructive")}
+              disabled={confirmation !== "DELETE" || submitting}
+              type="submit"
+            >
               {t("submit")}
-            </DestructiveButton>
-            <NeutralButton className="lg:w-auto" onClick={onClose} type="button">
+            </Button>
+            <Button className={settingsPill()} onClick={onClose} type="button" variant="outline">
               {t("keep")}
-            </NeutralButton>
+            </Button>
           </>
         )}
-      </AlertDialogFooter>
+      </div>
     </form>
   );
 }

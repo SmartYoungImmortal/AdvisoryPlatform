@@ -2,14 +2,15 @@
 
 import { useRouter } from "next/navigation";
 import { Mail, MailCheck } from "lucide-react";
+import Link from "next/link";
 import { useTranslations } from "next-intl";
 import { useState, useSyncExternalStore, type FormEvent, type ReactNode } from "react";
 
 import { AlertBanner } from "@/components/mobile/banner";
-import { NeutralButton, PrimaryButton } from "@/components/mobile/buttons";
 import { Field } from "@/components/mobile/field";
 import { AccountSettingsScreen } from "@/components/profile/account-settings-screen";
-import { SETTINGS_DIALOG_ACTIONS, SettingsDialog } from "@/components/profile/settings-dialog";
+import { SETTINGS_DIALOG_ACTIONS, SettingsDialog, settingsPill } from "@/components/profile/settings-dialog";
+import { Button } from "@/components/ui/button";
 import { useAccount } from "@/components/session/account-bits";
 import { ApiError } from "@/lib/api/client";
 import { requestEmailChange } from "@/lib/api/account";
@@ -33,7 +34,7 @@ function EmailCard({
   readonly className?: string;
 }) {
   return (
-    <div className={cn("flex w-full shrink-0 items-center gap-2.5 overflow-clip rounded-card bg-muted/50 p-3.5", className)}>
+    <div className={cn("flex w-full shrink-0 items-center gap-2.5 overflow-clip rounded-xl bg-muted/50 p-4 lg:gap-3.5 lg:p-5", className)}>
       <Mail className="size-4 shrink-0 text-muted-foreground" />
       <div className="flex min-w-px flex-1 flex-col items-start gap-0.5 overflow-clip">
         <p className="w-full text-xs font-normal text-muted-foreground">{caption}</p>
@@ -140,6 +141,7 @@ function ChangeEmailForm({ state = "default" }: { readonly state?: "default" | "
               setEmail(event.target.value);
               setProblem(null);
             }}
+            outline
             placeholder={t("newPlaceholder")}
             type="email"
             value={email}
@@ -147,12 +149,12 @@ function ChangeEmailForm({ state = "default" }: { readonly state?: "default" | "
         </div>
 
         <div className={SETTINGS_DIALOG_ACTIONS}>
-          <PrimaryButton className="disabled:opacity-40 lg:w-auto" disabled={!email.trim() || submitting} type="submit">
+          <Button className={settingsPill("solid")} disabled={!email.trim() || submitting} type="submit">
             {t("submit")}
-          </PrimaryButton>
-          <NeutralButton className="lg:w-auto" href="/settings">
+          </Button>
+          <Button className={settingsPill()} nativeButton={false} render={<Link href="/settings" />} variant="outline">
             {c("cancel")}
-          </NeutralButton>
+          </Button>
         </div>
       </form>
     </SettingsDialog>
@@ -206,12 +208,18 @@ function VerifyEmailNote() {
           </output>
         ) : null}
         <div className={SETTINGS_DIALOG_ACTIONS}>
-          <PrimaryButton className="lg:w-auto" href="/settings">
+          <Button className={settingsPill("solid")} nativeButton={false} render={<Link href="/settings" />}>
             {t("backToSettings")}
-          </PrimaryButton>
-          <NeutralButton className="lg:w-auto" disabled={!pending || resending} onClick={resend} type="button">
+          </Button>
+          <Button
+            className={settingsPill()}
+            disabled={!pending || resending}
+            onClick={resend}
+            type="button"
+            variant="outline"
+          >
             {t("resend")}
-          </NeutralButton>
+          </Button>
         </div>
       </div>
     </SettingsDialog>
