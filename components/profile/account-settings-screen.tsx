@@ -3,7 +3,6 @@
 import {
   Bell,
   ChevronLeft,
-  CircleCheckBig,
   FileText,
   Globe,
   UserRound,
@@ -13,10 +12,10 @@ import Link from "next/link";
 import { useTranslations } from "next-intl";
 import { useId, useState, type ReactNode } from "react";
 
-import { AccountShell, DESKTOP_TYPE_LIFT } from "@/components/account/account-shell";
+import { AccountShell } from "@/components/account/account-shell";
 import { AppFrame } from "@/components/account/app-frame";
-import { SuccessBanner } from "@/components/mobile/banner";
 import { MobileScreen, ScreenBody } from "@/components/mobile/screen";
+import { StatusToast, useStatusToast } from "@/components/mobile/toast";
 import { GUTTER } from "@/components/notifications/notification-center-screen";
 import { usePushToggle } from "@/components/notifications/push-toggle";
 import { DeleteAccountDialog } from "@/components/profile/delete-account-dialog";
@@ -126,13 +125,10 @@ function SettingRow({
 function SettingsSection({
   section,
   active,
-  lead,
   children,
 }: {
   readonly section: SectionKey;
   readonly active: boolean;
-  /** What the category says before its rows, under its label or band (the password's success). */
-  readonly lead?: ReactNode;
   readonly children: ReactNode;
 }) {
   const t = useTranslations("accountSettings");
@@ -160,7 +156,6 @@ function SettingsSection({
           {t(SECTION[section].label)}
         </h2>
       </header>
-      {lead}
       {/* Straight under the band, the same inset from both of the panel's edges. */}
       <ul className="flex flex-col max-lg:[&>li:last-child]:border-b-0 lg:mx-12">{children}</ul>
     </section>
@@ -291,7 +286,7 @@ function LanguageRow() {
 
 /**
  * Figma "Account settings" (995:7046) and its updated state (995:7095), which
- * adds a success banner and a verification note.
+ * adds a verification note, and says the password changed in a toast.
  *
  * From `lg` the panel is a menu of categories on the left and the chosen
  * category on the right: its tile and name over a hairline, then one row per
@@ -320,6 +315,8 @@ export function AccountSettingsScreen({
   const isUpdated = state === "updated";
   const [section, setSection] = useState<SectionKey>("account");
   const [deleting, setDeleting] = useState(false);
+  // A password just changed says so for a moment, then leaves the page as it was.
+  const updated = useStatusToast(isUpdated ? { text: t("updatedTitle"), detail: t("updatedBody"), ok: true } : undefined);
 
   return (
     // `wide="md"`: a tablet held upright gets the phone layout at its own width.
@@ -356,23 +353,7 @@ export function AccountSettingsScreen({
                   `compact` drops), so the category's heading lines up with the
                   menu's title. */}
               <div className="mt-4 flex min-w-0 flex-col gap-6 lg:mt-0 lg:gap-0 lg:pb-16">
-                <SettingsSection
-                  active={section === "account"}
-                  lead={
-                    isUpdated ? (
-                      // The banner is a shared phone block; the lift sets its type on the frame's steps.
-                      <div className={cn("mt-3 lg:mx-12 lg:mt-8", DESKTOP_TYPE_LIFT)}>
-                        <SuccessBanner
-                          body={t("updatedBody")}
-                          className="px-0 pt-0"
-                          icon={CircleCheckBig}
-                          title={t("updatedTitle")}
-                        />
-                      </div>
-                    ) : null
-                  }
-                  section="account"
-                >
+                <SettingsSection active={section === "account"} section="account">
                   <SettingRow
                     // The account's own address, in the Latin face it is written in.
                     detail={profile.data?.email ? <span className="font-latin">{profile.data.email}</span> : null}
@@ -424,6 +405,7 @@ export function AccountSettingsScreen({
       </AppFrame>
       {overlay}
       <DeleteAccountDialog onOpenChange={setDeleting} open={deleting} />
+      <StatusToast leaving={updated.leaving} toast={updated.toast} />
     </MobileScreen>
   );
 }

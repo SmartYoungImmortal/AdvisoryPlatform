@@ -115,17 +115,21 @@ export function SettingsDialog({
             </div>
           </div>
         ) : (
-          <div className="app-scale contents lg:block lg:w-100">
+          // From `lg` as wide as its question on one line (the frame's type
+          // there wrapped it in 400), and never narrower than 400.
+          <div className="app-scale contents lg:block lg:w-max lg:min-w-100">
             <div className="flex flex-col p-4 md:p-6">
               <DialogTitle className="text-sm leading-6 font-semibold text-foreground md:text-xl md:leading-8 lg:text-frame-heading">
                 {title}
               </DialogTitle>
               {description ? (
-                <DialogDescription className="mt-1 text-xs text-pretty text-muted-foreground md:text-sm lg:mt-2 lg:text-frame-body lg:leading-7">
+                <DialogDescription className="mt-1 text-xs text-pretty text-muted-foreground md:text-sm lg:mt-2 lg:text-frame-body lg:leading-7 lg:whitespace-nowrap">
                   {description}
                 </DialogDescription>
               ) : null}
-              <div className={cn("mt-4 md:mt-6", BODY_LIFT, FIELD_LIFT)}>{children}</div>
+              {/* Under the question 24 from the tablet up (20 at 1440), the
+                  phone's 12 for its smaller type. */}
+              <div className={cn("mt-3 md:mt-6", BODY_LIFT, FIELD_LIFT)}>{children}</div>
             </div>
           </div>
         )}

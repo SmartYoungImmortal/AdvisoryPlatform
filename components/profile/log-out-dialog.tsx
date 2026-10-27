@@ -22,8 +22,9 @@ export function LogOutDialog({ cancelHref = "/profile" }: { readonly cancelHref?
 
   return (
     <SettingsDialog closeHref={cancelHref} description={t("body")} title={t("title")}>
-      {/* Straight under the question: there is no form between. */}
-      <div className={cn(SETTINGS_DIALOG_ACTIONS, "mt-0")}>
+      {/* Straight under the question: there is no form between, so the
+          dialog's own gap is the only one (the actions' would add to it). */}
+      <div className={cn(SETTINGS_DIALOG_ACTIONS, "mt-0 md:mt-0")}>
         <Button className={settingsPill("ghost")} nativeButton={false} render={<Link href={cancelHref} />} variant="ghost">
           {t("cancel")}
         </Button>
