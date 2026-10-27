@@ -29,6 +29,7 @@
 - [x] `/search` และ `/search/no-results` (ใช้หน้าเดียวกัน)
 - [x] `/notifications` (+ `/notifications/view` หน้าข้อความเต็มของแจ้งเตือนที่อ่านอย่างเดียว) ผ่าน 25 ต.ค.
 - [x] `/settings` และ popup ของมัน: เปลี่ยนอีเมล (`/settings/email`, `/settings/email/verify`), เปลี่ยนรหัสผ่าน (`/settings/password` + ตั้งรหัสใหม่ทางอีเมลใน popup ถัดไป), ออกจากระบบ (`/settings/logout`), ลบบัญชี (popup ในหน้า), `/settings/updated` ผ่าน 28 ต.ค.
+- [x] `/transactions` (+ popup ใบเสร็จ), `/transactions/detail`, `/transactions/detail/failed`, `/transactions/detail/refunded` ผ่าน 28 ต.ค.
 
 ## ทำแล้วแต่ยังไม่ผ่าน
 
@@ -48,9 +49,6 @@
 
 ### RD-03 · หน้าบริการ
 - [ ] `/service/[id]`: หัว showcase + แกลเลอรี (ปก + 2 รูปจาก `service_images`) + กล่องจองติดขวา + รีวิว/ผู้เชี่ยวชาญ/บริการอื่น
-
-### RD-04 (บางส่วน) · ประวัติการชำระเงิน
-- [ ] `/transactions`, `/transactions/detail`, `/transactions/detail/failed`, `/transactions/detail/refunded`
 
 ### RD-10 · สมัครเป็นผู้ให้คำปรึกษา
 - [ ] `/advisor/apply`
