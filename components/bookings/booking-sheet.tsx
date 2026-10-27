@@ -168,7 +168,9 @@ export function useWaysOn(entry: BookingEntry, now: number): { readonly main: Wa
 function useBookingInvoice(booking: ApiBooking): ApiAdviseeInvoice | undefined {
   const fetcher = useCallback((signal: AbortSignal) => listMyInvoices({ page: 1, limit: 50 }, signal), []);
   const invoices = useResource<Paginated<ApiAdviseeInvoice>>("payment/invoices?page=1&limit=50", fetcher);
-  return invoices.data?.items.find(
+  // `items` guarded too: an API (or a stand-in for one) that answers without
+  // a page simply has no invoice to show.
+  return invoices.data?.items?.find(
     (invoice) =>
       invoice.service.id === booking.serviceId &&
       invoice.session !== null &&
