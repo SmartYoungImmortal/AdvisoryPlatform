@@ -172,6 +172,19 @@ export function settingsStackPill(kind: "solid" | "danger" | "soft") {
 }
 
 /**
+ * A line in two wordings: the short one on a phone, where the long one wraps
+ * twice, the full one from `md`. Only one of the two is ever shown or read.
+ */
+export function PhoneShort({ short, full }: { readonly short: ReactNode; readonly full: ReactNode }) {
+  return (
+    <>
+      <span className="md:hidden">{short}</span>
+      <span className="hidden md:inline">{full}</span>
+    </>
+  );
+}
+
+/**
  * A short list inside the dialog (the rules a password answers to): its
  * caption, then a line for each, on the dialog's own white with nothing
  * drawn round it.

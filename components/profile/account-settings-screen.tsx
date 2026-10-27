@@ -20,6 +20,7 @@ import { MobileScreen, ScreenBody } from "@/components/mobile/screen";
 import { GUTTER } from "@/components/notifications/notification-center-screen";
 import { usePushToggle } from "@/components/notifications/push-toggle";
 import { DeleteAccountDialog } from "@/components/profile/delete-account-dialog";
+import { PhoneShort } from "@/components/profile/settings-dialog";
 import { useOwnProfile } from "@/components/profile/profile-data";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
@@ -230,7 +231,11 @@ function PushRow() {
 
   return (
     <SettingRow
-      detail={<span aria-live="polite" role="status">{note ?? t("primerSubtitle")}</span>}
+      detail={
+        <span aria-live="polite" role="status">
+          {note ?? <PhoneShort full={t("primerSubtitle")} short={t("primerSubtitleShort")} />}
+        </span>
+      }
       label={t("pushLabel")}
       labelId={label}
     >
@@ -385,7 +390,11 @@ export function AccountSettingsScreen({
                   <SettingRow detail={t("logOutDetail")} label={nav("logOut")}>
                     <RowAction href="/settings/logout">{nav("logOut")}</RowAction>
                   </SettingRow>
-                  <SettingRow destructive detail={t("deleteNote")} label={t("deleteAccount")}>
+                  <SettingRow
+                    destructive
+                    detail={<PhoneShort full={t("deleteNote")} short={t("deleteNoteShort")} />}
+                    label={t("deleteAccount")}
+                  >
                     <RowAction destructive onClick={() => setDeleting(true)}>
                       {t("deleteAction")}
                     </RowAction>

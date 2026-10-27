@@ -8,7 +8,7 @@ import { useState, useSyncExternalStore, type FormEvent } from "react";
 
 import { Field } from "@/components/mobile/field";
 import { AccountSettingsScreen } from "@/components/profile/account-settings-screen";
-import { SETTINGS_DIALOG_STACK, SettingsDialog, settingsStackPill } from "@/components/profile/settings-dialog";
+import { PhoneShort, SETTINGS_DIALOG_STACK, SettingsDialog, settingsStackPill } from "@/components/profile/settings-dialog";
 import { Button } from "@/components/ui/button";
 import { useAccount } from "@/components/session/account-bits";
 import { ApiError } from "@/lib/api/client";
@@ -88,7 +88,11 @@ function ChangeEmailForm({ state = "default" }: { readonly state?: "default" | "
   }
 
   return (
-    <SettingsDialog description={t("subtitle")} icon={Mail} title={t("title")}>
+    <SettingsDialog
+      description={<PhoneShort full={t("subtitle")} short={t("subtitleShort")} />}
+      icon={Mail}
+      title={t("title")}
+    >
       <form className="flex w-full flex-col" noValidate onSubmit={submit}>
         {/* The address the account has now is on the settings row behind;
             the dialog only asks for the new one. */}
