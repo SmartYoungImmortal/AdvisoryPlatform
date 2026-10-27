@@ -146,7 +146,7 @@ function SettingsSection({
       {/* From `lg` the band across the top of the panel: 88 tall, its hairline
           running the panel's whole width from the menu's edge, the glyph solid
           on its tile as the chosen category's is in the menu. */}
-      <header className="flex items-center gap-1.5 lg:h-22 lg:shrink-0 lg:gap-3 lg:border-b lg:border-border lg:px-7">
+      <header className="flex items-center gap-1.5 lg:h-22 lg:shrink-0 lg:gap-3 lg:border-b lg:border-border lg:px-12">
         {/* The glyph bare and small before the label below `lg`; the tile from `lg`. */}
         <Icon aria-hidden className="size-3.5 shrink-0 text-muted-foreground lg:hidden" strokeWidth={1.75} />
         <span className="hidden size-12 shrink-0 items-center justify-center rounded-xl bg-muted text-foreground lg:flex">
@@ -161,7 +161,7 @@ function SettingsSection({
       </header>
       {lead}
       {/* Straight under the band, the same inset from both of the panel's edges. */}
-      <ul className="flex flex-col max-lg:[&>li:last-child]:border-b-0 lg:mx-8">{children}</ul>
+      <ul className="flex flex-col max-lg:[&>li:last-child]:border-b-0 lg:mx-12">{children}</ul>
     </section>
   );
 }
@@ -356,7 +356,7 @@ export function AccountSettingsScreen({
                   lead={
                     isUpdated ? (
                       // The banner is a shared phone block; the lift sets its type on the frame's steps.
-                      <div className={cn("mt-3 lg:mx-8 lg:mt-8", DESKTOP_TYPE_LIFT)}>
+                      <div className={cn("mt-3 lg:mx-12 lg:mt-8", DESKTOP_TYPE_LIFT)}>
                         <SuccessBanner
                           body={t("updatedBody")}
                           className="px-0 pt-0"
