@@ -1,6 +1,6 @@
 "use client";
 
-import { Circle, CircleCheck } from "lucide-react";
+import { Circle, CircleCheck, LockKeyhole } from "lucide-react";
 import Link from "next/link";
 import { useTranslations } from "next-intl";
 import { useRouter } from "next/navigation";
@@ -10,10 +10,10 @@ import { InfoRow } from "@/components/mobile/banner";
 import { Field, RevealPasswordButton } from "@/components/mobile/field";
 import { AccountSettingsScreen } from "@/components/profile/account-settings-screen";
 import {
-  SETTINGS_DIALOG_ACTIONS,
+  SETTINGS_DIALOG_STACK,
   SettingsDialog,
   SettingsDialogList,
-  settingsPill,
+  settingsStackPill,
 } from "@/components/profile/settings-dialog";
 import { Button } from "@/components/ui/button";
 import { changePassword } from "@/lib/api/account";
@@ -92,7 +92,7 @@ function ChangePasswordForm({ state = "default" }: { readonly state?: "default" 
   }
 
   return (
-    <SettingsDialog title={t("title")}>
+    <SettingsDialog icon={LockKeyhole} title={t("title")}>
       <form className="flex w-full flex-col" onSubmit={submit}>
         <div className="flex w-full flex-col gap-4 lg:gap-6">
           <PasswordField
@@ -152,12 +152,12 @@ function ChangePasswordForm({ state = "default" }: { readonly state?: "default" 
           </p>
         ) : null}
 
-        <div className={SETTINGS_DIALOG_ACTIONS}>
-          <Button className={settingsPill("ghost")} nativeButton={false} render={<Link href="/settings" />} variant="ghost">
-            {c("cancel")}
-          </Button>
-          <Button className={settingsPill("solid")} disabled={submitting} type="submit">
+        <div className={SETTINGS_DIALOG_STACK}>
+          <Button className={settingsStackPill("solid")} disabled={submitting} type="submit">
             {t("submit")}
+          </Button>
+          <Button className={settingsStackPill("soft")} nativeButton={false} render={<Link href="/settings" />} variant="ghost">
+            {c("cancel")}
           </Button>
         </div>
       </form>
