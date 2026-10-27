@@ -1,0 +1,19 @@
+/* This screen implements the Figma booking canvas without changing other pages. */
+.canvas {
+  --background: #fafafa;
+  --muted: #f4f4f5;
+  --muted-foreground: #71717a;
+  --border: #e4e4e7;
+  --radius-card: 14px;
+  --radius-lg: 12px;
+}
+.inset { width: 100%; }
+@media (min-width: 1024px) {
+  .inset { padding-left: max(32px, calc((100% - 1200px) / 2)); padding-right: max(32px, calc((100% - 1200px) / 2)); }
+}
+:global(.dark) .canvas {
+  --background: oklch(0.141 0.005 285.823);
+  --muted: oklch(0.274 0.006 286.033);
+  --muted-foreground: oklch(0.705 0.015 286.067);
+  --border: oklch(1 0 0 / 10%);
+}
