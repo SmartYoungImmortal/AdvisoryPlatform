@@ -127,7 +127,8 @@ function ChangePasswordForm({ state = "default" }: { readonly state?: "default" 
         </div>
 
         {problem === "invalid" ? (
-          <p className="mt-4 text-sm text-destructive" role="alert">
+          // The fields' own error size: it is about them.
+          <p className="mt-3 text-xs text-destructive" role="alert">
             {t("invalid")}
           </p>
         ) : null}
