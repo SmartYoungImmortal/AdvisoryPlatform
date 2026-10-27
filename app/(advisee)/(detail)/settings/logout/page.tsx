@@ -1,6 +1,8 @@
+import { AccountSettingsScreen } from "@/components/profile/account-settings-screen";
 import { LogOutDialog } from "@/components/profile/log-out-dialog";
-import { ProfileScreen } from "@/components/profile/profile-screen";
 
 export default function LogOutConfirmPage() {
-  return <ProfileScreen overlay={<LogOutDialog />} />;
+  // Logging out lives in the settings now, so the confirm sits over them and
+  // cancelling goes back there.
+  return <AccountSettingsScreen overlay={<LogOutDialog cancelHref="/settings" />} />;
 }

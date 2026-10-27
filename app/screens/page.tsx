@@ -53,7 +53,6 @@ const SECTIONS: ReadonlyArray<{
       { href: "/settings", label: "Account settings" },
       { href: "/settings/updated", label: "Account settings – updated" },
       { href: "/settings/password", label: "Change password" },
-      { href: "/settings/delete", label: "Delete account" },
       { href: "/settings/logout", label: "Log out confirm" },
     ],
   },
@@ -77,7 +76,6 @@ const SECTIONS: ReadonlyArray<{
     node: "995:10812",
     screens: [
       { href: "/notifications", label: "Notification center" },
-      { href: "/notifications/push-primer", label: "Push primer" },
       { href: "/chat/session-banner", label: "In-app banner" },
     ],
   },

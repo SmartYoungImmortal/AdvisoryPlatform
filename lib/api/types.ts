@@ -32,6 +32,15 @@ export interface ApiPublicService {
   readonly trialDurationMinutes: number | null;
   /** ISO timestamp the service was listed. */
   readonly createdAt: string;
+  /**
+   * The service's photographs from `service_images`, as absolute URLs in
+   * carousel order. Covers are still mapped in the frontend
+   * (`lib/catalogue/live.ts`), so today these are the gallery photos only and
+   * carousel index 0 is kept free for the cover; a screen leads with its own
+   * cover and skips a URL equal to it. Optional because an API built before the
+   * field existed does not send it; read it as empty then.
+   */
+  readonly images?: readonly string[];
 }
 
 /** `PublicServiceQueryDto` — the filters `GET /services` accepts. */
@@ -115,6 +124,11 @@ export interface ApiRatingSummary {
   readonly distribution: readonly ApiRatingBar[];
 }
 
+/** `AdvisorRatingSummaryItemDto` — one advisor's summary in `GET /advisors/reviews/summaries`. */
+export interface ApiRatingSummaryItem extends ApiRatingSummary {
+  readonly advisorId: string;
+}
+
 /** `UserOwnProfileResponseDto` — users/dtos */
 export interface ApiOwnProfile {
   readonly id: string;
@@ -166,8 +180,8 @@ export type ApiBookingState =
  *
  * It is the appointment row and nothing more: no service name, no advisor name,
  * no amount. A list of these is unreadable on its own, so a screen showing them
- * joins `listServices` and `listAdvisors` by `serviceId` / `advisorId` — the same
- * trade `components/home/browse-list.tsx` makes for one card's advisor name.
+ * joins `listServices` and `listAdvisors` by `serviceId` / `advisorId`, as
+ * `components/bookings/my-bookings-screen.tsx` does.
  *
  * `unavailableUntil` is the end of the range this booking blocks, which is
  * `endTime` plus the advisor's buffer, and `blocksAvailability` goes false once a
@@ -220,8 +234,7 @@ export type ApiRefundCaseStatus = "OPEN" | "APPROVED" | "REJECTED";
  * `RefundCaseResponseDto` — refunds/dtos/refund-case-response.dto.ts
  *
  * The requester's own view, which deliberately omits the admin who ruled on it.
- * It names an `invoiceId` and no amount, and there is no advisee-facing invoice
- * route to resolve that id against — see `openRefundCase`.
+ * It names an `invoiceId` and no amount; `getMyInvoice` is where the amount is.
  */
 export interface ApiRefundCase {
   readonly id: string;
@@ -240,6 +253,40 @@ export interface ApiRefundCaseInput {
 }
 
 /* ------------------------------------------------------------------ payment */
+
+/** Where an advisee's invoice ended up. `pending` is a checkout not yet charged. */
+export type ApiInvoiceStatus = "paid" | "refunded" | "failed" | "pending";
+
+/**
+ * One of the signed-in advisee's own invoices — `GET /payment/invoices` and
+ * `GET /payment/invoices/:id`.
+ *
+ * Already joined, unlike `ApiBooking`: the service and advisor names come with
+ * it (the service's in the reader's language), so a receipt needs no second
+ * call. `amountSatang` is what the card was asked for; `priceSatang` and
+ * `platformFeeSatang` are its two lines.
+ *
+ * The API keeps no instant for a refund or a decline, only `createdAt` and
+ * `paidAt`. `session` and `booking` are null when the invoice has no
+ * appointment to point at, and `card` when there is no card to name.
+ */
+export interface ApiAdviseeInvoice {
+  readonly id: string;
+  /** `INV-2026-000123`: what the reader quotes to support. */
+  readonly invoiceNumber: string;
+  readonly status: ApiInvoiceStatus;
+  readonly amountSatang: number;
+  readonly platformFeeSatang: number;
+  readonly priceSatang: number;
+  readonly refundSatang: number | null;
+  readonly createdAt: string;
+  readonly paidAt: string | null;
+  readonly service: { readonly id: string; readonly name: string };
+  readonly advisor: { readonly id: string; readonly displayName: string };
+  readonly session: { readonly startTime: string; readonly endTime: string } | null;
+  readonly booking: "confirmed" | "unconfirmed" | "cancelled" | null;
+  readonly card: { readonly brand: string; readonly lastDigits: string } | null;
+}
 
 /**
  * `CheckoutDto` — payment/dto/checkout.dto.ts

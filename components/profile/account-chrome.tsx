@@ -56,13 +56,6 @@ const PANEL =
 export const ACCOUNT_FORM_PANEL = `${PANEL} lg:w-[800px] lg:p-10`;
 
 /**
- * The 640px panel the confirmation screens sit in. Here the blocks keep the
- * phone's 24px inset — `WarningHero` carries its own and takes no class — so
- * the panel only adds the other 24 of Figma's 48.
- */
-export const ACCOUNT_CONFIRM_PANEL = `${PANEL} lg:w-[640px] lg:px-6 lg:py-8`;
-
-/**
  * Figma "Back Bar" — a 52px strip on the card surface below the nav: a 28px
  * chevron at the 120px page inset with its label 8px after it.
  *
@@ -108,6 +101,10 @@ export function AccountBackBar({
  *
  * `TopBar` is a client component that observes `ScreenBody`; wrapping rather
  * than hiding it from the inside keeps that wiring intact and out of the phone
- * layout.
+ * layout. `contents`, not `block`: a block exactly as tall as the bar became
+ * the sticky bar's containing block, so the bar scrolled away with it.
+ *
+ * The settings pages no longer use it: they sit in the app frame
+ * (`AppFrame`), which has no top bar on a desktop at all.
  */
-export const ACCOUNT_NAV = "hidden w-full lg:block";
+export const ACCOUNT_NAV = "hidden lg:contents";

@@ -1,258 +1,506 @@
 "use client";
 
 import Link from "next/link";
-import { Search, Video } from "lucide-react";
-import { useTranslations } from "next-intl";
-import { useCallback, useMemo, useState } from "react";
+import { CalendarClock, EyeOff, MessagesSquare, Search } from "lucide-react";
+import { useFormatter, useNow, useTimeZone, useTranslations } from "next-intl";
+import { useState, type ReactNode } from "react";
 
-import { messagesEmpty as emptyIllustration } from "@/lib/assets/r2";
+import { authPill } from "@/components/auth/auth-split";
+import { FEED_COLUMN, GUTTER } from "@/components/notifications/notification-center-screen";
+import { useMountTime } from "@/components/bookings/booking-flow";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { PersonAvatar } from "@/components/chat/chat-avatar";
+import { ChatError, ChatFrame, ConnectionNote, counterpartName } from "@/components/chat/chat-chrome";
+import { chatHref } from "@/components/chat/chat-data";
 import {
-  InputGroup,
-  InputGroupAddon,
-  InputGroupInput,
-} from "@/components/ui/input-group";
-import { ChatMark } from "@/components/chat/chat-avatar";
-import { CHAT_PANE } from "@/components/chat/chat-chrome";
-import { listChatRooms, pendingCopy, type ApiChatRoom } from "@/components/chat/chat-data";
-import { NeutralButton, PrimaryButton } from "@/components/mobile/buttons";
-import { EmptyState } from "@/components/mobile/empty-state";
-import { MobileScreen, ScreenBody } from "@/components/mobile/screen";
-import { StatusPill } from "@/components/mobile/status-pill";
-import { surfaceClass } from "@/components/mobile/surface";
-import { BottomBar } from "@/components/bottombar";
-import { TopBar } from "@/components/topbar";
-import type { Paginated } from "@/lib/api/client";
-import { useResource } from "@/lib/api/use-resource";
+  counterpartFor,
+  newestRoomId,
+  useChatPeople,
+  useClock,
+  useDesktop,
+  useHourStyle,
+  useInbox,
+  type ChatPeople,
+} from "@/components/chat/chat-hooks";
+import { NewestThread } from "@/components/chat/chat-thread-screen";
+import { useLiveMessages, useReadMarks, useRoomSubscriptions } from "@/components/chat/chat-live";
+import {
+  dayKey,
+  daysBetween,
+  matchesQuery,
+  mergeMessages,
+  newestOf,
+  unreadIn,
+  type Counterpart,
+} from "@/components/chat/chat-logic";
+import type { ApiBooking } from "@/lib/api/types";
 import { cn } from "@/lib/utils";
 
 /**
- * The inbox, read from `GET /chat/rooms`.
+ * `/chat`: every conversation, read from `GET /chat/rooms` and each room's
+ * first page of messages (`useInbox`), named from the bookings and the public
+ * directory (`resolveCounterpart` explains how far that can be trusted).
  *
- * ## What a room does and does not tell us
- *
- * `ChatRoomResponseDto` is `{ id, isAnonymous, lastReadAt, unreadCount,
- * createdAt }` and that is the whole of it. No participant, no display name, no
- * avatar, no last message. A room is created by a booking, so the other member
- * exists, but no route exposes them — so this row shows the date the
- * conversation opened and its unread count, and leaves the portrait as a plain
- * glyph. It does not borrow a stock photograph and a name from the fixtures that
- * used to be here: a row that says "Sarah Jenskins" over data that has never
- * heard of her is worse than a row that admits it only knows a date.
- *
- * ## Why the empty state is not a failure
- *
- * `chat_rooms`, `chat_messages` and `service_appointments` all have zero rows in
- * the seeded database, and a room is only created by a booking. So an empty list
- * here is the correct answer, not a broken read, and it renders the designed
- * empty screen rather than an error.
- *
- * The search field is still inert. `GET /chat/rooms` takes `page` and `limit`
- * and nothing else — there is no `q` — and filtering a page of UUID-keyed rooms
- * on the client would search text that is not there.
+ * A phone shows the list as its own screen; a desktop shows it as the left of
+ * the messenger card, with a quiet "choose a conversation" in the room the
+ * thread will take.
  */
 
-/** Thai short date, e.g. "20 ก.ย. 2569" — `th-TH` is Buddhist-era by default. */
-function shortDate(iso: string): string {
-  return new Date(iso).toLocaleDateString("th-TH", {
-    day: "numeric",
-    month: "short",
-    year: "numeric",
-  });
+/** The time a row shows: the clock today, then "yesterday", the weekday, the date. */
+function useRowTime(): (iso: string) => string {
+  const t = useTranslations("chat");
+  const format = useFormatter();
+  const timeZone = useTimeZone() ?? "Asia/Bangkok";
+  const clock = useClock();
+  const now = useMountTime();
+  const today = dayKey(now, timeZone);
+  return (iso: string) => {
+    const at = new Date(iso);
+    const day = dayKey(at.getTime(), timeZone);
+    const ago = daysBetween(day, today);
+    if (ago <= 0) return clock(at);
+    if (ago === 1) return t("yesterday");
+    if (ago < 7) return format.dateTime(at, { weekday: "short" });
+    return day.slice(0, 4) === today.slice(0, 4)
+      ? format.dateTime(at, { day: "numeric", month: "short" })
+      : format.dateTime(at, { day: "numeric", month: "short", year: "numeric" });
+  };
 }
 
 /**
- * Figma "Chat 1..3" row — 12px top padding, 40px avatar, name/preview stack,
- * hairline.
- *
- * An unread row carries weight — the name goes semibold, the preview stops being
- * muted and a dot holds the right edge — so the list has a shape before it is
- * read. The row answers the pointer, and it sits on the card surface rather than
- * straight on the page ground.
+ * The list as the card's left column from `lg`, the same width on both
+ * screens: 400 in the 1710 space, about 337 rendered at 1440, room for a name
+ * and most of a last line beside the portrait.
  */
-function ChatRow({
-  href,
-  avatar,
-  name,
-  preview,
-  trailing,
-  unread = false,
-  active = false,
-}: {
-  readonly href: string;
-  readonly avatar: React.ReactNode;
+export const CHAT_LIST_PANE = "lg:w-100 lg:shrink-0";
+
+/** One conversation, everything a row needs and the list can search. */
+type Row = {
+  readonly id: string;
+  readonly anonymous: boolean;
+  readonly counterpart: Counterpart;
   readonly name: string;
-  readonly preview: React.ReactNode;
-  /** The anonymous marker, where a room has one. */
-  readonly trailing?: React.ReactNode;
-  /** Not read yet: the row's own weight, plus the dot. */
-  readonly unread?: boolean;
-  /** The thread open in the pane beside this list — desktop only. */
-  readonly active?: boolean;
-}) {
+  readonly preview: string | null;
+  readonly mine: boolean;
+  readonly at: string;
+  readonly unread: number;
+};
+
+/**
+ * The rows, with what has arrived live laid over the cached read: a new line
+ * moves its row to the top with its text and time, and counts as unread until
+ * the room is read. The open room (`activeId`) is being read, so it counts none.
+ */
+function useRows(
+  people: ChatPeople,
+  activeId?: string,
+): {
+  readonly rows: readonly Row[] | undefined;
+  readonly loading: boolean;
+  readonly error: Error | null;
+  readonly reload: () => void;
+} {
+  const t = useTranslations("chat");
+  const inbox = useInbox();
+  const live = useLiveMessages();
+  const readMarks = useReadMarks();
+  const meId = people.me.data?.id;
+
+  const rows = inbox.data
+    ?.map(({ room, messages }): Row => {
+      const arrived = live.get(room.id) ?? [];
+      const all = arrived.length > 0 ? mergeMessages(messages, arrived) : messages;
+      const counterpart = counterpartFor(room, all.map((m) => m.senderUserId), people);
+      const newest = newestOf(all);
+      return {
+        id: room.id,
+        anonymous: room.isAnonymous,
+        counterpart,
+        name: counterpartName(counterpart, t),
+        preview: newest?.message ?? null,
+        mine: newest !== undefined && newest.senderUserId === meId,
+        at: newest?.createdAt ?? room.createdAt,
+        unread:
+          room.id === activeId
+            ? 0
+            : unreadIn({ room, page: messages, live: arrived, meId, readThrough: readMarks.get(room.id) }),
+      };
+    })
+    // Last activity first, the way every messenger orders a list.
+    .toSorted((a, b) => Date.parse(b.at) - Date.parse(a.at));
+
+  return {
+    rows,
+    // Names wait for the directory and the bookings too, or every row would
+    // flash "การสนทนา" first and then change under the reader.
+    loading:
+      inbox.loading ||
+      people.me.loading ||
+      people.advisors.loading ||
+      people.bookings.loading ||
+      people.services.loading,
+    error: inbox.error,
+    reload: inbox.reload,
+  };
+}
+
+/**
+ * A conversation in the list: the face, the name, the time; the last line under
+ * them, mine marked "you:". Unread rows carry the weight (semibold, the line in
+ * ink, the count in the accent), so the list has a shape before it is read.
+ */
+function ChatRow({ row, active, time }: { readonly row: Row; readonly active: boolean; readonly time: string }) {
+  const t = useTranslations("chat");
+  const unread = row.unread > 0;
+  const { advisor } = row.counterpart;
+
   return (
-    <Link
-      aria-current={active ? "page" : undefined}
-      className={cn(
-        "relative flex h-[70px] w-full shrink-0 flex-col items-start justify-center border-b border-border bg-card transition-colors duration-150 ease-out hover:bg-muted motion-reduce:transition-none",
-        // The open thread keeps the accent tint and an accent edge, so the pane
-        // and the list agree on which conversation is on screen.
-        active && "bg-accent-surface/60 before:absolute before:inset-y-0 before:start-0 before:w-0.5 before:bg-primary before:content-['']",
-      )}
-      href={href}
-    >
-      <div className="flex w-full shrink-0 items-center gap-3 px-4">
-        {avatar}
-        <div className="flex min-w-px flex-1 flex-col items-start justify-center gap-0.5">
-          <p
-            className={cn(
-              "w-full truncate text-sm",
-              unread ? "font-semibold text-foreground" : "font-medium text-foreground",
-            )}
-          >
-            {name}
-          </p>
-          <p
-            className={cn(
-              "w-full truncate text-xs tabular-nums",
-              unread ? "font-medium text-foreground" : "font-normal text-muted-foreground",
-            )}
-          >
-            {preview}
-          </p>
-        </div>
-        {trailing}
-        {unread ? (
-          <span aria-hidden className="size-2 shrink-0 rounded-full bg-primary" />
-        ) : null}
-      </div>
-    </Link>
+    <li>
+      <Link
+        aria-current={active ? "page" : undefined}
+        className={cn(
+          "group flex items-center gap-3 rounded-2xl px-3 py-3 outline-none transition-colors duration-150",
+          "hover:bg-muted/60 focus-visible:ring-3 focus-visible:ring-ring/50 motion-reduce:transition-none",
+          "aria-[current=page]:bg-muted",
+        )}
+        href={chatHref(row.id)}
+      >
+        <PersonAvatar
+          advisor={advisor}
+          known={row.counterpart.userId !== null}
+          person={row.counterpart.person}
+          size={52}
+        />
+        {/* From `lg` everything steps up: the desktop is drawn at 1710 and
+            zoomed down, so a phone's 12px meta would read at 10. */}
+        <span className="flex min-w-0 flex-1 flex-col gap-0.5">
+          <span className="flex items-baseline gap-2">
+            <span
+              className={cn(
+                "min-w-0 truncate text-sm text-foreground lg:text-frame-meta",
+                unread ? "font-semibold" : "font-medium",
+              )}
+            >
+              {row.name}
+              {advisor ? <span className="sr-only"> · {t("verified")}</span> : null}
+            </span>
+            {row.anonymous ? (
+              <span className="flex shrink-0 items-center self-center text-muted-foreground" title={t("anonymous")}>
+                <EyeOff aria-hidden className="size-3.5 lg:size-4" />
+                <span className="sr-only">{t("anonymous")}</span>
+              </span>
+            ) : null}
+            <span
+              className={cn(
+                "ml-auto shrink-0 font-latin text-xs tabular-nums lg:text-frame-label",
+                unread ? "font-semibold text-foreground" : "text-muted-foreground",
+              )}
+            >
+              {time}
+            </span>
+          </span>
+          <span className="flex items-center gap-2">
+            <span
+              className={cn(
+                "min-w-0 flex-1 truncate text-xs lg:text-frame-label",
+                unread ? "text-foreground" : "text-muted-foreground",
+              )}
+            >
+              {row.preview ? (
+                <>
+                  {row.mine ? `${t("you")}: ` : null}
+                  {row.preview}
+                </>
+              ) : (
+                t("noMessagesYet")
+              )}
+            </span>
+            {unread ? (
+              <span className="flex h-5 min-w-5 shrink-0 items-center justify-center rounded-full bg-hero-action px-1.5 font-latin text-xs font-semibold text-hero-action-foreground tabular-nums lg:h-6 lg:min-w-6 lg:text-frame-label">
+                <span aria-hidden>{row.unread > 99 ? "99+" : row.unread}</span>
+                <span className="sr-only">{t("unreadCount", { count: row.unread })}</span>
+              </span>
+            ) : null}
+          </span>
+        </span>
+      </Link>
+    </li>
   );
 }
 
-/** A row-shaped skeleton, so the list does not reflow when the rooms land. */
 function RowSkeleton() {
   return (
-    <div className="flex h-[70px] w-full shrink-0 items-center gap-3 border-b border-border bg-card px-4">
-      <div className="size-10 shrink-0 rounded-full bg-muted" />
-      <div className="flex min-w-px flex-1 flex-col items-start gap-1.5">
-        <div className="h-3.5 w-2/5 rounded-md bg-muted" />
-        <div className="h-3 w-1/4 rounded-md bg-muted" />
-      </div>
-    </div>
+    <li aria-hidden className="flex items-center gap-3 px-3 py-3">
+      <span className="size-13 shrink-0 rounded-full bg-muted" />
+      <span className="flex min-w-0 flex-1 flex-col gap-2">
+        <span className="h-4 w-2/5 rounded-md bg-muted" />
+        <span className="h-3.5 w-4/5 rounded-md bg-muted" />
+      </span>
+    </li>
   );
 }
 
 /**
- * The inbox itself — title, search, rooms.
+ * A filter as a small text tab: the current one in ink and underlined, the
+ * other muted. 44px tall for a thumb, though the text is small.
+ */
+function FilterChip({
+  active,
+  onClick,
+  children,
+}: {
+  readonly active: boolean;
+  readonly onClick: () => void;
+  readonly children: ReactNode;
+}) {
+  return (
+    <Button
+      aria-pressed={active}
+      className={cn(
+        "h-11 shrink-0 gap-1.5 rounded-md px-1 text-sm underline-offset-8 hover:bg-transparent lg:text-frame-meta",
+        active
+          ? "font-semibold text-foreground underline decoration-2"
+          : "font-medium text-muted-foreground hover:text-foreground",
+      )}
+      onClick={onClick}
+      type="button"
+      variant="ghost"
+    >
+      {children}
+    </Button>
+  );
+}
+
+/* ------------------------------------------------------------------ banner */
+
+/**
+ * The in-app banner about a session: one that is under way or starts within
+ * the hour, read from `GET /bookings/me`. `/chat/session-banner` forces it
+ * on, and then it states the next session whenever it is, or plainly that
+ * there is none. It leads to the booking, not to a call: the API has no call
+ * module to join.
+ */
+function SessionBanner({ forced, people }: { readonly forced: boolean; readonly people: ChatPeople }) {
+  const t = useTranslations("chat");
+  const format = useFormatter();
+  const hour = useHourStyle();
+  // A ticking clock, so "starts in 12 min" stays true while the page is open.
+  const now = useNow({ updateInterval: 30_000 }).getTime();
+  const live = (people.bookings.data?.items ?? [])
+    .filter((b) => (b.state === "BOOKED" || b.state === "IN_PROGRESS") && Date.parse(b.endTime) > now)
+    .toSorted((a, b) => Date.parse(a.startTime) - Date.parse(b.startTime));
+  const next: ApiBooking | undefined = live[0];
+
+  if (people.bookings.loading) return null;
+
+  if (!next) {
+    if (!forced) return null;
+    return (
+      <BannerCard
+        action={{ href: "/search", label: t("bannerNoneAction") }}
+        body={t("bannerNoneBody")}
+        title={t("bannerNone")}
+      />
+    );
+  }
+
+  const start = Date.parse(next.startTime);
+  const minutes = Math.ceil((start - now) / 60_000);
+  const underway = start <= now;
+  if (!forced && !underway && minutes > 60) return null;
+
+  const advisor = people.advisors.data?.items.find((a) => a.id === next.advisorId) ?? null;
+  const service = people.services.data?.items.find((s) => s.id === next.serviceId) ?? null;
+  const name = advisor?.displayName ?? t("advisorFallback");
+  const when = format.dateTime(new Date(start), {
+    weekday: "short",
+    day: "numeric",
+    month: "short",
+    hour,
+    minute: "2-digit",
+  });
+  let bannerTitle = t("bannerNext", { name });
+  if (underway) bannerTitle = t("bannerLive", { name });
+  else if (minutes <= 60) bannerTitle = t("bannerStartsIn", { name, count: minutes });
+
+  return (
+    <BannerCard
+      action={{ href: "/bookings", label: t("bannerAction") }}
+      body={[service?.name, when].filter(Boolean).join(" · ")}
+      live={underway || minutes <= 60}
+      title={bannerTitle}
+    />
+  );
+}
+
+function BannerCard({
+  title,
+  body,
+  action,
+  live = false,
+}: {
+  readonly title: string;
+  readonly body: string;
+  readonly action: { readonly href: string; readonly label: string };
+  /** Soon or under way: the accent ground marks it as the one to act on. */
+  readonly live?: boolean;
+}) {
+  return (
+    <output
+      className={cn(
+        "flex items-start gap-3 rounded-2xl p-3.5",
+        live ? "bg-accent-surface" : "border border-hero-card-border bg-card shadow-hero-card",
+      )}
+      data-slot="session-banner"
+    >
+      <span className="flex size-10 shrink-0 items-center justify-center rounded-full bg-card">
+        <CalendarClock aria-hidden className="size-5 text-primary" />
+      </span>
+      {/* The copy wraps rather than truncates: in a 352px column a cut-off
+          "starts in…" is the one line that must be read whole. */}
+      <span className="flex min-w-0 flex-1 flex-col items-start gap-0.5">
+        <span className="text-sm font-semibold text-foreground lg:text-frame-meta">{title}</span>
+        <span className="font-latin text-xs text-muted-foreground tabular-nums lg:text-frame-label">{body}</span>
+        <Button
+          className="relative mt-2 h-9 rounded-full bg-hero-action px-4 text-xs font-medium text-hero-action-foreground before:absolute before:inset-x-0 before:-inset-y-1 before:content-[''] hover:bg-hero-action/85 lg:h-11 lg:px-5 lg:text-frame-label"
+          nativeButton={false}
+          render={<Link href={action.href} />}
+        >
+          {action.label}
+        </Button>
+      </span>
+    </output>
+  );
+}
+
+/* -------------------------------------------------------------------- list */
+
+/**
+ * The list itself — heading, search, the unread filter, the rows. The inbox
+ * renders it as the whole phone screen and the desktop's left pane; a thread
+ * renders it beside itself from `lg`, with the open room marked.
  *
- * Figma's desktop chat (1952:8003) shows this beside the open thread instead of
- * on a screen of its own, so it is a component both screens render: the inbox
- * page at every width, the thread page from `lg`. `activeId` is what marks the
- * row being read, which only the two-pane layout can show.
- *
- * `emptyState` is what stands in for the list when the API returns no rooms. The
- * inbox page passes Figma's illustrated empty screen; the desktop thread pane
- * passes one line, because there is a thread open beside it.
+ * The search is real now, over what the page holds: names, services and last
+ * lines. `GET /chat/rooms` takes no query, so it searches the loaded page (up
+ * to fifty rooms), which for a consultation inbox is the whole of it.
  */
 export function ChatList({
   activeId,
+  banner = "auto",
   className,
-  emptyState,
 }: {
   readonly activeId?: string;
+  /** `forced` is the `/chat/session-banner` frame; `off` beside an open thread. */
+  readonly banner?: "auto" | "forced" | "off";
   readonly className?: string;
-  readonly emptyState?: React.ReactNode;
 }) {
   const t = useTranslations("chat");
-  const fetcher = useCallback(
-    (signal: AbortSignal) => listChatRooms({ limit: 50 }, signal),
-    [],
-  );
-  const rooms = useResource<Paginated<ApiChatRoom>>("chat/rooms?limit=50", fetcher);
+  const people = useChatPeople();
+  const { rows, loading, error, reload } = useRows(people, activeId);
+  const rowTime = useRowTime();
+  const [query, setQuery] = useState("");
+  const [onlyUnread, setOnlyUnread] = useState(false);
+  // Every listed room live, so a line anywhere moves its row.
+  useRoomSubscriptions(rows?.map((row) => row.id) ?? []);
 
-  let body: React.ReactNode;
-  if (rooms.loading) {
+  const unreadTotal = rows?.filter((row) => row.unread > 0).length ?? 0;
+  const shown = (rows ?? []).filter(
+    (row) =>
+      (!onlyUnread || row.unread > 0) &&
+      matchesQuery(query, row.name, row.counterpart.service?.name, row.counterpart.advisor?.headline, row.preview),
+  );
+  const empty = !loading && !error && rows?.length === 0;
+
+  let body: ReactNode;
+  if (error) {
     body = (
-      <>
-        <RowSkeleton />
-        <RowSkeleton />
-        <RowSkeleton />
-      </>
-    );
-  } else if (rooms.error) {
-    // The API's own sentence, not a translated guess. It is the only thing that
-    // separates "no session" from "the container is not running", and the reader
-    // needs to know which. Same rule as `components/home/browse-list.tsx`.
-    body = (
-      <div
-        className={cn(
-          surfaceClass({ tier: "flat" }),
-          "m-4 flex shrink-0 flex-col items-start gap-3 p-4",
-        )}
-      >
-        <p className="w-full text-base font-semibold text-foreground">
-          {pendingCopy(t, "loadFailedTitle", "โหลดรายการแชทไม่สำเร็จ")}
-        </p>
-        <p className="w-full text-sm font-normal text-muted-foreground">
-          {rooms.error.message}
-        </p>
-        <NeutralButton onClick={rooms.reload} size="sm">
-          {pendingCopy(t, "retry", "ลองอีกครั้ง")}
-        </NeutralButton>
+      // Inset to the heading's own gutter (the list's 8px plus these 12px).
+      <div className="px-3">
+        <ChatError error={error} onRetry={reload} title={t("loadFailedTitle")} />
       </div>
     );
-  } else if ((rooms.data?.items.length ?? 0) === 0) {
-    body = emptyState ?? null;
+  } else if (loading || !rows) {
+    body = (
+      <ul className="flex flex-col">
+        <RowSkeleton />
+        <RowSkeleton />
+        <RowSkeleton />
+        <RowSkeleton />
+      </ul>
+    );
+  } else if (empty) {
+    // Beside a thread's address that named no room; the inbox's own empty
+    // state is a page of its own (`InboxEmpty`).
+    body = (
+      <p className="px-6 py-12 text-center text-sm font-semibold text-foreground lg:text-frame-body">{t("emptyTitle")}</p>
+    );
+  } else if (shown.length === 0) {
+    body = (
+      <div className="flex flex-col items-center gap-1.5 px-6 py-12 text-center">
+        <p className="text-sm font-semibold text-foreground lg:text-frame-body">
+          {query.trim() ? t("noMatchesTitle", { query: query.trim() }) : t("noUnreadTitle")}
+        </p>
+        {query.trim() ? <p className="text-xs text-muted-foreground lg:text-frame-meta">{t("noMatchesBody")}</p> : null}
+      </div>
+    );
   } else {
-    body = rooms.data?.items.map((room) => (
-      <ChatRow
-        active={room.id === activeId}
-        avatar={<ChatMark size={40} />}
-        href={`/chat/${room.id}`}
-        key={room.id}
-        name={pendingCopy(t, "roomLabel", "การสนทนา")}
-        preview={shortDate(room.createdAt)}
-        trailing={
-          room.isAnonymous ? (
-            <StatusPill className="shrink-0" tone="neutral">
-              {pendingCopy(t, "anonymous", "ไม่เปิดเผยชื่อ")}
-            </StatusPill>
-          ) : null
-        }
-        unread={room.unreadCount > 0}
-      />
-    ));
+    body = (
+      <ul className="flex flex-col gap-0.5">
+        {shown.map((row) => (
+          <ChatRow active={row.id === activeId} key={row.id} row={row} time={rowTime(row.at)} />
+        ))}
+      </ul>
+    );
   }
 
   return (
-    <div className={cn("flex w-full shrink-0 flex-col items-start gap-4", className)}>
-      <div className="flex shrink-0 items-start gap-6 px-4">
-        <p className="shrink-0 text-xl font-semibold whitespace-nowrap text-foreground">
-          {t("title")}
-        </p>
-      </div>
+    <div className={cn("flex w-full flex-col", className)} data-slot="chat-list">
+      {/* `pt-1` on a phone: the chat is a tab of its own there, with no back
+          chevron above the title to make room for. */}
+      <div className="flex flex-col gap-4 px-5 pt-1 pb-3 lg:px-5 lg:pt-6">
+        <div className="flex flex-col gap-1">
+          <h1 className="font-hero text-xl tracking-tight text-hero-ink lg:text-frame-heading">{t("title")}</h1>
+          {/* Beside an open thread its composer says it instead. */}
+          {banner === "off" ? null : <ConnectionNote className="pt-1" />}
+        </div>
 
-      {/* Inert, and stated as such: `GET /chat/rooms` takes `page` and `limit`
-          only — there is no `q` — and a room carries no text to match against. */}
-      <div className="flex w-full shrink-0 items-start px-4">
-        <InputGroup className="gap-2 rounded-card border-border bg-muted px-3.5 shadow-none">
-          <InputGroupAddon className="p-0">
-            <Search />
-          </InputGroupAddon>
-          <InputGroupInput
-            aria-label={t("searchPlaceholder")}
-            className="px-0 text-sm"
-            disabled
-            placeholder={t("searchPlaceholder")}
+        {/* Search and the list are the inbox; the banner is only the
+            `/chat/session-banner` frame now. */}
+        {banner === "forced" ? <SessionBanner forced people={people} /> : null}
+
+        <div className="relative">
+          <Search aria-hidden className="pointer-events-none absolute top-1/2 left-4 size-4.5 -translate-y-1/2 text-muted-foreground lg:size-5" />
+          <Input
+            aria-label={t("searchConversations")}
+            // 16px on a phone, below which iOS zooms the page in on focus.
+            className="h-11 rounded-full border-transparent bg-muted/70 pr-4 pl-11 text-base shadow-none md:text-base lg:h-12 lg:pl-12 lg:text-frame-meta"
+            disabled={!rows || rows.length === 0}
+            onChange={(event) => setQuery(event.target.value)}
+            placeholder={t("searchConversations")}
             type="search"
+            value={query}
           />
-        </InputGroup>
+        </div>
+
+        {/* `<fieldset>`: a group by its own semantics; reset so it lays out as the row it was. */}
+        <fieldset aria-label={t("filterLabel")} className="-my-2 flex min-w-0 gap-4 border-0 p-0">
+          <FilterChip active={!onlyUnread} onClick={() => setOnlyUnread(false)}>
+            {t("filterAll")}
+          </FilterChip>
+          <FilterChip active={onlyUnread} onClick={() => setOnlyUnread(true)}>
+            {t("filterUnread")}
+            {unreadTotal > 0 ? (
+              <span className="font-latin tabular-nums opacity-70">{unreadTotal}</span>
+            ) : null}
+          </FilterChip>
+        </fieldset>
       </div>
 
-      {/* The rows carry the card surface themselves, so the list closes with a
-          hairline at the top and needs nothing else to read as one block. */}
-      <div className="flex w-full min-h-0 flex-1 flex-col items-start overflow-y-auto border-t border-border">
+      {/* Its own scroller on a desktop (the page does not move there), the
+          page's on a phone. `data-lenis-prevent` keeps the desktop's smooth
+          page scroll from taking the wheel off this list. */}
+      <div className="px-2 pb-4 lg:min-h-0 lg:flex-1 lg:overflow-y-auto lg:overscroll-contain" data-lenis-prevent>
         {body}
       </div>
     </div>
@@ -260,92 +508,75 @@ export function ChatList({
 }
 
 /**
- * Figma "Chat Inbox" (995:8260) and "Chat inbox - Empty" (995:8325).
+ * No rooms at all, as the bookings and the notifications say they have
+ * nothing: the page's own title, then one box filling the panel down to its
+ * foot (no box on a phone, the message centred there), the mark in a grey
+ * disc, the honest reason and the way to the one thing that opens a room.
  *
- * The empty frame is no longer a separate route's worth of layout: the API
- * answers with no rooms today, so the default screen renders it whenever the
- * list comes back empty. `state="empty"` still forces it, which is what
- * `/chat/empty` is for.
+ * A page rather than a pane: with nothing to list there is no list beside a
+ * thread. The chat's shell is drawn edge to edge (`compact`), so this adds
+ * the inset every other account page has from its shell.
+ */
+function InboxEmpty() {
+  const t = useTranslations("chat");
+  return (
+    <div className={cn("flex w-full min-w-0 flex-1 flex-col pt-2 pb-12 lg:px-[42.75px] lg:pt-[47.5px] lg:pb-16", GUTTER)}>
+      <div className={cn("flex w-full flex-1 flex-col", FEED_COLUMN)}>
+        <h1 className="font-hero text-title-compact font-normal tracking-tight text-hero-ink lg:text-frame-title">
+          {t("title")}
+        </h1>
+        <div className="mt-6 flex w-full flex-1 flex-col items-center justify-center gap-3 px-6 py-12 text-center lg:mt-8 lg:gap-5 lg:rounded-2xl lg:border lg:border-border lg:py-20">
+          <span className="flex size-11 items-center justify-center rounded-full bg-muted text-hero-ink/75 lg:size-14">
+            <MessagesSquare aria-hidden className="size-5 lg:size-7" strokeWidth={1.5} />
+          </span>
+          <div className="flex flex-col items-center gap-1">
+            <h2 className="text-base font-semibold text-foreground lg:text-frame-figure">{t("emptyTitle")}</h2>
+            <p className="text-xs text-balance text-muted-foreground lg:text-frame-meta">{t("emptyBody")}</p>
+          </div>
+          <Button
+            className={cn(authPill(true), "mt-1 h-10 w-auto px-4 text-sm md:h-10 md:px-5 md:text-sm lg:h-12 lg:px-6 lg:text-frame-body")}
+            nativeButton={false}
+            render={<Link href="/search" />}
+          >
+            {t("emptyAction")}
+          </Button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+
+/**
+ * `/chat`, `/chat/empty` and `/chat/session-banner`.
+ *
+ * `empty` forces the no-rooms screen whatever the API holds; the default lets
+ * the API decide, because "no rooms" is an answer it really gives (a room is
+ * only created by a booking). `session-banner` forces the banner on.
  */
 export function ChatInboxScreen({
   state = "default",
 }: {
   readonly state?: "default" | "empty" | "session-banner";
 }) {
-  const t = useTranslations("chat");
-  const n = useTranslations("notifications");
-  const hasBanner = state === "session-banner";
-  // The forced frame, for the state route. Everything else lets the list decide,
-  // because "no rooms" is an answer the API actually gives.
-  const [forcedEmpty] = useState(state === "empty");
-
-  /* Figma "Empty State" — illustration, copy, then the 200px CTA. */
-  const empty = useMemo(
-    () => (
-      <div className="flex w-full flex-1 flex-col items-center justify-center pb-6">
-        <EmptyState
-          action={
-            <PrimaryButton className="w-50" href="/matching">
-              {t("emptyAction")}
-            </PrimaryButton>
-          }
-          body={t("emptyBody")}
-          illustration={emptyIllustration}
-          title={t("emptyTitle")}
-        />
-      </div>
-    ),
-    [t],
-  );
-
   return (
-    <MobileScreen className="pb-0" wide>
-      {/* Figma "Container": 2px side padding, 16px top padding, 16px between blocks. */}
-      <ScreenBody className="items-start gap-4 px-0.5 pb-[144px] lg:gap-0 lg:px-8 xl:px-12 lg:pb-6">
-        <TopBar unreadNotifications />
-        {hasBanner ? (
-          /* Figma "In-app banner" (995:11104) — a 64px accent-tinted strip above
-             the list with an 18px video glyph and a join affordance. There is no
-             endpoint behind it: the API has no notifications module at all (a
-             `notification` table exists in the schema and no controller reads
-             it), so this stays the fixture the frame draws. */
-          <div className="flex h-16 w-full shrink-0 items-center gap-3 overflow-clip border-b border-border bg-accent-surface px-3.5">
-            <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-card">
-              <Video aria-hidden className="size-4.5 text-primary" />
-            </span>
-            <div className="flex min-w-px flex-1 flex-col items-start gap-0.5 overflow-clip">
-              <p className="w-full truncate text-sm font-semibold text-foreground">
-                {n("sessionBannerTitle")}
-              </p>
-              <p className="w-full truncate text-xs font-normal tabular-nums text-muted-foreground">
-                {n("sessionBannerBody")}
-              </p>
-            </div>
-            <Button className="h-8 shrink-0 px-3.5 text-xs font-medium">
-              {n("sessionBannerAction")}
-            </Button>
-          </div>
-        ) : null}
+    <ChatFrame phone="page">
+      {state === "empty" ? <InboxEmpty /> : <InboxPanes forcedBanner={state === "session-banner"} />}
+    </ChatFrame>
+  );
+}
 
-        {forcedEmpty ? (
-          empty
-        ) : (
-          /* Figma's desktop frame stands the list in the left half of a card
-             and leaves the right half waiting for a thread to be picked. */
-          <div className={cn("flex w-full min-h-0 flex-1 flex-col items-start", CHAT_PANE)}>
-            <ChatList
-              className="lg:h-full lg:w-80 lg:shrink-0 lg:border-e lg:border-border lg:pt-4"
-              emptyState={empty}
-            />
-            <div className="hidden lg:flex lg:min-w-px lg:flex-1 lg:items-center lg:justify-center lg:bg-background lg:p-10">
-              <p className="max-w-80 text-center text-sm font-normal text-muted-foreground">
-                {t("pickThread")}
-              </p>
-            </div>
-          </div>
-        )}
-      </ScreenBody>
-      <BottomBar className="lg:hidden" role="anon" selected="chat" />
-    </MobileScreen>
+/** The list, and on a desktop the latest conversation open beside it. */
+function InboxPanes({ forcedBanner }: { readonly forcedBanner: boolean }) {
+  const inbox = useInbox();
+  const desktop = useDesktop();
+  // `null`: the inbox answered with no rooms at all, the page's own empty state.
+  if (newestRoomId(inbox.data) === null) return <InboxEmpty />;
+  const newest = desktop ? newestRoomId(inbox.data) : undefined;
+  return (
+    <>
+      <ChatList activeId={newest ?? undefined} banner={forcedBanner ? "forced" : "auto"} className={CHAT_LIST_PANE} />
+      <NewestThread />
+    </>
   );
 }

@@ -1,5 +1,5 @@
 /**
- * The chat half of the API, and the one thing it cannot do.
+ * The chat half of the API.
  *
  * ## Sending a message is not a REST route
  *
@@ -10,11 +10,7 @@
  * `ChatGateway`, a Socket.IO gateway on the `/chat` namespace, as the
  * `chat:send` event with a `{ chatRoomId, message }` payload and an ack carrying
  * the created `ChatMessageResponseDto`. It broadcasts `chat:message` to the room.
- *
- * Reaching that needs `socket.io-client` in `package.json`, which is a dependency
- * decision this file is not allowed to make on its own — so the compose row reads
- * and attaches but cannot send text. See `ChatFooter` in `./chat-chrome`, which
- * states that in the UI rather than pretending otherwise.
+ * That half is `./chat-live`; this file is the REST half.
  *
  * A file is not a message. `POST /chat/rooms/:id/files` writes a `chat_files`
  * row and nothing in `chat_messages`, so an attachment shows up in this room's
@@ -33,12 +29,23 @@ import { api, type CursorPage, type Paginated } from "@/lib/api/client";
 /* -------------------------------------------------------------------- shapes */
 
 /**
+ * `ChatRoomCounterpartDto` — the other member of a room: the public display name
+ * and better-auth's `image`, a portrait URL that is already public (never a
+ * storage key).
+ */
+export interface ApiChatRoomCounterpart {
+  readonly id: string;
+  readonly displayName: string;
+  readonly image: string | null;
+}
+
+/**
  * `ChatRoomResponseDto` — chat/dtos/chat-room-response.dto.ts
  *
- * Note what a room does **not** carry: no participant, no display name, no
- * avatar, no last message. A room is created by a booking, so the other member
- * is knowable in principle, but no route exposes them — which is why the inbox
- * row names a conversation by when it started rather than by who is in it.
+ * `counterpart` names who the room is with. It is `null` for an anonymous room,
+ * and absent from an API older than the field, so a screen still falls back to
+ * working the person out (`resolveCounterpart`). `lastMessage` is the room's
+ * newest line, which an older API left to the room's first page of messages.
  */
 export interface ApiChatRoom {
   readonly id: string;
@@ -46,6 +53,14 @@ export interface ApiChatRoom {
   readonly lastReadAt: string | null;
   readonly unreadCount: number;
   readonly createdAt: string;
+  readonly counterpart?: ApiChatRoomCounterpart | null;
+  /**
+   * The room's newest message (null in an empty room), so the inbox needs no
+   * per-room read; absent from an API older than the field.
+   */
+  readonly lastMessage?: ApiChatMessage | null;
+  /** The signed-in member has this room's notifications off; absent from an API older than the field. */
+  readonly isMuted?: boolean;
 }
 
 /**
@@ -140,58 +155,92 @@ export function isChatRoomId(value: string): boolean {
   return UUID.test(value);
 }
 
-/* ---------------------------------------------------------------------- copy */
+/* -------------------------------------------------------------------- routes */
 
 /**
- * The shape of a `useTranslations` result that this file needs.
+ * Where a room lives.
  *
- * `has` and `raw` are written in method shorthand, not as function properties,
- * deliberately. `globals.ts` augments next-intl's `AppConfig` with the message
- * catalogue, so the real `t.has` is typed to the keys that catalogue *has* — and
- * under `strictFunctionTypes` a property-style `(key: string) => boolean` would
- * refuse it. Method-shorthand parameters are checked bivariantly, which is
- * exactly the looseness needed to ask about a key that does not exist yet.
+ * A static export prerenders only the ids `generateStaticParams` names, and a
+ * room's uuid is not knowable at build time — `/chat/<uuid>` is a 404 in the
+ * export and a "missing param" error under `next dev`. So the uuid rides as
+ * `?id=` on the prerendered `/chat/room`, as a service's does on its slug
+ * (`liveServiceHref`). The day the app stops being a static export these
+ * become the plain paths they want to be, in this one place.
  */
-type Translator = {
-  has(key: string): boolean;
-  raw(key: string): unknown;
-};
+export const CHAT_ROOM_SLUG = "room";
 
-/**
- * A string that belongs in `messages/th.json` and is not there yet.
- *
- * Connecting these screens turned up states the frames never drew — a list that
- * failed to load, a room with no messages, a send button that cannot send — and
- * `messages/th.json` was owned elsewhere while this was written. Rather than
- * render `chat.loadFailedTitle` at the reader, each of those reads the catalogue
- * through `has`/`raw` and falls back to the Thai copy written here.
- *
- * Adding the key to `messages/th.json` is all it takes: the key wins the moment
- * it exists, with no edit here. Every key this app is waiting on is listed in
- * `PENDING_CHAT_COPY` below so none of them gets lost.
- */
-export function pendingCopy(t: Translator, key: string, fallback: string): string {
-  return t.has(key) ? String(t.raw(key)) : fallback;
+export function chatHref(roomId: string): string {
+  return `/chat/${CHAT_ROOM_SLUG}?id=${roomId}`;
+}
+
+export function chatFailedHref(roomId: string): string {
+  return `/chat/${CHAT_ROOM_SLUG}/message-failed?id=${roomId}`;
+}
+
+export function chatReportHref(roomId: string): string {
+  return `/chat/${CHAT_ROOM_SLUG}/report?id=${roomId}`;
+}
+
+export function chatReportSentHref(roomId: string, reportId?: string): string {
+  const report = reportId ? `&report=${reportId}` : "";
+  return `/chat/${CHAT_ROOM_SLUG}/report/submitted?id=${roomId}${report}`;
 }
 
 /**
- * Every `chat.*` key the screens ask for and `messages/th.json` does not have,
- * with the copy they fall back to. Exported so it reads as a checklist rather
- * than as strings scattered through three files.
+ * The newest conversation with one person, for a "message this advisor"
+ * button that knows the advisor and not the room. The thread screen finds the
+ * room (see `resolveCounterpart`) or says there is none yet.
  */
-export const PENDING_CHAT_COPY = {
-  loadFailedTitle: "โหลดรายการแชทไม่สำเร็จ",
-  retry: "ลองอีกครั้ง",
-  roomLabel: "การสนทนา",
-  anonymous: "ไม่เปิดเผยชื่อ",
-  threadEmptyTitle: "ยังไม่มีข้อความ",
-  threadEmptyBody: "ห้องแชทนี้เปิดแล้ว แต่ยังไม่มีใครส่งข้อความ",
-  threadLoadFailedTitle: "โหลดข้อความไม่สำเร็จ",
-  sendUnavailable:
-    "ตอนนี้ยังส่งข้อความตัวอักษรไม่ได้ ฝั่ง API รับข้อความผ่าน Socket.IO เท่านั้น ยังไม่มีเส้นทาง REST — แนบไฟล์ได้ตามปกติ",
-  attachFailed: "แนบไฟล์ไม่สำเร็จ",
-  fileDownload: "เปิดไฟล์",
-} as const;
+export function chatWithHref(userId: string): string {
+  return `/chat/${CHAT_ROOM_SLUG}?with=${userId}`;
+}
+
+/* ------------------------------------------------------------------- reports */
+
+/** `user_report_status` — what has become of a report. */
+export type ApiReportStatus = "OPEN" | "ACTIONED" | "DISMISSED";
+
+/** `OwnReportResponseDto` — safety/dtos/own-report-response.dto.ts */
+export interface ApiOwnReport {
+  readonly id: string;
+  readonly reportedUserId: string;
+  readonly reportedDisplayName: string;
+  readonly chatRoomId: string | null;
+  readonly reason: string;
+  readonly status: ApiReportStatus;
+  readonly createdAt: string;
+  readonly resolvedAt: string | null;
+}
+
+/** `CreateReportDto` caps `reason` at 2000 characters, after trimming. */
+export const REPORT_REASON_MAX_LENGTH = 2_000;
+
+/**
+ * `POST /reports` — file a report. A write, gated on `report:submitSelf`.
+ *
+ * The reporter is the session, never the body; the API refuses a body with any
+ * field beyond these three (`forbidNonWhitelisted`), a report against yourself,
+ * and a `chatRoomId` you are not a member of. Sending the room is what lets the
+ * console's case view read the whole conversation, so the report carries it.
+ */
+export function submitReport(
+  input: {
+    readonly reportedUserId: string;
+    readonly chatRoomId?: string;
+    readonly reason: string;
+  },
+  signal?: AbortSignal,
+): Promise<ApiOwnReport> {
+  return api.post("reports", { body: input, signal });
+}
+
+/** `GET /reports/me` — the reports this account has filed, newest first. */
+export function listMyReports(
+  query: { readonly page?: number; readonly limit?: number } = {},
+  signal?: AbortSignal,
+): Promise<Paginated<ApiOwnReport>> {
+  return api.get("reports/me", { query: { ...query }, signal });
+}
 
 /* ----------------------------------------------------------------- resources */
 
@@ -233,6 +282,19 @@ export function markChatRead(
 ): Promise<ApiChatRead> {
   return api.patch(`chat/rooms/${chatRoomId}/read`, {
     body: { messageId },
+    signal,
+  });
+}
+
+/**
+ * `PATCH /chat/rooms/:chatRoomId/mute` — mutes or unmutes the room for the
+ * signed-in member, and answers the room with its new `isMuted`. Muted, a new
+ * line in it sends them no notification and no push; it still counts as
+ * unread on the inbox row.
+ */
+export function setChatRoomMuted(chatRoomId: string, muted: boolean, signal?: AbortSignal): Promise<ApiChatRoom> {
+  return api.patch(`chat/rooms/${chatRoomId}/mute`, {
+    body: { muted },
     signal,
   });
 }

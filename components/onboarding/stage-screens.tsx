@@ -1,45 +1,39 @@
 "use client";
 
-import Image from "next/image";
-import Link from "next/link";
-import { useRouter } from "next/navigation";
 import {
-  BadgeCheck,
+  ArrowLeft,
+  ArrowRight,
   CalendarDays,
-  ChevronsUpDown,
   CircleCheck,
-  FileCheck,
+  FileText,
   IdCard,
+  ImageIcon,
   ImageUp,
+  LockKeyhole,
   Phone,
   Plus,
+  Search,
   Trash2,
-  TriangleAlert,
-  Wallet,
 } from "lucide-react";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
-import { useCallback, useEffect, useId, useMemo, useState } from "react";
+import { useCallback, useEffect, useId, useMemo, useState, type ReactNode } from "react";
 
-import { thaiNationalId as idCard } from "@/lib/assets/r2";
-import { Button } from "@/components/ui/button";
-import { Textarea } from "@/components/ui/textarea";
-import { AlertBanner } from "@/components/mobile/banner";
-import { NeutralButton, PrimaryButton } from "@/components/mobile/buttons";
-import { Field } from "@/components/mobile/field";
-import {
-  MobileScreen,
-  ScreenActions,
-  ScreenBody,
-  ScreenHeading,
-  ScreenSpacer,
-  ScreenTopBar,
-} from "@/components/mobile/screen";
-import { SiteFooter } from "@/components/marketing/site-footer";
+import { authPill } from "@/components/auth/auth-split";
 import { FilePickButton } from "@/components/onboarding/file-pick";
-import { BulletLine, CheckLine, DropZone, StageHeader } from "@/components/onboarding/parts";
-import { Surface, SurfaceList } from "@/components/mobile/surface";
-import { StackRow } from "@/components/screening/parts";
-import { TopBar } from "@/components/topbar";
+import { ApplicationStepper, OnboardingSplit, StageHeading } from "@/components/onboarding/frame";
+import {
+  ApplicationField,
+  ApplicationTextarea,
+  CheckLine,
+  DocumentDrop,
+  NOTE,
+  NoticeBanner,
+  PICK,
+  describeFile,
+} from "@/components/onboarding/parts";
+import { Button } from "@/components/ui/button";
 import { ApiError, type Paginated } from "@/lib/api/client";
 import type { ApiNamedRecord } from "@/lib/api/types";
 import {
@@ -48,12 +42,9 @@ import {
   submitIdentityDocument,
   submitSkillProof,
   updateAdvisorProfile,
-  type ApiOwnAdvisorProfile,
 } from "@/lib/api/onboarding";
 import { listSkills } from "@/lib/api/resources";
 import { invalidate, useResource } from "@/lib/api/use-resource";
-import { PAGE, READING_COLUMN } from "@/lib/layout";
-import { useSession } from "@/lib/session";
 import {
   clearDraft,
   dropFile,
@@ -66,68 +57,194 @@ import {
 } from "@/lib/session/onboarding";
 import { cn } from "@/lib/utils";
 
-/**
- * Figma "Back Bar" (1787:24447) — the 52px row the desktop onboarding frames put
- * under the app's nav: the same chevron the phone frame carries, re-seated on the
- * card surface at the 120px page inset. It is the phone's own top bar with `lg:`
- * metrics, not a second control.
- */
-const BACK_BAR = "lg:h-13 lg:bg-card lg:pt-0 lg:pb-0 lg:pl-10 xl:pl-30";
-
-/**
- * Figma "Step Band" / "Head Band" — the white band that holds the heading above
- * the grey form band, with the content in the same 800px column as the card.
- */
-const HEAD_BAND = "w-full shrink-0 lg:border-b lg:border-border lg:bg-card lg:pb-8";
-
-/**
- * The 800px column the band's heading and the card below it both sit in — the
- * reading measure from `lib/layout`, which is where 800 is decided.
- */
-const COLUMN = cn(READING_COLUMN, "lg:px-0");
-
-/**
- * Figma "Card" (1787:24374) — the 800px panel every stage's form becomes at 1440:
- * a 40px inset on the card surface, 48px clear of the band above it.
- *
- * On the phone the form is the screen itself, so this is a set of `lg:` classes
- * spread onto the block that already holds it rather than a wrapper of its own.
- *
- * `--shadow-panel` because that is what it is: a sheet floating on the grey band
- * under the white step band. With a hairline alone the two bands read as one
- * surface with a line drawn across it.
- */
-const FORM_CARD = cn(
-  "flex w-full flex-1 flex-col lg:my-12 lg:flex-none lg:gap-6 lg:rounded-2xl lg:border lg:border-border lg:bg-card lg:p-10 lg:shadow-panel",
-  READING_COLUMN,
-);
-
-/** Figma "Actions" — the stage button stops filling the width and holds the end. */
-const CARD_ACTIONS = "lg:items-end lg:px-0 lg:pt-2 lg:pb-0";
-const CARD_ACTION_BUTTON = "lg:h-11 lg:w-50";
-
-/**
- * The signed-in account's application (`GET /advisors/me`), counted only once
- * an ID card is in: a profile left at `NONE` is an application still being
- * filled in, so "start" carries on with it rather than showing a status.
- */
-function useLatestApplication(): ApiOwnAdvisorProfile | null {
-  const own = useResource<ApiOwnAdvisorProfile | null>("advisors/me", getOwnAdvisorProfile);
-  return own.data && own.data.verificationStatus !== "NONE" ? own.data : null;
+/** The back and next pair under every stage: back a white capsule, next the hero's black one. */
+function StageActions({
+  backHref,
+  backLabel,
+  children,
+  note,
+}: {
+  readonly backHref: string;
+  readonly backLabel: string;
+  /** The forward button. */
+  readonly children: ReactNode;
+  readonly note?: ReactNode;
+}) {
+  return (
+    <div className="flex flex-col gap-3">
+      {note}
+      <div className="flex items-center gap-3">
+        <Button
+          className={cn(authPill(), "w-auto shrink-0 px-4 md:px-5")}
+          nativeButton={false}
+          render={<Link href={backHref} />}
+          variant="outline"
+        >
+          <ArrowLeft aria-hidden />
+          {backLabel}
+        </Button>
+        {children}
+      </div>
+    </div>
+  );
 }
 
-/** The ID card's file size, as the uploaded chip shows it. */
-function formatSize(bytes: number): string {
-  return bytes >= 1024 * 1024
-    ? `${(bytes / (1024 * 1024)).toFixed(1)} MB`
-    : `${Math.max(1, Math.round(bytes / 1024))} KB`;
+/** The forward button: the sign-in page's black capsule, taking the rest of the row. */
+const NEXT = cn(authPill(true), "min-w-0 flex-1");
+
+/** The stage's heading and form, under the stepper. */
+function StageBody({ children }: { readonly children: ReactNode }) {
+  // The sign-in pages' rhythm: 20px between blocks on the phone, 24 above it.
+  return <div className="flex flex-col gap-5 pt-5 md:gap-6 md:pt-6">{children}</div>;
 }
 
-/** "JPG · 2.4 MB", the line under the uploaded ID card's name. */
-function describeFile(file: File): string {
-  const kind = file.type === "image/png" ? "PNG" : "JPG";
-  return `${kind} · ${formatSize(file.size)}`;
+/**
+ * `dd/mm/yyyy` as it is typed. A phone's number pad has no slash, so the
+ * slashes go in by themselves after the day and the month; a slash typed after
+ * one digit closes that part early ("6/" → "06/"). The check on submit is still
+ * `parseBirthDate`, unchanged.
+ */
+function maskBirthDate(raw: string): string {
+  const parts = [""];
+  for (const ch of raw) {
+    const i = parts.length - 1;
+    const limit = i < 2 ? 2 : 4;
+    if (ch >= "0" && ch <= "9") {
+      if (parts[i].length < limit) parts[i] += ch;
+      else if (i < 2) parts.push(ch);
+    } else if (ch === "/" && parts[i] && i < 2) {
+      parts[i] = parts[i].padStart(2, "0");
+      parts.push("");
+    }
+  }
+  return parts.join("/");
 }
+
+/** Figma "Advisor Onboarding - Stage 1" (995:6215) and its error state (995:6452). */
+export function OnboardingStage1Screen() {
+  const t = useTranslations("advisorOnboarding");
+  const c = useTranslations("common");
+  const router = useRouter();
+  const draft = useOnboardingDraft();
+  const [errors, setErrors] = useState<{ name?: string; phone?: string; dob?: string }>({});
+  const failed = Boolean(errors.name || errors.phone || errors.dob);
+
+  const nameOk = draft.legalName.trim().split(/\s+/).length >= 2;
+  const phoneOk = isThaiPhone(draft.phone);
+  const dobOk = parseBirthDate(draft.birthDate) !== null;
+  const progress = [nameOk, phoneOk, dobOk].filter(Boolean).length / 3;
+
+  function next() {
+    const found: typeof errors = {};
+    if (!nameOk) found.name = t("legalNameError");
+    if (!phoneOk) found.phone = t("phoneError");
+    if (!draft.birthDate.trim()) found.dob = t("dobError");
+    else if (!dobOk) found.dob = t("dobFormatError");
+    setErrors(found);
+    if (Object.keys(found).length === 0) {
+      router.push("/advisor-onboarding/stage-2");
+      return;
+    }
+    // Straight to the first answer that needs work, rather than leaving the
+    // applicant to find it under the banner.
+    const first = (["name", "phone", "dob"] as const).find((key) => found[key]);
+    if (first) document.getElementById(`ob-${first}`)?.focus();
+  }
+
+  return (
+    <OnboardingSplit
+      actions={
+        <StageActions backHref="/advisor/apply" backLabel={c("back")}>
+          <Button
+            className={NEXT}
+            disabled={!draft.legalName.trim() || !draft.phone.trim() || !draft.birthDate.trim()}
+            onClick={next}
+            type="button"
+          >
+            {t("continue")}
+            <ArrowRight aria-hidden />
+          </Button>
+        </StageActions>
+      }
+    >
+      <ApplicationStepper progress={progress} step={1} />
+      <StageBody>
+        <StageHeading lead={t("s1Lead")} title={t("s1Title")} />
+
+        {failed ? (
+          <NoticeBanner title={t("s1ErrorTitle")}>{t("s1ErrorBody")}</NoticeBanner>
+        ) : null}
+
+        {/* The name alone on its row, the two short answers side by side from
+            the tablet up, then the introduction under all of them. */}
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 md:gap-3">
+          <div className="md:col-span-2">
+            <ApplicationField
+              autoComplete="name"
+              error={errors.name}
+              id="ob-name"
+              label={t("legalNameLabel")}
+              onChange={(event) => {
+                updateDraft({ legalName: event.target.value });
+                setErrors((e) => ({ ...e, name: undefined }));
+              }}
+              placeholder={t("legalNamePlaceholder")}
+              value={draft.legalName}
+            />
+          </div>
+          <ApplicationField
+            autoComplete="tel"
+            error={errors.phone}
+            icon={Phone}
+            id="ob-phone"
+            inputMode="tel"
+            label={t("phoneLabel")}
+            latin
+            onChange={(event) => {
+              updateDraft({ phone: event.target.value });
+              setErrors((e) => ({ ...e, phone: undefined }));
+            }}
+            placeholder={t("phonePlaceholder")}
+            type="tel"
+            value={draft.phone}
+          />
+          {/* No `bday` autofill: a browser fills it in its own date format,
+              which the slash mask would scramble. */}
+          <ApplicationField
+            error={errors.dob}
+            hint={t("dobHint")}
+            icon={CalendarDays}
+            id="ob-dob"
+            inputMode="numeric"
+            label={t("dobLabel")}
+            latin
+            maxLength={10}
+            onChange={(event) => {
+              updateDraft({ birthDate: maskBirthDate(event.target.value) });
+              setErrors((e) => ({ ...e, dob: undefined }));
+            }}
+            placeholder={t("dobPlaceholder")}
+            value={draft.birthDate}
+          />
+          <div className="md:col-span-2">
+            <ApplicationTextarea
+              hint={t("bioHint")}
+              id="ob-bio"
+              label={t("bioIntroLabel")}
+              onChange={(event) => updateDraft({ bio: event.target.value })}
+              optional={t("optional")}
+              placeholder={t("bioPlaceholder")}
+              value={draft.bio}
+            />
+          </div>
+        </div>
+      </StageBody>
+    </OnboardingSplit>
+  );
+}
+
+const IMAGE_TYPES = "image/jpeg,image/png";
+const MAX_BYTES = 50 * 1024 * 1024;
 
 /** A preview URL for a picked image, revoked when it changes or the screen goes. */
 function usePreview(file: File | undefined): string | null {
@@ -142,294 +259,111 @@ function usePreview(file: File | undefined): string | null {
 }
 
 /**
- * Figma "Become an advisor (Light)" — 995:6410. An applicant with a request on
- * file is sent to its status instead of into a second application.
+ * The attached ID card: the photo itself, then its name and size with a
+ * green "attached" mark, then replace and remove. While the browser is still
+ * opening a large photo the frame says so instead of sitting blank; a file it
+ * cannot draw at all keeps its name and a plain mark, and stays attached.
  */
-export function BecomeAdvisorScreen() {
+function AttachedDocument({
+  file,
+  preview,
+  onReplace,
+  onRemove,
+}: {
+  readonly file: File;
+  readonly preview: string | null;
+  readonly onReplace: (file: File) => void;
+  readonly onRemove: () => void;
+}) {
   const t = useTranslations("advisorOnboarding");
-  const c = useTranslations("common");
-  const session = useSession();
-  const application = useLatestApplication();
-  const isAdvisor =
-    (session.status === "authenticated" && session.account.role === "advisor") ||
-    application?.verificationStatus === "VERIFIED";
-  const startHref = application ? "/advisor-onboarding/pending" : "/advisor-onboarding/stage-1";
-
-  // One list, drawn twice: as the phone's hairline-separated card rows, and as
-  // Figma "Cards" (1787:24292) — three 384px panels across the 1200 column. The
-  // desktop panel stacks a 48px icon box over its title, which `StackRow`'s fixed
-  // 64px row cannot become, so the two shapes are spelled out against one source
-  // rather than letting the copy drift between them.
-  const promises = [
-    { icon: BadgeCheck, title: t("verifyTitle"), body: t("verifyBody") },
-    { icon: CalendarDays, title: t("scheduleTitle"), body: t("scheduleBody") },
-    { icon: Wallet, title: t("earnTitle"), body: t("earnBody") },
-  ];
-
-  // The phone frame ends on these; the desktop frame opens on them, under the
-  // hero. Same pair either way, so it is written once and placed twice.
-  const actions = (
-    <>
-      {isAdvisor ? (
-        <PrimaryButton className={CARD_ACTION_BUTTON} href="/work">
-          {t("goToWork")}
-        </PrimaryButton>
-      ) : (
-        <PrimaryButton className={CARD_ACTION_BUTTON} href={startHref}>
-          {application ? t("seeStatus") : t("start")}
-        </PrimaryButton>
-      )}
-      {/* Both actions take the same 44px height at `lg`: the secondary was left
-          at 36 and the pair sat on one line at two different heights. */}
-      <NeutralButton className={CARD_ACTION_BUTTON} href="/profile">
-        {t("later")}
-      </NeutralButton>
-    </>
-  );
+  const [shown, setShown] = useState<"opening" | "drawn" | "undrawable">("opening");
 
   return (
-    // Figma "Desktop / Become an advisor (Light)" (1787:24258): the phone frame's
-    // heading becomes a centred hero band, its card becomes three panels on the
-    // grey ground below, and the page closes on the site footer.
-    <MobileScreen wide>
-      <div className="hidden w-full lg:block">
-        <TopBar unreadNotifications />
-      </div>
-      <ScreenTopBar className={BACK_BAR} href="/profile" label={c("back")} />
-      <ScreenBody>
-        {/* Figma "Hero" (1787:24284) — a 760px column, centred, 40/60 over a
-            line of body and the two actions side by side. */}
-        <div className={cn(HEAD_BAND, "lg:pt-16 lg:pb-14")}>
-          <ScreenHeading
-            className="gap-2 pt-4 lg:mx-auto lg:w-[760px] lg:items-center lg:gap-4 lg:px-0 lg:pt-0 lg:pb-0 lg:text-center [&_h1]:lg:text-display [&_p]:lg:text-base"
-            subtitle={t("introSubtitle")}
-            title={t("introTitle")}
+    <div className="flex flex-col gap-3">
+      <div className="relative flex aspect-[16/10] w-full items-center justify-center overflow-hidden rounded-card border border-hero-card-border bg-muted shadow-hero-card">
+        {preview && shown !== "undrawable" ? (
+          // A blob URL of the applicant's own file: nothing for next/image to
+          // optimise, and it never leaves the browser until the application is sent.
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            alt={t("idPreviewAlt")}
+            className={cn(
+              "size-full object-contain transition-opacity duration-200 motion-reduce:transition-none",
+              shown === "drawn" ? "opacity-100" : "opacity-0",
+            )}
+            onError={() => setShown("undrawable")}
+            onLoad={() => setShown("drawn")}
+            src={preview}
           />
-          <ScreenActions className="hidden lg:mx-auto lg:flex lg:w-[392px] lg:flex-row lg:items-center lg:gap-3 lg:px-0 lg:pt-8 lg:pb-0">
-            {actions}
-          </ScreenActions>
+        ) : (
+          <ImageIcon aria-hidden className="size-10 text-muted-foreground" />
+        )}
+        {shown === "opening" && preview ? (
+          <output className={cn("absolute inset-0 flex items-center justify-center text-muted-foreground", NOTE)}>
+            {t("preparing")}
+          </output>
+        ) : null}
+      </div>
+      <div className="flex w-full items-center gap-3 rounded-card bg-muted px-3.5 py-2.5">
+        <div className="flex min-w-px flex-1 flex-col gap-0.5">
+          <p className="truncate font-latin text-sm font-medium text-foreground">{file.name}</p>
+          <p className="font-latin text-xs text-muted-foreground tabular-nums">{describeFile(file)}</p>
         </div>
-
-        {/* Figma "What We Use" (1787:24291) — the same three promises on the
-            grey band, one 384px panel each. */}
-        <div className={cn("flex w-full shrink-0 flex-col items-start px-6 pt-3 lg:pt-18 lg:pb-22", PAGE)}>
-          {/* One card with hairlines between its rows, which is what the
-              `Card` + `CardDivider` + `Fragment` stack was drawing by hand. */}
-          <SurfaceList className="lg:hidden">
-            {promises.map(({ icon, title, body }) => (
-              <StackRow body={body} icon={icon} key={title} title={title} />
-            ))}
-          </SurfaceList>
-          <div className="hidden w-full lg:grid lg:grid-cols-3 lg:gap-6">
-            {promises.map(({ icon: Icon, title, body }) => (
-              <Surface className="flex flex-col items-start p-7" key={title}>
-                {/* The chip takes the accent as a *status* ground: three grey
-                    squares on a grey band was the flattest block on the page,
-                    and these three panels are the pitch. */}
-                <span className="flex size-12 shrink-0 items-center justify-center rounded-lg bg-accent-surface">
-                  <Icon className="size-5.5 text-primary" />
-                </span>
-                {/* `leading-7` is what `text-lg` now resolves to. */}
-                <p className="w-full pt-3.5 text-lg font-semibold text-foreground">
-                  {title}
-                </p>
-                <p className="w-full pt-3.5 text-sm font-normal text-muted-foreground">
-                  {body}
-                </p>
-              </Surface>
-            ))}
-          </div>
-        </div>
-
-        {/* The phone frame pins its actions to the bottom edge; the desktop hero
-            already carries them, so the spacer and the stack stop at `lg`. */}
-        <ScreenSpacer className="lg:hidden" />
-        <ScreenActions className="lg:hidden">{actions}</ScreenActions>
-
-        <SiteFooter className="mt-auto hidden lg:flex" />
-      </ScreenBody>
-    </MobileScreen>
+        <span className="flex shrink-0 items-center gap-1 text-xs font-medium text-success">
+          <CircleCheck aria-hidden className="size-4" />
+          {t("attachedLabel")}
+        </span>
+      </div>
+      <div className="flex flex-wrap items-center gap-2">
+        <FilePickButton accept={IMAGE_TYPES} className={PICK} onPick={onReplace}>
+          <ImageUp aria-hidden />
+          {t("replace")}
+        </FilePickButton>
+        <Button
+          className={cn(PICK, "border-transparent text-destructive hover:bg-destructive/5 hover:text-destructive")}
+          onClick={onRemove}
+          type="button"
+          variant="outline"
+        >
+          <Trash2 aria-hidden />
+          {t("remove")}
+        </Button>
+      </div>
+    </div>
   );
 }
 
-/** Figma "Advisor Onboarding - Stage 1" (995:6215) and its error state (995:6452). */
-export function OnboardingStage1Screen({
-  state = "default",
-}: {
-  readonly state?: "default" | "errors";
-}) {
+/** Why a picked file was turned away, kept to say so in the banner. */
+type Refused = { readonly name: string; readonly what: string };
+
+/**
+ * Figma "Advisor Onboarding - Stage 2" (995:6250), its uploaded state (995:6292)
+ * and its rejected state (995:6496), all on this one route now.
+ */
+export function OnboardingStage2Screen() {
   const t = useTranslations("advisorOnboarding");
   const c = useTranslations("common");
   const router = useRouter();
   const draft = useOnboardingDraft();
-  const preset = state === "errors";
-  const [phonePreset] = useState(preset ? t("phoneFilled") : null);
-  const [errors, setErrors] = useState<{ name?: string; phone?: string; dob?: string }>(() =>
-    preset
-      ? { name: t("legalNameError"), phone: t("phoneError"), dob: t("dobError") }
-      : {},
-  );
-  const phone = phonePreset !== null && draft.phone === "" ? phonePreset : draft.phone;
-  const failed = Boolean(errors.name || errors.phone || errors.dob);
-
-  function next() {
-    const found: typeof errors = {};
-    if (draft.legalName.trim().split(/\s+/).length < 2) found.name = t("legalNameError");
-    if (!isThaiPhone(draft.phone)) found.phone = t("phoneError");
-    if (!draft.birthDate.trim()) found.dob = t("dobError");
-    else if (!parseBirthDate(draft.birthDate)) found.dob = t("dobFormatError");
-    setErrors(found);
-    if (Object.keys(found).length === 0) router.push("/advisor-onboarding/stage-2");
-  }
-
-  return (
-    // Figma "Desktop / Advisor onboarding - Stage 1 (Light)" (1787:24342): the
-    // track and title become a white step band, and the form becomes an 800px
-    // card on the grey ground — two fields to a row, the action holding the end.
-    <MobileScreen wide>
-      <div className="hidden w-full lg:block">
-        <TopBar unreadNotifications />
-      </div>
-      <ScreenTopBar className={BACK_BAR} href="/advisor/apply" label={c("back")} />
-      <ScreenBody>
-        <div className={HEAD_BAND}>
-          <StageHeader
-            className={cn(COLUMN, "lg:pt-7")}
-            label={t("stepOf", { n: 1 })}
-            step={1}
-            title={t("s1Title")}
-          />
-        </div>
-
-        <div className={FORM_CARD}>
-        {failed ? (
-          <AlertBanner
-            body={t("s1ErrorBody")}
-            className="lg:px-0 lg:pt-0"
-            icon={TriangleAlert}
-            title={t("s1ErrorTitle")}
-          />
-        ) : null}
-
-        {/* Figma "Identity Row" / "Birth Row" — 350px fields, 20px apart, with
-            the bio spanning both. The phone stacks the same five. */}
-        <div className="flex w-full shrink-0 flex-col items-start gap-4 px-6 pt-2 lg:grid lg:grid-cols-2 lg:gap-x-5 lg:gap-y-6 lg:px-0 lg:pt-0">
-          <Field
-            autoComplete="name"
-            error={errors.name}
-            id="ob-name"
-            invalid={Boolean(errors.name)}
-            label={failed ? t("fullNameLabel") : t("legalNameLabel")}
-            onChange={(event) => {
-              updateDraft({ legalName: event.target.value });
-              setErrors((e) => ({ ...e, name: undefined }));
-            }}
-            placeholder={failed ? t("fullNamePlaceholder") : t("legalNamePlaceholder")}
-            value={draft.legalName}
-          />
-          <Field
-            autoComplete="tel"
-            error={errors.phone}
-            icon={Phone}
-            id="ob-phone"
-            inputMode="tel"
-            invalid={Boolean(errors.phone)}
-            label={t("phoneLabel")}
-            latin
-            onChange={(event) => {
-              updateDraft({ phone: event.target.value });
-              setErrors((e) => ({ ...e, phone: undefined }));
-            }}
-            placeholder={t("phonePlaceholder")}
-            value={phone}
-          />
-          <Field
-            error={errors.dob}
-            icon={CalendarDays}
-            id="ob-dob"
-            inputMode="numeric"
-            invalid={Boolean(errors.dob)}
-            label={t("dobLabel")}
-            latin
-            onChange={(event) => {
-              updateDraft({ birthDate: event.target.value });
-              setErrors((e) => ({ ...e, dob: undefined }));
-            }}
-            placeholder={failed ? t("dobFilledPlaceholder") : t("dobPlaceholder")}
-            value={draft.birthDate}
-          />
-          <div className="flex w-full shrink-0 flex-col items-start gap-1.5 lg:col-span-2">
-            <label
-              className="w-full text-sm font-medium text-foreground"
-              htmlFor="ob-bio"
-            >
-              {failed ? t("bioIntroLabel") : t("bioLabel")}
-            </label>
-            <Textarea
-              className="h-21 resize-none bg-muted px-3 text-sm shadow-none field-sizing-fixed"
-              id="ob-bio"
-              onChange={(event) => updateDraft({ bio: event.target.value })}
-              placeholder={t("bioPlaceholder")}
-              value={draft.bio}
-            />
-            <p className="w-full text-xs font-normal text-muted-foreground">
-              {t("bioHint")}
-            </p>
-          </div>
-        </div>
-
-        <ScreenSpacer className="lg:hidden" />
-        <div className={cn("flex w-full shrink-0 flex-col items-center px-6 pb-2", CARD_ACTIONS)}>
-          <PrimaryButton
-            className={cn("disabled:opacity-40", CARD_ACTION_BUTTON)}
-            disabled={!draft.legalName.trim() || !draft.phone.trim() || !draft.birthDate.trim()}
-            onClick={next}
-          >
-            {t("continue")}
-          </PrimaryButton>
-        </div>
-        </div>
-
-        <SiteFooter className="mt-auto hidden lg:flex" />
-      </ScreenBody>
-    </MobileScreen>
-  );
-}
-
-const IMAGE_TYPES = "image/jpeg,image/png";
-
-/**
- * Figma "Advisor Onboarding - Stage 2" (995:6250), its uploaded state (995:6292)
- * and its rejected state (995:6496).
- */
-export function OnboardingStage2Screen({
-  state = "default",
-}: {
-  readonly state?: "default" | "uploaded" | "rejected";
-}) {
-  const t = useTranslations("advisorOnboarding");
-  const c = useTranslations("common");
-  const router = useRouter();
-  const [rejected, setRejected] = useState(state === "rejected");
+  const [refused, setRefused] = useState<Refused | null>(null);
   // The file itself lives in memory (`holdFile`); after a reload only its name
   // is left, which is not something to send, so it counts as not uploaded.
   const [file, setFile] = useState<File | undefined>(() => heldFile("id"));
   const preview = usePreview(file);
-  const sample = state === "uploaded" && !file;
-  const fileName = file?.name ?? (sample ? t("fileName") : null);
-  const uploaded = fileName !== null;
+  const uploaded = file !== undefined;
+  const lost = !uploaded && !refused && draft.idFileName ? draft.idFileName : null;
 
   function pick(picked: File) {
     // The frame's rejection is about format; anything but JPG/PNG gets it.
     // The API holds the same line, and 50 MB besides.
-    if (!/\.(jpe?g|png)$/i.test(picked.name) || picked.size > 50 * 1024 * 1024) {
-      setRejected(true);
+    if (!/\.(jpe?g|png)$/i.test(picked.name) || picked.size > MAX_BYTES) {
+      setRefused({ name: picked.name, what: describeFile(picked) });
       dropFile("id");
       setFile(undefined);
       updateDraft({ idFileName: null });
       return;
     }
-    setRejected(false);
+    setRefused(null);
     holdFile("id", picked);
     setFile(picked);
     updateDraft({ idFileName: picked.name });
@@ -441,150 +375,75 @@ export function OnboardingStage2Screen({
     updateDraft({ idFileName: null });
   }
 
-  const browse = (
-    <FilePickButton accept={IMAGE_TYPES} className="mt-3" onPick={pick}>
-      <ImageUp className="size-4" />
-      {t("browse")}
-    </FilePickButton>
-  );
-
   return (
-    // Figma "Desktop / Advisor onboarding - Stage 2 (Light)" (1787:24424) and its
-    // uploaded (1787:24512) and rejected (1787:24772) states: the same card, with
-    // the document on the left of a 344/344 split and the guidance beside it.
-    <MobileScreen wide>
-      <div className="hidden w-full lg:block">
-        <TopBar unreadNotifications />
-      </div>
-      <ScreenTopBar className={BACK_BAR} href="/advisor-onboarding/stage-1" label={c("back")} />
-      <ScreenBody>
-        <div className={HEAD_BAND}>
-          <StageHeader
-            className={cn(COLUMN, "lg:pt-7")}
-            label={t("stepOf", { n: 2 })}
-            step={2}
-            title={t("s2Title")}
-          />
-        </div>
+    <OnboardingSplit
+      actions={
+        <StageActions backHref="/advisor-onboarding/stage-1" backLabel={c("back")}>
+          <Button
+            className={NEXT}
+            disabled={!uploaded}
+            onClick={() => router.push("/advisor-onboarding/stage-3")}
+            type="button"
+          >
+            {t("continue")}
+            <ArrowRight aria-hidden />
+          </Button>
+        </StageActions>
+      }
+    >
+      <ApplicationStepper progress={uploaded ? 1 : 0} step={2} />
+      <StageBody>
+        <StageHeading lead={t("s2Lead")} title={t("s2Title")} />
 
-        <div className={FORM_CARD}>
-        {rejected ? (
-          <AlertBanner
-            body={t("s2ErrorBody")}
-            className="lg:px-0 lg:pt-0"
-            icon={TriangleAlert}
-            title={t("s2ErrorTitle")}
-          />
-        ) : null}
+        {refused ? <NoticeBanner title={t("s2ErrorTitle")}>{t("idRefusedBody", refused)}</NoticeBanner> : null}
 
-        {/* Figma "Split" (1787:24457) — the document and what to check about it
-            side by side, where the phone can only stack them. */}
-        <div className="contents lg:grid lg:w-full lg:grid-cols-2 lg:items-start lg:gap-8">
-        <div className="flex w-full shrink-0 flex-col items-start px-6 pt-2 lg:px-0 lg:pt-0">
-          {uploaded ? (
-            /* Figma "Uploaded Document" (402 x 262): a 354 x 208 preview, a 10px
-               gap, then the 36px file-info row; the actions row follows 12px down. */
-            <>
-              {preview ? (
-                // A blob URL of the applicant's own file: nothing for next/image
-                // to optimise, and it never leaves the browser until submit.
-                // eslint-disable-next-line @next/next/no-img-element
-                <img
-                  alt={fileName}
-                  className="h-[208px] w-full shrink-0 rounded-card border border-border object-cover"
-                  src={preview}
-                />
-              ) : (
-                <Image
-                  alt={fileName}
-                  className="h-[208px] w-full shrink-0 rounded-card border border-border object-cover"
-                  src={idCard}
-                />
-              )}
-              {/* The file's name, size and accepted-ness, as one chip in a well
-                  rather than three loose elements under the preview. The check
-                  goes green: it is a status, and it was the accent blue — the
-                  same colour as the page's actions. */}
-              <Surface className="mt-2.5 flex w-full items-center gap-2.5 p-3" tier="well">
-                <div className="flex min-w-px flex-1 flex-col items-start gap-0.5">
-                  <p className="font-latin w-full truncate text-sm font-medium text-foreground">
-                    {fileName}
-                  </p>
-                  <p className="font-latin w-full text-xs font-normal tabular-nums text-muted-foreground">
-                    {file ? describeFile(file) : t("fileMeta")}
-                  </p>
-                </div>
-                <CircleCheck className="size-5 shrink-0 text-success" />
-              </Surface>
-              <div className="mt-3 flex w-full shrink-0 items-center gap-3">
-                <FilePickButton accept={IMAGE_TYPES} className="min-w-px flex-1" onPick={pick}>
-                  <ImageUp className="size-4" />
-                  {t("replace")}
-                </FilePickButton>
-                <NeutralButton
-                  className="min-w-px flex-1 border-destructive text-destructive"
-                  onClick={remove}
-                >
-                  <Trash2 className="size-4" />
-                  {t("remove")}
-                </NeutralButton>
-              </div>
-            </>
+        <div className="flex flex-col gap-3">
+          {file ? (
+            <AttachedDocument
+              file={file}
+              key={`${file.name}-${file.size}-${file.lastModified}`}
+              onRemove={remove}
+              onReplace={pick}
+              preview={preview}
+            />
           ) : (
-            <DropZone
-              action={browse}
+            <DocumentDrop
+              accept={IMAGE_TYPES}
               icon={IdCard}
-              invalid={rejected}
-              subtitle={t("uploadSubtitle")}
+              invalid={refused !== null}
+              onPick={pick}
+              pickLabel={t("browse")}
+              rule={t("idFileRule")}
               title={t("uploadTitle")}
             />
           )}
+          {lost ? <p className={cn("text-muted-foreground", NOTE)}>{t("idLost", { name: lost })}</p> : null}
         </div>
 
-        {/* Figma guidance / next-steps list. It is the right half of the desktop
-            split and a loose block under the dropzone on the phone, so it takes a
-            surface of its own: raised against the page ground, hairline-only
-            inside the form card at `lg`. */}
-        <div className={cn("flex w-full shrink-0 flex-col items-start px-6 lg:px-0 lg:pt-0", uploaded ? "pt-6" : "pt-5")}>
-          <Surface className="flex w-full flex-col items-start gap-1.5 p-3.5 lg:shadow-none">
-            <p className="mb-0.5 w-full text-base font-semibold text-foreground lg:text-lg">
-              {uploaded ? t("nextHeading") : t("guidance")}
-            </p>
-            {uploaded ? (
-              <>
-                <BulletLine>{t("next1")}</BulletLine>
-                <BulletLine>{t("next2")}</BulletLine>
-              </>
-            ) : (
-              <>
-                <CheckLine>{t("check1")}</CheckLine>
-                <CheckLine>{t("check2")}</CheckLine>
-                <CheckLine>{t("check3")}</CheckLine>
-              </>
-            )}
-          </Surface>
-        </div>
-        </div>
-
-        <ScreenSpacer className="lg:hidden" />
-        <div className={cn("flex w-full shrink-0 flex-col items-center px-6 pb-2", CARD_ACTIONS)}>
-          <PrimaryButton
-            className={cn("disabled:opacity-40", CARD_ACTION_BUTTON)}
-            disabled={!uploaded}
-            onClick={() => router.push("/advisor-onboarding/stage-3")}
-          >
-            {t("continue")}
-          </PrimaryButton>
-        </div>
-        </div>
-
-        <SiteFooter className="mt-auto hidden lg:flex" />
-      </ScreenBody>
-    </MobileScreen>
+        {/* What gets a card through review first time, ahead of the camera. */}
+        <section className="flex flex-col gap-2.5 rounded-card border border-border p-4">
+          <h2 className="text-sm font-semibold text-foreground">{t("photoTipsTitle")}</h2>
+          <ul className="flex flex-col gap-2">
+            <CheckLine>{t("check1")}</CheckLine>
+            <CheckLine>{t("check2")}</CheckLine>
+            <CheckLine>{t("check3")}</CheckLine>
+          </ul>
+          <p className={cn("flex items-start gap-2 border-t border-border pt-2.5 text-muted-foreground", NOTE)}>
+            <LockKeyhole aria-hidden className="mt-px size-3.5 shrink-0" />
+            {t("idPrivacy")}
+          </p>
+        </section>
+      </StageBody>
+    </OnboardingSplit>
   );
 }
 
 const PROOF_TYPES = "image/jpeg,image/png,application/pdf";
+
+/** The API's own rule for a skill proof (`skill-proofs.constants.ts`), checked here first. */
+function isProofFile(file: File): boolean {
+  return /\.(jpe?g|png|pdf)$/i.test(file.name) && file.size <= MAX_BYTES;
+}
 
 /** What stopped an application from going out, as the banner explains it. */
 type SubmitProblem =
@@ -651,44 +510,58 @@ async function sendApplication(draft: Draft, catalogue: readonly ApiNamedRecord[
 /** The banner over the skill cards for whatever stopped the application. */
 function SubmitBanner({ problem }: { readonly problem: SubmitProblem }) {
   const t = useTranslations("advisorOnboarding");
-  const banner = { className: "lg:px-0 lg:pt-0", icon: TriangleAlert };
   switch (problem.kind) {
     case "missing":
-      return <AlertBanner {...banner} body={t("s3ErrorBody")} title={t("s3ErrorTitle")} />;
+      return <NoticeBanner title={t("s3ErrorTitle")}>{t("s3ErrorBody")}</NoticeBanner>;
     case "unknown":
       return (
-        <AlertBanner
-          {...banner}
-          body={t("unknownSkillBody", { skill: problem.skill })}
-          title={t("unknownSkillTitle")}
-        />
+        <NoticeBanner title={t("unknownSkillTitle")}>{t("unknownSkillBody", { skill: problem.skill })}</NoticeBanner>
       );
     case "id":
       return (
-        <AlertBanner
-          {...banner}
-          body={
-            <>
-              {t("idMissingBody")}{" "}
-              <Link className="font-semibold underline underline-offset-2" href="/advisor-onboarding/stage-2">
-                {t("backToStage2")}
-              </Link>
-            </>
-          }
-          title={t("idMissingTitle")}
-        />
+        <NoticeBanner title={t("idMissingTitle")}>
+          {t("idMissingBody")}{" "}
+          <Link className="font-semibold text-foreground underline underline-offset-2" href="/advisor-onboarding/stage-2">
+            {t("backToStage2")}
+          </Link>
+        </NoticeBanner>
       );
     case "failed":
-      return <AlertBanner {...banner} body={problem.message} title={t("submitFailedTitle")} />;
+      return <NoticeBanner title={t("submitFailedTitle")}>{problem.message}</NoticeBanner>;
   }
 }
 
+/** An attached proof inside its skill card: what it is, and the way to take it off. */
+function AttachedProof({ file, onRemove }: { readonly file: File; readonly onRemove: () => void }) {
+  const t = useTranslations("advisorOnboarding");
+  const Icon = /\.pdf$/i.test(file.name) ? FileText : ImageIcon;
+  return (
+    <div className="flex w-full items-center gap-3 rounded-card bg-muted py-1.5 pr-1 pl-3.5">
+      <Icon aria-hidden className="size-4.5 shrink-0 text-muted-foreground" />
+      <div className="flex min-w-px flex-1 flex-col gap-0.5">
+        <p className="truncate font-latin text-sm font-medium text-foreground">{file.name}</p>
+        <p className="flex items-center gap-1 text-xs text-success">
+          <CircleCheck aria-hidden className="size-3.5" />
+          <span>{t("attachedLabel")}</span>
+          <span className="font-latin text-muted-foreground tabular-nums">· {describeFile(file)}</span>
+        </p>
+      </div>
+      <Button
+        aria-label={t("removeProof", { name: file.name })}
+        className="size-11 shrink-0 rounded-full text-muted-foreground hover:text-destructive"
+        onClick={onRemove}
+        size="icon"
+        type="button"
+        variant="ghost"
+      >
+        <Trash2 aria-hidden className="size-4" />
+      </Button>
+    </div>
+  );
+}
+
 /** Figma "Advisor Onboarding - Stage 3" (995:6341) and its missing-proof state (995:6544). */
-export function OnboardingStage3Screen({
-  state = "default",
-}: {
-  readonly state?: "default" | "missing-proof";
-}) {
+export function OnboardingStage3Screen() {
   const t = useTranslations("advisorOnboarding");
   const c = useTranslations("common");
   const router = useRouter();
@@ -699,15 +572,33 @@ export function OnboardingStage3Screen({
   );
   const skillOptions = skills.data?.items ?? [];
   const listId = useId();
-  const [problem, setProblem] = useState<SubmitProblem | null>(
-    state === "missing-proof" ? { kind: "missing" } : null,
-  );
+  const [problem, setProblem] = useState<SubmitProblem | null>(null);
+  const [refused, setRefused] = useState<Readonly<Record<string, string>>>({});
   const [busy, setBusy] = useState(false);
   const missing = problem?.kind === "missing";
+
+  const complete = draft.skills.filter(
+    (s) => skillOptions.some((skill) => skill.name === s.skill.trim()) && heldFile(s.id),
+  ).length;
+  const progress = complete / Math.max(1, draft.skills.length);
 
   function setSkill(id: string, patch: Partial<{ skill: string; proof: string | null }>) {
     updateDraft({ skills: draft.skills.map((s) => (s.id === id ? { ...s, ...patch } : s)) });
     setProblem(null);
+  }
+
+  function attach(id: string, file: File) {
+    if (!isProofFile(file)) {
+      setRefused((r) => ({ ...r, [id]: file.name }));
+      return;
+    }
+    setRefused((r) => {
+      const rest = { ...r };
+      delete rest[id];
+      return rest;
+    });
+    holdFile(id, file);
+    setSkill(id, { proof: file.name });
   }
 
   async function submit() {
@@ -723,34 +614,30 @@ export function OnboardingStage3Screen({
   }
 
   return (
-    // Figma "Desktop / Advisor onboarding - Stage 3 (Light)" (1787:24606) and the
-    // missing-proof state (1787:24866): the intro line moves up into the step
-    // band, and the skill cards fill the 800px card below it.
-    <MobileScreen wide>
-      <div className="hidden w-full lg:block">
-        <TopBar unreadNotifications />
-      </div>
-      <ScreenTopBar className={BACK_BAR} href="/advisor-onboarding/stage-2" label={c("back")} />
-      <ScreenBody>
-        <div className={HEAD_BAND}>
-          <StageHeader
-            className={cn(COLUMN, "lg:pt-7")}
-            label={t("stepOf", { n: 3 })}
-            step={3}
-            subtitle={t("s3Intro")}
-            title={t("s3Title")}
-          />
-        </div>
+    <OnboardingSplit
+      actions={
+        <StageActions
+          backHref="/advisor-onboarding/stage-2"
+          backLabel={c("back")}
+          note={<p className={cn("hidden text-muted-foreground md:block", NOTE)}>{t("submitNote")}</p>}
+        >
+          <Button
+            aria-busy={busy || undefined}
+            className={NEXT}
+            disabled={busy || !draft.skills.some((s) => s.skill.trim())}
+            onClick={() => void submit()}
+            type="button"
+          >
+            {busy ? t("submitting") : t("submitReview")}
+          </Button>
+        </StageActions>
+      }
+    >
+      <ApplicationStepper progress={progress} step={3} />
+      <StageBody>
+        <StageHeading lead={t("s3Intro")} title={t("s3Title")} />
 
-        <div className={FORM_CARD}>
         {problem ? <SubmitBanner problem={problem} /> : null}
-
-        {/* The desktop step band already carries this line. */}
-        <div className="flex w-full shrink-0 flex-col items-start px-6 pt-2 lg:hidden">
-          <p className="w-full text-xs font-normal text-muted-foreground">
-            {t("s3Intro")}
-          </p>
-        </div>
 
         <datalist id={listId}>
           {skillOptions.map((skill) => (
@@ -758,45 +645,53 @@ export function OnboardingStage3Screen({
           ))}
         </datalist>
 
-        {/* Figma "Skill Card": skill picker plus a proof drop zone, one per skill. */}
-        <div className="flex w-full shrink-0 flex-col items-start gap-3 px-6 pt-4 lg:px-0 lg:pt-0 lg:pb-1">
+        {/* Figma "Skill Card": the skill, then its proof, one card each. */}
+        <div className="flex flex-col gap-4">
           {draft.skills.map((entry, index) => {
             // A name with no file behind it (the tab was reloaded) is no proof.
-            const proof = entry.proof && heldFile(entry.id) ? entry.proof : null;
-            const invalid = missing && (!proof || !entry.skill.trim());
+            const file = entry.proof ? heldFile(entry.id) : undefined;
+            const lost = entry.proof && !file ? entry.proof : null;
+            const named = entry.skill.trim();
+            const unknown = problem?.kind === "unknown" && problem.skill === named;
+            const noSkill = missing && !named;
+            const noProof = missing && !file;
             return (
-              // It was a `border-transparent` card on the surface it sat on —
-              // that is, nothing at all, on the phone and inside the form card
-              // alike. It is a card: hairline and resting lift on the page
-              // ground, hairline only inside the 800 card, and the destructive
-              // edge when its proof is missing.
-              <Surface
+              <section
+                aria-label={named || t("skillCardN", { n: index + 1 })}
                 className={cn(
-                  "flex w-full flex-col items-start gap-3 p-3.5 lg:shadow-none",
-                  invalid && "border-destructive",
+                  "flex flex-col gap-4 rounded-card border bg-card p-4 shadow-hero-card",
+                  noSkill || noProof || unknown ? "border-destructive" : "border-hero-card-border",
                 )}
                 key={entry.id}
               >
-                <div className="flex w-full items-center justify-between gap-3">
-                  <p className="text-base font-semibold text-foreground">
-                    {t("skillCardN", { n: index + 1 })}
-                  </p>
+                <div className="flex items-center justify-between gap-3">
+                  <h2
+                    className={cn(
+                      "truncate text-sm font-semibold md:text-base",
+                      named ? "text-foreground" : "text-muted-foreground",
+                    )}
+                  >
+                    {named || t("skillNew")}
+                  </h2>
                   <Button
                     aria-label={t("removeSkill")}
-                    className="size-7 text-muted-foreground"
+                    className="-my-2 -mr-2 size-11 shrink-0 rounded-full text-muted-foreground hover:text-destructive"
                     disabled={draft.skills.length === 1}
                     onClick={() => {
                       dropFile(entry.id);
                       updateDraft({ skills: draft.skills.filter((s) => s.id !== entry.id) });
                     }}
                     size="icon"
+                    type="button"
                     variant="ghost"
                   >
-                    <Trash2 className="size-4" />
+                    <Trash2 aria-hidden className="size-4.5" />
                   </Button>
                 </div>
-                <Field
-                  icon={ChevronsUpDown}
+                <ApplicationField
+                  autoComplete="off"
+                  error={(unknown && t("unknownSkillField")) || (noSkill && t("skillMissing")) || undefined}
+                  icon={Search}
                   id={`skill-${entry.id}`}
                   label={t("skillLabel")}
                   list={listId}
@@ -804,87 +699,57 @@ export function OnboardingStage3Screen({
                   placeholder={t("skillPlaceholder")}
                   value={entry.skill}
                 />
-                <div className="flex w-full shrink-0 flex-col items-start gap-1.5">
-                  <p className="w-full text-sm font-medium text-foreground">
-                    {t("proofLabel")}
-                  </p>
-                  {proof ? (
-                    /* A file inside the skill card belongs under its surface, not
-                       level with it — and the check is a status, so it is green. */
-                    <Surface
-                      className="flex w-full items-center gap-2.5 p-3"
-                      tier="well"
-                    >
-                      <FileCheck className="size-5 shrink-0 text-success" />
-                      <p className="min-w-px flex-1 truncate font-latin text-sm text-foreground">
-                        {proof}
-                      </p>
-                      <Button
-                        aria-label={t("remove")}
-                        className="size-7 text-muted-foreground"
-                        onClick={() => {
-                          dropFile(entry.id);
-                          setSkill(entry.id, { proof: null });
-                        }}
-                        size="icon"
-                        variant="ghost"
-                      >
-                        <Trash2 className="size-4" />
-                      </Button>
-                    </Surface>
+                <div className="flex flex-col gap-2">
+                  <p className="text-sm font-medium text-muted-foreground md:text-base">{t("proofLabel")}</p>
+                  {file ? (
+                    <AttachedProof
+                      file={file}
+                      onRemove={() => {
+                        dropFile(entry.id);
+                        setSkill(entry.id, { proof: null });
+                      }}
+                    />
                   ) : (
-                    <DropZone
-                      action={
-                        <FilePickButton
-                          accept={PROOF_TYPES}
-                          className="mt-2"
-                          onPick={(file) => {
-                            holdFile(entry.id, file);
-                            setSkill(entry.id, { proof: file.name });
-                          }}
-                        >
-                          <ImageUp className="size-4" />
-                          {t("proofBrowse")}
-                        </FilePickButton>
-                      }
+                    <DocumentDrop
+                      accept={PROOF_TYPES}
                       compact
-                      icon={ImageUp}
-                      invalid={invalid}
-                      subtitle={t("proofHint")}
-                      title={t("proofLabel")}
+                      icon={FileText}
+                      invalid={noProof || Boolean(refused[entry.id])}
+                      onPick={(picked) => attach(entry.id, picked)}
+                      pickLabel={t("proofBrowse")}
+                      rule={t("proofRule")}
+                      title={t("proofHint")}
                     />
                   )}
+                  {refused[entry.id] ? (
+                    <p className={cn("text-destructive", NOTE)} role="alert">
+                      {t("proofRefused", { name: refused[entry.id] })}
+                    </p>
+                  ) : null}
+                  {noProof && !refused[entry.id] ? (
+                    <p className={cn("text-destructive", NOTE)}>{t("proofMissing")}</p>
+                  ) : null}
+                  {lost ? <p className={cn("text-muted-foreground", NOTE)}>{t("proofLost", { name: lost })}</p> : null}
                 </div>
-              </Surface>
+              </section>
             );
           })}
-          <NeutralButton
+          <Button
+            className={cn(PICK, "w-full border-dashed md:w-auto md:self-start")}
             onClick={() =>
               updateDraft({
                 skills: [...draft.skills, { id: `skill-${Date.now()}`, skill: "", proof: null }],
               })
             }
+            type="button"
+            variant="outline"
           >
-            <Plus className="size-4" />
+            <Plus aria-hidden />
             {t("addSkill")}
-          </NeutralButton>
+          </Button>
         </div>
-
-        <ScreenSpacer className="lg:hidden" />
-        <div className={cn("flex w-full shrink-0 flex-col items-center px-6 pt-4 pb-2", CARD_ACTIONS)}>
-          <PrimaryButton
-            className={cn("disabled:opacity-40", CARD_ACTION_BUTTON)}
-            aria-busy={busy || undefined}
-            disabled={busy || !draft.skills.some((s) => s.skill.trim())}
-            onClick={() => void submit()}
-          >
-            {busy ? t("submitting") : t("submitReview")}
-          </PrimaryButton>
-        </div>
-        </div>
-
-        <SiteFooter className="mt-auto hidden lg:flex" />
-      </ScreenBody>
-    </MobileScreen>
+        <p className={cn("text-muted-foreground md:hidden", NOTE)}>{t("submitNote")}</p>
+      </StageBody>
+    </OnboardingSplit>
   );
 }

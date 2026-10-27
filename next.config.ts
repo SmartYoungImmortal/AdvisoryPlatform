@@ -9,6 +9,9 @@ const nextConfig: NextConfig = {
   // limit and returning "Error 1102 Worker exceeded resource limits".
   // Revisit once real server-side work (an API, auth, ISR) lands.
   output: "export",
+  // The development badge, bottom-left by default, sat on the app rail's
+  // settings item (`components/account/app-frame.tsx`). Dev only.
+  devIndicators: { position: "bottom-right" },
   images: {
     // Cloudflare's static assets have no image-optimisation endpoint to call,
     // so images are emitted with their original src.

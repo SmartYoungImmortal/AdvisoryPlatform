@@ -13,6 +13,13 @@
 /_next/static/*
   Cache-Control: public, max-age=31536000, immutable
 
+# The service worker behind device notifications (public/sw.js). The browser
+# re-checks it for a new version on every load; a cached copy would pin people
+# to an old one, so it is never cached.
+/sw.js
+  Cache-Control: no-cache, no-store, must-revalidate
+  Content-Type: application/javascript; charset=utf-8
+
 # --- Level 2, not built yet: offline support -------------------------------
 #
 # The app is installable today (app/manifest.ts) but has no service worker, so
@@ -31,7 +38,5 @@
 # candidate — every route is prerendered and every record is a fixture, so
 # there is nothing dynamic to miss offline.
 #
-# Push notifications are a separate problem and are further off: the screen for
-# them already exists at /notifications/push-primer, but subscribing needs an
-# endpoint to store the subscription and VAPID keys to send with, and this
-# deploy has no server at all.
+# Push notifications are built (public/sw.js, lib/push/, the API's
+# /notifications/push endpoints); only offline caching is left for this level.

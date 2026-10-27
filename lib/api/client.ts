@@ -19,6 +19,8 @@
  * editing a variable.
  */
 
+import { trimTrailing } from "@/lib/utils";
+
 /** A page of results, exactly as the API's `PaginatedResult<T>` is shaped. */
 export interface Paginated<T> {
   readonly items: readonly T[];
@@ -88,7 +90,7 @@ export class ApiUnreachableError extends Error {
  * with a stated reason instead of silently resolving against the site's own
  * origin, which would 404 into the HTML of the exported page.
  */
-const BASE_URL = process.env.NEXT_PUBLIC_API_URL?.replace(/\/+$/, "") ?? "";
+const BASE_URL = trimTrailing(process.env.NEXT_PUBLIC_API_URL ?? "", "/");
 
 /** Whether the app has been built with an API to talk to at all. */
 export const isApiConfigured = BASE_URL.length > 0;
@@ -112,6 +114,28 @@ function buildUrl(path: string, query?: Query, unprefixed = false): string {
     if (value !== undefined) url.searchParams.set(key, String(value));
   }
   return url.toString();
+}
+
+/**
+ * Where a Socket.IO namespace of the API lives, from the same `NEXT_PUBLIC_API_URL`.
+ *
+ * Not a request, so not `buildUrl`: the Socket.IO server hangs off the API's root
+ * at `/socket.io`, outside `/api/v1`, and a namespace is named by the URL's path.
+ * So the URL is the API's origin plus the namespace, and `path` keeps whatever
+ * path the API itself is mounted under. `null` when the build has no API, or an
+ * address that is not a URL.
+ */
+export function apiSocketTarget(namespace: string): { readonly url: string; readonly path: string } | null {
+  if (!isApiConfigured) return null;
+  try {
+    const base = new URL(BASE_URL);
+    return {
+      url: `${base.origin}/${namespace.replace(/^\/+/, "")}`,
+      path: `${trimTrailing(base.pathname, "/")}/socket.io`,
+    };
+  } catch {
+    return null;
+  }
 }
 
 /**
@@ -172,6 +196,20 @@ async function unwrap<T>(response: Response, enveloped: boolean): Promise<T> {
   return (payload as { data: unknown }).data as T;
 }
 
+/**
+ * The language the reader chose, sent with every request as `Accept-Language`
+ * so the API answers translated content (service names, categories, an
+ * advisor's headline, notifications) in it. Set by `LocaleProvider` when the
+ * language is applied, before the screens re-read in it; Thai until then, as
+ * the page was rendered. The browser's own `Accept-Language` is the device's
+ * language list, not the choice made in the app, so it is replaced.
+ */
+let requestLocale: "th" | "en" = "th";
+
+export function setRequestLocale(locale: "th" | "en"): void {
+  requestLocale = locale;
+}
+
 async function request<T>(
   method: "GET" | "POST" | "PATCH" | "PUT" | "DELETE",
   path: string,
@@ -196,6 +234,7 @@ async function request<T>(
       // replace the boundary with nothing and the upload would arrive unparseable.
       headers: {
         Accept: "application/json",
+        "Accept-Language": requestLocale,
         ...(options.body !== undefined && !isFormData
           ? { "Content-Type": "application/json" }
           : {}),

@@ -112,17 +112,21 @@ test("advisee can cancel an upcoming booking and see it in cancelled bookings", 
       url.pathname === "/api/v1/bookings/booking-1/cancel"
     );
   });
-  await page.getByRole("button", { name: "ยกเลิก", exact: true }).click();
+  // The row opens the booking over the list, where cancelling asks once.
+  await page.getByRole("link", { name: "Career consultation" }).click();
+  const booking = page.getByRole("dialog");
+  await booking.getByRole("button", { name: "ยกเลิกการจอง", exact: true }).click();
+  await booking.getByRole("button", { name: "ยืนยันการยกเลิก", exact: true }).click();
   await cancellation;
   expect(cancelCalls).toBe(1);
 
-  // The current shared resource hook does not re-fetch when `reload()` is called,
-  // so verify the server-persisted state through a fresh page load.
+  // Verify the server-persisted state through a fresh page load.
   await page.reload();
-  await page.getByRole("tab", { name: "ยกเลิก" }).click();
+  await page.getByRole("button", { name: "ยกเลิกแล้ว", exact: true }).click();
 
-  await expect(page.getByText("Career consultation").first()).toBeVisible();
-  await expect(page.getByText("ยกเลิกแล้ว", { exact: true })).toBeVisible();
+  const row = page.getByRole("listitem").filter({ hasText: "Career consultation" });
+  await expect(row).toBeVisible();
+  await expect(row.getByText("ยกเลิกแล้ว", { exact: true })).toBeVisible();
   expect(cancelCalls).toBe(1);
 });
 

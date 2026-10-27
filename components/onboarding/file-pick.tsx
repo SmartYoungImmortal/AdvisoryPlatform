@@ -2,13 +2,16 @@
 
 import { useRef, type ReactNode } from "react";
 
-import { NeutralButton } from "@/components/mobile/buttons";
+import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { cn } from "@/lib/utils";
 
 /**
  * A button that opens the device's file picker and hands back the chosen file,
  * which the onboarding stages hold until the application is sent.
+ *
+ * Its shape comes from the caller (the stages pass the white `authPill`
+ * capsule): importing that here would drag the auth frame, and with it the
+ * scroll machinery, into everything that only needs a picker.
  */
 export function FilePickButton({
   accept,
@@ -37,9 +40,9 @@ export function FilePickButton({
         tabIndex={-1}
         type="file"
       />
-      <NeutralButton className={cn("w-auto", className)} onClick={() => input.current?.click()} type="button">
+      <Button className={className} onClick={() => input.current?.click()} type="button" variant="outline">
         {children}
-      </NeutralButton>
+      </Button>
     </>
   );
 }

@@ -307,11 +307,14 @@ export function TopBar({
             // zoomed down on a landscape tablet), instead of staying full size
             // above a content column that is not.
             "doc-scale",
-            "transition-[padding] duration-500 ease-in-out",
+            // Animated from `lg` only: on a phone the bar changes state at
+            // once, the way an app's bar does, rather than morphing while the
+            // thumb is still moving the page.
+            "lg:transition-[padding] lg:duration-500 lg:ease-in-out",
             // The capsule floats clear of the top edge at every scroll
-            // position, unless the page docks it (`dock`), when the row gives
-            // up its side gutters so the band can meet both edges.
-            dock && frosted && "px-0 md:px-0",
+            // position, unless the page docks it (`dock`, from `lg`), when the
+            // row gives up its side gutters so the band can meet both edges.
+            dock && frosted && "lg:px-0",
             className,
           )}
           style={frosted ? ({ "--bar-wash": FROSTED } as CSSProperties) : undefined}
@@ -352,12 +355,15 @@ export function TopBar({
               // as content passes under, which is what the reference does too.
               "mt-3 h-14 rounded-[2rem] py-2 pr-2 pl-4 backdrop-blur-[20px] md:h-16 md:pl-6",
               "mx-[max(0px,calc((100%-984px)/2))]",
-              "transition-[margin,padding,height,border-radius,background-color] duration-500 ease-out motion-reduce:transition-none",
+              // From `lg` only, as the row's: a phone's bar switches at once.
+              "lg:transition-[margin,padding,height,border-radius,background-color] lg:duration-500 lg:ease-out motion-reduce:transition-none",
               // The glass deepens as content passes under the floating pill;
               // a docked bar replaces the fill entirely (below, merged last).
               frosted ? "bg-card/55" : "bg-card/25",
               dock && frosted
-                ? // Docked: the margin each side becomes padding of the same
+                ? // Docked, from `lg` only: a phone keeps the capsule at every
+                  // scroll position, the shape its own screens are built
+                  // around. The margin each side becomes padding of the same
                   // width (a percentage in either resolves against the same
                   // row), so nothing inside moves sideways. 72px tall: 88
                   // (enough that nothing moved vertically either) read as a
@@ -369,7 +375,7 @@ export function TopBar({
                   // 45% veil) on a light `blur-sm`, with a faint white rule,
                   // so the band dissolves into the page instead of ending
                   // on a hard edge.
-                  "mx-0 mt-0 h-16 rounded-none border-b border-on-media/20 bg-transparent bg-[image:var(--bar-wash)] pr-[calc(max(0px,calc((100%-984px)/2))+0.5rem)] pl-[calc(max(0px,calc((100%-984px)/2))+1rem)] backdrop-blur-sm md:h-18 md:pl-[calc(max(0px,calc((100%-984px)/2))+1.5rem)]"
+                  "lg:mx-0 lg:mt-0 lg:h-18 lg:rounded-none lg:border-b lg:border-on-media/20 lg:bg-transparent lg:bg-[image:var(--bar-wash)] lg:pr-[calc(max(0px,calc((100%-984px)/2))+0.5rem)] lg:pl-[calc(max(0px,calc((100%-984px)/2))+1.5rem)] lg:backdrop-blur-sm"
                 : undefined,
             )}
           >
@@ -387,9 +393,14 @@ export function TopBar({
                 </Button>
               </div>
             ) : null}
-            {/* Only on the floating pill: docked, the bar is a full-width band
-                and a glint running the width of the screen reads as a flash. */}
-            {dock && frosted ? null : <BarSheen />}
+            {/* Only on the floating pill: docked (from `lg`), the bar is a
+                full-width band and a glint running the width of the screen
+                reads as a flash. A phone keeps its pill, and so its glint. */}
+            {/* `rounded-[inherit]` passes the capsule's corners through to the
+                glint's own `rounded-[inherit]`, which reads its parent's. */}
+            <div className={cn("contents rounded-[inherit]", dock && frosted && "lg:hidden")}>
+              <BarSheen />
+            </div>
             {/* The lockup is the way home from anywhere. */}
             <Link className="shrink-0" href="/">
               <Lockup reversed={false} />
@@ -406,7 +417,7 @@ export function TopBar({
                   per page, and every page without it showed a guest the bell
                   to notifications they cannot have. */}
               {sessionKnown && !signedIn ? (
-                /* fastwork's "Get started": a black pill with white type that
+                /* "Get started": a black pill with white type that
                    opens sign-up, the one thing on the bar for a guest to press.
                    Signing in is a tap away on the register screen itself. */
                 <Button

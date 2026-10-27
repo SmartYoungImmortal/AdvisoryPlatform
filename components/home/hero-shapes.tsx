@@ -26,7 +26,7 @@ gsap.registerPlugin(useGSAP, ScrollTrigger);
  * The geometry and both animations live in `.hero-ring` / `.hero-card` in
  * `app/globals.css`; all this file sets is each card's angle.
  *
- * The card is fastwork's: a photograph of the work, the person's portrait laid
+ * The card: a photograph of the work, the person's portrait laid
  * over its bottom edge, and their name over what they do and where. Each card
  * is a real search for its topic.
  */
@@ -101,14 +101,11 @@ export function HeroShapes({ className }: { readonly className?: string }) {
             },
           })
           .fromTo(el, { "--hero-exit": 0 }, { "--hero-exit": 1, ease: "none" }, 0)
-          // The whole band dissolves where it stands, room, copy and all, from
-          // the first pixel of scroll, together with the cards leaving.
-          .fromTo(
-            band,
-            { autoAlpha: 1, filter: "blur(0px)" },
-            { autoAlpha: 0, filter: "blur(14px)", ease: "none", duration: 1 },
-            0,
-          );
+          // The whole band fades where it stands, room, copy and all, from the
+          // first pixel of scroll, together with the cards leaving. A fade, not
+          // a blur: re-blurring the full-screen band on every frame was the
+          // other half of the stutter, and opacity alone stays on the GPU.
+          .fromTo(band, { autoAlpha: 1 }, { autoAlpha: 0, ease: "none", duration: 1 }, 0);
 
         // What follows the hero, held still against the scroll while the band
         // holds, then faded in as the band clears: it appears where it stands
@@ -201,8 +198,7 @@ export function HeroShapes({ className }: { readonly className?: string }) {
             <Link
               aria-label={`${name}, ${role}`}
               className={cn(
-                // fastwork's `orbit-card`, to the pixel where Thai allows: 208
-                // wide, 12px corners, a cool hairline and a 2px shadow. The
+                // 208 wide, 12px corners, a cool hairline and a 2px shadow. The
                 // photograph is the card; the type under it is small on purpose.
                 // The link is the still hit area; the face inside it is what
                 // grows on hover (see `.hero-card-face`).

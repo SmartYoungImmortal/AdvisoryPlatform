@@ -57,8 +57,8 @@ const SERVICES_KEY = ADMIN_KEYS.services;
  * badge exactly.
  *
  * The category name comes from `GET /service-categories`, fetched once and joined
- * by id, the way `components/home/browse-list` joins advisors: one request for the
- * page instead of one per row.
+ * by id, the way `components/bookings/my-bookings-screen.tsx` joins services and
+ * advisors: one request for the page instead of one per row.
  */
 export function ServicesScreen() {
   const t = useTranslations("cms.services");

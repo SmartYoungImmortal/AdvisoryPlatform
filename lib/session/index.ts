@@ -204,6 +204,12 @@ function snapshot(): Session {
   return session;
 }
 
+/** How long the session's own read may answer a screen's first ask too. */
+const SHARE_FIRST_PROFILE_MS = 10_000;
+
+/** The session's `/users/me` read, until a screen takes it (`fetchOwnProfile`). */
+let firstProfile: { readonly request: Promise<ApiOwnProfile>; readonly at: number } | null = null;
+
 /**
  * `/users/me`, turned into a session. Any failure is anonymity: a 401 is the
  * ordinary signed-out answer, and an unreachable API is indistinguishable from
@@ -211,11 +217,40 @@ function snapshot(): Session {
  * attempt reports the difference, because there the reader is owed a reason.
  */
 async function readSession(): Promise<Session> {
+  const request = getOwnProfile();
+  firstProfile = { request, at: Date.now() };
   try {
-    return { status: "authenticated", account: toAccount(await getOwnProfile()) };
+    return { status: "authenticated", account: toAccount(await request) };
   } catch {
     return ANONYMOUS;
   }
+}
+
+/**
+ * `GET /users/me` for a screen's `useResource("users/me", …)`. The page load
+ * already asks once for the session; the first screen to ask within a few
+ * seconds of that shares the same request instead of sending a second. Every
+ * later read (a reload, an `invalidate` after an edit) goes to the API.
+ */
+export function fetchOwnProfile(signal?: AbortSignal): Promise<ApiOwnProfile> {
+  // A screen's effect can run before the layout's has started the session's
+  // read (children's effects run first): start it here, so there is still one.
+  load();
+  const first = firstProfile;
+  firstProfile = null;
+  if (first && Date.now() - first.at < SHARE_FIRST_PROFILE_MS) {
+    // A reader that lets go before it settles (a remount) hands it back, so
+    // the next one still shares it rather than sending a second read.
+    signal?.addEventListener(
+      "abort",
+      () => {
+        firstProfile ??= first;
+      },
+      { once: true },
+    );
+    return first.request;
+  }
+  return getOwnProfile(signal);
 }
 
 /**

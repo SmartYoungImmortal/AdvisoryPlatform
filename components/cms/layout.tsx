@@ -181,7 +181,10 @@ export function CmsDashboard({ children }: { readonly children: ReactNode }) {
           onPointerDown={onPointerDown}
           onPointerMove={onPointerMove}
           onPointerUp={onPointerUp}
-          role="separator"
+          // The WAI-ARIA window splitter: a focusable `separator` with a value,
+          // moved by arrow keys and dragged by pointer, so these handlers belong
+          // on it. NOSONAR: S6847/S6845 do not know the splitter pattern.
+          role="separator" // NOSONAR
           tabIndex={0}
         />
         <Sheet onOpenChange={setOpen} open={open}>
