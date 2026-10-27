@@ -94,7 +94,7 @@ function SettingRow({
   readonly children: ReactNode;
 }) {
   return (
-    <li className="flex items-center gap-4 border-b border-border py-4 lg:gap-8 lg:py-5">
+    <li className="flex items-center gap-4 border-b border-border py-3 lg:gap-8 lg:py-5">
       <div className="flex min-w-0 flex-1 flex-col gap-0.5 lg:gap-1">
         <span
           className={cn("text-sm font-medium lg:text-frame-body", destructive ? "text-destructive" : "text-foreground")}
@@ -133,7 +133,9 @@ function SettingsSection({
       {/* Below `lg` the categories are stacked down one page, so each is the
           notifications' small grey label over its rows rather than a tile and
           a heading over a hairline, which is the desktop's one category. */}
-      <header className="flex items-center gap-4 lg:border-b lg:border-border lg:pb-6">
+      <header className="flex items-center gap-1.5 lg:gap-4 lg:border-b lg:border-border lg:pb-6">
+        {/* The glyph bare and small before the label below `lg`; the tile from `lg`. */}
+        <Icon aria-hidden className="size-3.5 shrink-0 text-muted-foreground lg:hidden" strokeWidth={1.75} />
         <span className="hidden size-12 shrink-0 items-center justify-center rounded-xl bg-muted text-foreground lg:flex">
           <Icon aria-hidden className="size-6" strokeWidth={1.75} />
         </span>
@@ -332,7 +334,7 @@ export function AccountSettingsScreen({
               {/* The page's own top inset from `lg` (the shell's 47.5px, which
                   `compact` drops), so the category's heading lines up with the
                   menu's title. */}
-              <div className="mt-4 flex min-w-0 flex-col gap-7 lg:mt-0 lg:gap-0 lg:px-16 lg:pt-[47.5px] lg:pb-16">
+              <div className="mt-4 flex min-w-0 flex-col gap-6 lg:mt-0 lg:gap-0 lg:px-16 lg:pt-[47.5px] lg:pb-16">
                 {isUpdated ? (
                   // The banner is a shared phone block; the lift sets its type on the frame's steps.
                   <div className={cn("lg:mb-8", DESKTOP_TYPE_LIFT)}>
