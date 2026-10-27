@@ -1,5 +1,6 @@
 "use client";
 
+import { Mail, MailCheck } from "lucide-react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { useTranslations } from "next-intl";
@@ -109,7 +110,7 @@ function ChangeEmailForm({ state = "default" }: { readonly state?: "default" | "
   }
 
   return (
-    <SettingsDialog description={t("subtitle")} title={t("title")}>
+    <SettingsDialog description={t("subtitle")} icon={Mail} title={t("title")}>
       <form className="flex w-full flex-col" noValidate onSubmit={submit}>
         <EmailCard caption={t("currentLabel")} value={currentEmail} />
 
@@ -187,7 +188,7 @@ function VerifyEmailNote() {
   }
 
   return (
-    <SettingsDialog description={t("subtitle", { email })} title={t("title")}>
+    <SettingsDialog description={t("subtitle", { email })} icon={MailCheck} title={t("title")}>
       <div className="flex w-full flex-col">
         <EmailCard caption={t("stillLabel")} value={account?.email ?? c("emailValue")} />
         {resendStatus ? (

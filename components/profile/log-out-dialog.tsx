@@ -1,5 +1,6 @@
 "use client";
 
+import { LogOut } from "lucide-react";
 import Link from "next/link";
 import { useTranslations } from "next-intl";
 
@@ -20,7 +21,7 @@ export function LogOutDialog({ cancelHref = "/profile" }: { readonly cancelHref?
   const t = useTranslations("logOut");
 
   return (
-    <SettingsDialog closeHref={cancelHref} description={t("body")} title={t("title")}>
+    <SettingsDialog closeHref={cancelHref} description={t("body")} icon={LogOut} title={t("title")}>
       {/* Straight under the question: there is no form between. */}
       <div className={cn(SETTINGS_DIALOG_ACTIONS, "mt-0 lg:mt-0")}>
         <Button
