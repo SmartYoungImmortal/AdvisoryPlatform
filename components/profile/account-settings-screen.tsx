@@ -180,10 +180,12 @@ function SettingsMenu({
     // panel: the menu is what fills the left of the page, not a margin.
     <nav
       aria-label={t("menuLabel")}
-      // `pt-5`: the title's line centred on the category's 88 band beside it.
-      className="hidden lg:flex lg:flex-col lg:gap-5 lg:border-r lg:border-border lg:px-6 lg:pt-5 lg:pb-16"
+      // `pt-6`: the title's 40 line centred on the category's 88 band beside it.
+      className="hidden lg:flex lg:flex-col lg:gap-5 lg:border-r lg:border-border lg:px-6 lg:pt-6 lg:pb-16"
     >
-      <h1 className="font-hero text-frame-title font-normal tracking-tight text-hero-ink">{t("title")}</h1>
+      {/* A step under the other pages' 38 titles: here it heads a 320 menu,
+          beside the band's 22.5 heading, not a page column. */}
+      <h1 className="font-hero text-heading font-normal tracking-tight text-hero-ink">{t("title")}</h1>
       <ul className="flex flex-col gap-1">
         {SECTIONS.map((key) => {
           const Icon = SECTION[key].icon;
