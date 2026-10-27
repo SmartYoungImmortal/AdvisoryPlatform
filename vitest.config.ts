@@ -13,6 +13,7 @@ export default defineConfig({
       include: [
         "lib/api/auth.ts",
         "components/bookings/booking-flow.ts",
+        "components/bookings/use-booking-cancellation.ts",
         "lib/availability/editor.ts",
         "lib/advisor-services/form.ts",
         "components/onboarding/file-pick.tsx",

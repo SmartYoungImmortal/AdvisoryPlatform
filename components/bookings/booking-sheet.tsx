@@ -24,7 +24,10 @@ import {
   liveServiceHref,
   BOOKING_BUCKET,
 } from "@/components/bookings/booking-flow";
+import { downloadBookingCalendar } from "@/components/bookings/booking-calendar";
+import { CancellationFeedback } from "@/components/bookings/cancellation-feedback";
 import { RescheduleSlots } from "@/components/bookings/reschedule-booking";
+import { useBookingCancellation } from "@/components/bookings/use-booking-cancellation";
 import { faceFor } from "@/components/chat/chat-avatar";
 import { chatWithHref } from "@/components/chat/chat-data";
 import { Figures } from "@/components/figures";
@@ -33,7 +36,7 @@ import { invoiceHref } from "@/components/payment/transactions-data";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogClose, DialogContent } from "@/components/ui/dialog";
 import type { Paginated } from "@/lib/api/client";
-import { cancelBooking, listMyInvoices } from "@/lib/api/resources";
+import { listMyInvoices } from "@/lib/api/resources";
 import type { ApiAdviseeInvoice, ApiBooking, ApiPublicAdvisor, ApiPublicService } from "@/lib/api/types";
 import { useResource } from "@/lib/api/use-resource";
 import { cn } from "@/lib/utils";
@@ -265,32 +268,20 @@ export function BookingSheet({
   const invoice = useBookingInvoice(entry.booking);
   const MainIcon = ways.main.icon;
   const [panel, setPanel] = useState<"none" | "reschedule" | "cancel">("none");
-  const [cancelling, setCancelling] = useState(false);
-  const [failure, setFailure] = useState<string | null>(null);
+  // One cancellation at a time; after an answer that may hide a committed
+  // cancellation, none again until the booking itself has been read.
+  const cancellation = useBookingCancellation(onChanged);
   const { booking, service, advisor } = entry;
   const start = new Date(booking.startTime);
   const minutes = Math.round((Date.parse(booking.endTime) - start.getTime()) / 60_000);
   const ahead = bookingPhase(booking, now) === "ahead";
   const changeable = ahead && isCancellable(booking.state);
+  // Only a held time goes in a calendar: an unpaid one may never happen.
+  const keepable = ahead && (booking.state === "BOOKED" || booking.state === "IN_PROGRESS");
   const Heading = inDialog ? "h2" : "h1";
   const stamp = (iso: string) =>
     `${format.dateTime(new Date(iso), { day: "numeric", month: "short", year: "numeric" })} · ${clock(iso)}`;
 
-  const cancel = () => {
-    setCancelling(true);
-    setFailure(null);
-    void cancelBooking(booking.id)
-      .then(() => {
-        setPanel("none");
-        onChanged();
-      })
-      .catch((cause: unknown) => {
-        // The API's own sentence: for a state that can no longer be cancelled
-        // it names the two that can, which is the whole explanation.
-        setFailure(cause instanceof Error ? cause.message : t("detailsCancelFailed"));
-      })
-      .finally(() => setCancelling(false));
-  };
   const subject = encodeURIComponent(
     t("supportSubject", {
       service: service?.name ?? "",
@@ -383,13 +374,23 @@ export function BookingSheet({
         ) : null}
       </div>
 
-      {ways.more.length > 0 || changeable ? (
+      {ways.more.length > 0 || keepable || changeable ? (
         <div className={cn("flex flex-wrap gap-2 lg:gap-3", UNDER_TEXT)}>
           {ways.more.map((way) => (
             <Button className={MORE_PILL} key={way.href} nativeButton={false} render={<Link href={way.href} />} variant="ghost">
               {way.label}
             </Button>
           ))}
+          {keepable ? (
+            <Button
+              className={MORE_PILL}
+              onClick={() => downloadBookingCalendar(booking, service?.name ?? t("detailsTitle"))}
+              type="button"
+              variant="ghost"
+            >
+              {t("detailCalendar")}
+            </Button>
+          ) : null}
           {changeable ? (
             <>
               <Button
@@ -404,6 +405,7 @@ export function BookingSheet({
               <Button
                 aria-expanded={panel === "cancel"}
                 className={cn(MORE_PILL, "text-destructive hover:text-destructive")}
+                disabled={cancellation.blocked}
                 onClick={() => setPanel((open) => (open === "cancel" ? "none" : "cancel"))}
                 type="button"
                 variant="ghost"
@@ -440,24 +442,30 @@ export function BookingSheet({
             <div className="flex flex-wrap gap-2">
               <Button
                 className={cn(PILL, "bg-destructive text-primary-foreground hover:bg-destructive/90")}
-                disabled={cancelling}
-                onClick={cancel}
+                disabled={cancellation.blocked}
+                onClick={() => void cancellation.cancel(booking.id)}
                 type="button"
               >
                 {t("cancelConfirm")}
               </Button>
-              <Button className={MORE_PILL} disabled={cancelling} onClick={() => setPanel("none")} type="button" variant="ghost">
+              <Button
+                className={MORE_PILL}
+                disabled={cancellation.state.kind === "pending"}
+                onClick={() => setPanel("none")}
+                type="button"
+                variant="ghost"
+              >
                 {t("cancelKeep")}
               </Button>
             </div>
           </div>
         </div>
       ) : null}
-      {failure ? (
-        <p className={cn("text-sm text-destructive lg:text-frame-meta", UNDER_TEXT)} role="alert">
-          {failure}
-        </p>
-      ) : null}
+      {cancellation.state.kind === "idle" ? null : (
+        <div className={UNDER_TEXT}>
+          <CancellationFeedback cancellation={cancellation} />
+        </div>
+      )}
 
       <p className={cn("text-xs text-muted-foreground lg:text-frame-label", UNDER_TEXT)}>
         {t("helpPrompt")}{" "}

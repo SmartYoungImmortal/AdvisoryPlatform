@@ -298,7 +298,18 @@
     "cancelConfirm": "Yes, cancel",
     "cancelKeep": "Keep it",
     "helpPrompt": "Questions about this booking?",
-    "supportSubject": "Question about my booking: {service} on {date}"
+    "supportSubject": "Question about my booking: {service} on {date}",
+    "cancellationConfirmed": "This booking is cancelled.",
+    "cancellationChanged": "This booking has changed and can no longer be cancelled. Its latest status is shown below.",
+    "cancellationRetry": "The latest status is still active. You can try cancelling again.",
+    "cancellationSignIn": "Your session has expired. Sign in again to check the booking.",
+    "cancellationUnavailable": "This booking is unavailable or you no longer have access.",
+    "cancellationUncertain": "We could not confirm whether the booking was cancelled. Check its status before trying again.",
+    "cancellationPending": "Cancelling booking…",
+    "cancellationChecking": "Checking the latest booking status…",
+    "cancellationCheck": "Check status",
+    "cancellationLogin": "Sign in again",
+    "detailCalendar": "Add to calendar"
   },
   "service": {
     "advisorLabel": "Advisor",

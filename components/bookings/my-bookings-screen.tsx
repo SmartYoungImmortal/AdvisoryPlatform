@@ -11,7 +11,7 @@ import { listAdvisors, listMyBookings, listServices } from "@/lib/api/resources"
 import type { ApiBooking, ApiPublicAdvisor, ApiPublicService } from "@/lib/api/types";
 import { invalidate, useResource } from "@/lib/api/use-resource";
 import { useMountTime } from "@/components/bookings/booking-flow";
-import { MiniMonth, dayDate, shiftMonth, useDayKey } from "@/components/bookings/booking-calendar";
+import { MiniMonth, dayDate, shiftMonth, useDayKey } from "@/components/bookings/mini-month";
 import {
   bookingPhase,
   useClock,
