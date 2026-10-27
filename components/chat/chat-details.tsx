@@ -229,24 +229,7 @@ export function ThreadDetails({
             {t("anonymous")}
           </StatusPill>
         ) : null}
-        {advisor || onToggleMute ? (
-          // Round actions under the name, as a messenger's details set them:
-          // a grey disc with the mark, its word under it.
-          <div className="flex justify-center gap-2 pt-1 lg:gap-3">
-            {advisor ? <RoundAction href={liveAdvisorHref(advisor.id)} icon={UserRound} label={t("viewProfile")} /> : null}
-            {advisor && bookHref ? <RoundAction href={bookHref} icon={CalendarPlus} label={t("bookAgain")} /> : null}
-            {onToggleMute ? (
-              // Says what pressing it does: the bell with its slash while it
-              // would mute, the plain bell once muted.
-              <RoundAction
-                icon={muted ? Bell : BellOff}
-                label={muted ? t("unmute") : t("mute")}
-                onClick={onToggleMute}
-                pressed={muted}
-              />
-            ) : null}
-          </div>
-        ) : null}
+        <DetailsActions advisor={advisor} bookHref={bookHref} muted={muted} onToggleMute={onToggleMute} />
         {muteFailed ? (
           <p className="text-xs text-destructive lg:text-frame-label" role="alert">
             {t("muteFailed")}
@@ -262,26 +245,73 @@ export function ThreadDetails({
         </section>
       ) : null}
 
-      {onReport ? (
-        <Button
-          className="h-11 gap-2 self-start px-0 text-sm font-medium text-muted-foreground hover:bg-transparent hover:text-destructive lg:h-12 lg:text-frame-meta"
-          onClick={onReport}
-          type="button"
-          variant="ghost"
-        >
-          <Flag aria-hidden className="size-4" />
-          {t("reportConversation")}
-        </Button>
-      ) : (
-        <Link
-          className="flex h-11 items-center gap-2 self-start text-sm font-medium text-muted-foreground transition-colors hover:text-destructive lg:h-12 lg:text-frame-meta"
-          href={chatReportHref(roomId)}
-        >
-          <Flag aria-hidden className="size-4" />
-          {t("reportConversation")}
-        </Link>
-      )}
+      <ReportAction onReport={onReport} roomId={roomId} />
     </div>
+  );
+}
+
+/**
+ * Round actions under the name, as a messenger's details set them: a grey
+ * disc with the mark, its word under it. None without an advisor to visit or
+ * a switch to press.
+ */
+function DetailsActions({
+  advisor,
+  bookHref,
+  muted,
+  onToggleMute,
+}: {
+  readonly advisor: Counterpart["advisor"];
+  readonly bookHref: string | null;
+  readonly muted: boolean;
+  readonly onToggleMute?: () => void;
+}) {
+  const t = useTranslations("chat");
+  if (!advisor && !onToggleMute) return null;
+
+  return (
+    <div className="flex justify-center gap-2 pt-1 lg:gap-3">
+      {advisor ? <RoundAction href={liveAdvisorHref(advisor.id)} icon={UserRound} label={t("viewProfile")} /> : null}
+      {advisor && bookHref ? <RoundAction href={bookHref} icon={CalendarPlus} label={t("bookAgain")} /> : null}
+      {onToggleMute ? (
+        // Says what pressing it does: the bell with its slash while it
+        // would mute, the plain bell once muted.
+        <RoundAction
+          icon={muted ? Bell : BellOff}
+          label={muted ? t("unmute") : t("mute")}
+          onClick={onToggleMute}
+          pressed={muted}
+        />
+      ) : null}
+    </div>
+  );
+}
+
+/** Reporting the conversation: over it when the thread can open the report, else the report's own page. */
+function ReportAction({ roomId, onReport }: { readonly roomId: string; readonly onReport?: () => void }) {
+  const t = useTranslations("chat");
+
+  if (onReport) {
+    return (
+      <Button
+        className="h-11 gap-2 self-start px-0 text-sm font-medium text-muted-foreground hover:bg-transparent hover:text-destructive lg:h-12 lg:text-frame-meta"
+        onClick={onReport}
+        type="button"
+        variant="ghost"
+      >
+        <Flag aria-hidden className="size-4" />
+        {t("reportConversation")}
+      </Button>
+    );
+  }
+  return (
+    <Link
+      className="flex h-11 items-center gap-2 self-start text-sm font-medium text-muted-foreground transition-colors hover:text-destructive lg:h-12 lg:text-frame-meta"
+      href={chatReportHref(roomId)}
+    >
+      <Flag aria-hidden className="size-4" />
+      {t("reportConversation")}
+    </Link>
   );
 }
 

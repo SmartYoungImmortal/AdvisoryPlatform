@@ -79,6 +79,18 @@ export type Resource<T> = {
   readonly reload: () => void;
 };
 
+/**
+ * The resource's answer, or while it is read again, the answer it last had.
+ * For a screen that reads again after a change made on it: without this the
+ * part showing the old answer unmounts for the read and forgets its own state
+ * (what it was telling the reader), and the screen blinks to its skeleton.
+ */
+export function useLastAnswer<T>(resource: Resource<T>): T | undefined {
+  const [last, setLast] = useState(resource.data);
+  if (resource.data !== undefined && resource.data !== last) setLast(resource.data);
+  return resource.data ?? (resource.loading ? last : undefined);
+}
+
 /** The reason every read fails when the build had no API to point at. */
 const NOT_CONFIGURED = new ApiUnreachableError(
   "NEXT_PUBLIC_API_URL was not set when this build was made",

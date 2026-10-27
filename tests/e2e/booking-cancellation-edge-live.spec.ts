@@ -116,7 +116,7 @@ test("a delayed response keeps double clicks to one cancellation request", async
   });
   await page.getByRole("button", { name: "ยกเลิกการจอง", exact: true }).click();
   const confirm = page.getByRole("button", { name: "ยืนยันการยกเลิก", exact: true });
-  await confirm.dblclick({ force: true });
+  await confirm.dblclick();
   await expect(confirm).toBeDisabled();
   await expect.poll(() => posts).toBe(1);
   await showForReview(page);

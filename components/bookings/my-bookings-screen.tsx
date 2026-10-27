@@ -9,7 +9,7 @@ import type { Paginated } from "@/lib/api/client";
 import { ApiError } from "@/lib/api/client";
 import { listAdvisors, listMyBookings, listServices } from "@/lib/api/resources";
 import type { ApiBooking, ApiPublicAdvisor, ApiPublicService } from "@/lib/api/types";
-import { invalidate, useResource } from "@/lib/api/use-resource";
+import { invalidate, useLastAnswer, useResource } from "@/lib/api/use-resource";
 import { useMountTime } from "@/components/bookings/booking-flow";
 import { MiniMonth, dayDate, shiftMonth, useDayKey } from "@/components/bookings/mini-month";
 import {
@@ -300,6 +300,56 @@ function ListSkeleton() {
 }
 
 /**
+ * The phone's small month: it opens just under its button, over the list
+ * rather than pushing it down, smaller than the desktop's month at its
+ * proportions: w-68 less its padding leaves 34-wide days 32 tall, the
+ * desktop's 42 by 40 scaled down.
+ */
+function PhoneMonth({
+  open,
+  onOpenChange,
+  children,
+}: {
+  readonly open: boolean;
+  readonly onOpenChange: (open: boolean) => void;
+  readonly children: ReactNode;
+}) {
+  const t = useTranslations("bookings");
+
+  return (
+    <Popover.Root onOpenChange={onOpenChange} open={open}>
+      <Popover.Trigger
+        aria-label={t("calendarLabel")}
+        render={
+          <Button
+            className={cn(
+              "size-9 shrink-0 rounded-full border border-border lg:hidden",
+              open &&
+                "border-hero-action bg-hero-action text-hero-action-foreground hover:bg-hero-action/90 hover:text-hero-action-foreground",
+            )}
+            size="icon"
+            type="button"
+            variant="ghost"
+          />
+        }
+      >
+        <CalendarDays aria-hidden className="size-4.5" />
+      </Popover.Trigger>
+      <Popover.Portal>
+        <Popover.Positioner align="end" className="isolate z-50 outline-none" collisionPadding={16} side="bottom" sideOffset={8}>
+          <Popover.Popup
+            aria-label={t("calendarLabel")}
+            className="w-68 max-w-[calc(100vw-2rem)] origin-(--transform-origin) rounded-card border border-border bg-card px-4 pt-2.5 pb-3 text-foreground shadow-hero-card outline-none duration-100 data-open:animate-in data-open:fade-in-0 data-open:zoom-in-95 data-closed:animate-out data-closed:fade-out-0 data-closed:zoom-out-95"
+          >
+            {children}
+          </Popover.Popup>
+        </Popover.Positioner>
+      </Popover.Portal>
+    </Popover.Root>
+  );
+}
+
+/**
  * `/bookings`: the advisee's sessions as scheduling apps list them for the
  * one who booked: upcoming, past and called-off as capsules, each a day to a
  * group, soonest first ahead and latest first behind. A booking opens over the
@@ -337,13 +387,10 @@ export function MyBookingsScreen() {
   const bookings = useResource<Paginated<ApiBooking>>("bookings/me?limit=50", bookingsFetcher);
   const services = useResource<Paginated<ApiPublicService>>("services?limit=100", servicesFetcher);
   const advisors = useResource<Paginated<ApiPublicAdvisor>>("advisors?limit=100", advisorsFetcher);
-  // The list as last read, kept on screen while it is read again after a
-  // change made in the open card: without it the card unmounts mid-answer and
-  // forgets what it was saying (a cancellation to check, or to try again), and
-  // the list blinks to its skeleton.
-  const [lastRead, setLastRead] = useState(bookings.data);
-  if (bookings.data && bookings.data !== lastRead) setLastRead(bookings.data);
-  const read = bookings.data ?? (bookings.loading ? lastRead : undefined);
+  // Kept on screen while the list is read again after a change made in the
+  // open card, so the card keeps what it was saying (a cancellation to check,
+  // or to try again).
+  const read = useLastAnswer(bookings);
 
   const serviceById = new Map((services.data?.items ?? []).map((service) => [service.id, service]));
   const advisorById = new Map((advisors.data?.items ?? []).map((advisor) => [advisor.id, advisor]));
@@ -448,39 +495,9 @@ export function MyBookingsScreen() {
             <div className="min-w-0 flex-1">
               <BookingTabs onChange={setChosen} tabs={tabs} value={tab} />
             </div>
-            {/* The phone's small month opens just under its button, over the
-                list rather than pushing it down, smaller than the desktop's
-                month at its proportions: w-68 less its padding leaves 34-wide
-                days 32 tall, the desktop's 42 by 40 scaled down. */}
-            <Popover.Root onOpenChange={setCalendarOpen} open={calendarOpen}>
-              <Popover.Trigger
-                aria-label={t("calendarLabel")}
-                render={
-                  <Button
-                    className={cn(
-                      "size-9 shrink-0 rounded-full border border-border lg:hidden",
-                      calendarOpen &&
-                        "border-hero-action bg-hero-action text-hero-action-foreground hover:bg-hero-action/90 hover:text-hero-action-foreground",
-                    )}
-                    size="icon"
-                    type="button"
-                    variant="ghost"
-                  />
-                }
-              >
-                <CalendarDays aria-hidden className="size-4.5" />
-              </Popover.Trigger>
-              <Popover.Portal>
-                <Popover.Positioner align="end" className="isolate z-50 outline-none" collisionPadding={16} side="bottom" sideOffset={8}>
-                  <Popover.Popup
-                    aria-label={t("calendarLabel")}
-                    className="w-68 max-w-[calc(100vw-2rem)] origin-(--transform-origin) rounded-card border border-border bg-card px-4 pt-2.5 pb-3 text-foreground shadow-hero-card outline-none duration-100 data-open:animate-in data-open:fade-in-0 data-open:zoom-in-95 data-closed:animate-out data-closed:fade-out-0 data-closed:zoom-out-95"
-                  >
-                    {miniMonth}
-                  </Popover.Popup>
-                </Popover.Positioner>
-              </Popover.Portal>
-            </Popover.Root>
+            <PhoneMonth onOpenChange={setCalendarOpen} open={calendarOpen}>
+              {miniMonth}
+            </PhoneMonth>
           </div>
           {rows.length > 0 ? <Timeline entries={rows} now={now} onOpen={open} today={today} /> : <TabEmpty tab={tab} />}
         </div>

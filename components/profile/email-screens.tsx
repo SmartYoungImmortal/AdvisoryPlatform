@@ -201,9 +201,9 @@ function VerifyEmailNote() {
         </span>
         <EmailCard caption={t("stillLabel")} className="mt-5" value={account?.email ?? c("emailValue")} />
         {resendStatus ? (
-          <p className="mt-3 text-sm text-muted-foreground" role="status">
+          <output className="mt-3 block text-sm text-muted-foreground">
             {resendStatus === "sent" ? t("resent") : t("resendFailed")}
-          </p>
+          </output>
         ) : null}
         <div className={SETTINGS_DIALOG_ACTIONS}>
           <PrimaryButton className="lg:w-auto" href="/settings">

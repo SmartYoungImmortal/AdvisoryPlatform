@@ -21,14 +21,16 @@ export function CancellationFeedback({ cancellation }: { readonly cancellation: 
   const t = useTranslations("bookings");
   if (cancellation.state.kind === "idle") return null;
   if (cancellation.state.kind === "pending") {
-    return <p role="status" className="text-sm text-muted-foreground lg:text-frame-meta">{t(cancellation.state.action === "cancel" ? "cancellationPending" : "cancellationChecking")}</p>;
+    // `<output>`: a live status by its own semantics, announced without a role.
+    return <output className="block text-sm text-muted-foreground lg:text-frame-meta">{t(cancellation.state.action === "cancel" ? "cancellationPending" : "cancellationChecking")}</output>;
   }
   const { outcome } = cancellation.state;
   return (
-    <div role="status" aria-live="polite" className="flex w-full flex-col items-start gap-3 rounded-xl bg-muted p-4 lg:gap-4 lg:p-5">
-      <p className="text-sm text-foreground lg:text-frame-meta">{t(MESSAGE[outcome])}</p>
+    <output aria-live="polite" className="flex w-full flex-col items-start gap-3 rounded-xl bg-muted p-4 lg:gap-4 lg:p-5">
+      {/* A `<span>`: `<output>` holds phrasing content only. */}
+      <span className="block text-sm text-foreground lg:text-frame-meta">{t(MESSAGE[outcome])}</span>
       {outcome === "uncertain" ? <NeutralButton className={PILL} onClick={() => void cancellation.check()}>{t("cancellationCheck")}</NeutralButton> : null}
       {outcome === "signIn" ? <NeutralButton className={PILL} href="/login">{t("cancellationLogin")}</NeutralButton> : null}
-    </div>
+    </output>
   );
 }

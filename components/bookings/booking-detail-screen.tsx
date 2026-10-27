@@ -2,7 +2,7 @@
 
 import { CalendarDays } from "lucide-react";
 import Link from "next/link";
-import { useCallback, useState, type ReactNode } from "react";
+import { useCallback, type ReactNode } from "react";
 import { useTranslations } from "next-intl";
 
 import { MobileScreen, ScreenBody, ScreenTopBar } from "@/components/mobile/screen";
@@ -14,7 +14,7 @@ import { SHEET_W, SHEET_X } from "@/components/payment/invoice-screens";
 import { Button } from "@/components/ui/button";
 import { getAdvisor, getBooking, getService } from "@/lib/api/resources";
 import type { ApiBooking, ApiPublicAdvisor, ApiPublicService } from "@/lib/api/types";
-import { invalidate, useResource } from "@/lib/api/use-resource";
+import { invalidate, useLastAnswer, useResource } from "@/lib/api/use-resource";
 import { asUuid, useMountTime, useQueryValue } from "@/components/bookings/booking-flow";
 import { cn } from "@/lib/utils";
 
@@ -100,11 +100,9 @@ function BookingDetailData({ bookingId }: { readonly bookingId: string }) {
   const t = useTranslations("bookings");
   const fetchBooking = useCallback((signal: AbortSignal) => getBooking(bookingId, signal), [bookingId]);
   const booking = useResource<ApiBooking>(`bookings/${bookingId}`, fetchBooking);
-  // The booking as last read, kept while it is read again after a change made
-  // in the card, so the card stays mounted and keeps what it was saying.
-  const [lastRead, setLastRead] = useState(booking.data);
-  if (booking.data && booking.data !== lastRead) setLastRead(booking.data);
-  const shown = booking.data ?? (booking.loading ? lastRead : undefined);
+  // Kept while the booking is read again after a change made in the card, so
+  // the card stays mounted and keeps what it was saying.
+  const shown = useLastAnswer(booking);
 
   if (!shown && booking.loading) return <BookingDetailSkeleton />;
   if (booking.error || !shown) {

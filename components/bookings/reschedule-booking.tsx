@@ -39,6 +39,12 @@ export function RescheduleBooking({
   );
 }
 
+/** The reader's sentence for a move that failed: a taken slot said so, else the API's own. */
+function rescheduleFailure(cause: unknown, conflict: string): string {
+  if (cause instanceof ApiError && cause.status === 409) return conflict;
+  return cause instanceof Error ? cause.message : String(cause);
+}
+
 /** The slot picker on its own, for a row that lays out its own toggle (the bookings list). */
 export function RescheduleSlots({
   booking,
@@ -71,6 +77,8 @@ export function RescheduleSlots({
   const available = (slots.data ?? []).filter(
     (slot) => slot.startTime !== booking.startTime,
   );
+  // The API refuses the slots until the service's screening is answered.
+  const needsScreening = slots.error instanceof ApiError && slots.error.status === 400;
 
   const submit = () => {
     if (!selected || saving) return;
@@ -78,15 +86,7 @@ export function RescheduleSlots({
     setFailure(null);
     void rescheduleBooking(booking.id, selected)
       .then(() => onRescheduled())
-      .catch((cause: unknown) => {
-        setFailure(
-          cause instanceof ApiError && cause.status === 409
-            ? t("rescheduleConflict")
-            : cause instanceof Error
-              ? cause.message
-              : String(cause),
-        );
-      })
+      .catch((cause: unknown) => setFailure(rescheduleFailure(cause, t("rescheduleConflict"))))
       .finally(() => setSaving(false));
   };
 
@@ -100,11 +100,9 @@ export function RescheduleSlots({
           ) : slots.error ? (
             <div className="flex flex-col items-start gap-2">
               <p className="text-sm text-destructive">
-                {slots.error instanceof ApiError && slots.error.status === 400
-                  ? t("rescheduleScreeningRequired")
-                  : slots.error.message}
+                {needsScreening ? t("rescheduleScreeningRequired") : slots.error.message}
               </p>
-              {slots.error instanceof ApiError && slots.error.status === 400 ? (
+              {needsScreening ? (
                 <NeutralButton
                   className="w-auto"
                   href={`/screening/questions?serviceId=${booking.serviceId}`}

@@ -232,6 +232,91 @@ const PILL = "h-10 gap-2 rounded-full px-5 text-sm font-medium lg:h-12 lg:px-6 l
 const MAIN_PILL = cn(PILL, "bg-primary text-primary-foreground hover:bg-primary/90");
 const MORE_PILL = cn(PILL, "border border-border bg-card text-foreground hover:bg-muted");
 
+/** The card's title block: the square in the booking's colour, its name, its day and hours, how it stands. */
+function SheetHeader({
+  booking,
+  service,
+  now,
+  heading: Heading,
+  titleId,
+}: {
+  readonly booking: ApiBooking;
+  readonly service: ApiPublicService | undefined;
+  readonly now: number;
+  readonly heading: "h1" | "h2";
+  readonly titleId?: string;
+}) {
+  const t = useTranslations("bookings");
+  const format = useFormatter();
+  const clock = useClock();
+  const standing = useStanding()(booking, now);
+  const start = new Date(booking.startTime);
+  // How far off it is, while it has not started.
+  const counting = bookingPhase(booking, now) === "ahead" && booking.state !== "IN_PROGRESS";
+
+  return (
+    <header className="flex items-start gap-4 lg:gap-5">
+      <span className={cn("flex shrink-0 justify-center pt-1.5 lg:pt-2", GUTTER_W)}>
+        <span aria-hidden className={cn("size-4 rounded-[5px] lg:size-5 lg:rounded-md", standing.dot)} />
+      </span>
+      <div className="flex min-w-0 flex-1 flex-col gap-1 lg:gap-1.5">
+        <Heading className="text-xl font-normal text-foreground lg:text-frame-heading" id={titleId}>
+          {service?.name ?? t("detailsUnavailableValue")}
+        </Heading>
+        <p className="text-sm text-foreground lg:text-frame-meta">
+          <Figures>{format.dateTime(start, { weekday: "long", day: "numeric", month: "long", year: "numeric" })}</Figures>
+          {" · "}
+          <span className="font-latin tabular-nums whitespace-nowrap">
+            {clock(start)} – {clock(booking.endTime)}
+          </span>
+        </p>
+        <p className={cn("text-sm lg:text-frame-meta", standing.ink)}>
+          {standing.label}
+          {counting ? <span className="text-muted-foreground"> · {format.relativeTime(start, now)}</span> : null}
+        </p>
+      </div>
+    </header>
+  );
+}
+
+/**
+ * What was paid and how it stands, with the way to its receipt. With no
+ * invoice to show, the service's price now: the appointment itself records
+ * no amount.
+ */
+function PaymentLine({
+  booking,
+  service,
+}: {
+  readonly booking: ApiBooking;
+  readonly service: ApiPublicService | undefined;
+}) {
+  const t = useTranslations("bookings");
+  const tr = useTranslations("transactions");
+  const format = useFormatter();
+  const invoice = useBookingInvoice(booking);
+
+  if (invoice) {
+    return (
+      <Line icon={Banknote}>
+        <span className="text-muted-foreground">{tr(`status.${invoice.status}`)}</span>{" "}
+        <span className="font-latin font-medium tabular-nums">{format.number(baht(invoice.amountSatang), "baht")}</span>
+        {" · "}
+        <Link className="font-medium text-primary underline-offset-4 hover:underline" href={invoiceHref(invoice.id)}>
+          {t("viewReceipt")}
+        </Link>
+      </Line>
+    );
+  }
+  if (!service) return null;
+  return (
+    <Line icon={Banknote}>
+      {t("detailsPriceLabel")}{" "}
+      <span className="font-latin font-medium tabular-nums">{format.number(baht(service.priceSatang), "baht")}</span>
+    </Line>
+  );
+}
+
 /**
  * The booking as a calendar's event card shows an event: a square in its
  * colour beside the title, the day and the hours under it and how it stands;
@@ -263,9 +348,7 @@ export function BookingSheet({
   const l = useTranslations("landing");
   const format = useFormatter();
   const clock = useClock();
-  const standing = useStanding()(entry.booking, now);
   const ways = useWaysOn(entry, now);
-  const invoice = useBookingInvoice(entry.booking);
   const MainIcon = ways.main.icon;
   const [panel, setPanel] = useState<"none" | "reschedule" | "cancel">("none");
   // One cancellation at a time; after an answer that may hide a committed
@@ -278,7 +361,6 @@ export function BookingSheet({
   const changeable = ahead && isCancellable(booking.state);
   // Only a held time goes in a calendar: an unpaid one may never happen.
   const keepable = ahead && (booking.state === "BOOKED" || booking.state === "IN_PROGRESS");
-  const Heading = inDialog ? "h2" : "h1";
   const stamp = (iso: string) =>
     `${format.dateTime(new Date(iso), { day: "numeric", month: "short", year: "numeric" })} · ${clock(iso)}`;
 
@@ -297,29 +379,7 @@ export function BookingSheet({
         SHEET_X,
       )}
     >
-      <header className="flex items-start gap-4 lg:gap-5">
-        <span className={cn("flex shrink-0 justify-center pt-1.5 lg:pt-2", GUTTER_W)}>
-          <span aria-hidden className={cn("size-4 rounded-[5px] lg:size-5 lg:rounded-md", standing.dot)} />
-        </span>
-        <div className="flex min-w-0 flex-1 flex-col gap-1 lg:gap-1.5">
-          <Heading className="text-xl font-normal text-foreground lg:text-frame-heading" id={titleId}>
-            {service?.name ?? t("detailsUnavailableValue")}
-          </Heading>
-          <p className="text-sm text-foreground lg:text-frame-meta">
-            <Figures>{format.dateTime(start, { weekday: "long", day: "numeric", month: "long", year: "numeric" })}</Figures>
-            {" · "}
-            <span className="font-latin tabular-nums whitespace-nowrap">
-              {clock(start)} – {clock(booking.endTime)}
-            </span>
-          </p>
-          <p className={cn("text-sm lg:text-frame-meta", standing.ink)}>
-            {standing.label}
-            {ahead && booking.state !== "IN_PROGRESS" ? (
-              <span className="text-muted-foreground"> · {format.relativeTime(start, now)}</span>
-            ) : null}
-          </p>
-        </div>
-      </header>
+      <SheetHeader booking={booking} heading={inDialog ? "h2" : "h1"} now={now} service={service} titleId={titleId} />
 
       <div className={UNDER_TEXT}>
         <Button className={MAIN_PILL} nativeButton={false} render={<Link href={ways.main.href} />}>
@@ -346,24 +406,7 @@ export function BookingSheet({
           <ChevronRight aria-hidden className="size-4 shrink-0 text-muted-foreground lg:size-5" />
         </Link>
         <Line icon={Clock3}>{t("detailsDuration", { count: minutes })}</Line>
-        {/* What was paid and how it stands, with the way to its receipt. With
-            no invoice to show, the service's price now: the appointment
-            itself records no amount. */}
-        {invoice ? (
-          <Line icon={Banknote}>
-            <span className="text-muted-foreground">{tr(`status.${invoice.status}`)}</span>{" "}
-            <span className="font-latin font-medium tabular-nums">{format.number(baht(invoice.amountSatang), "baht")}</span>
-            {" · "}
-            <Link className="font-medium text-primary underline-offset-4 hover:underline" href={invoiceHref(invoice.id)}>
-              {t("viewReceipt")}
-            </Link>
-          </Line>
-        ) : service ? (
-          <Line icon={Banknote}>
-            {t("detailsPriceLabel")}{" "}
-            <span className="font-latin font-medium tabular-nums">{format.number(baht(service.priceSatang), "baht")}</span>
-          </Line>
-        ) : null}
+        <PaymentLine booking={booking} service={service} />
         <Line icon={CalendarPlus}>
           <span className="text-muted-foreground">{t("detailsCreatedLabel")}</span> <Figures>{stamp(booking.createdAt)}</Figures>
         </Line>

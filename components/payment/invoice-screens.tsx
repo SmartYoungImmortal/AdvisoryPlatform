@@ -617,6 +617,66 @@ function cardName(card: NonNullable<Receipt["card"]>): string {
 export const SHEET_X = "px-5 lg:px-10";
 
 /**
+ * The facts of the booking and the card, two to a row: who advised, when, the
+ * card it went on, who it is made out to, and how the booking stands.
+ */
+function ReceiptFacts({ receipt }: { readonly receipt: Receipt }) {
+  const t = useTranslations("transactions");
+  const format = useFormatter();
+  const clock = (iso: string) =>
+    format.dateTime(new Date(iso), { hour: "2-digit", minute: "2-digit", hourCycle: "h23" });
+  const { session, card } = receipt;
+  const signedIn = useSession();
+  const payer = signedIn.status === "authenticated" ? signedIn.account : null;
+
+  return (
+    <dl className="mt-3 grid grid-cols-2 gap-x-5 gap-y-2.5 lg:mt-7 lg:gap-x-6 lg:gap-y-5">
+      <Fact label={t("advisorLabel")}>{receipt.advisor}</Fact>
+      {session ? (
+        <Fact label={receipt.booking === "unconfirmed" ? t("requestedDateLabel") : t("sessionDateLabel")}>
+          {/* The day, then the hours on a line of their own. */}
+          <span className="block">
+            <Figures>
+              {format.dateTime(new Date(session.date), {
+                weekday: "short",
+                day: "numeric",
+                month: "short",
+                year: "numeric",
+              })}
+            </Figures>
+          </span>
+          {session.from && session.to ? (
+            <span className="block">
+              <Figures>{t("timeRange", { from: clock(session.from), to: clock(session.to) })}</Figures>
+            </span>
+          ) : null}
+        </Fact>
+      ) : null}
+      {card ? (
+        <Fact className="font-latin" label={t(`cardLabel.${receipt.status}`)}>
+          <span className="inline-flex items-center gap-2">
+            <CreditCard aria-hidden className="size-4 text-muted-foreground" />
+            {cardName(card)}
+          </span>
+        </Fact>
+      ) : null}
+      {/* Who the receipt is made out to, as a printed one names them. */}
+      {payer ? (
+        <Fact label={t("billedToLabel")}>
+          <span className="block">{payer.name}</span>
+          <span className="block truncate text-muted-foreground">{payer.email}</span>
+        </Fact>
+      ) : null}
+      {receipt.booking ? (
+        <Fact className="font-medium text-destructive" label={t("bookingLabel")}>
+          {t(`booking.${receipt.booking}`)}
+        </Fact>
+      ) : null}
+    </dl>
+  );
+}
+
+/**
  * The receipt itself, laid out as a sheet of paper rather than a panel: narrow
  * and upright, top to bottom the way a printed one reads. Who issued it and
  * its number; how it ended, for how much and when; the facts of the booking
@@ -648,10 +708,8 @@ function ReceiptCard({
   const charged = receipt.price + receipt.fee;
   // A refund's receipt leads with what came back; the others with what was asked for.
   const headline = receipt.status === "refunded" ? (receipt.refund ?? charged) : charged;
-  const { session, card, at } = receipt;
+  const { at } = receipt;
   const Heading = inDialog ? "h2" : "h1";
-  const signedIn = useSession();
-  const payer = signedIn.status === "authenticated" ? signedIn.account : null;
 
   return (
     <article
@@ -695,49 +753,7 @@ function ReceiptCard({
           </p>
         ) : null}
 
-        <dl className="mt-3 grid grid-cols-2 gap-x-5 gap-y-2.5 lg:mt-7 lg:gap-x-6 lg:gap-y-5">
-          <Fact label={t("advisorLabel")}>{receipt.advisor}</Fact>
-          {session ? (
-            <Fact label={receipt.booking === "unconfirmed" ? t("requestedDateLabel") : t("sessionDateLabel")}>
-              {/* The day, then the hours on a line of their own. */}
-              <span className="block">
-                <Figures>
-                  {format.dateTime(new Date(session.date), {
-                    weekday: "short",
-                    day: "numeric",
-                    month: "short",
-                    year: "numeric",
-                  })}
-                </Figures>
-              </span>
-              {session.from && session.to ? (
-                <span className="block">
-                  <Figures>{t("timeRange", { from: clock(session.from), to: clock(session.to) })}</Figures>
-                </span>
-              ) : null}
-            </Fact>
-          ) : null}
-          {card ? (
-            <Fact className="font-latin" label={t(`cardLabel.${receipt.status}`)}>
-              <span className="inline-flex items-center gap-2">
-                <CreditCard aria-hidden className="size-4 text-muted-foreground" />
-                {cardName(card)}
-              </span>
-            </Fact>
-          ) : null}
-          {/* Who the receipt is made out to, as a printed one names them. */}
-          {payer ? (
-            <Fact label={t("billedToLabel")}>
-              <span className="block">{payer.name}</span>
-              <span className="block truncate text-muted-foreground">{payer.email}</span>
-            </Fact>
-          ) : null}
-          {receipt.booking ? (
-            <Fact className="font-medium text-destructive" label={t("bookingLabel")}>
-              {t(`booking.${receipt.booking}`)}
-            </Fact>
-          ) : null}
-        </dl>
+        <ReceiptFacts receipt={receipt} />
       </section>
 
       {/* The line items on a faint ground of their own, the way a printed

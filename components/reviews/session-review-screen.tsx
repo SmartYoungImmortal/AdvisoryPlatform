@@ -274,12 +274,10 @@ function RatingForm({
           <p className="mt-1 text-sm text-muted-foreground lg:mt-1.5 lg:text-frame-meta">{t("promptBody")}</p>
 
           <div className="mt-4 flex items-center gap-3 lg:mt-6 lg:gap-4">
-            <div
-              aria-label={t("promptTitle")}
-              className="-ml-1.5 flex items-center"
-              onMouseLeave={() => setHover(0)}
-              role="radiogroup"
-            >
+            {/* The hover lights the stars up to the one under the pointer; it
+                clears as the pointer leaves a star, so the group itself needs
+                no handler of its own. */}
+            <div aria-label={t("promptTitle")} className="-ml-1.5 flex items-center" role="radiogroup">
               {Array.from({ length: REVIEW_STARS_MAX }, (_, i) => i + 1).map((value) => (
                 <Button
                   aria-checked={stars === value}
@@ -291,6 +289,7 @@ function RatingForm({
                     setFailure(null);
                   }}
                   onMouseEnter={() => setHover(value)}
+                  onMouseLeave={() => setHover(0)}
                   role="radio"
                   size="icon"
                   type="button"

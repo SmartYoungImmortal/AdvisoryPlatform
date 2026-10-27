@@ -92,26 +92,10 @@ export function NotificationsRoute() {
 }
 
 /**
- * The signed-in user's notifications, newest first, grouped into today,
- * yesterday and earlier, and filtered on this page by state or kind. More
- * load as the user scrolls down. Tapping a row marks it read and opens what it
- * is about. The list comes from the shared store (`notification-store.ts`), so
- * changes show without a reload.
+ * A ref for the hairline at the foot of the feed: as it nears the view, the
+ * next page loads. The page scrolls inside `ScreenBody`, not the window.
  */
-function LiveNotificationCenter() {
-  const t = useTranslations("notifications");
-  const format = useFormatter();
-  const session = useSession();
-  const signedIn = session.status === "authenticated";
-  const advisor = signedIn && session.account.role === "advisor";
-  const now = useMountTime();
-  const elapsed = useElapsedLabel(now);
-  const feed = useNotificationFeed();
-  // The server's own count: it also covers unread rows on pages not loaded yet.
-  const pulse = useNotificationPulse(signedIn);
-  const [filter, setFilter] = useState<FeedFilter>("all");
-
-  const hasMore = feed.status === "ready" && feed.nextCursor !== null;
+function useMoreOnScroll(hasMore: boolean) {
   const sentinel = useRef<HTMLDivElement>(null);
   useEffect(() => {
     const node = sentinel.current;
@@ -120,13 +104,19 @@ function LiveNotificationCenter() {
       (entries) => {
         if (entries.some((entry) => entry.isIntersecting)) void loadMoreFeed();
       },
-      // The page scrolls inside `ScreenBody`, not the window.
       { root: node.closest('[data-slot="screen-body"]'), rootMargin: "0px 0px 240px 0px" },
     );
     observer.observe(node);
     return () => observer.disconnect();
   }, [hasMore]);
+  return sentinel;
+}
 
+/** The rows under their stretch of time, a hairline between the stretches and none between rows. */
+function FeedGroups({ items, now }: { readonly items: readonly ApiNotification[]; readonly now: number }) {
+  const t = useTranslations("notifications");
+  const format = useFormatter();
+  const elapsed = useElapsedLabel(now);
   // Today's rows say how long ago; yesterday's the time of day; earlier ones
   // the date, since their heading does not name the day.
   const when = (recency: Recency, iso: string) => {
@@ -136,6 +126,52 @@ function LiveNotificationCenter() {
       ? format.dateTime(date, { hour: "2-digit", minute: "2-digit", hourCycle: "h23" })
       : format.dateTime(date, { day: "numeric", month: "short" });
   };
+
+  return (
+    <div className="flex flex-col divide-y divide-border">
+      {groupByRecency(items, now).map((group) => (
+        <DayGroup key={group.recency} label={t(RECENCY_LABEL[group.recency])}>
+          {group.items.map((item) => (
+            <NotificationRow
+              body={item.content}
+              href={notificationTarget(item)}
+              icon={iconFor(item.type)}
+              key={item.id}
+              onClick={() => {
+                rememberNotification(item);
+                if (!item.isRead) void readNotification(item.id);
+              }}
+              time={when(group.recency, item.createdAt)}
+              title={item.title}
+              unread={!item.isRead}
+            />
+          ))}
+        </DayGroup>
+      ))}
+    </div>
+  );
+}
+
+/**
+ * The signed-in user's notifications, newest first, grouped into today,
+ * yesterday and earlier, and filtered on this page by state or kind. More
+ * load as the user scrolls down. Tapping a row marks it read and opens what it
+ * is about. The list comes from the shared store (`notification-store.ts`), so
+ * changes show without a reload.
+ */
+function LiveNotificationCenter() {
+  const t = useTranslations("notifications");
+  const session = useSession();
+  const signedIn = session.status === "authenticated";
+  const advisor = signedIn && session.account.role === "advisor";
+  const now = useMountTime();
+  const feed = useNotificationFeed();
+  // The server's own count: it also covers unread rows on pages not loaded yet.
+  const pulse = useNotificationPulse(signedIn);
+  const [filter, setFilter] = useState<FeedFilter>("all");
+
+  const hasMore = feed.status === "ready" && feed.nextCursor !== null;
+  const sentinel = useMoreOnScroll(hasMore);
   const matches = (item: ApiNotification) => {
     if (filter === "all") return true;
     return notificationCategory(item.type) === filter;
@@ -177,28 +213,7 @@ function LiveNotificationCenter() {
         {visible.length === 0 ? (
           <FilteredEmpty onShowAll={() => setFilter("all")} />
         ) : (
-          // A hairline between the stretches of the feed, none between rows.
-          <div className="flex flex-col divide-y divide-border">
-            {groupByRecency(visible, now).map((group) => (
-              <DayGroup key={group.recency} label={t(RECENCY_LABEL[group.recency])}>
-                {group.items.map((item) => (
-                  <NotificationRow
-                    body={item.content}
-                    href={notificationTarget(item)}
-                    icon={iconFor(item.type)}
-                    key={item.id}
-                    onClick={() => {
-                      rememberNotification(item);
-                      if (!item.isRead) void readNotification(item.id);
-                    }}
-                    time={when(group.recency, item.createdAt)}
-                    title={item.title}
-                    unread={!item.isRead}
-                  />
-                ))}
-              </DayGroup>
-            ))}
-          </div>
+          <FeedGroups items={visible} now={now} />
         )}
         {feed.loadingMore ? (
           <div aria-busy className="flex items-center gap-4 py-4 lg:gap-5 lg:py-6">
