@@ -718,9 +718,9 @@ function ReceiptCard({
         !inDialog && "rounded-card border border-hero-card-border shadow-hero-card",
       )}
     >
-      {/* In the popup the close sits outside the sheet below `lg`, so the
-          header starts the sheet there; from `lg` the close row is above it. */}
-      <header className={cn("flex items-start justify-between gap-4", inDialog ? "pt-5 md:pt-4 lg:pt-1" : "pt-6 lg:pt-9", SHEET_X)}>
+      {/* In the popup the close sits outside the sheet, so the header starts
+          the sheet at every width. */}
+      <header className={cn("flex items-start justify-between gap-4", inDialog ? "pt-5 md:pt-4 lg:pt-9" : "pt-6 lg:pt-9", SHEET_X)}>
         <Image alt="Advisory" className="h-5 w-auto lg:h-8" src={logo} />
         <div className="flex flex-col items-end gap-0.5 text-right">
           <p className="text-xs text-muted-foreground lg:text-frame-label">{t("receiptLabel")}</p>
@@ -872,43 +872,35 @@ function ReceiptDialog({
         // On a phone 24px clear of each edge rather than the dialog's 16, so
         // the receipt reads as a sheet over the list rather than a second page.
         // The popup itself only places things: the sheet below scrolls, and
-        // below `lg` the close sits outside it.
+        // the close sits outside it.
         className="block max-w-[calc(100%-3rem)] gap-0 overflow-visible bg-transparent p-0 text-foreground ring-0 sm:max-w-sm lg:w-auto lg:max-w-none"
-        // Below `lg` the close sits out on the page in white, so the page
-        // under it is dimmed by half, as under the settings' dialogs.
-        overlayClassName="max-lg:bg-scrim/50"
+        // The close sits out on the page in white, so the page under it is
+        // dimmed by half, as under the settings' dialogs.
+        overlayClassName="bg-scrim/50"
         showCloseButton={false}
       >
         {receipt ? (
           <>
-            {/* Below `lg`, out on the dimmed page above the sheet's top right
-                corner, so it never sits over the receipt: the bare glyph, a
-                thumb's 44px around it to press. */}
+            {/* Out on the dimmed page above the sheet's top right corner at
+                every width, so it never sits over the receipt: the bare glyph
+                in white, a thumb's 44px around it to press. */}
             <DialogClose
               render={
                 <Button
                   aria-label={t("closeReceipt")}
-                  className="absolute -top-12 right-0 size-11 text-on-media hover:bg-transparent hover:text-on-media md:-top-13 lg:hidden"
+                  className="absolute -top-12 right-0 size-11 text-on-media hover:bg-transparent hover:text-on-media md:-top-13 lg:-top-14 lg:size-12"
                   size="icon"
                   variant="ghost"
                 />
               }
             >
-              <X aria-hidden className="size-6" />
+              <X aria-hidden className="size-6 lg:size-7" />
             </DialogClose>
-            {/* On a phone as tall as the screen allows under the close (its 48
-                and a margin), so the whole receipt fits without scrolling on
-                any phone the height of an SE or more. */}
-            <div className="max-h-[calc(100dvh-7rem)] overflow-y-auto overscroll-contain rounded-card bg-card shadow-hero-card md:max-h-[calc(100dvh-8rem)] lg:max-h-[calc(100dvh-3rem)]">
+            {/* As tall as the screen allows under the close (its 48 and a
+                margin), so the whole receipt fits without scrolling on any
+                phone the height of an SE or more. */}
+            <div className="max-h-[calc(100dvh-7rem)] overflow-y-auto overscroll-contain rounded-card bg-card shadow-hero-card md:max-h-[calc(100dvh-8rem)] lg:max-h-[calc(100dvh-9rem)]">
               <div className={cn("app-scale contents lg:block", SHEET_W)}>
-                {/* From `lg`, held at the top inside the sheet as before. */}
-                <div className="sticky top-0 z-10 hidden justify-end bg-card px-4 pt-4 lg:flex">
-                  <DialogClose
-                    render={<Button aria-label={t("closeReceipt")} className="size-12" size="icon" variant="ghost" />}
-                  >
-                    <X aria-hidden className="size-6" />
-                  </DialogClose>
-                </div>
                 <ReceiptCard inDialog receipt={receipt} titleId={title} />
                 <NextSteps className={cn("pb-5 md:pb-4 lg:pb-6", SHEET_X)} receipt={receipt} />
               </div>
