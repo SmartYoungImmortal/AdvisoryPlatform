@@ -5,19 +5,18 @@ import Link from "next/link";
 import { useTranslations } from "next-intl";
 import { useState, type FormEvent } from "react";
 
-import { InfoCard, InfoRow, InfoStackRow } from "@/components/mobile/banner";
+import { InfoRow, InfoStackRow } from "@/components/mobile/banner";
 import { Field } from "@/components/mobile/field";
 import {
   SETTINGS_DIALOG_ACTIONS,
-  SETTINGS_DIALOG_PANEL,
   SettingsDialog,
+  SettingsDialogList,
   settingsPill,
 } from "@/components/profile/settings-dialog";
 import { Button } from "@/components/ui/button";
 import { ApiError, api } from "@/lib/api/client";
 import { deleteOwnAccount } from "@/lib/api/account";
 import { signOut } from "@/lib/session";
-import { cn } from "@/lib/utils";
 
 interface AccountDeletionBlockers {
   readonly upcomingAppointments: readonly {
@@ -102,13 +101,8 @@ function DeleteAccountForm({ onClose }: { readonly onClose: () => void }) {
 
   return (
     <form className="flex w-full flex-col" onSubmit={submit}>
-      {/* What goes with the account, on the destructive tint the booking
-          card's cancel prompt wears; outlined in destructive while bookings
-          are in the way. */}
-      <InfoCard
-        caption={isBlocked ? t("blockedTitle") : t("lossTitle")}
-        className={cn(SETTINGS_DIALOG_PANEL, "bg-destructive/5", isBlocked && "ring-1 ring-destructive ring-inset")}
-      >
+      {/* What goes with the account, or while bookings are in the way, those. */}
+      <SettingsDialogList caption={isBlocked ? t("blockedTitle") : t("lossTitle")}>
         {isBlocked ? (
           <>
             <InfoStackRow
@@ -138,7 +132,7 @@ function DeleteAccountForm({ onClose }: { readonly onClose: () => void }) {
             </InfoRow>
           </>
         )}
-      </InfoCard>
+      </SettingsDialogList>
 
       {isBlocked ? null : (
         <div className="mt-5 flex w-full flex-col">

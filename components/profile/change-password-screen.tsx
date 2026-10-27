@@ -6,19 +6,18 @@ import { useTranslations } from "next-intl";
 import { useRouter } from "next/navigation";
 import { useState, type FormEvent } from "react";
 
-import { AlertBanner, InfoCard, InfoRow } from "@/components/mobile/banner";
+import { AlertBanner, InfoRow } from "@/components/mobile/banner";
 import { Field } from "@/components/mobile/field";
 import { AccountSettingsScreen } from "@/components/profile/account-settings-screen";
 import {
   SETTINGS_DIALOG_ACTIONS,
-  SETTINGS_DIALOG_PANEL,
   SettingsDialog,
+  SettingsDialogList,
   settingsPill,
 } from "@/components/profile/settings-dialog";
 import { Button } from "@/components/ui/button";
 import { changePassword } from "@/lib/api/account";
 import { ApiError } from "@/lib/api/client";
-import { cn } from "@/lib/utils";
 
 /**
  * Figma "Change password" (995:7360) and its wrong-current-password state
@@ -119,12 +118,12 @@ function ChangePasswordForm({ state = "default" }: { readonly state?: "default" 
           />
         </div>
 
-        <InfoCard caption={t("requirementsTitle")} className={cn("mt-5", SETTINGS_DIALOG_PANEL)}>
+        <SettingsDialogList caption={t("requirementsTitle")} className="mt-5">
           <InfoRow icon={CircleCheck}>{t("requirement1")}</InfoRow>
           <InfoRow icon={CircleCheck}>{isWrong ? t("requirement2Short") : t("requirement2")}</InfoRow>
           <InfoRow icon={CircleCheck}>{t("requirement3")}</InfoRow>
           <InfoRow icon={CircleCheck}>{t("requirement4")}</InfoRow>
-        </InfoCard>
+        </SettingsDialogList>
 
         {problem === "invalid" ? (
           <p className="mt-3 text-sm text-destructive" role="alert">

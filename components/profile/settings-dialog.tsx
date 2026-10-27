@@ -3,7 +3,7 @@
 import { X } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
-import type { ReactNode } from "react";
+import { useRef, type ReactNode } from "react";
 
 import { profilePill } from "@/components/profile/identity-card";
 import { Button } from "@/components/ui/button";
@@ -60,6 +60,7 @@ export function SettingsDialog({
 }) {
   const router = useRouter();
   const c = useTranslations("common");
+  const popup = useRef<HTMLDivElement>(null);
   const state =
     open === undefined
       ? { defaultOpen: true, onOpenChange: (next: boolean) => !next && router.push(closeHref) }
@@ -69,6 +70,11 @@ export function SettingsDialog({
     <Dialog {...state}>
       <DialogContent
         className="block max-h-[calc(100dvh-2rem)] gap-0 overflow-y-auto overscroll-contain rounded-card bg-card p-0 text-foreground shadow-hero-card ring-0 sm:max-w-md lg:w-auto lg:max-w-none"
+        // Opened by a press (or by its route), the dialog takes the focus
+        // itself, so the close button does not open wearing its focus ring;
+        // from the keyboard it goes to the first control as usual.
+        initialFocus={(type) => (type === "keyboard" ? true : popup.current)}
+        ref={popup}
         showCloseButton={false}
       >
         <div className="app-scale contents lg:block lg:w-140">
@@ -123,8 +129,23 @@ export function settingsPill(kind: "solid" | "outline" | "destructive" = "outlin
 }
 
 /**
- * A block of facts inside the dialog (what goes with the account, the rules a
- * password answers to): a tinted panel on the dialog's white, as the booking
- * card's own prompts are, rather than a card on a card.
+ * A short list inside the dialog (what goes with the account, the rules a
+ * password answers to): its caption, then a line for each, on the dialog's
+ * own white with nothing drawn round it.
  */
-export const SETTINGS_DIALOG_PANEL = "gap-2.5 rounded-xl border-0 bg-muted/50 p-4 shadow-none lg:gap-3.5 lg:p-5";
+export function SettingsDialogList({
+  caption,
+  children,
+  className,
+}: {
+  readonly caption: ReactNode;
+  readonly children: ReactNode;
+  readonly className?: string;
+}) {
+  return (
+    <div className={cn("flex w-full flex-col gap-2.5 lg:gap-3", className)}>
+      <p className="text-xs text-muted-foreground">{caption}</p>
+      {children}
+    </div>
+  );
+}

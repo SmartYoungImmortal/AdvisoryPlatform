@@ -18,11 +18,9 @@ import { isEmail } from "@/lib/session";
 import { cn } from "@/lib/utils";
 
 /**
- * Figma "Current Card" (995:7305) and "Still Card" (995:7787) — a read-only row:
- * a 16px mail glyph, then a 12/18 muted caption over the 14/20 medium address.
- * The auth frames draw the same block as "Sent To", see `ResetLinkSentScreen`.
- * On the dialog's white it takes the muted tint, so it reads as a value rather
- * than another field.
+ * The address the account has, read-only: its caption set as the field's
+ * label is, the address under it at the field's own size, so it reads as the
+ * row above the new one rather than as a box of its own.
  */
 function EmailCard({
   caption,
@@ -34,12 +32,9 @@ function EmailCard({
   readonly className?: string;
 }) {
   return (
-    <div className={cn("flex w-full shrink-0 items-center gap-2.5 overflow-clip rounded-xl bg-muted/50 p-4 lg:gap-3.5 lg:p-5", className)}>
-      <Mail className="size-4 shrink-0 text-muted-foreground" />
-      <div className="flex min-w-px flex-1 flex-col items-start gap-0.5 overflow-clip">
-        <p className="w-full text-xs font-normal text-muted-foreground">{caption}</p>
-        <p className="font-latin w-full text-sm font-medium break-all text-foreground">{value}</p>
-      </div>
+    <div className={cn("flex w-full flex-col gap-1.5", className)}>
+      <p className="text-sm font-medium text-muted-foreground md:text-base">{caption}</p>
+      <p className="font-latin text-base font-medium break-all text-foreground lg:text-frame-body">{value}</p>
     </div>
   );
 }
@@ -129,7 +124,7 @@ function ChangeEmailForm({ state = "default" }: { readonly state?: "default" | "
 
         <EmailCard caption={t("currentLabel")} value={currentEmail} />
 
-        <div className="mt-4 flex w-full flex-col">
+        <div className="mt-5 flex w-full flex-col">
           <Field
             autoComplete="email"
             error={emailError}
