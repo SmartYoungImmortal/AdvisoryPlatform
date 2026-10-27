@@ -115,7 +115,8 @@ test.describe("password reset screen", () => {
     await submitResetForm(page, "invalid-test-token");
 
     await expect(page.getByRole("heading", { name: "ลิงก์นี้ใช้ไม่ได้แล้ว" })).toBeVisible();
-    await expect(page.getByRole("link", { name: "ขอลิงก์ใหม่" })).toHaveAttribute("href", "/forgot-password");
+    // A link drawn as a capsule (`Button` over `Link`) takes the button role.
+    await expect(page.getByRole("button", { name: "ขอลิงก์ใหม่" })).toHaveAttribute("href", "/forgot-password");
   });
 
   test("does not call an expired-link error for a password rejection", async ({
