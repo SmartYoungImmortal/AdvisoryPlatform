@@ -150,15 +150,16 @@ export const SETTINGS_DIALOG_STACK = "mt-6 flex flex-col gap-2.5";
 
 /**
  * The centred card's capsules, 48 tall with 16px type in the frame's space:
- * the thing being done filled in ink (`solid`), and the way out in the soft
- * grey of the settings rows' own capsules. Neither has a line round it.
+ * the thing being done filled in ink (`solid`), or in red for what cannot be
+ * undone (`danger`), and the way out in the soft grey of the settings rows'
+ * own capsules (`soft`). None has a line round it.
  */
-export function settingsStackPill(kind: "solid" | "soft") {
+export function settingsStackPill(kind: "solid" | "danger" | "soft") {
   return cn(
     "h-11 w-full gap-2 rounded-full border-0 px-5 text-sm font-medium shadow-none disabled:opacity-40 lg:h-12 lg:px-6 lg:text-base",
-    kind === "solid"
-      ? "bg-hero-action text-hero-action-foreground hover:bg-hero-action/85"
-      : "bg-muted text-foreground hover:bg-muted/70 hover:text-foreground",
+    kind === "solid" && "bg-hero-action text-hero-action-foreground hover:bg-hero-action/85",
+    kind === "danger" && "bg-destructive text-primary-foreground hover:bg-destructive/90",
+    kind === "soft" && "bg-muted text-foreground hover:bg-muted/70 hover:text-foreground",
   );
 }
 

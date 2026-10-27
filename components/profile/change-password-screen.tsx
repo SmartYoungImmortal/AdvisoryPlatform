@@ -1,25 +1,19 @@
 "use client";
 
-import { Circle, CircleCheck, LockKeyhole } from "lucide-react";
+import { LockKeyhole } from "lucide-react";
 import Link from "next/link";
 import { useTranslations } from "next-intl";
 import { useRouter } from "next/navigation";
 import { useState, type ComponentProps, type FormEvent } from "react";
 
-import { InfoRow } from "@/components/mobile/banner";
 import { Field, RevealPasswordButton } from "@/components/mobile/field";
 import { AccountSettingsScreen } from "@/components/profile/account-settings-screen";
-import {
-  SETTINGS_DIALOG_STACK,
-  SettingsDialog,
-  SettingsDialogList,
-  settingsStackPill,
-} from "@/components/profile/settings-dialog";
+import { SETTINGS_DIALOG_STACK, SettingsDialog, settingsStackPill } from "@/components/profile/settings-dialog";
 import { Button } from "@/components/ui/button";
 import { changePassword } from "@/lib/api/account";
 import { ApiError } from "@/lib/api/client";
 
-/** The rules a new password answers to, in the order the list names them, as the API checks them. */
+/** The rules a new password answers to, as the API checks them; the hint under the field names them. */
 function passwordRules(next: string, current: string): readonly boolean[] {
   return [
     next.length >= 8 && next.length <= 64,
@@ -55,9 +49,9 @@ function PasswordField(props: Omit<ComponentProps<typeof Field>, "type" | "trail
  * (995:7404), which marks the current password's field.
  *
  * A dialog over the settings (`SettingsDialog`) rather than a page of its own:
- * three fields and the rules the new one answers to, each ticked as it is met
- * while the reader types, then the change. A wrong current password stays in
- * the dialog, said under its field; a success goes to `/settings/updated`.
+ * three fields, the rules the new one answers to in one line under it, then
+ * the change. A wrong current password stays in the dialog, said under its
+ * field; a success goes to `/settings/updated`.
  */
 function ChangePasswordForm({ state = "default" }: { readonly state?: "default" | "wrong-current" }) {
   const t = useTranslations("changePassword");
@@ -72,7 +66,6 @@ function ChangePasswordForm({ state = "default" }: { readonly state?: "default" 
   const [submitting, setSubmitting] = useState(false);
   const isWrong = problem === "wrong-current";
   const rules = passwordRules(newPassword, currentPassword);
-  const ruleText = [t("requirement1"), t("requirement2"), t("requirement3"), t("requirement4")];
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -110,6 +103,7 @@ function ChangePasswordForm({ state = "default" }: { readonly state?: "default" 
           />
           <PasswordField
             autoComplete="new-password"
+            hint={t("newHint")}
             id="new-password"
             label={t("newLabel")}
             onChange={(event) => {
@@ -131,20 +125,6 @@ function ChangePasswordForm({ state = "default" }: { readonly state?: "default" 
             value={confirmPassword}
           />
         </div>
-
-        {/* Ticked in the success green as each is met, so the reader sees
-            what is left rather than finding out on pressing. */}
-        <SettingsDialogList caption={t("requirementsTitle")} className="mt-5 lg:mt-7">
-          {ruleText.map((text, i) => (
-            <InfoRow
-              icon={rules[i] ? CircleCheck : Circle}
-              iconClassName={rules[i] ? "text-success" : undefined}
-              key={text}
-            >
-              {text}
-            </InfoRow>
-          ))}
-        </SettingsDialogList>
 
         {problem === "invalid" ? (
           <p className="mt-4 text-sm text-destructive" role="alert">
