@@ -110,9 +110,10 @@ function SettingRow({
 }
 
 /**
- * A category: its glyph on a soft grey tile and its name over a hairline,
- * then its rows. From `lg` only the chosen one shows, beside the menu; on a
- * phone or an upright tablet there is no menu, and every category is stacked.
+ * A category: from `lg` its glyph on a soft grey tile and its name over a
+ * hairline, then its rows, only the chosen one beside the menu. On a phone or
+ * an upright tablet there is no menu: every category is stacked, each its
+ * small grey label over its rows.
  */
 function SettingsSection({
   section,
@@ -129,15 +130,21 @@ function SettingsSection({
 
   return (
     <section aria-labelledby={heading} className={cn("flex w-full flex-col", !active && "lg:hidden")}>
-      <header className="flex items-center gap-3 border-b border-border pb-4 lg:gap-4 lg:pb-6">
-        <span className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-muted text-foreground lg:size-12">
-          <Icon aria-hidden className="size-4 lg:size-6" strokeWidth={1.75} />
+      {/* Below `lg` the categories are stacked down one page, so each is the
+          notifications' small grey label over its rows rather than a tile and
+          a heading over a hairline, which is the desktop's one category. */}
+      <header className="flex items-center gap-4 lg:border-b lg:border-border lg:pb-6">
+        <span className="hidden size-12 shrink-0 items-center justify-center rounded-xl bg-muted text-foreground lg:flex">
+          <Icon aria-hidden className="size-6" strokeWidth={1.75} />
         </span>
-        <h2 className="text-base font-medium text-foreground lg:text-frame-heading" id={heading}>
+        <h2
+          className="text-xs font-medium text-muted-foreground lg:text-frame-heading lg:text-foreground"
+          id={heading}
+        >
           {t(SECTION[section].label)}
         </h2>
       </header>
-      <ul className="flex flex-col">{children}</ul>
+      <ul className="flex flex-col max-lg:[&>li:last-child]:border-b-0">{children}</ul>
     </section>
   );
 }
@@ -325,7 +332,7 @@ export function AccountSettingsScreen({
               {/* The page's own top inset from `lg` (the shell's 47.5px, which
                   `compact` drops), so the category's heading lines up with the
                   menu's title. */}
-              <div className="mt-6 flex min-w-0 flex-col gap-10 lg:mt-0 lg:gap-0 lg:px-16 lg:pt-[47.5px] lg:pb-16">
+              <div className="mt-4 flex min-w-0 flex-col gap-7 lg:mt-0 lg:gap-0 lg:px-16 lg:pt-[47.5px] lg:pb-16">
                 {isUpdated ? (
                   // The banner is a shared phone block; the lift sets its type on the frame's steps.
                   <div className={cn("lg:mb-8", DESKTOP_TYPE_LIFT)}>
