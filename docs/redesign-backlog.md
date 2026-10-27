@@ -27,9 +27,9 @@
 - [x] `/forgot-password`, `/reset-sent`
 - [x] ของที่ใช้ร่วมกัน: navbar, เมนูมือถือ, ปุ่ม TH/EN
 - [x] `/search` และ `/search/no-results` (ใช้หน้าเดียวกัน)
-- [x] `/notifications` (+ `/notifications/view` หน้าข้อความเต็มของแจ้งเตือนที่อ่านอย่างเดียว) ผ่าน 25 ต.ค.
+- [x] `/notifications` ผ่าน 25 ต.ค.; `/notifications/view` (ทุกแถวเปิดหน้านี้ มีปุ่มไปต่อ: แชท, การจองเปิด popup บน `/bookings`, ใบเสร็จเปิด popup บน `/transactions`) และ `/notifications/advisor` ผ่าน 28 ต.ค.
 - [x] `/settings` และ popup ของมัน: เปลี่ยนอีเมล (`/settings/email`, `/settings/email/verify`), เปลี่ยนรหัสผ่าน (`/settings/password` + ตั้งรหัสใหม่ทางอีเมลใน popup ถัดไป), ออกจากระบบ (`/settings/logout`), ลบบัญชี (popup ในหน้า), `/settings/updated` ผ่าน 28 ต.ค.
-- [x] `/transactions` (+ popup ใบเสร็จ), `/transactions/detail`, `/transactions/detail/failed`, `/transactions/detail/refunded` ผ่าน 28 ต.ค.
+- [x] `/transactions` (+ popup ใบเสร็จ, "ดูการจองของฉัน" เปิด popup การจองนั้นบน `/bookings`), `/transactions/detail`, `/transactions/detail/failed`, `/transactions/detail/refunded` ผ่าน 28 ต.ค.
 
 ## ทำแล้วแต่ยังไม่ผ่าน
 
@@ -57,7 +57,6 @@
 
 ### RD-11 · แชตและการแจ้งเตือน
 - [ ] `/chat`, `/chat/empty`, `/chat/session-banner`; ห้องแชตย้ายไป `/chat/room?id=…` (+ `/message-failed`, `/report`, `/report/submitted`)
-- [ ] `/notifications/advisor` (ฝั่ง advisor ใช้หน้าเดียวกับ `/notifications` ที่ผ่านแล้ว รอพี่ดู)
 
 ## ยังไม่ได้ทำ
 
