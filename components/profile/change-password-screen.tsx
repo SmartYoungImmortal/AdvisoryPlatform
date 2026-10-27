@@ -1,6 +1,6 @@
 "use client";
 
-import { LockKeyhole } from "lucide-react";
+import { KeyRound, LockKeyhole, MailCheck } from "lucide-react";
 import Link from "next/link";
 import { useTranslations } from "next-intl";
 import { useRouter } from "next/navigation";
@@ -10,8 +10,10 @@ import { AUTH_LINK } from "@/components/auth/auth-split";
 import { Field, RevealPasswordButton } from "@/components/mobile/field";
 import { AccountSettingsScreen } from "@/components/profile/account-settings-screen";
 import { SETTINGS_DIALOG_STACK, SettingsDialog, settingsStackPill } from "@/components/profile/settings-dialog";
+import { useAccount } from "@/components/session/account-bits";
 import { Button } from "@/components/ui/button";
 import { changePassword } from "@/lib/api/account";
+import { requestPasswordReset } from "@/lib/api/auth";
 import { ApiError } from "@/lib/api/client";
 import { cn } from "@/lib/utils";
 
@@ -54,8 +56,87 @@ function PasswordField(props: Omit<ComponentProps<typeof Field>, "type" | "trail
  * three fields, the rules the new one answers to in one line under it, then
  * the change. A wrong current password stays in the dialog, said under its
  * field; a success goes to `/settings/updated`.
+ *
+ * A reader who does not know the current password takes the line under the
+ * capsules: the same dialog turns to sending the reset link to the address
+ * the account signs in with (`reset`), then says it went (`sent`). It never
+ * leaves for the signed-out pages: the reader is signed in.
  */
 function ChangePasswordForm({ state = "default" }: { readonly state?: "default" | "wrong-current" }) {
+  const [step, setStep] = useState<"change" | "reset" | "sent">("change");
+
+  if (step === "change") return <ChangeStep onForgot={() => setStep("reset")} state={state} />;
+  return <ResetStep onBack={() => setStep("change")} onSent={() => setStep("sent")} sent={step === "sent"} />;
+}
+
+/** Sending the reset link from inside the settings, then saying it went. */
+function ResetStep({
+  sent,
+  onBack,
+  onSent,
+}: {
+  readonly sent: boolean;
+  readonly onBack: () => void;
+  readonly onSent: () => void;
+}) {
+  const t = useTranslations("changePassword");
+  const c = useTranslations("common");
+  const email = useAccount()?.email ?? null;
+  const [sending, setSending] = useState(false);
+  const [failed, setFailed] = useState(false);
+
+  async function send() {
+    if (!email) return;
+    setSending(true);
+    setFailed(false);
+    try {
+      await requestPasswordReset({ email, redirectTo: new URL("/reset-password", window.location.origin).toString() });
+      onSent();
+    } catch {
+      setFailed(true);
+    } finally {
+      setSending(false);
+    }
+  }
+
+  if (sent) {
+    return (
+      <SettingsDialog description={t("resetSentBody", { email: email ?? "" })} icon={MailCheck} title={t("resetSentTitle")}>
+        <div className={cn(SETTINGS_DIALOG_STACK, "mt-0")}>
+          <Button className={settingsStackPill("solid")} nativeButton={false} render={<Link href="/settings" />}>
+            {t("resetDone")}
+          </Button>
+        </div>
+      </SettingsDialog>
+    );
+  }
+
+  return (
+    <SettingsDialog description={t("resetBody", { email: email ?? "" })} icon={KeyRound} title={t("resetTitle")}>
+      {failed ? (
+        <p className="text-xs text-destructive" role="alert">
+          {t("resetFailed")}
+        </p>
+      ) : null}
+      <div className={cn(SETTINGS_DIALOG_STACK, !failed && "mt-0")}>
+        <Button className={settingsStackPill("solid")} disabled={!email || sending} onClick={() => void send()} type="button">
+          {t("resetSend")}
+        </Button>
+        <Button className={settingsStackPill("soft")} onClick={onBack} type="button" variant="ghost">
+          {c("back")}
+        </Button>
+      </div>
+    </SettingsDialog>
+  );
+}
+
+function ChangeStep({
+  state,
+  onForgot,
+}: {
+  readonly state: "default" | "wrong-current";
+  readonly onForgot: () => void;
+}) {
   const t = useTranslations("changePassword");
   const c = useTranslations("common");
   const router = useRouter();
@@ -93,26 +174,19 @@ function ChangePasswordForm({ state = "default" }: { readonly state?: "default" 
     <SettingsDialog description={t("subtitle")} icon={LockKeyhole} title={t("title")}>
       <form className="flex w-full flex-col" onSubmit={submit}>
         <div className="flex w-full flex-col gap-4 lg:gap-6">
-          {/* The way out for a reader who does not know the password the
-              form asks for first: the reset link by email, as at sign-in. */}
-          <div className="flex w-full flex-col gap-1">
-            <PasswordField
-              autoComplete="current-password"
-              error={isWrong ? t("wrongCurrentFieldError") : undefined}
-              id="current-password"
-              invalid={isWrong}
-              label={t("currentLabel")}
-              onChange={(event) => {
-                setCurrentPassword(event.target.value);
-                setProblem(null);
-              }}
-              placeholder={t("currentPlaceholder")}
-              value={currentPassword}
-            />
-            <Link className={cn("self-end py-1 text-xs", AUTH_LINK)} href="/forgot-password">
-              {t("forgot")}
-            </Link>
-          </div>
+          <PasswordField
+            autoComplete="current-password"
+            error={isWrong ? t("wrongCurrentFieldError") : undefined}
+            id="current-password"
+            invalid={isWrong}
+            label={t("currentLabel")}
+            onChange={(event) => {
+              setCurrentPassword(event.target.value);
+              setProblem(null);
+            }}
+            placeholder={t("currentPlaceholder")}
+            value={currentPassword}
+          />
           <PasswordField
             autoComplete="new-password"
             hint={t("newHint")}
@@ -153,6 +227,15 @@ function ChangePasswordForm({ state = "default" }: { readonly state?: "default" 
             {c("cancel")}
           </Button>
         </div>
+
+        {/* For a reader who does not know the password asked for first, a
+            line under the answers, as the receipt's help line sits. */}
+        <p className="mt-4 text-center text-xs text-muted-foreground">
+          {t("forgotPrompt")}{" "}
+          <Button className={cn(AUTH_LINK, "h-auto p-0 text-xs")} onClick={onForgot} type="button" variant="link">
+            {t("forgotAction")}
+          </Button>
+        </p>
       </form>
     </SettingsDialog>
   );
