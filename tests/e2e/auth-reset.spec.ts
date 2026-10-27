@@ -114,9 +114,8 @@ test.describe("password reset screen", () => {
     });
     await submitResetForm(page, "invalid-test-token");
 
-    await expect(
-      page.getByText("ลิงก์นี้หมดอายุหรือถูกใช้แล้ว ขอรับลิงก์ใหม่ได้จากหน้าลืมรหัสผ่าน"),
-    ).toBeVisible();
+    await expect(page.getByRole("heading", { name: "ลิงก์นี้ใช้ไม่ได้แล้ว" })).toBeVisible();
+    await expect(page.getByRole("link", { name: "ขอลิงก์ใหม่" })).toHaveAttribute("href", "/forgot-password");
   });
 
   test("does not call an expired-link error for a password rejection", async ({
@@ -129,7 +128,7 @@ test.describe("password reset screen", () => {
     });
     await submitResetForm(page, "valid-test-token");
 
-    await expect(page.getByText("ลิงก์นี้หมดอายุหรือถูกใช้แล้ว ขอรับลิงก์ใหม่ได้จากหน้าลืมรหัสผ่าน")).toHaveCount(0);
+    await expect(page.getByRole("heading", { name: "ลิงก์นี้ใช้ไม่ได้แล้ว" })).toHaveCount(0);
     await expect(
       page.getByText("รหัสผ่านต้องมี 8–64 ตัวอักษร พร้อมตัวเลขและอักขระพิเศษ"),
     ).toBeVisible();

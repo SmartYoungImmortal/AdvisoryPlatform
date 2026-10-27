@@ -60,14 +60,22 @@ export function AuthHeading({
   title,
   withLogo = false,
   subtitle,
+  centred = false,
 }: {
   readonly title: ReactNode;
   readonly withLogo?: boolean;
   readonly subtitle?: ReactNode;
+  /** Centred over the column below `lg`, under an `AuthMark`. */
+  readonly centred?: boolean;
 }) {
   return (
-    <header className="flex flex-col gap-1.5">
-      <h1 className="flex flex-wrap items-center gap-x-2.5 text-xl leading-tight font-bold text-foreground md:text-2xl">
+    <header className={cn("flex flex-col gap-1.5", centred && "items-center text-center lg:items-start lg:text-left")}>
+      <h1
+        className={cn(
+          "flex flex-wrap items-center gap-x-2.5 text-xl leading-tight font-bold text-foreground md:text-2xl",
+          centred && "justify-center lg:justify-start",
+        )}
+      >
         {title}
         {withLogo ? (
           <Link className="inline-flex shrink-0" href="/">
@@ -77,6 +85,20 @@ export function AuthHeading({
       </h1>
       {subtitle ? <div className="text-sm text-muted-foreground">{subtitle}</div> : null}
     </header>
+  );
+}
+
+/**
+ * The round mark a status page opens with (sent, verified, an expired link).
+ * Below `lg` it stands centred over the column with its heading (`centred`),
+ * as a phone's confirmation does; from `lg` both line up with the form
+ * pages' left edge, beside the photograph.
+ */
+export function AuthMark({ children }: { readonly children: ReactNode }) {
+  return (
+    <span className="flex size-14 items-center justify-center self-center rounded-full bg-muted lg:self-start">
+      {children}
+    </span>
   );
 }
 

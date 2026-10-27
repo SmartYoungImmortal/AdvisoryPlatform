@@ -101,9 +101,9 @@
 - [ ] `/reviews/session`, `/reviews/session/submitted`
 
 ### RD-13 · หน้า auth ที่เหลือ (เร็ว ใช้ `AuthSplit` ได้เลย)
-- [ ] `/reset-password`
-- [ ] `/verification-sent`: ทำแล้วบน `AuthSplit` รอพี่ดู (อีเมลยังไม่ถูกส่งจริง เพราะ API ยังไม่มีบริการส่งเมล)
-- [ ] `/email-verified`: ทำแล้วบน `AuthSplit` รอพี่ดู
+- [ ] `/reset-password`: ทำแล้วบน `AuthSplit` (ฟอร์ม, เปลี่ยนแล้ว, ลิงก์ใช้ไม่ได้) รอพี่ดู
+- [ ] `/verification-sent`: ทำแล้วบน `AuthSplit` จัดกึ่งกลางใต้ `lg` รอพี่ดู (อีเมลยังไม่ถูกส่งจริง เพราะ API ยังไม่มีบริการส่งเมล)
+- [ ] `/email-verified`: ทำแล้วบน `AuthSplit` จัดกึ่งกลางใต้ `lg` รอพี่ดู
 
 ### RD-14 · หน้าการตลาด
 - [ ] `/about`

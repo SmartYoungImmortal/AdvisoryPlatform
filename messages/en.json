@@ -972,6 +972,24 @@
     "resend": "Send the link again",
     "spamHint": "Can't see it? Check your spam or junk folder. The link only works for a limited time."
   },
+  "resetPassword": {
+    "title": "Set a new password",
+    "subtitle": "Choose a new password to get back into your account",
+    "passwordLabel": "New password",
+    "passwordPlaceholder": "Choose a new password",
+    "hint": "At least 8 characters, with a number and a symbol",
+    "confirmLabel": "Confirm new password",
+    "confirmPlaceholder": "Enter the new password again",
+    "mismatch": "Passwords don't match",
+    "passwordError": "Use 8–64 characters, with a number and a symbol",
+    "expiredTitle": "This link no longer works",
+    "expired": "The reset link has expired or was already used. Ask for a new one.",
+    "submit": "Save new password",
+    "requestAnother": "Get a new link",
+    "successTitle": "Password changed",
+    "successBody": "Sign in with your new password",
+    "backToSignIn": "Back to sign in"
+  },
   "authEmailFlow": {
     "errorTitle": "That didn't work",
     "offline": "Check your connection and try again",
