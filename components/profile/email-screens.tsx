@@ -58,8 +58,8 @@ const noPendingEmail = () => null;
  * Figma "Change email" (995:7287) and its already-in-use state (995:7320),
  * which says so under the address field.
  *
- * A dialog over the settings (`SettingsDialog`): the address the account has
- * now, then the new one, then the request. The API sends a confirmation link
+ * A dialog over the settings (`SettingsDialog`): the new address, then the
+ * request. The API sends a confirmation link
  * to the current address and then a verification link to the new address;
  * the address changes only after both links are opened. `state` only seeds
  * the in-use visual state.
@@ -112,9 +112,9 @@ function ChangeEmailForm({ state = "default" }: { readonly state?: "default" | "
   return (
     <SettingsDialog description={t("subtitle")} icon={Mail} title={t("title")}>
       <form className="flex w-full flex-col" noValidate onSubmit={submit}>
-        <EmailCard caption={t("currentLabel")} value={currentEmail} />
-
-        <div className="mt-5 flex w-full flex-col">
+        {/* The address the account has now is on the settings row behind;
+            the dialog only asks for the new one. */}
+        <div className="flex w-full flex-col">
           <Field
             autoComplete="email"
             error={emailError}
