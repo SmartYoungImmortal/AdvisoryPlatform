@@ -2,7 +2,7 @@
 
 import { CalendarDays } from "lucide-react";
 import Link from "next/link";
-import { useCallback, type ReactNode } from "react";
+import { useCallback, useState, type ReactNode } from "react";
 import { useTranslations } from "next-intl";
 
 import { MobileScreen, ScreenBody, ScreenTopBar } from "@/components/mobile/screen";
@@ -100,9 +100,14 @@ function BookingDetailData({ bookingId }: { readonly bookingId: string }) {
   const t = useTranslations("bookings");
   const fetchBooking = useCallback((signal: AbortSignal) => getBooking(bookingId, signal), [bookingId]);
   const booking = useResource<ApiBooking>(`bookings/${bookingId}`, fetchBooking);
+  // The booking as last read, kept while it is read again after a change made
+  // in the card, so the card stays mounted and keeps what it was saying.
+  const [lastRead, setLastRead] = useState(booking.data);
+  if (booking.data && booking.data !== lastRead) setLastRead(booking.data);
+  const shown = booking.data ?? (booking.loading ? lastRead : undefined);
 
-  if (booking.loading) return <BookingDetailSkeleton />;
-  if (booking.error || !booking.data) {
+  if (!shown && booking.loading) return <BookingDetailSkeleton />;
+  if (booking.error || !shown) {
     return (
       <BookingDetailState
         body={booking.error?.message ?? t("detailsFailedBody")}
@@ -112,7 +117,7 @@ function BookingDetailData({ bookingId }: { readonly bookingId: string }) {
     );
   }
 
-  return <BookingDetailContent booking={booking.data} reload={booking.reload} />;
+  return <BookingDetailContent booking={shown} reload={booking.reload} />;
 }
 
 /** The booking with its service and advisor joined, as the calendar's card. */

@@ -337,11 +337,18 @@ export function MyBookingsScreen() {
   const bookings = useResource<Paginated<ApiBooking>>("bookings/me?limit=50", bookingsFetcher);
   const services = useResource<Paginated<ApiPublicService>>("services?limit=100", servicesFetcher);
   const advisors = useResource<Paginated<ApiPublicAdvisor>>("advisors?limit=100", advisorsFetcher);
+  // The list as last read, kept on screen while it is read again after a
+  // change made in the open card: without it the card unmounts mid-answer and
+  // forgets what it was saying (a cancellation to check, or to try again), and
+  // the list blinks to its skeleton.
+  const [lastRead, setLastRead] = useState(bookings.data);
+  if (bookings.data && bookings.data !== lastRead) setLastRead(bookings.data);
+  const read = bookings.data ?? (bookings.loading ? lastRead : undefined);
 
   const serviceById = new Map((services.data?.items ?? []).map((service) => [service.id, service]));
   const advisorById = new Map((advisors.data?.items ?? []).map((advisor) => [advisor.id, advisor]));
 
-  const entries: readonly BookingEntry[] = (bookings.data?.items ?? [])
+  const entries: readonly BookingEntry[] = (read?.items ?? [])
     .map((booking) => ({
       booking,
       service: serviceById.get(booking.serviceId),
@@ -426,7 +433,7 @@ export function MyBookingsScreen() {
         </div>
       </div>
     );
-  } else if (bookings.loading) {
+  } else if (!read) {
     body = <ListSkeleton />;
   } else if (entries.length === 0) {
     body = <NoBookings />;
