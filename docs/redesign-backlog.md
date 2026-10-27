@@ -65,6 +65,12 @@
 
 ใช้ร่วมกันทุกหน้า แก้ครั้งเดียวได้ทุกหน้า ตอนนี้ยังเป็นแบบที่ลอก Systronic มา ต้อง redesign ให้เข้าชุดกับ home / login / terms (ปุ่มแคปซูล, Kanit, พื้นขาวหรือแสงฟ้า-ม่วงจางๆ) พร้อมสองภาษา และ scale จาก 1710 บน iPad แนวนอน
 
+### RD-18 · Toast (ทุกหน้า)
+- [ ] `components/mobile/toast.tsx` (`StatusToast`): การ์ดขาว ไอคอนติ๊ก แถบนับถอยหลัง มุมขวาล่างบน desktop ใช้กับเปิด/ปิดแจ้งเตือนบนอุปกรณ์ (การ์ดข้าง `/notifications`) และ "อัปเดตรหัสผ่านแล้ว" (`/settings/updated`)
+- [ ] `components/notifications/notification-toaster.tsx`: แจ้งเตือนใหม่ที่เด้งทุกหน้า ยังเป็นแถบดำแบบ Figma "In-app toast" คนละหน้าตากับตัวบน
+
+ตอนนี้มี toast สองแบบที่ไม่เข้าชุดกัน ต้อง redesign ให้เป็นแบบเดียว (ตำแหน่ง ขนาด สี ไอคอน ปุ่ม "ดู" ของแจ้งเตือนใหม่) แล้วค่อยใช้แทน banner ที่ยังเหลือในหน้าอื่น ฝั่ง admin มีของตัวเองใน `components/cms/feedback.tsx` อยู่ใน RD-16
+
 ### RD-03 · จับคู่ผู้เชี่ยวชาญ
 - [ ] `/matching`, `/matching/searching`, `/matching/results`
 
