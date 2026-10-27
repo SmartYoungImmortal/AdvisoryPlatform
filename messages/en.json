@@ -827,6 +827,8 @@
     "newLabel": "New password",
     "newPlaceholder": "8–64 characters",
     "newHint": "At least 8 characters, with a number and a symbol",
+    "subtitle": "Once it's changed, your other devices are signed out.",
+    "forgot": "Forgot your current password?",
     "confirmLabel": "Confirm new password",
     "confirmPlaceholder": "Enter the new password again",
     "requirementsTitle": "Your new password needs",

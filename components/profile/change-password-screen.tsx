@@ -6,12 +6,14 @@ import { useTranslations } from "next-intl";
 import { useRouter } from "next/navigation";
 import { useState, type ComponentProps, type FormEvent } from "react";
 
+import { AUTH_LINK } from "@/components/auth/auth-split";
 import { Field, RevealPasswordButton } from "@/components/mobile/field";
 import { AccountSettingsScreen } from "@/components/profile/account-settings-screen";
 import { SETTINGS_DIALOG_STACK, SettingsDialog, settingsStackPill } from "@/components/profile/settings-dialog";
 import { Button } from "@/components/ui/button";
 import { changePassword } from "@/lib/api/account";
 import { ApiError } from "@/lib/api/client";
+import { cn } from "@/lib/utils";
 
 /** The rules a new password answers to, as the API checks them; the hint under the field names them. */
 function passwordRules(next: string, current: string): readonly boolean[] {
@@ -66,10 +68,13 @@ function ChangePasswordForm({ state = "default" }: { readonly state?: "default" 
   const [submitting, setSubmitting] = useState(false);
   const isWrong = problem === "wrong-current";
   const rules = passwordRules(newPassword, currentPassword);
+  // The capsule stays greyed until the three fields can be sent, as changing
+  // the email's does until there is an address.
+  const ready = currentPassword.length > 0 && rules.every(Boolean) && newPassword === confirmPassword;
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (!rules.every(Boolean) || newPassword !== confirmPassword) {
+    if (!ready) {
       setProblem("invalid");
       return;
     }
@@ -85,22 +90,29 @@ function ChangePasswordForm({ state = "default" }: { readonly state?: "default" 
   }
 
   return (
-    <SettingsDialog icon={LockKeyhole} title={t("title")}>
+    <SettingsDialog description={t("subtitle")} icon={LockKeyhole} title={t("title")}>
       <form className="flex w-full flex-col" onSubmit={submit}>
         <div className="flex w-full flex-col gap-4 lg:gap-6">
-          <PasswordField
-            autoComplete="current-password"
-            error={isWrong ? t("wrongCurrentFieldError") : undefined}
-            id="current-password"
-            invalid={isWrong}
-            label={t("currentLabel")}
-            onChange={(event) => {
-              setCurrentPassword(event.target.value);
-              setProblem(null);
-            }}
-            placeholder={t("currentPlaceholder")}
-            value={currentPassword}
-          />
+          {/* The way out for a reader who does not know the password the
+              form asks for first: the reset link by email, as at sign-in. */}
+          <div className="flex w-full flex-col gap-1">
+            <PasswordField
+              autoComplete="current-password"
+              error={isWrong ? t("wrongCurrentFieldError") : undefined}
+              id="current-password"
+              invalid={isWrong}
+              label={t("currentLabel")}
+              onChange={(event) => {
+                setCurrentPassword(event.target.value);
+                setProblem(null);
+              }}
+              placeholder={t("currentPlaceholder")}
+              value={currentPassword}
+            />
+            <Link className={cn("self-end py-1 text-xs", AUTH_LINK)} href="/forgot-password">
+              {t("forgot")}
+            </Link>
+          </div>
           <PasswordField
             autoComplete="new-password"
             hint={t("newHint")}
@@ -134,7 +146,7 @@ function ChangePasswordForm({ state = "default" }: { readonly state?: "default" 
         ) : null}
 
         <div className={SETTINGS_DIALOG_STACK}>
-          <Button className={settingsStackPill("solid")} disabled={submitting} type="submit">
+          <Button className={settingsStackPill("solid")} disabled={!ready || submitting} type="submit">
             {t("submit")}
           </Button>
           <Button className={settingsStackPill("soft")} nativeButton={false} render={<Link href="/settings" />} variant="ghost">
