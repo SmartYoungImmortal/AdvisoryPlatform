@@ -763,7 +763,7 @@
     "languageDetail": "The language this device shows",
     "password": "Password",
     "deleteAccount": "Delete account",
-    "deleteNote": "Deleting your account permanently removes your bookings and all chat history. It can't be undone.",
+    "deleteNote": "Removes your bookings and chats for good",
     "verifyNote": "Changes to your email or password take effect once you confirm them",
     "updatedTitle": "Password updated",
     "updatedBody": "Your other devices have been signed out"
