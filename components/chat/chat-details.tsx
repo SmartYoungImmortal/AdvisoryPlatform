@@ -1,11 +1,10 @@
 "use client";
 
 import Link from "next/link";
-import { CalendarDays, Clock, EyeOff, Flag, X } from "lucide-react";
+import { Bell, BellOff, CalendarDays, CalendarPlus, ChevronLeft, Clock, EyeOff, Flag, UserRound, type LucideIcon } from "lucide-react";
 import { useFormatter, useTranslations } from "next-intl";
 import type { ReactNode } from "react";
 
-import { authPill } from "@/components/auth/auth-split";
 import { BOOKING_TONE, liveAdvisorHref, liveServiceHref, useMountTime } from "@/components/bookings/booking-flow";
 import { StatusPill } from "@/components/mobile/status-pill";
 import { Button } from "@/components/ui/button";
@@ -30,11 +29,56 @@ import { cn } from "@/lib/utils";
  */
 
 /** `StatusPill` is drawn at 12px for a phone; the zoomed desktop needs 16. */
-const PILL = "lg:px-3 lg:text-base";
+const PILL = "lg:px-2.5 lg:text-frame-label";
+
+/**
+ * One of the actions under the person: a grey disc with its mark, the word
+ * under it. A link with `href`, else a button for `onClick` (a switch when
+ * `pressed` says how it stands).
+ */
+function RoundAction({
+  icon: Icon,
+  label,
+  href,
+  onClick,
+  pressed,
+}: {
+  readonly icon: LucideIcon;
+  readonly label: string;
+  readonly href?: string;
+  readonly onClick?: () => void;
+  readonly pressed?: boolean;
+}) {
+  const shape =
+    // At least a disc's room either side, wider when its word needs it: a
+    // label stays on one line rather than breaking under the disc.
+    "group flex h-auto min-w-18 flex-col items-center gap-1.5 rounded-xl p-0 outline-none hover:bg-transparent focus-visible:ring-3 focus-visible:ring-ring/50 lg:min-w-22 lg:gap-2";
+  const face = (
+    <>
+      <span className="flex size-10 items-center justify-center rounded-full bg-muted text-foreground transition-colors duration-150 group-hover:bg-accented/60 motion-reduce:transition-none lg:size-12">
+        <Icon aria-hidden className="size-5 lg:size-6" strokeWidth={1.75} />
+      </span>
+      <span className="text-xs font-normal whitespace-nowrap text-foreground lg:text-frame-label">{label}</span>
+    </>
+  );
+
+  if (href) {
+    return (
+      <Link className={shape} href={href}>
+        {face}
+      </Link>
+    );
+  }
+  return (
+    <Button aria-pressed={pressed} className={shape} onClick={onClick} type="button" variant="ghost">
+      {face}
+    </Button>
+  );
+}
 
 /** A small heading over one block of the panel. */
 function BlockTitle({ children }: { readonly children: ReactNode }) {
-  return <h3 className="text-xs font-semibold tracking-wide text-muted-foreground lg:text-base">{children}</h3>;
+  return <h3 className="text-xs font-semibold tracking-wide text-muted-foreground lg:text-frame-label">{children}</h3>;
 }
 
 /** One session: what, when, for how long, and where it stands. */
@@ -65,8 +109,8 @@ function SessionCard({
     return (
       <li className="flex items-center gap-3 py-2.5">
         <span className="flex min-w-0 flex-1 flex-col">
-          <span className="truncate text-sm font-medium text-foreground lg:text-base">{service?.name ?? date}</span>
-          <span className="truncate font-latin text-xs text-muted-foreground tabular-nums lg:text-base">
+          <span className="truncate text-sm font-medium text-foreground lg:text-frame-meta">{service?.name ?? date}</span>
+          <span className="truncate font-latin text-xs text-muted-foreground tabular-nums lg:text-frame-label">
             {service ? `${date} · ${time}` : time}
           </span>
         </span>
@@ -78,12 +122,12 @@ function SessionCard({
   return (
     <div className="flex flex-col gap-3 rounded-card border border-hero-card-border bg-card p-4 shadow-hero-card">
       <div className="flex items-start gap-3">
-        <p className="min-w-0 flex-1 text-sm font-semibold text-foreground lg:text-lg">
+        <p className="min-w-0 flex-1 text-sm font-semibold text-foreground lg:text-frame-meta">
           {service?.name ?? t("sessionFallback")}
         </p>
         {state}
       </div>
-      <div className="flex flex-col gap-1.5 text-sm text-foreground lg:text-base">
+      <div className="flex flex-col gap-1.5 text-sm text-foreground lg:text-frame-label">
         <span className="flex items-center gap-2">
           <CalendarDays aria-hidden className="size-4 shrink-0 text-muted-foreground" />
           {date}
@@ -135,11 +179,23 @@ export function ThreadDetails({
   anonymous,
   bookings,
   services,
+  onReport,
+  muted = false,
+  muteFailed = false,
+  onToggleMute,
   className,
 }: {
   readonly counterpart: Counterpart;
   readonly roomId: string;
   readonly anonymous: boolean;
+  /** Opens the report over the conversation; without it, the report's own page. */
+  readonly onReport?: () => void;
+  /** The room's notifications are off for me. */
+  readonly muted?: boolean;
+  /** The last switch did not go through; the disc is back where it was. */
+  readonly muteFailed?: boolean;
+  /** Turns the room's notifications off or back on; without it, no switch. */
+  readonly onToggleMute?: () => void;
   /** Every booking of mine, for the other sessions with this person. */
   readonly bookings: readonly ApiBooking[];
   readonly services: readonly ApiPublicService[];
@@ -162,37 +218,39 @@ export function ThreadDetails({
       <section className="flex flex-col items-center gap-3 text-center">
         <PersonAvatar advisor={advisor} known={userId !== null} person={person} size={80} verified={advisor !== null} />
         <div className="flex flex-col items-center gap-1">
-          <p className="font-hero text-xl tracking-tight text-hero-ink lg:text-2xl">{name}</p>
+          <p className="font-hero text-lg tracking-tight text-hero-ink lg:text-frame-figure">{name}</p>
           {advisor ? (
-            <p className="line-clamp-2 text-sm text-muted-foreground lg:text-base">{advisor.headline}</p>
+            <p className="line-clamp-2 text-xs text-muted-foreground lg:text-frame-label">{advisor.headline}</p>
           ) : null}
-          {note ? <p className="text-sm text-muted-foreground lg:text-base">{note}</p> : null}
+          {note ? <p className="text-xs text-muted-foreground lg:text-frame-label">{note}</p> : null}
         </div>
         {anonymous ? (
           <StatusPill className={PILL} icon={EyeOff} tone="neutral">
             {t("anonymous")}
           </StatusPill>
         ) : null}
-        {advisor ? (
-          <div className="flex w-full gap-2 pt-1">
-            <Button
-              className={cn(authPill(), "h-11 flex-1 px-3 md:px-3 lg:h-12")}
-              nativeButton={false}
-              render={<Link href={liveAdvisorHref(advisor.id)} />}
-              variant="outline"
-            >
-              {t("viewProfile")}
-            </Button>
-            {bookHref ? (
-              <Button
-                className={cn(authPill(true), "h-11 flex-1 px-3 md:px-3 lg:h-12")}
-                nativeButton={false}
-                render={<Link href={bookHref} />}
-              >
-                {t("bookAgain")}
-              </Button>
+        {advisor || onToggleMute ? (
+          // Round actions under the name, as a messenger's details set them:
+          // a grey disc with the mark, its word under it.
+          <div className="flex justify-center gap-2 pt-1 lg:gap-3">
+            {advisor ? <RoundAction href={liveAdvisorHref(advisor.id)} icon={UserRound} label={t("viewProfile")} /> : null}
+            {advisor && bookHref ? <RoundAction href={bookHref} icon={CalendarPlus} label={t("bookAgain")} /> : null}
+            {onToggleMute ? (
+              // Says what pressing it does: the bell with its slash while it
+              // would mute, the plain bell once muted.
+              <RoundAction
+                icon={muted ? Bell : BellOff}
+                label={muted ? t("unmute") : t("mute")}
+                onClick={onToggleMute}
+                pressed={muted}
+              />
             ) : null}
           </div>
+        ) : null}
+        {muteFailed ? (
+          <p className="text-xs text-destructive lg:text-frame-label" role="alert">
+            {t("muteFailed")}
+          </p>
         ) : null}
       </section>
 
@@ -204,18 +262,30 @@ export function ThreadDetails({
         </section>
       ) : null}
 
-      <Link
-        className="flex h-11 items-center gap-2 self-start text-sm font-medium text-muted-foreground transition-colors hover:text-destructive lg:h-12 lg:text-frame-meta"
-        href={chatReportHref(roomId)}
-      >
-        <Flag aria-hidden className="size-4" />
-        {t("reportConversation")}
-      </Link>
+      {onReport ? (
+        <Button
+          className="h-11 gap-2 self-start px-0 text-sm font-medium text-muted-foreground hover:bg-transparent hover:text-destructive lg:h-12 lg:text-frame-meta"
+          onClick={onReport}
+          type="button"
+          variant="ghost"
+        >
+          <Flag aria-hidden className="size-4" />
+          {t("reportConversation")}
+        </Button>
+      ) : (
+        <Link
+          className="flex h-11 items-center gap-2 self-start text-sm font-medium text-muted-foreground transition-colors hover:text-destructive lg:h-12 lg:text-frame-meta"
+          href={chatReportHref(roomId)}
+        >
+          <Flag aria-hidden className="size-4" />
+          {t("reportConversation")}
+        </Link>
+      )}
     </div>
   );
 }
 
-/** The details as a sheet from the bottom, for the phone's header button. */
+/** The details as a page over the conversation, for the header button below `lg` (a phone, an upright tablet). */
 export function DetailsSheet({
   open,
   onOpenChange,
@@ -226,20 +296,28 @@ export function DetailsSheet({
   readonly children: ReactNode;
 }) {
   const t = useTranslations("chat");
+  const c = useTranslations("common");
   return (
     <Sheet onOpenChange={onOpenChange} open={open}>
-      <SheetContent className="max-h-[88dvh] gap-0 rounded-t-3xl p-0" showCloseButton={false} side="bottom">
-        <div className="flex items-center justify-between border-b border-border py-2 pr-2 pl-5">
-          <SheetTitle className="text-base font-semibold">{t("details")}</SheetTitle>
+      {/* A page of its own over the conversation, in from the right edge the
+          way the next screen of an app comes in, with the back chevron the
+          conversation's own bar has. */}
+      <SheetContent
+        className="h-dvh gap-0 p-0 data-[side=right]:w-full data-[side=right]:border-l-0 data-[side=right]:sm:max-w-none"
+        showCloseButton={false}
+        side="right"
+      >
+        <div className="flex h-16 shrink-0 items-center gap-1 border-b border-border px-1.5 pt-[env(safe-area-inset-top)]">
           <Button
-            aria-label={t("close")}
-            className="size-11 rounded-full"
+            aria-label={c("back")}
+            className="size-11 shrink-0 rounded-full"
             onClick={() => onOpenChange(false)}
             size="icon"
             variant="ghost"
           >
-            <X className="size-5" />
+            <ChevronLeft className="size-6" />
           </Button>
+          <SheetTitle className="text-base font-semibold">{t("details")}</SheetTitle>
         </div>
         <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-5 pt-6 pb-[max(1.5rem,env(safe-area-inset-bottom))]">
           {children}

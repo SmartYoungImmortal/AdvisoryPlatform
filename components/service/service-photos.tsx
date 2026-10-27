@@ -258,9 +258,10 @@ export function ServicePhotos({
 
       <div className="hidden lg:block">
         {many ? (
-          // 16:9, so the whole collage sits in the first screen at 1710×985
-          // under the head; the cover's frame comes out near 7:6.
-          <div className="grid aspect-video grid-cols-[2fr_1fr] gap-3">
+          // 21:9, a quarter shorter than the 16:9 it was: at 16:9 the collage
+          // filled the first screen under the head and pushed everything else
+          // below it. The cover's frame comes out near 3:2.
+          <div className="grid aspect-[21/9] grid-cols-[2fr_1fr] gap-3">
             <Tile index={0} label={t("photoOf", { current: 1, total })} onOpen={open} src={photos[0]}>
               {overlay}
             </Tile>
@@ -279,7 +280,7 @@ export function ServicePhotos({
                     src={src}
                   >
                     {last ? (
-                      <span className="pointer-events-none absolute right-4 bottom-4 inline-flex h-11 items-center gap-2 rounded-full bg-card/85 px-4 text-base font-medium text-foreground shadow-hero-card backdrop-blur-md">
+                      <span className="pointer-events-none absolute right-4 bottom-4 inline-flex h-11 items-center gap-2 rounded-full bg-card/85 px-4 text-frame-meta font-medium text-foreground shadow-hero-card backdrop-blur-md">
                         <Images aria-hidden className="size-5" />
                         {more}
                       </span>
@@ -290,7 +291,7 @@ export function ServicePhotos({
             </div>
           </div>
         ) : (
-          <div className="relative aspect-video overflow-hidden rounded-2xl bg-muted shadow-hero-card">
+          <div className="relative aspect-[21/9] overflow-hidden rounded-2xl bg-muted shadow-hero-card">
             <Image
               alt=""
               className="object-cover"

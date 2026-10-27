@@ -199,3 +199,30 @@ export function DeviceAlertsCard() {
     </div>
   );
 }
+
+/**
+ * The card's own shape while the feed beside it loads: the circle, the two
+ * lines and the capsule as bones, and nothing to press. Turning alerts on is
+ * offered once there is a feed for them to be about; an empty one drops the
+ * card altogether. Each line is one line box of its text's step (`h-lh`) with
+ * the bone inside, as the feed's skeleton does, so the card stands as tall.
+ */
+export function DeviceAlertsCardSkeleton() {
+  const bone = "animate-pulse bg-muted motion-reduce:animate-none";
+
+  return (
+    <div aria-hidden className="flex w-full flex-col items-start gap-4 rounded-2xl border border-border p-5 lg:gap-5 lg:p-7">
+      <span className={cn(bone, "size-10 rounded-full lg:size-12")} />
+      <div className="flex w-full flex-col gap-1">
+        <span className="flex h-lh items-center text-base lg:text-frame-body">
+          <span className={cn(bone, "h-4 w-2/3 rounded lg:h-4.5")} />
+        </span>
+        <span className="flex h-lh items-center text-sm lg:text-frame-meta">
+          <span className={cn(bone, "h-3.5 w-full rounded lg:h-4")} />
+        </span>
+      </div>
+      {/* `authPill`'s heights, with the frame's from `lg`. */}
+      <span className={cn(bone, "h-11 w-full rounded-full md:h-12 lg:h-11")} />
+    </div>
+  );
+}

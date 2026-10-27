@@ -2,12 +2,14 @@
 
 import {
   BadgeCheck,
+  Bell,
   CalendarClock,
   CalendarDays,
   CreditCard,
   FileText,
   MessageSquare,
   ShieldAlert,
+  Sparkles,
   Star,
   type LucideIcon,
 } from "lucide-react";
@@ -28,7 +30,8 @@ import {
   NotificationRow,
   type FeedFilter,
 } from "@/components/notifications/notification-center-screen";
-import { DeviceAlertsCard } from "@/components/notifications/device-alerts-card";import {
+import { DeviceAlertsCard, DeviceAlertsCardSkeleton } from "@/components/notifications/device-alerts-card";
+import {
   loadMoreFeed,
   readAllNotifications,
   readNotification,
@@ -65,7 +68,15 @@ const ICON: Record<NotificationType, LucideIcon> = {
   REVIEW_RECEIVED: Star,
   VERIFICATION_DECIDED: BadgeCheck,
   POLICY_WARNING: ShieldAlert,
+  WELCOME: Sparkles,
 };
+
+/**
+ * A type's mark, else the bell: the API can learn a type before this app does
+ * (the welcome did), and an unknown one must show as a notification, not take
+ * the whole feed down with it.
+ */
+const iconFor = (type: NotificationType): LucideIcon => ICON[type] ?? Bell;
 
 const RECENCY_LABEL = { today: "today", yesterday: "yesterday", earlier: "earlier" } as const satisfies Record<
   Recency,
@@ -174,7 +185,7 @@ function LiveNotificationCenter() {
                   <NotificationRow
                     body={item.content}
                     href={notificationTarget(item)}
-                    icon={ICON[item.type]}
+                    icon={iconFor(item.type)}
                     key={item.id}
                     onClick={() => {
                       rememberNotification(item);
@@ -204,12 +215,21 @@ function LiveNotificationCenter() {
   // Held (disabled) while the list loads so the heading does not shift when it
   // lands; gone when there is nothing to mark, empty or failed.
   const offerMarkAll = feed.status === "loading" || (feed.status === "ready" && feed.items.length > 0);
+  // An empty feed is the page's one box, the full width and height of the
+  // column: the device-alerts card stands beside a feed, not beside nothing.
+  // While the feed loads it is the card's skeleton, nothing yet to press.
+  const empty = feed.status === "ready" && feed.items.length === 0;
+  let aside = null;
+  if (feed.status === "loading") aside = <DeviceAlertsCardSkeleton />;
+  else if (!empty) aside = <DeviceAlertsCard />;
 
   return (
     <NotificationCenterFrame
       advisor={advisor}
+      aside={aside}
+      fill={empty}
       filters={filters}
-      aside={<DeviceAlertsCard />}      onMarkAllRead={offerMarkAll ? () => void readAllNotifications() : undefined}
+      onMarkAllRead={offerMarkAll ? () => void readAllNotifications() : undefined}
       unread={unread}
     >
       {body}

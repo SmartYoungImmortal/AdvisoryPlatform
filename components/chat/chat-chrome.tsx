@@ -153,8 +153,8 @@ export function ChatError({
       )}
       role="alert"
     >
-      <p className="text-base font-semibold text-foreground lg:text-lg">{title}</p>
-      <p className="text-sm text-muted-foreground lg:text-base">{error.message}</p>
+      <p className="text-sm font-semibold text-foreground lg:text-frame-body">{title}</p>
+      <p className="text-xs text-muted-foreground lg:text-frame-meta">{error.message}</p>
       {signedOut ? (
         <Button className={cn(authPill(true), "w-auto")} nativeButton={false} render={<Link href="/login" />}>
           {c("login")}
@@ -265,12 +265,12 @@ export function ThreadHeader({
             </>
           ) : (
             <>
-              <h2 className="truncate text-base font-semibold text-foreground lg:text-2xl">
+              <h2 className="truncate text-base font-semibold text-foreground lg:text-frame-figure">
                 {name}
                 {advisor ? <span className="sr-only"> · {t("verified")}</span> : null}
               </h2>
               {subtitle ? (
-                <p className="truncate text-xs text-muted-foreground lg:text-base">{subtitle}</p>
+                <p className="truncate text-xs text-muted-foreground lg:text-frame-label">{subtitle}</p>
               ) : null}
             </>
           )}
@@ -397,7 +397,9 @@ export function Composer({
         <div className="flex min-w-0 flex-1 flex-col">
           <Textarea
             aria-label={recipient ? t("composerLabelTo", { name: recipient }) : t("composerLabel")}
-            className="max-h-40 min-h-11 resize-none rounded-3xl border-border bg-muted/60 px-4 py-2.5 text-base shadow-none md:text-base lg:min-h-12 lg:py-3 lg:text-lg"
+            // 16px on a phone, below which iOS zooms the page in on focus; the
+            // reading step of the bubbles from `lg`.
+            className="max-h-40 min-h-11 resize-none rounded-3xl border-border bg-muted/60 px-4 py-2.5 text-base shadow-none md:text-base lg:min-h-12 lg:py-3 lg:text-frame-meta"
             disabled={!enabled}
             enterKeyHint="send"
             maxLength={CHAT_MESSAGE_MAX_LENGTH}

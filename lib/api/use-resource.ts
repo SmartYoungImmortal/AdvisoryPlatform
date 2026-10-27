@@ -1,5 +1,6 @@
 "use client";
 
+import { useLocale } from "next-intl";
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import { ApiUnreachableError, isApiConfigured } from "@/lib/api/client";
@@ -86,11 +87,18 @@ const NOT_CONFIGURED = new ApiUnreachableError(
 /**
  * `key` identifies the request, not the route: include every parameter that
  * changes the answer, or two different queries will read each other's result.
+ *
+ * The reader's language is one of those parameters for every key (the API
+ * answers translated content in it), so it is added here rather than by each
+ * caller: switching language changes the key, and every mounted screen reads
+ * its data again in the new language. It is a suffix, so `invalidate(prefix)`
+ * still drops every language of a key.
  */
 export function useResource<T>(
-  key: string,
+  requestKey: string,
   fetcher: (signal: AbortSignal) => Promise<T>,
 ): Resource<T> {
+  const key = `${requestKey}#${useLocale()}`;
   // A counter, not a mirror of the data. Bumping it re-runs the render, which
   // re-reads the cache; the cache is the single place the result lives.
   const [, setRevision] = useState(0);

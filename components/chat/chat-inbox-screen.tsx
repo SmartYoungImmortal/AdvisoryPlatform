@@ -67,8 +67,12 @@ function useRowTime(): (iso: string) => string {
   };
 }
 
-/** The list as the card's left column from `lg`, the same width on both screens. */
-export const CHAT_LIST_PANE = "lg:w-88 lg:shrink-0";
+/**
+ * The list as the card's left column from `lg`, the same width on both
+ * screens: 400 in the 1710 space, about 337 rendered at 1440, room for a name
+ * and most of a last line beside the portrait.
+ */
+export const CHAT_LIST_PANE = "lg:w-100 lg:shrink-0";
 
 /** One conversation, everything a row needs and the list can search. */
 type Row = {
@@ -173,7 +177,7 @@ function ChatRow({ row, active, time }: { readonly row: Row; readonly active: bo
           <span className="flex items-baseline gap-2">
             <span
               className={cn(
-                "min-w-0 truncate text-base text-foreground lg:text-lg",
+                "min-w-0 truncate text-sm text-foreground lg:text-frame-meta",
                 unread ? "font-semibold" : "font-medium",
               )}
             >
@@ -198,7 +202,7 @@ function ChatRow({ row, active, time }: { readonly row: Row; readonly active: bo
           <span className="flex items-center gap-2">
             <span
               className={cn(
-                "min-w-0 flex-1 truncate text-sm lg:text-base",
+                "min-w-0 flex-1 truncate text-xs lg:text-frame-label",
                 unread ? "text-foreground" : "text-muted-foreground",
               )}
             >
@@ -355,10 +359,10 @@ function BannerCard({
       {/* The copy wraps rather than truncates: in a 352px column a cut-off
           "starts in…" is the one line that must be read whole. */}
       <span className="flex min-w-0 flex-1 flex-col items-start gap-0.5">
-        <span className="text-sm font-semibold text-foreground lg:text-base">{title}</span>
-        <span className="font-latin text-xs text-muted-foreground tabular-nums lg:text-base">{body}</span>
+        <span className="text-sm font-semibold text-foreground lg:text-frame-meta">{title}</span>
+        <span className="font-latin text-xs text-muted-foreground tabular-nums lg:text-frame-label">{body}</span>
         <Button
-          className="relative mt-2 h-9 rounded-full bg-hero-action px-4 text-xs font-medium text-hero-action-foreground before:absolute before:inset-x-0 before:-inset-y-1 before:content-[''] hover:bg-hero-action/85 lg:h-11 lg:px-5 lg:text-base"
+          className="relative mt-2 h-9 rounded-full bg-hero-action px-4 text-xs font-medium text-hero-action-foreground before:absolute before:inset-x-0 before:-inset-y-1 before:content-[''] hover:bg-hero-action/85 lg:h-11 lg:px-5 lg:text-frame-label"
           nativeButton={false}
           render={<Link href={action.href} />}
         >
@@ -427,10 +431,10 @@ export function ChatList({
   } else if (shown.length === 0) {
     body = (
       <div className="flex flex-col items-center gap-1.5 px-6 py-12 text-center">
-        <p className="text-base font-semibold text-foreground lg:text-lg">
+        <p className="text-sm font-semibold text-foreground lg:text-frame-body">
           {query.trim() ? t("noMatchesTitle", { query: query.trim() }) : t("noUnreadTitle")}
         </p>
-        {query.trim() ? <p className="text-sm text-muted-foreground lg:text-base">{t("noMatchesBody")}</p> : null}
+        {query.trim() ? <p className="text-xs text-muted-foreground lg:text-frame-meta">{t("noMatchesBody")}</p> : null}
       </div>
     );
   } else {
@@ -447,9 +451,11 @@ export function ChatList({
 
   return (
     <div className={cn("flex w-full flex-col", className)} data-slot="chat-list">
-      <div className="flex flex-col gap-4 px-5 pt-4 pb-3 lg:px-5 lg:pt-6">
+      {/* `pt-1` on a phone: the chat is a tab of its own there, with no back
+          chevron above the title to make room for. */}
+      <div className="flex flex-col gap-4 px-5 pt-1 pb-3 lg:px-5 lg:pt-6">
         <div className="flex flex-col gap-1">
-          <h1 className="font-hero text-2xl tracking-tight text-hero-ink lg:text-3xl">{t("title")}</h1>
+          <h1 className="font-hero text-xl tracking-tight text-hero-ink lg:text-frame-heading">{t("title")}</h1>
           {/* Beside an open thread its composer says it instead. */}
           {banner === "off" ? null : <ConnectionNote className="pt-1" />}
         </div>
@@ -462,7 +468,8 @@ export function ChatList({
           <Search aria-hidden className="pointer-events-none absolute top-1/2 left-4 size-4.5 -translate-y-1/2 text-muted-foreground lg:size-5" />
           <Input
             aria-label={t("searchConversations")}
-            className="h-11 rounded-full border-transparent bg-muted/70 pr-4 pl-11 text-base shadow-none md:text-base lg:h-12 lg:pl-12 lg:text-lg"
+            // 16px on a phone, below which iOS zooms the page in on focus.
+            className="h-11 rounded-full border-transparent bg-muted/70 pr-4 pl-11 text-base shadow-none md:text-base lg:h-12 lg:pl-12 lg:text-frame-meta"
             disabled={!rows || rows.length === 0}
             onChange={(event) => setQuery(event.target.value)}
             placeholder={t("searchConversations")}
@@ -504,8 +511,8 @@ function InboxEmpty({ className }: { readonly className?: string }) {
         <MessagesSquare aria-hidden className="size-7 text-muted-foreground" />
       </span>
       <div className="flex max-w-sm flex-col gap-1.5">
-        <h1 className="font-hero text-2xl tracking-tight text-hero-ink lg:text-3xl">{t("emptyTitle")}</h1>
-        <p className="text-sm text-muted-foreground lg:text-base">{t("emptyBody")}</p>
+        <h1 className="font-hero text-xl tracking-tight text-hero-ink lg:text-frame-heading">{t("emptyTitle")}</h1>
+        <p className="text-xs text-muted-foreground lg:text-frame-meta">{t("emptyBody")}</p>
       </div>
       <Button className={cn(authPill(true), "w-auto")} nativeButton={false} render={<Link href="/search" />}>
         {t("emptyAction")}

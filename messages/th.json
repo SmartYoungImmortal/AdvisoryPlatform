@@ -271,7 +271,34 @@
     "detailsUnavailableValue": "ไม่สามารถแสดงข้อมูลนี้ได้",
     "detailsCancel": "ยกเลิกการจอง",
     "detailsCancelFailed": "ยกเลิกไม่สำเร็จ โปรดลองอีกครั้ง",
-    "detailsAction": "รายละเอียด"
+    "detailsAction": "รายละเอียด",
+    "findExpert": "ค้นหาผู้เชี่ยวชาญ",
+    "chatAdvisor": "แชทกับที่ปรึกษา",
+    "review": "รีวิว",
+    "rebook": "จองอีกครั้ง",
+    "detailsPriceLabel": "ราคาบริการ",
+    "stateEnded": "สิ้นสุดแล้ว",
+    "stateLapsed": "ไม่ได้ชำระเงิน",
+    "payNow": "ชำระเงิน",
+    "calendarLabel": "ปฏิทินการจอง",
+    "today": "วันนี้",
+    "previousMonth": "เดือนก่อน",
+    "nextMonth": "เดือนถัดไป",
+    "dayWithCount": "{date} มี {count} นัด",
+    "tabPast": "ที่ผ่านมา",
+    "filterCancelled": "ยกเลิกแล้ว",
+    "filterLabel": "แสดงการจอง",
+    "emptyUpcoming": "ยังไม่มีการจองที่กำลังจะถึง",
+    "emptyBody": "เมื่อคุณจองเวลากับผู้เชี่ยวชาญ การจองจะแสดงที่นี่",
+    "emptyPast": "ยังไม่มีการจองที่ผ่านมา",
+    "viewReceipt": "ดูใบเสร็จ",
+    "cancelledAtLabel": "ยกเลิกเมื่อ",
+    "cancelConfirmTitle": "ยกเลิกการจองนี้ใช่ไหม",
+    "cancelConfirmBody": "เวลานี้จะกลับไปว่างในปฏิทินของที่ปรึกษา และคนอื่นจองได้",
+    "cancelConfirm": "ยืนยันการยกเลิก",
+    "cancelKeep": "ไม่ยกเลิก",
+    "helpPrompt": "มีคำถามเกี่ยวกับการจองนี้?",
+    "supportSubject": "สอบถามการจอง {service} วันที่ {date}"
   },
   "service": {
     "advisorLabel": "ผู้ให้คำปรึกษา",
@@ -591,7 +618,8 @@
     "justNow": "เมื่อสักครู่",
     "minutesAgo": "{count} นาที",
     "hoursAgo": "{count} ชม.",
-    "yesterday": "เมื่อวาน"
+    "yesterday": "เมื่อวาน",
+    "close": "ปิด"
   },
   "profile": {
     "name": "อารยา ส.",
@@ -700,7 +728,7 @@
     "bookings": "การจองของฉัน",
     "chat": "แชท",
     "notifications": "การแจ้งเตือน",
-    "transactions": "การชำระเงิน",
+    "transactions": "ธุรกรรม",
     "settings": "การตั้งค่า",
     "editProfile": "แก้ไขโปรไฟล์",
     "logOut": "ออกจากระบบ",
@@ -714,7 +742,7 @@
     "chat": "แชท",
     "bookings": "การจอง",
     "notifications": "แจ้งเตือน",
-    "payments": "ชำระเงิน",
+    "payments": "ธุรกรรม",
     "profile": "โปรไฟล์",
     "settings": "ตั้งค่า",
     "language": "ภาษา",
@@ -755,10 +783,20 @@
     "previewPrivate": "ชื่อเต็มและอีเมลของคุณ ผู้ให้คำปรึกษาไม่เห็น"
   },
   "accountSettings": {
-    "title": "การตั้งค่าบัญชี",
-    "subtitle": "ตั้งค่าวิธีลงชื่อเข้าใช้ Advisory",
-    "subtitleUpdated": "จัดการวิธีลงชื่อเข้าใช้ Advisory",
-    "signInLabel": "ลงชื่อเข้าใช้",
+    "title": "การตั้งค่า",
+    "menuLabel": "หมวดการตั้งค่า",
+    "sectionAccount": "บัญชี",
+    "sectionNotifications": "การแจ้งเตือน",
+    "sectionLanguage": "ภาษา",
+    "sectionLegal": "ข้อกำหนดและนโยบาย",
+    "change": "เปลี่ยน",
+    "contact": "ติดต่อ",
+    "read": "อ่าน",
+    "helpCenter": "ศูนย์ช่วยเหลือ",
+    "helpDetail": "สอบถามทีมงาน Advisory ทางอีเมล",
+    "logOutDetail": "ออกจาก Advisory บนอุปกรณ์นี้",
+    "deleteAction": "ลบ",
+    "languageDetail": "ภาษาที่ใช้แสดงผลบนอุปกรณ์นี้",
     "password": "รหัสผ่าน",
     "deleteAccount": "ลบบัญชี",
     "deleteNote": "การลบบัญชี จะลบการจอง และประวัติแชททั้งหมดถาวร ไม่สามารถกู้คืนได้",
@@ -783,7 +821,8 @@
     "submit": "อัปเดตรหัสผ่าน",
     "wrongCurrentTitle": "รหัสผ่านปัจจุบันไม่ถูกต้อง",
     "wrongCurrentBody": "เหลืออีก 3 ครั้งก่อนระงับการลงชื่อเข้าใช้ 15 นาที",
-    "wrongCurrentFieldError": "ไม่ตรงกับรหัสผ่านปัจจุบัน"
+    "wrongCurrentFieldError": "ไม่ตรงกับรหัสผ่านปัจจุบัน",
+    "invalid": "ตรวจสอบรหัสผ่านใหม่และการยืนยันอีกครั้ง"
   },
   "deleteAccount": {
     "title": "ลบบัญชี",
@@ -930,6 +969,10 @@
     "viewProfile": "ดูโปรไฟล์",
     "bookAgain": "จองอีกครั้ง",
     "reportConversation": "รายงานบทสนทนา",
+    "mute": "ปิดการแจ้งเตือน",
+    "unmute": "เปิดการแจ้งเตือน",
+    "muteFailed": "ตั้งค่าการแจ้งเตือนไม่สำเร็จ ลองอีกครั้ง",
+    "muted": "ปิดการแจ้งเตือนแล้ว",
     "thisSession": "นัดของบทสนทนานี้",
     "otherSessions": "นัดอื่นกับผู้เชี่ยวชาญท่านนี้",
     "allBookings": "ดูการจองทั้งหมด",
@@ -2002,7 +2045,25 @@
     "submittedRatingLabel": "คะแนนของคุณ",
     "submittedQuote": "“ให้คำแนะนำเรื่องขอบเขตโปรเจกต์จบได้ชัดเจนมาก Sarah ชี้ให้เห็นความเสี่ยง 2 ข้อที่ไม่เคยคิดถึง”",
     "submittedNote": "รีวิวจะแสดงต่อสาธารณะและแก้ไขไม่ได้หลังส่ง",
-    "backToBookings": "กลับไปที่การจอง"
+    "backToBookings": "กลับไปที่การจอง",
+    "crumb": "รีวิว",
+    "noBookingTitle": "ไม่มีการปรึกษาที่จะรีวิว",
+    "noBookingBody": "เปิดหน้านี้จากรายการจองที่จบแล้ว ระบบจะรู้ว่าคุณกำลังรีวิวครั้งไหน",
+    "starWord1": "แย่",
+    "starWord2": "พอใช้",
+    "starWord3": "ดี",
+    "starWord4": "ดีมาก",
+    "starWord5": "ยอดเยี่ยม",
+    "starAria": "{count} ดาว {word}",
+    "commentLabel": "เล่าเพิ่มเติม (ไม่บังคับ)",
+    "commentPlaceholder": "ได้อะไรจากการปรึกษาครั้งนี้บ้าง ที่ปรึกษาช่วยเรื่องไหนได้ดี",
+    "submitReview": "ส่งรีวิว",
+    "later": "ไว้ทีหลัง",
+    "submittedHeading": "ส่งรีวิวแล้ว",
+    "advisorReplyLabel": "คำตอบจากที่ปรึกษา",
+    "viewAdvisor": "ดูโปรไฟล์ที่ปรึกษา",
+    "notCompletedTitle": "ยังรีวิวไม่ได้",
+    "notCompletedBody": "รีวิวได้เมื่อการปรึกษาครั้งนี้เสร็จสิ้นแล้ว"
   },
   "matching": {
     "problemTitle": "เล่าปัญหาของคุณ",
@@ -3178,7 +3239,9 @@
     "inUseValue": "araya.new@gmail.com",
     "invalidEmail": "รูปแบบอีเมลไม่ถูกต้อง",
     "sameEmail": "อีเมลนี้เป็นอีเมลปัจจุบันของคุณอยู่แล้ว",
-    "wrongPassword": "ไม่ตรงกับรหัสผ่านปัจจุบัน"
+    "wrongPassword": "ไม่ตรงกับรหัสผ่านปัจจุบัน",
+    "requestFailedTitle": "ส่งคำขอไม่สำเร็จ",
+    "requestFailed": "ส่งคำขอไม่สำเร็จ กรุณาลองอีกครั้ง"
   },
   "verifyEmail": {
     "title": "ตรวจสอบกล่องจดหมาย",
@@ -3186,7 +3249,9 @@
     "pendingFallback": "araya.new@gmail.com",
     "stillLabel": "ยังลงชื่อเข้าใช้ด้วย",
     "backToSettings": "กลับไปที่การตั้งค่า",
-    "resend": "ส่งลิงก์อีกครั้ง"
+    "resend": "ส่งลิงก์อีกครั้ง",
+    "resent": "ส่งอีเมลยืนยันอีกครั้งแล้ว",
+    "resendFailed": "ส่งอีเมลไม่สำเร็จ กรุณาลองอีกครั้ง"
   },
   "offline": {
     "notSavedTitle": "หน้านี้ยังไม่ได้บันทึกไว้",
@@ -3274,28 +3339,35 @@
     "ch3Body": "ทีละสามสิบนาที ไม่มีค่าสมาชิกรายเดือน และเงินถูกพักไว้ตรงกลางจนกว่าจะคุยจบ ถ้าไม่ได้คุย เงินกลับมาหาคุณ"
   },
   "transactions": {
-    "title": "ประวัติการชำระเงิน",
-    "subtitle": "การชำระเงิน การคืนเงิน และใบเสร็จทั้งหมดของคุณ",
-    "summaryLabel": "ชำระแล้วทั้งหมด",
-    "summaryCount": "จาก {count} รายการที่ชำระสำเร็จ",
-    "escrowNote": "เราเก็บเงินไว้อย่างปลอดภัย และจะโอนให้ที่ปรึกษาหลังจบการให้คำปรึกษา",
+    "title": "ธุรกรรม",
     "filterLabel": "กรองตามสถานะ",
     "filterAll": "ทั้งหมด",
     "status": {
       "paid": "ชำระแล้ว",
       "refunded": "คืนเงินแล้ว",
-      "failed": "ไม่สำเร็จ"
+      "failed": "ไม่สำเร็จ",
+      "pending": "รอชำระ"
     },
     "showing": "แสดง {count} รายการ",
-    "monthCount": "{count} รายการ",
+    "loading": "กำลังโหลดธุรกรรม",
+    "loadFailed": "โหลดธุรกรรมไม่สำเร็จ",
+    "loadingReceipt": "กำลังโหลดใบเสร็จ",
+    "receiptLoadFailed": "โหลดใบเสร็จนี้ไม่สำเร็จ",
+    "notFoundTitle": "ไม่พบใบเสร็จนี้",
+    "notFoundBody": "ใบเสร็จนี้อาจไม่ใช่ของบัญชีนี้ หรือลิงก์ไม่ถูกต้อง",
+    "backToList": "กลับไปที่ธุรกรรม",
     "services": {
       "session": "ปรึกษา 1 ชั่วโมง",
       "thesisReview": "ตรวจวิทยานิพนธ์",
       "portfolioReview": "ตรวจพอร์ตโฟลิโอ"
     },
-    "emptyTitle": "ยังไม่มีการชำระเงิน",
+    "emptyTitle": "ยังไม่มีธุรกรรม",
     "emptyBody": "เมื่อคุณจองและชำระค่าปรึกษา ใบเสร็จจะแสดงที่นี่",
     "filteredEmptyTitle": "ไม่มีรายการในสถานะนี้",
+    "receiptLabel": "ใบเสร็จรับเงิน",
+    "billedToLabel": "ออกให้แก่",
+    "closeReceipt": "ปิดใบเสร็จ",
+    "summaryHeading": "สรุปรายการ",
     "filteredEmptyBody": "ลองดูรายการทั้งหมดแทน",
     "showAll": "ดูทั้งหมด",
     "findExpert": "ค้นหาผู้เชี่ยวชาญ",
@@ -3303,17 +3375,14 @@
     "headline": {
       "paid": "ชำระเงินสำเร็จ",
       "failed": "ชำระเงินไม่สำเร็จ",
-      "refunded": "คืนเงินเรียบร้อยแล้ว"
-    },
-    "pill": {
-      "paid": "ชำระแล้ว",
-      "failed": "ไม่มีการเรียกเก็บเงิน",
-      "refunded": "คืนเข้าบัตรแล้ว"
+      "refunded": "คืนเงินเรียบร้อยแล้ว",
+      "pending": "รอชำระเงิน"
     },
     "at": {
       "paid": "ชำระเมื่อ {date} เวลา {time} น.",
       "failed": "ถูกปฏิเสธเมื่อ {date} เวลา {time} น.",
-      "refunded": "คืนเงินเมื่อ {date} เวลา {time} น."
+      "refunded": "คืนเงินเมื่อ {date} เวลา {time} น.",
+      "pending": "ออกเมื่อ {date} เวลา {time} น."
     },
     "serviceLabel": "บริการ",
     "advisorLabel": "ที่ปรึกษา",
@@ -3331,26 +3400,22 @@
     "total": {
       "paid": "ยอดชำระทั้งหมด",
       "failed": "ยอดที่พยายามชำระ",
-      "refunded": "ยอดที่เรียกเก็บสุทธิ"
+      "refunded": "ยอดที่เรียกเก็บสุทธิ",
+      "pending": "ยอดที่ต้องชำระ"
     },
     "cardLabel": {
       "paid": "ชำระด้วย",
       "failed": "บัตรที่ใช้",
-      "refunded": "คืนเงินไปที่"
+      "refunded": "คืนเงินไปที่",
+      "pending": "บัตร"
     },
     "reasonLabel": "สาเหตุ",
     "reasonValue": "ธนาคารผู้ออกบัตรปฏิเสธ",
     "invoiceNoLabel": "เลขที่ใบเสร็จ",
-    "chargeIdLabel": "รหัสการชำระเงิน",
-    "failedTitle": "ยังไม่มีการเรียกเก็บเงิน",
-    "failedBody": "ธนาคารผู้ออกบัตรปฏิเสธการชำระเงินนี้ การจองจึงยังไม่ยืนยัน ตรวจสอบข้อมูลบัตรและยอดคงเหลือ หรือลองใช้บัตรอื่น",
-    "refundedTitle": "คืนเงิน {amount} เข้าบัตร {card} แล้ว",
-    "refundedBody": "การจองนี้ถูกยกเลิก ยอดคืนอาจใช้เวลาสักระยะจึงจะแสดงในรายการบัตร ขึ้นอยู่กับธนาคารผู้ออกบัตร",
     "payAgain": "ลองชำระอีกครั้ง",
     "viewBookings": "ดูการจองของฉัน",
     "helpPrompt": "มีคำถามเกี่ยวกับรายการนี้?",
     "contactSupport": "ติดต่อฝ่ายช่วยเหลือ",
-    "faq": "คำถามที่พบบ่อย",
     "supportSubject": "สอบถามรายการ {number}"
   }
 }

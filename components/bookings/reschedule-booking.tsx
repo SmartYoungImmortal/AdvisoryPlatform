@@ -39,7 +39,8 @@ export function RescheduleBooking({
   );
 }
 
-function RescheduleSlots({
+/** The slot picker on its own, for a row that lays out its own toggle (the bookings list). */
+export function RescheduleSlots({
   booking,
   onRescheduled,
 }: {

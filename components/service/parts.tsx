@@ -17,7 +17,7 @@ import { cn } from "@/lib/utils";
 
 /** The heads inside the page: a step above their card titles once there is room. */
 export const SECTION_HEAD =
-  "w-full text-base font-semibold text-foreground lg:text-lg";
+  "w-full text-base font-semibold text-foreground lg:text-frame-body";
 
 /** Figma "Topic Chip" — a muted pill, 12/18, that says what fits in the hour. */
 export function TopicChip({ label }: { readonly label: string }) {

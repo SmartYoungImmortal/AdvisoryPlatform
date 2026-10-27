@@ -5,23 +5,11 @@ import { Mail, MailCheck } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { useState, useSyncExternalStore, type FormEvent, type ReactNode } from "react";
 
-import { AppFrame } from "@/components/account/app-frame";
 import { AlertBanner } from "@/components/mobile/banner";
 import { NeutralButton, PrimaryButton } from "@/components/mobile/buttons";
 import { Field } from "@/components/mobile/field";
-import {
-  MobileScreen,
-  ScreenActions,
-  ScreenBody,
-  ScreenHeading,
-  ScreenSpacer,
-  ScreenTopBar,
-} from "@/components/mobile/screen";
-import {
-  ACCOUNT_FORM_PANEL,
-  ACCOUNT_HEADING,
-  AccountBackBar,
-} from "@/components/profile/account-chrome";
+import { AccountSettingsScreen } from "@/components/profile/account-settings-screen";
+import { SETTINGS_DIALOG_ACTIONS, SettingsDialog } from "@/components/profile/settings-dialog";
 import { useAccount } from "@/components/session/account-bits";
 import { ApiError } from "@/lib/api/client";
 import { requestEmailChange } from "@/lib/api/account";
@@ -29,14 +17,11 @@ import { isEmail } from "@/lib/session";
 import { cn } from "@/lib/utils";
 
 /**
- * Figma "Current Card" (995:7305) and "Still Card" (995:7787) — a read-only row
- * on the card surface: a 16px mail glyph, then a 12/18 muted caption over the
- * 14/20 medium address. The auth frames draw the same block as "Sent To", see
- * `ResetLinkSentScreen`.
- *
- * On the phone the card reads against the page; inside the desktop panel the
- * two surfaces are the same white, so it takes the muted tint there — the call
- * `edit-profile-screen` already made for its locked-email card.
+ * Figma "Current Card" (995:7305) and "Still Card" (995:7787) — a read-only row:
+ * a 16px mail glyph, then a 12/18 muted caption over the 14/20 medium address.
+ * The auth frames draw the same block as "Sent To", see `ResetLinkSentScreen`.
+ * On the dialog's white it takes the muted tint, so it reads as a value rather
+ * than another field.
  */
 function EmailCard({
   caption,
@@ -48,16 +33,11 @@ function EmailCard({
   readonly className?: string;
 }) {
   return (
-    <div
-      className={cn(
-        "flex w-full shrink-0 items-center gap-2.5 overflow-clip rounded-card bg-card p-3.5 lg:bg-muted/50",
-        className,
-      )}
-    >
+    <div className={cn("flex w-full shrink-0 items-center gap-2.5 overflow-clip rounded-card bg-muted/50 p-3.5", className)}>
       <Mail className="size-4 shrink-0 text-muted-foreground" />
       <div className="flex min-w-px flex-1 flex-col items-start gap-0.5 overflow-clip">
         <p className="w-full text-xs font-normal text-muted-foreground">{caption}</p>
-        <p className="font-latin w-full text-sm font-medium text-foreground">{value}</p>
+        <p className="font-latin w-full text-sm font-medium break-all text-foreground">{value}</p>
       </div>
     </div>
   );
@@ -67,7 +47,7 @@ function EmailCard({
 type Problem = "in-use" | "invalid-email" | "same-email" | "request-failed";
 
 /**
- * The pending address `ChangeEmailScreen` hands on, read straight off the URL.
+ * The pending address `ChangeEmailForm` hands on, read straight off the URL.
  *
  * It is a browser value, so it is subscribed to rather than copied into state
  * in an effect: the static render and the hydration pass both see `null` — the
@@ -81,23 +61,15 @@ const noPendingEmail = () => null;
 
 /**
  * Figma "Change email" (995:7287) and its already-in-use state (995:7320),
- * which adds an alert banner under the heading and an inline error under the
- * address field.
+ * which adds an alert banner and an inline error under the address field.
  *
- * Figma "Desktop / Change email (Light)" (1836:7823) and the same state
- * (1836:7903) put the form in an 800px panel and stand the current address
- * beside the fields instead of above them, so the reader can compare the two
- * as they type.
- *
- * The API sends a confirmation link to the current address and then a
- * verification link to the new address. The address changes only after both
- * links are opened. `state` only seeds the in-use visual state.
+ * A dialog over the settings (`SettingsDialog`): the address the account has
+ * now, then the new one, then the request. The API sends a confirmation link
+ * to the current address and then a verification link to the new address;
+ * the address changes only after both links are opened. `state` only seeds
+ * the in-use visual state.
  */
-export function ChangeEmailScreen({
-  state = "default",
-}: {
-  readonly state?: "default" | "in-use";
-}) {
+function ChangeEmailForm({ state = "default" }: { readonly state?: "default" | "in-use" }) {
   const t = useTranslations("changeEmail");
   const c = useTranslations("common");
   const router = useRouter();
@@ -143,105 +115,61 @@ export function ChangeEmailScreen({
   }
 
   return (
-    <MobileScreen wide="md">
-      <ScreenTopBar className="lg:hidden" href="/settings" label={c("back")} />
-      <AppFrame active="settings">
-      <ScreenBody>
-        <AccountBackBar href="/settings" label={c("back")} />
+    <SettingsDialog description={t("subtitle")} title={t("title")}>
+      <form className="flex w-full flex-col" noValidate onSubmit={submit}>
+        {inUse || problem === "request-failed" ? (
+          <AlertBanner
+            body={inUse ? t("inUseBody", { email: email.trim() || t("inUseValue") }) : t("requestFailed")}
+            className="mb-4 px-0 pt-0"
+            icon={Mail}
+            title={inUse ? t("inUseTitle") : t("requestFailedTitle")}
+          />
+        ) : null}
 
-        {/* Figma "Head Band" — the title on the card surface, above the page. */}
-        <div className="w-full shrink-0 lg:bg-card">
-          <ScreenHeading
-            className={ACCOUNT_HEADING}
-            subtitle={t("subtitle")}
-            title={t("title")}
+        <EmailCard caption={t("currentLabel")} value={currentEmail} />
+
+        <div className="mt-4 flex w-full flex-col">
+          <Field
+            autoComplete="email"
+            error={emailError}
+            id="new-email"
+            invalid={emailError !== undefined}
+            label={t("newLabel")}
+            latin
+            onChange={(event) => {
+              setEmail(event.target.value);
+              setProblem(null);
+            }}
+            placeholder={t("newPlaceholder")}
+            type="email"
+            value={email}
           />
         </div>
 
-        {/* Figma "Form Band" — the panel the whole form moves into at 1440. */}
-        <form
-          className={cn("flex w-full flex-1 flex-col items-center", ACCOUNT_FORM_PANEL)}
-          noValidate
-          onSubmit={submit}
-        >
-          {inUse || problem === "request-failed" ? (
-            <AlertBanner
-              body={inUse ? t("inUseBody", { email: email.trim() || t("inUseValue") }) : "ส่งคำขอไม่สำเร็จ กรุณาลองอีกครั้ง"}
-              className="lg:px-0"
-              icon={Mail}
-              title={t("inUseTitle")}
-            />
-          ) : null}
-
-          {/* Figma "Split" — the current address turns the corner into its own
-              column beside the fields, so it stays in view while they change. */}
-          <div
-            className={cn(
-              "flex w-full shrink-0 flex-col items-start lg:grid lg:grid-cols-2 lg:items-start lg:gap-8",
-              inUse && "lg:pt-6",
-            )}
-          >
-            {/* Figma "Current Email": above the fields on the phone, to their
-                right at 1440 — one block, moved by `order`. */}
-            <div className="flex w-full shrink-0 flex-col items-start px-6 pt-4 lg:order-last lg:px-0">
-              <EmailCard caption={t("currentLabel")} value={currentEmail} />
-            </div>
-
-            {/* Figma "Form Fields": 16px top padding, 16px between fields. */}
-            <div className="flex w-full shrink-0 flex-col items-start gap-4 px-6 pt-4 lg:px-0">
-              <Field
-                autoComplete="email"
-                error={emailError}
-                id="new-email"
-                invalid={emailError !== undefined}
-                label={t("newLabel")}
-                latin
-                onChange={(event) => {
-                  setEmail(event.target.value);
-                  setProblem(null);
-                }}
-                placeholder={t("newPlaceholder")}
-                type="email"
-                value={email}
-              />
-            </div>
-          </div>
-
-          {/* The phone frame pins the action to the bottom edge; on the panel it
-              sits under the two columns, held to the right at Figma's 210×44. */}
-          <ScreenSpacer className="lg:hidden" />
-          <ScreenActions className="lg:flex-row-reverse lg:justify-start lg:px-0 lg:pt-8 lg:pb-0">
-            <PrimaryButton
-              className="disabled:opacity-40 lg:h-11 lg:w-[210px]"
-              disabled={!email.trim() || submitting}
-              type="submit"
-            >
-              {t("submit")}
-            </PrimaryButton>
-          </ScreenActions>
-        </form>
-      </ScreenBody>
-      </AppFrame>
-    </MobileScreen>
+        <div className={SETTINGS_DIALOG_ACTIONS}>
+          <PrimaryButton className="disabled:opacity-40 lg:w-auto" disabled={!email.trim() || submitting} type="submit">
+            {t("submit")}
+          </PrimaryButton>
+          <NeutralButton className="lg:w-auto" href="/settings">
+            {c("cancel")}
+          </NeutralButton>
+        </div>
+      </form>
+    </SettingsDialog>
   );
 }
 
 /**
- * Figma "Verify email" (995:7766) — where `ChangeEmailScreen` lands once the
- * link is on its way.
+ * Figma "Verify email" (995:7766) — where the change lands once the link is on
+ * its way: the badge, where the link went, the address the session still
+ * answers to, then back to the settings or send the link again.
  *
- * Figma "Desktop / Verify email (Light)" (1836:7990) lifts the title out of the
- * hero and onto the head band, leaving the badge and the line under it in a
- * 640-ish centred column, and lays the two actions out as a row of 210px
- * buttons instead of a stack.
- *
- * The pending address rides the query string rather than a store: the change
- * form is a separate route, and nothing is written until the link is opened.
- * Until it is read — the static render, and a visitor who opened this route
- * directly — the frame's own fixture stands in, the way `account-bits` treats
- * every other value a static frame draws.
+ * The pending address rides the query string rather than a store: nothing is
+ * written until the link is opened. Until it is read — the static render, and
+ * a visitor who opened this route directly — the frame's own fixture stands
+ * in, the way `account-bits` treats every other value a static frame draws.
  */
-export function VerifyEmailScreen() {
+function VerifyEmailNote() {
   const t = useTranslations("verifyEmail");
   const c = useTranslations("common");
   const account = useAccount();
@@ -249,8 +177,8 @@ export function VerifyEmailScreen() {
   const [resendStatus, setResendStatus] = useState<"sent" | "failed" | null>(null);
 
   const pending = useSyncExternalStore(subscribeNever, readPendingEmail, noPendingEmail);
-
   const email = pending ?? t("pendingFallback");
+
   async function resend() {
     if (!pending) return;
     setResending(true);
@@ -266,62 +194,36 @@ export function VerifyEmailScreen() {
   }
 
   return (
-    <MobileScreen wide="md">
-      <ScreenTopBar className="lg:hidden" href="/settings/email" label={c("back")} />
-      <AppFrame active="settings">
-      <ScreenBody>
-        <AccountBackBar href="/settings/email" label={c("back")} />
-
-        {/* Figma "Head Band" — desktop only: the phone frame keeps its title in
-            the hero, under the badge, so the two are one heading drawn in the
-            two places each viewport puts it and hidden where the other belongs. */}
-        <div className="hidden w-full shrink-0 lg:block lg:bg-card">
-          <ScreenHeading className={ACCOUNT_HEADING} title={t("title")} />
+    <SettingsDialog description={t("subtitle", { email })} title={t("title")}>
+      <div className="flex w-full flex-col">
+        <span className="flex size-14 shrink-0 items-center justify-center rounded-full bg-muted lg:size-16">
+          <MailCheck aria-hidden className="size-6 text-primary lg:size-7" />
+        </span>
+        <EmailCard caption={t("stillLabel")} className="mt-5" value={account?.email ?? c("emailValue")} />
+        {resendStatus ? (
+          <p className="mt-3 text-sm text-muted-foreground" role="status">
+            {resendStatus === "sent" ? t("resent") : t("resendFailed")}
+          </p>
+        ) : null}
+        <div className={SETTINGS_DIALOG_ACTIONS}>
+          <PrimaryButton className="lg:w-auto" href="/settings">
+            {t("backToSettings")}
+          </PrimaryButton>
+          <NeutralButton className="lg:w-auto" disabled={!pending || resending} onClick={resend} type="button">
+            {t("resend")}
+          </NeutralButton>
         </div>
-
-        <div className={cn("flex w-full flex-1 flex-col items-center", ACCOUNT_FORM_PANEL)}>
-          {/* Figma "Hero": 96px badge inset 56px from the top, an 18px gap, then
-              the text block. */}
-          <div className="flex w-full shrink-0 flex-col items-center pt-14">
-            <span className="flex size-24 shrink-0 items-center justify-center rounded-full bg-muted">
-              <MailCheck className="size-10 text-primary" />
-            </span>
-            <div className="flex w-full shrink-0 flex-col items-center gap-2.5 overflow-clip px-6 pt-4.5 text-center lg:px-0">
-              <h1 className="w-full text-heading font-semibold text-foreground lg:hidden">
-                {t("title")}
-              </h1>
-              <p className="w-full text-sm font-normal text-muted-foreground">
-                {t("subtitle", { email })}
-              </p>
-            </div>
-          </div>
-
-          {/* Figma "Still Active" — the address the session still answers to.
-              The panel shrinks the card to its content and centres it. */}
-          <div className="flex w-full shrink-0 flex-col items-start px-6 pt-6 lg:items-center lg:px-0">
-            <EmailCard
-              caption={t("stillLabel")}
-              className="lg:w-auto"
-              value={account?.email ?? c("emailValue")}
-            />
-          </div>
-
-          {/* The phone frame pins the actions to the bottom edge; the panel is
-              only as tall as its content, so the stack turns into Figma's
-              centred row of 210px buttons. */}
-          <ScreenSpacer className="lg:hidden" />
-          {resendStatus ? <p role="status" className="px-6 pt-3 text-sm text-muted-foreground">{resendStatus === "sent" ? "ส่งอีเมลยืนยันอีกครั้งแล้ว" : "ส่งอีเมลไม่สำเร็จ กรุณาลองอีกครั้ง"}</p> : null}
-          <ScreenActions className="lg:flex-row lg:justify-center lg:px-0 lg:pt-14 lg:pb-8">
-            <PrimaryButton className="lg:w-[210px]" href="/settings">
-              {t("backToSettings")}
-            </PrimaryButton>
-            <NeutralButton className="lg:w-[210px]" disabled={!pending || resending} onClick={resend} type="button">
-              {t("resend")}
-            </NeutralButton>
-          </ScreenActions>
-        </div>
-      </ScreenBody>
-      </AppFrame>
-    </MobileScreen>
+      </div>
+    </SettingsDialog>
   );
+}
+
+/** `/settings/email`: the settings, with the change-email dialog over them. */
+export function ChangeEmailScreen({ state = "default" }: { readonly state?: "default" | "in-use" }) {
+  return <AccountSettingsScreen overlay={<ChangeEmailForm state={state} />} />;
+}
+
+/** `/settings/email/verify`: the settings, with the waiting-for-the-link note over them. */
+export function VerifyEmailScreen() {
+  return <AccountSettingsScreen overlay={<VerifyEmailNote />} />;
 }

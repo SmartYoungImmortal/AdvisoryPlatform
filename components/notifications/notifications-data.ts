@@ -25,7 +25,9 @@ export type NotificationType =
   | "SCREENING_DECIDED"
   | "REVIEW_RECEIVED"
   | "VERIFICATION_DECIDED"
-  | "POLICY_WARNING";
+  | "POLICY_WARNING"
+  /** The one each account gets on sign-up (and every account had backfilled). */
+  | "WELCOME";
 
 /** `NotificationResponseDto` */
 export interface ApiNotification {
@@ -98,6 +100,11 @@ export function notificationHref(notification: ApiNotification): string | null {
       return id ? `/screening/review?requestId=${id}` : "/screening/requests";
     case "BOOKING_RECEIVED":
       return "/work/calendar";
+    case "WELCOME":
+      // Its first step, which its copy names. The API marks an advisor's
+      // welcome with their own id: theirs is filling in the profile advisees
+      // find them by; everyone else's (no resource) is finding an expert.
+      return id ? "/advisor/edit" : "/search";
     default:
       return null;
   }

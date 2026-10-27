@@ -718,7 +718,10 @@
       calc(-50% - cos(var(--a)) * var(--ring-ry) * var(--k) + var(--lift))
     )
     var(--tilt) rotate(var(--a));
-  filter: blur(calc(var(--hero-exit, 0) * 16px));
+  /* No blur on the way out: twelve cards re-blurred on every frame of the
+     scroll doubled the frame time (p95 33ms → 17.6ms without it, measured at
+     1440×900 ×2), which read as the hero stuttering. The fade in
+     `hero-pop-out` and the fly-out carry the exit on their own. */
 }
 
 /* Hover: the card comes forward. The face inside grows, never the link: when
