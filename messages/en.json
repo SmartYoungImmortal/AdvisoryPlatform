@@ -844,7 +844,6 @@
   "changeEmail": {
     "title": "Change email",
     "subtitle": "We'll send a confirmation link to the new address. Your current email keeps working until you open it.",
-    "currentLabel": "Current email",
     "newLabel": "New email",
     "newPlaceholder": "you@example.com",
     "passwordLabel": "Current password",
@@ -864,7 +863,6 @@
     "title": "Check your inbox",
     "subtitle": "We sent a confirmation link to {email}. Your email changes only after you open it.",
     "pendingFallback": "araya.new@gmail.com",
-    "stillLabel": "Still signed in as",
     "backToSettings": "Back to settings",
     "resend": "Send the link again",
     "resent": "We've sent the confirmation email again",

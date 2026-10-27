@@ -4,7 +4,7 @@ import { Mail, MailCheck } from "lucide-react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { useTranslations } from "next-intl";
-import { useState, useSyncExternalStore, type FormEvent, type ReactNode } from "react";
+import { useState, useSyncExternalStore, type FormEvent } from "react";
 
 import { Field } from "@/components/mobile/field";
 import { AccountSettingsScreen } from "@/components/profile/account-settings-screen";
@@ -15,28 +15,6 @@ import { ApiError } from "@/lib/api/client";
 import { requestEmailChange } from "@/lib/api/account";
 import { isEmail } from "@/lib/session";
 import { cn } from "@/lib/utils";
-
-/**
- * The address the account has, read-only: its caption set as the field's
- * label is, the address under it at the field's own size, so it reads as the
- * row above the new one rather than as a box of its own.
- */
-function EmailCard({
-  caption,
-  value,
-  className,
-}: {
-  readonly caption: ReactNode;
-  readonly value: ReactNode;
-  readonly className?: string;
-}) {
-  return (
-    <div className={cn("flex w-full flex-col gap-1.5", className)}>
-      <p className="text-sm font-medium text-muted-foreground md:text-base">{caption}</p>
-      <p className="font-latin text-base font-medium break-all text-foreground lg:text-frame-body">{value}</p>
-    </div>
-  );
-}
 
 /** What stopped the form, at most one at a time. */
 type Problem = "in-use" | "invalid-email" | "same-email" | "request-failed";
@@ -155,8 +133,8 @@ function ChangeEmailForm({ state = "default" }: { readonly state?: "default" | "
 
 /**
  * Figma "Verify email" (995:7766) — where the change lands once the link is on
- * its way: where the link went, the address the session still answers to,
- * then back to the settings or send the link again.
+ * its way: where the link went, then back to the settings or send the link
+ * again.
  *
  * The pending address rides the query string rather than a store: nothing is
  * written until the link is opened. Until it is read — the static render, and
@@ -165,8 +143,6 @@ function ChangeEmailForm({ state = "default" }: { readonly state?: "default" | "
  */
 function VerifyEmailNote() {
   const t = useTranslations("verifyEmail");
-  const c = useTranslations("common");
-  const account = useAccount();
   const [resending, setResending] = useState(false);
   const [resendStatus, setResendStatus] = useState<"sent" | "failed" | null>(null);
 
@@ -189,14 +165,15 @@ function VerifyEmailNote() {
 
   return (
     <SettingsDialog description={t("subtitle", { email })} icon={MailCheck} title={t("title")}>
+      {/* Where the link went is the line under the title; the address the
+          session still answers to is on the settings row behind. */}
       <div className="flex w-full flex-col">
-        <EmailCard caption={t("stillLabel")} value={account?.email ?? c("emailValue")} />
         {resendStatus ? (
-          <output className="mt-3 block text-sm text-muted-foreground">
+          <output className="block text-sm text-muted-foreground">
             {resendStatus === "sent" ? t("resent") : t("resendFailed")}
           </output>
         ) : null}
-        <div className={SETTINGS_DIALOG_STACK}>
+        <div className={cn(SETTINGS_DIALOG_STACK, !resendStatus && "mt-0")}>
           <Button className={settingsStackPill("solid")} nativeButton={false} render={<Link href="/settings" />}>
             {t("backToSettings")}
           </Button>
