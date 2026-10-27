@@ -34,14 +34,16 @@ export function dayDate(key: string): Date {
   return new Date(Date.UTC(year, month - 1, day, 12));
 }
 
-/** The month's days in weeks, Sunday first; `null` pads the weeks out either side. */
-function monthCells(month: string): readonly (string | null)[] {
+/** The month's days in weeks, Sunday first; a `null` day pads the weeks out either side. */
+function monthCells(month: string): readonly { readonly date: string; readonly day: string | null }[] {
   const [year, index] = month.split("-").map(Number);
   const lead = new Date(Date.UTC(year, index - 1, 1)).getUTCDay();
   const length = new Date(Date.UTC(year, index, 0)).getUTCDate();
+  // Each cell's own date, the neighbouring months' for the blanks, so every
+  // cell has a stable key; only the month's own days are drawn.
   return Array.from({ length: Math.ceil((lead + length) / 7) * 7 }, (_, i) => {
-    const day = i - lead + 1;
-    return day >= 1 && day <= length ? `${month}-${String(day).padStart(2, "0")}` : null;
+    const date = new Date(Date.UTC(year, index - 1, i - lead + 1)).toISOString().slice(0, 10);
+    return { date, day: date.startsWith(month) ? date : null };
   });
 }
 
@@ -94,8 +96,8 @@ export function MiniMonth({
             {format.dateTime(date, { weekday: "narrow" })}
           </span>
         ))}
-        {cells.map((key, i) => {
-          if (!key) return <span aria-hidden key={`pad-${i}`} />;
+        {cells.map(({ date: cell, day: key }) => {
+          if (!key) return <span aria-hidden key={cell} />;
           const entries = byDay.get(key) ?? [];
           const date = dayDate(key);
           const number = format.dateTime(date, { day: "numeric" });

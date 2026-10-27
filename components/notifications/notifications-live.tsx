@@ -14,7 +14,7 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import { useFormatter, useTranslations } from "next-intl";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type RefObject } from "react";
 
 import { useMountTime } from "@/components/bookings/booking-flow";
 import { useElapsedLabel } from "@/components/mobile/live-state";
@@ -156,6 +156,48 @@ function FeedGroups({ items, now }: { readonly items: readonly ApiNotification[]
 }
 
 /**
+ * The feed once it has rows: those the filter leaves (or a way back to all of
+ * them), a skeleton row while the next page loads, and the hairline that asks
+ * for it (`sentinel`, null once there is no more).
+ */
+function LoadedFeed({
+  items,
+  filter,
+  onShowAll,
+  now,
+  loadingMore,
+  sentinel,
+}: {
+  readonly items: readonly ApiNotification[];
+  readonly filter: FeedFilter;
+  readonly onShowAll: () => void;
+  readonly now: number;
+  readonly loadingMore: boolean;
+  readonly sentinel: RefObject<HTMLDivElement | null> | null;
+}) {
+  const t = useTranslations("notifications");
+  const visible = filter === "all" ? items : items.filter((item) => notificationCategory(item.type) === filter);
+
+  return (
+    <>
+      {/* What the filter left, for a reader who cannot see the list change. */}
+      <p aria-live="polite" className="sr-only">
+        {t("showing", { count: visible.length })}
+      </p>
+      {visible.length === 0 ? <FilteredEmpty onShowAll={onShowAll} /> : <FeedGroups items={visible} now={now} />}
+      {loadingMore ? (
+        <div aria-busy className="flex items-center gap-4 py-4 lg:gap-5 lg:py-6">
+          <span className="sr-only">{t("loading")}</span>
+          <span aria-hidden className="size-5 shrink-0 animate-pulse rounded bg-muted motion-reduce:animate-none lg:size-6" />
+          <span aria-hidden className="h-4 w-1/3 animate-pulse rounded bg-muted motion-reduce:animate-none" />
+        </div>
+      ) : null}
+      {sentinel ? <div aria-hidden className="h-px w-full shrink-0" ref={sentinel} /> : null}
+    </>
+  );
+}
+
+/**
  * The signed-in user's notifications, newest first, grouped into today,
  * yesterday and earlier, and filtered on this page by state or kind. More
  * load as the user scrolls down. Tapping a row marks it read and opens what it
@@ -175,10 +217,6 @@ function LiveNotificationCenter() {
 
   const hasMore = feed.status === "ready" && feed.nextCursor !== null;
   const sentinel = useMoreOnScroll(hasMore);
-  const matches = (item: ApiNotification) => {
-    if (filter === "all") return true;
-    return notificationCategory(item.type) === filter;
-  };
 
   let body;
   let unread: number | null = null;
@@ -206,27 +244,15 @@ function LiveNotificationCenter() {
       feed.items.some((item) => notificationCategory(item.type) === kind),
     );
     filters = <FeedFilters kinds={kinds} onChange={setFilter} value={filter} />;
-    const visible = feed.items.filter(matches);
     body = (
-      <>
-        {/* What the filter left, for a reader who cannot see the list change. */}
-        <p aria-live="polite" className="sr-only">
-          {t("showing", { count: visible.length })}
-        </p>
-        {visible.length === 0 ? (
-          <FilteredEmpty onShowAll={() => setFilter("all")} />
-        ) : (
-          <FeedGroups items={visible} now={now} />
-        )}
-        {feed.loadingMore ? (
-          <div aria-busy className="flex items-center gap-4 py-4 lg:gap-5 lg:py-6">
-            <span className="sr-only">{t("loading")}</span>
-            <span aria-hidden className="size-5 shrink-0 animate-pulse rounded bg-muted motion-reduce:animate-none lg:size-6" />
-            <span aria-hidden className="h-4 w-1/3 animate-pulse rounded bg-muted motion-reduce:animate-none" />
-          </div>
-        ) : null}
-        {hasMore ? <div aria-hidden className="h-px w-full shrink-0" ref={sentinel} /> : null}
-      </>
+      <LoadedFeed
+        filter={filter}
+        items={feed.items}
+        loadingMore={feed.loadingMore}
+        now={now}
+        onShowAll={() => setFilter("all")}
+        sentinel={hasMore ? sentinel : null}
+      />
     );
   }
 

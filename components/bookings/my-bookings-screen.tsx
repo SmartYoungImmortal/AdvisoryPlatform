@@ -362,6 +362,26 @@ function PhoneMonth({
  * matter behind a press. The month view belongs to the advisor, whose days
  * fill up.
  */
+/**
+ * A link to one booking: `?bookingId=` (a notification's "see the booking"),
+ * or `?serviceId=&startTime=` (a receipt's, whose invoice names no booking
+ * id). `landing` is the booking the page came for, whose tab the list keeps;
+ * `linked` is it while its card is still to show, until the reader closes it
+ * or opens another (`spend`).
+ */
+function useLinkedBooking(entries: readonly BookingEntry[]) {
+  const linkedId = asUuid(useQueryValue("bookingId"));
+  const linkedService = asUuid(useQueryValue("serviceId"));
+  const linkedStart = Date.parse(useQueryValue("startTime") ?? "");
+  const [spent, setSpent] = useState(false);
+  const landing = entries.find(
+    ({ booking }) =>
+      booking.id === linkedId ||
+      (booking.serviceId === linkedService && Date.parse(booking.startTime) === linkedStart),
+  );
+  return { landing, linked: spent ? undefined : landing, spend: () => setSpent(true) };
+}
+
 export function MyBookingsScreen() {
   const t = useTranslations("bookings");
   const c = useTranslations("common");
@@ -379,14 +399,6 @@ export function MyBookingsScreen() {
   // the booking as the list reads it again after a change.
   const [openId, setOpenId] = useState<string | null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
-  // A link to one booking: `?bookingId=` (a notification's "see the
-  // booking"), or `?serviceId=&startTime=` (a receipt's, whose invoice names
-  // no booking id). The list opens on its tab with the booking over it, until
-  // the reader closes it or opens another.
-  const linkedId = asUuid(useQueryValue("bookingId"));
-  const linkedService = asUuid(useQueryValue("serviceId"));
-  const linkedStart = Date.parse(useQueryValue("startTime") ?? "");
-  const [linkSpent, setLinkSpent] = useState(false);
 
   const bookingsFetcher = useCallback((signal: AbortSignal) => listMyBookings({ limit: 50 }, signal), []);
   const servicesFetcher = useCallback((signal: AbortSignal) => listServices({ limit: 100 }, signal), []);
@@ -417,12 +429,7 @@ export function MyBookingsScreen() {
     cancelled: inPhase("cancelled").toReversed(),
   };
   const tabs = TABS.filter((tab) => tab !== "cancelled" || lists.cancelled.length > 0);
-  const landing = entries.find(
-    ({ booking }) =>
-      booking.id === linkedId ||
-      (booking.serviceId === linkedService && Date.parse(booking.startTime) === linkedStart),
-  );
-  const linked = linkSpent ? undefined : landing;
+  const { landing, linked, spend } = useLinkedBooking(entries);
   // The page always opens on what is ahead, empty or not, as scheduling apps
   // do: that is what a visit is for, and an empty one says how to book. A tab
   // that has emptied (the last called-off booking is gone) falls back there too.
@@ -443,14 +450,14 @@ export function MyBookingsScreen() {
   const shownId = linked ? linked.booking.id : openId;
   const openEntry = entries.find((entry) => entry.booking.id === shownId) ?? null;
   const open = (bookingId: string) => {
-    setLinkSpent(true);
+    spend();
     setOpenId(bookingId);
     setDialogOpen(true);
   };
   const openChange = (next: boolean) => {
     // A linked card that closes keeps its booking for the exit, as any other.
     if (linked) {
-      setLinkSpent(true);
+      spend();
       setOpenId(linked.booking.id);
     }
     setDialogOpen(next);

@@ -477,7 +477,7 @@ export function BookingSheet({
           advisor's calendar, where another advisee can take it. */}
       {changeable && panel === "cancel" ? (
         <div className={UNDER_TEXT}>
-          <div className="flex flex-col gap-3 rounded-xl bg-destructive/5 p-4 lg:gap-4 lg:p-5" role="group">
+          <fieldset className="flex min-w-0 flex-col gap-3 rounded-xl bg-destructive/5 p-4 lg:gap-4 lg:p-5">
             <div className="flex flex-col gap-1">
               <p className="text-sm font-medium text-foreground lg:text-frame-meta">{t("cancelConfirmTitle")}</p>
               <p className="text-xs text-muted-foreground lg:text-frame-label">{t("cancelConfirmBody")}</p>
@@ -501,7 +501,7 @@ export function BookingSheet({
                 {t("cancelKeep")}
               </Button>
             </div>
-          </div>
+          </fieldset>
         </div>
       ) : null}
       {cancellation.state.kind === "idle" ? null : (

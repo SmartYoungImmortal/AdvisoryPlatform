@@ -18,21 +18,22 @@ let lastKnown: PushState | null = null;
  * settings while the page is open.
  */
 export function usePushState() {
-  const [state, setStateRaw] = useState<PushState | null>(lastKnown);
-  const setState = useCallback((next: PushState | null) => {
+  const [state, setState] = useState<PushState | null>(lastKnown);
+  // Every change is also kept for the next mount (`lastKnown`).
+  const remember = useCallback((next: PushState | null) => {
     lastKnown = next;
-    setStateRaw(next);
+    setState(next);
   }, []);
 
   const refresh = useCallback(() => {
-    void readPushState().then(setState);
-  }, [setState]);
+    void readPushState().then(remember);
+  }, [remember]);
 
   useEffect(() => {
     let status: PermissionStatus | null = null;
     const onChange = () => refresh();
     // Read once on mount, then follow the permission.
-    void readPushState().then(setState);
+    void readPushState().then(remember);
     navigator.permissions
       ?.query({ name: "notifications" })
       .then((next) => {
@@ -41,7 +42,7 @@ export function usePushState() {
       })
       .catch(() => {});
     return () => status?.removeEventListener("change", onChange);
-  }, [refresh, setState]);
+  }, [refresh, remember]);
 
-  return [state, setState] as const;
+  return [state, remember] as const;
 }

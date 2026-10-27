@@ -107,6 +107,14 @@ function outcomeAt(invoice: ApiAdviseeInvoice): string | null {
   }
 }
 
+/** The session's day, with its hours unless the booking was cancelled: it holds none any more. */
+function receiptSession(invoice: ApiAdviseeInvoice): Receipt["session"] {
+  const { session, booking } = invoice;
+  if (!session) return null;
+  if (booking === "cancelled") return { date: session.startTime };
+  return { date: session.startTime, from: session.startTime, to: session.endTime };
+}
+
 export function invoiceReceipt(invoice: ApiAdviseeInvoice): Receipt {
   const { session, booking, card } = invoice;
   return {
@@ -114,12 +122,7 @@ export function invoiceReceipt(invoice: ApiAdviseeInvoice): Receipt {
     service: invoice.service.name,
     advisor: invoice.advisor.displayName,
     at: outcomeAt(invoice),
-    // A cancelled booking holds no hours any more, so only its day is said.
-    session: session
-      ? booking === "cancelled"
-        ? { date: session.startTime }
-        : { date: session.startTime, from: session.startTime, to: session.endTime }
-      : null,
+    session: receiptSession(invoice),
     // A confirmed booking is simply going ahead: no booking fact.
     booking: booking === "unconfirmed" || booking === "cancelled" ? booking : undefined,
     bookingHref: session
