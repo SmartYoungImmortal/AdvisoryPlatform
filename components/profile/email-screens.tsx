@@ -113,7 +113,7 @@ function ChangeEmailForm({ state = "default" }: { readonly state?: "default" | "
         {/* A taken address is said under its field; a request that did not
             go through, here, where the reader is about to press again. */}
         {problem === "request-failed" ? (
-          <p className="mt-4 text-sm text-destructive" role="alert">
+          <p className="mt-3 text-xs text-destructive" role="alert">
             {t("requestFailed")}
           </p>
         ) : null}
@@ -169,7 +169,7 @@ function VerifyEmailNote() {
           session still answers to is on the settings row behind. */}
       <div className="flex w-full flex-col">
         {resendStatus ? (
-          <output className="block text-sm text-muted-foreground">
+          <output className="block text-xs text-muted-foreground">
             {resendStatus === "sent" ? t("resent") : t("resendFailed")}
           </output>
         ) : null}

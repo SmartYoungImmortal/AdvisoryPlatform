@@ -5,16 +5,28 @@ import { useCallback, useEffect, useState } from "react";
 import { type PushState, readPushState } from "@/lib/push/web-push";
 
 /**
+ * The state last read or set on this page load. A screen that mounts again (the settings page
+ * under each of its dialogs' routes) starts from it instead of from nothing, so its switch does not
+ * show off and then flick on while the browser is asked again. `null` on a fresh load, as the
+ * server-side render has it, so hydration matches.
+ */
+let lastKnown: PushState | null = null;
+
+/**
  * The browser's push state, `null` until it has been read (it is asynchronous, and the server-side
  * render cannot know it). Reads again when the person changes the permission in the browser's own
  * settings while the page is open.
  */
 export function usePushState() {
-  const [state, setState] = useState<PushState | null>(null);
+  const [state, setStateRaw] = useState<PushState | null>(lastKnown);
+  const setState = useCallback((next: PushState | null) => {
+    lastKnown = next;
+    setStateRaw(next);
+  }, []);
 
   const refresh = useCallback(() => {
     void readPushState().then(setState);
-  }, []);
+  }, [setState]);
 
   useEffect(() => {
     let status: PermissionStatus | null = null;
@@ -29,7 +41,7 @@ export function usePushState() {
       })
       .catch(() => {});
     return () => status?.removeEventListener("change", onChange);
-  }, [refresh]);
+  }, [refresh, setState]);
 
   return [state, setState] as const;
 }

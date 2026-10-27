@@ -15,7 +15,7 @@ import { cn } from "@/lib/utils";
  * box on a hairline.
  */
 const FIELD_LIFT =
-  "[&_[data-slot=input-group]]:h-10 lg:[&_[data-slot=input-group]]:h-11 lg:[&_[data-slot=input-group]]:px-4 lg:[&_[data-slot=input-group-control]]:text-base md:[&_[data-slot=field-label]]:text-sm lg:[&_[data-slot=field-label]]:text-frame-label";
+  "[&_[data-slot=input-group]]:h-10 lg:[&_[data-slot=input-group]]:h-11 lg:[&_[data-slot=input-group]]:px-4 lg:[&_[data-slot=input-group-control]]:text-base [&_[data-slot=field-label]]:text-xs lg:[&_[data-slot=field-label]]:text-frame-label";
 
 /**
  * The frame's type steps from `lg` for the shared blocks' captions and lines,
@@ -97,11 +97,11 @@ export function SettingsDialog({
                 <span className="flex size-12 items-center justify-center rounded-full bg-muted lg:size-16">
                   <Icon aria-hidden className="size-6 text-foreground lg:size-8" strokeWidth={1.75} />
                 </span>
-                <DialogTitle className="mt-1.5 text-lg leading-7 font-semibold text-foreground lg:text-frame-heading lg:leading-8">
+                <DialogTitle className="mt-1.5 text-base leading-6 font-semibold text-foreground lg:text-frame-heading lg:leading-8">
                   {title}
                 </DialogTitle>
                 {description ? (
-                  <DialogDescription className="mt-0.5 text-sm text-balance text-muted-foreground lg:text-frame-label">
+                  <DialogDescription className="mt-0.5 text-xs text-balance text-muted-foreground lg:text-frame-label">
                     {description}
                   </DialogDescription>
                 ) : null}
@@ -114,11 +114,11 @@ export function SettingsDialog({
         ) : (
           <div className="app-scale contents lg:block lg:w-100">
             <div className="flex flex-col p-5 lg:p-6">
-              <DialogTitle className="text-lg leading-7 font-semibold text-foreground lg:text-frame-heading lg:leading-8">
+              <DialogTitle className="text-base leading-6 font-semibold text-foreground lg:text-frame-heading lg:leading-8">
                 {title}
               </DialogTitle>
               {description ? (
-                <DialogDescription className="mt-1 text-sm text-pretty text-muted-foreground lg:mt-2 lg:text-frame-body lg:leading-7">
+                <DialogDescription className="mt-1 text-xs text-pretty text-muted-foreground lg:mt-2 lg:text-frame-body lg:leading-7">
                   {description}
                 </DialogDescription>
               ) : null}
@@ -142,7 +142,7 @@ export const SETTINGS_DIALOG_ACTIONS = "mt-5 flex flex-wrap justify-end gap-2.5 
  */
 export function settingsPill(kind: "solid" | "ghost" | "danger") {
   return cn(
-    "h-10 shrink-0 rounded-full border-0 px-4 text-sm font-medium shadow-none disabled:opacity-40 lg:h-12 lg:px-5 lg:text-frame-body",
+    "h-10 shrink-0 rounded-full border-0 px-4 text-xs font-medium shadow-none disabled:opacity-40 lg:h-12 lg:px-5 lg:text-frame-body",
     kind === "solid" && "bg-hero-action text-hero-action-foreground hover:bg-hero-action/85",
     kind === "ghost" && "bg-transparent text-foreground hover:bg-muted hover:text-foreground",
     kind === "danger" && "bg-destructive/25 text-destructive hover:bg-destructive/35 hover:text-destructive",
@@ -161,7 +161,7 @@ export const SETTINGS_DIALOG_STACK = "mt-5 flex flex-col gap-2 lg:mt-6 lg:gap-2.
  */
 export function settingsStackPill(kind: "solid" | "danger" | "soft") {
   return cn(
-    "h-10 w-full gap-2 rounded-full border-0 px-5 text-sm font-medium shadow-none disabled:opacity-40 lg:h-12 lg:px-6 lg:text-base",
+    "h-10 w-full gap-2 rounded-full border-0 px-5 text-xs font-medium shadow-none disabled:opacity-40 lg:h-12 lg:px-6 lg:text-base",
     kind === "solid" && "bg-hero-action text-hero-action-foreground hover:bg-hero-action/85",
     kind === "danger" && "bg-destructive text-primary-foreground hover:bg-destructive/90",
     kind === "soft" && "bg-muted text-foreground hover:bg-muted/70 hover:text-foreground",
