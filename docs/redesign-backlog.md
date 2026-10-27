@@ -75,7 +75,7 @@
 - [ ] `/checkout/card`, `/checkout/card/saved`
 - [ ] `/checkout/processing`, `/checkout/success`, `/checkout/failed`
 - [ ] `/checkout/slot-taken`, `/checkout/unconfirmed`
-- [ ] ข้างในของ `/bookings` (กรอบทำแล้ว ดู RD-01 / RD-12)
+- [ ] ข้างในของ `/bookings` (กรอบทำแล้ว ดู RD-01)
 
 ### RD-05 · โปรไฟล์และหน้าทำงานของผู้ให้คำปรึกษา ⭐
 - [ ] `/advisor/profile` (ควรเป็น dashboard: สวิตช์รับงาน นัดวันนี้ คำขอที่รอตอบ รายได้ สถานะยืนยันตัวตน)
