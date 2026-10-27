@@ -1,6 +1,6 @@
 "use client";
 
-import { Circle, CircleCheck, LockKeyhole } from "lucide-react";
+import { Circle, CircleCheck } from "lucide-react";
 import Link from "next/link";
 import { useTranslations } from "next-intl";
 import { useRouter } from "next/navigation";
@@ -92,7 +92,7 @@ function ChangePasswordForm({ state = "default" }: { readonly state?: "default" 
   }
 
   return (
-    <SettingsDialog icon={LockKeyhole} title={t("title")}>
+    <SettingsDialog title={t("title")}>
       <form className="flex w-full flex-col" onSubmit={submit}>
         <div className="flex w-full flex-col gap-4 lg:gap-6">
           <PasswordField
@@ -153,11 +153,11 @@ function ChangePasswordForm({ state = "default" }: { readonly state?: "default" 
         ) : null}
 
         <div className={SETTINGS_DIALOG_ACTIONS}>
+          <Button className={settingsPill("ghost")} nativeButton={false} render={<Link href="/settings" />} variant="ghost">
+            {c("cancel")}
+          </Button>
           <Button className={settingsPill("solid")} disabled={submitting} type="submit">
             {t("submit")}
-          </Button>
-          <Button className={settingsPill()} nativeButton={false} render={<Link href="/settings" />} variant="ghost">
-            {c("cancel")}
           </Button>
         </div>
       </form>
