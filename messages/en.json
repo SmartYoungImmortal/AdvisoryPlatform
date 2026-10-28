@@ -232,6 +232,15 @@
     "previousPage": "Previous page",
     "nextPage": "Next page"
   },
+  "changeEmail": {
+    "subtitle": "Confirm the request from your current email first, then open the link sent to your new email. Your email changes after both steps."
+  },
+  "verifyEmail": {
+    "subtitle": "Check your current email to confirm the request, then open the link sent to {email} to change your email."
+  },
+  "serviceForm": {
+    "limitActiveNote": "This service is limited to {hours} hours per day. Your availability's overall daily limit also applies."
+  },
   "bookings": {
     "title": "My bookings",
     "upcomingCount": "{count} upcoming bookings",
@@ -350,6 +359,7 @@
     "relatedTitle": "More from this expert",
     "pickTime": "Pick a time",
     "pickTimeHint": "Nothing is charged until you confirm payment.",
+    "bookingSelectionRejected": "This time could not be booked. Available times have been refreshed. Choose another time or message the expert.",
     "noSlots": "No open times in the next 7 days. Send the expert a message to ask.",
     "signInForSlots": "Sign in to see open times and book",
     "signIn": "Sign in",
@@ -762,7 +772,7 @@
     "deleteNote": "Deleting your account permanently removes your bookings and all chat history. It can't be undone.",
     "verifyNote": "Changes to your email or password take effect once you confirm them",
     "updatedTitle": "Password updated",
-    "updatedBody": "Your other devices have been signed out"
+    "updatedBody": "Your password is updated. Other devices will be signed out within 5 minutes."
   },
   "common": {
     "about": "About us",

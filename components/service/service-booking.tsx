@@ -271,14 +271,27 @@ export function BookingPicker({
           router.push(`/checkout/slot-taken?startTime=${encodeURIComponent(time)}&serviceId=${service.id}`);
           return;
         }
+        if (cause instanceof ApiError && cause.status === 400) {
+          selection.pick(null, null);
+          slots.reload();
+          setFailure(t("bookingSelectionRejected"));
+          return;
+        }
         setFailure(cause instanceof Error ? cause.message : String(cause));
       })
       .finally(() => setBooking(false));
   };
 
+  const failureNotice = failure ? (
+    <p className="text-center text-sm text-destructive lg:text-base" role="alert">
+      {failure}
+    </p>
+  ) : null;
+
   if (slots.loading || slots.error) {
     return (
       <div className="flex flex-col gap-3">
+        {failureNotice}
         <SlotsNotice
           advisorName={advisorName}
           error={slots.error}
@@ -292,6 +305,7 @@ export function BookingPicker({
   if (selected === null) {
     return (
       <div className="flex flex-col gap-3">
+        {failureNotice}
         <Notice icon={CalendarX2}>{t("noSlots")}</Notice>
         <MessageButton advisorId={service.advisorId} />
       </div>
@@ -388,11 +402,7 @@ export function BookingPicker({
         </Button>
         <MessageButton advisorId={service.advisorId} />
         <p className="text-center text-xs text-muted-foreground lg:text-base">{t("pickTimeHint")}</p>
-        {failure ? (
-          <p className="text-center text-sm text-destructive lg:text-base" role="alert">
-            {failure}
-          </p>
-        ) : null}
+        {failureNotice}
       </div>
     </div>
   );

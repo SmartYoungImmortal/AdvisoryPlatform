@@ -46,10 +46,9 @@
  * - **An off-platform flag carries `messageId` and `matchedPattern` only** — no
  *   message text, no sender, no risk level, no signal breakdown — and has **no
  *   detail route**, only the list.
- * - **Documents are storage keys, not URLs.** `documentObjectKey`, a skill proof's
- *   `objectKey` and refund evidence keys are SeaweedFS keys; there is no admin
- *   presign route, so a real upload cannot be rendered. The demo seed's keys are
- *   paths under `public/demo-docs/`, which `documentUrl` opens.
+ * - **Identity and skill documents are private.** Read short-lived URLs through
+ *   their permission-checked document-url routes. Refund evidence retains its
+ *   separate key-only contract.
  *
  * ## Rulings, and the two failures that are not bugs
  *
@@ -233,8 +232,6 @@ export interface IdentityVerification {
   readonly displayName: string;
   readonly email: string;
   readonly verificationStatus: IdentityStatus;
-  /** SeaweedFS object key. Not a URL, and nothing presigns it for an admin. */
-  readonly documentObjectKey: string | null;
   readonly rejectionReason: string | null;
   readonly submittedAt: string | null;
   readonly verifiedAt: string | null;
@@ -259,6 +256,21 @@ export function getIdentityVerification(
   signal?: AbortSignal,
 ): Promise<IdentityVerification> {
   return api.get(`admin/identity-verifications/${advisorId}`, { signal });
+}
+
+export interface PrivateDocumentUrl {
+  readonly url: string;
+  readonly expiresInSeconds: number;
+}
+
+/** Permission-checked read; request a fresh URL when opening a review. */
+export function getIdentityDocumentUrl(advisorId: string, signal?: AbortSignal): Promise<PrivateDocumentUrl> {
+  return api.get(`admin/identity-verifications/${advisorId}/document-url`, { signal });
+}
+
+/** The proof response never exposes its storage key. */
+export function getSkillProofDocumentUrl(proofId: string, signal?: AbortSignal): Promise<PrivateDocumentUrl> {
+  return api.get(`admin/skill-proofs/${proofId}/document-url`, { signal });
 }
 
 /**
@@ -287,10 +299,8 @@ export function rejectIdentityVerification(
 }
 
 /**
- * A document key the console can open as it is: a URL, or a demo specimen the
- * console serves itself from `public/demo-docs/`. Real uploads store a SeaweedFS
- * key no admin route presigns, so those return `null` and the page names the
- * file instead.
+ * Refund evidence can open a supplied URL or demo specimen. Opaque keys return
+ * null; identity and skill reviews use dedicated private URL routes.
  */
 export function documentUrl(key: string | null | undefined): string | null {
   return key && (/^https?:\/\//.test(key) || key.startsWith("/demo-docs/")) ? key : null;
@@ -305,8 +315,6 @@ export interface SkillProof {
   readonly advisorDisplayName: string;
   readonly skillId: string;
   readonly skillName: string;
-  /** SeaweedFS object key, never null — and never a URL. */
-  readonly objectKey: string;
   readonly originalFileName: string;
   readonly reviewStatus: SkillProofReviewStatus;
   readonly rejectionReason: string | null;

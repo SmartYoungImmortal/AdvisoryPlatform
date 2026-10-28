@@ -21,6 +21,7 @@ import { Surface, surfaceClass } from "@/components/mobile/surface";
 import { ThaiText } from "@/components/mobile/thai-text";
 import { TopBar } from "@/components/topbar";
 import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
 import {
   Select,
   SelectContent,
@@ -37,6 +38,8 @@ import { useResource, invalidate } from "@/lib/api/use-resource";
 import { createAdvisorService, getMyAdvisorService, listMyAvailabilityProfiles, listServiceCategories, updateAdvisorService, type AdvisorService } from "@/lib/advisor-services/api";
 import { SLOT_MINUTES, type AdvisorServiceRecord } from "@/lib/advisor-services";
 import type { Weekday } from "@/lib/availability/profiles";
+import { availabilityApi } from "@/lib/availability/api";
+import { CUSTOM_BOUNDS } from "@/lib/availability";
 import {
   CREATE_PLACEHOLDERS,
   EDIT_VALUES,
@@ -197,7 +200,7 @@ function OptionSelect({
   readonly onValueChange?: (value: string) => void;
 }) {
   return (
-    <Select value={value ?? defaultValue} items={[...items]} onValueChange={(value) => onValueChange?.(String(value ?? ""))}>
+    <Select value={value ?? defaultValue ?? null} items={[...items]} onValueChange={(value) => onValueChange?.(String(value ?? ""))}>
       <SelectTrigger className="w-full" id={id}>
         <SelectValue placeholder={placeholder} />
       </SelectTrigger>
@@ -294,8 +297,14 @@ function ImageDropzone() {
 }
 
 /** Figma "Limit stepper" — the per-service ceiling, adjusted an hour at a time. */
-function LimitStepper() {
+function LimitStepper({ minutes, maximumMinutes, disabled, onChange }: {
+  readonly minutes: number;
+  readonly maximumMinutes: number | undefined;
+  readonly disabled: boolean;
+  readonly onChange: (minutes: number) => void;
+}) {
   const t = useTranslations("serviceForm");
+  const minimumMinutes = Math.min(CUSTOM_BOUNDS.dailyLimitHours.min * 60, maximumMinutes ?? Number.MAX_SAFE_INTEGER);
 
   return (
     <Surface className="flex w-full shrink-0 items-center gap-3 overflow-clip p-3">
@@ -303,21 +312,27 @@ function LimitStepper() {
         {t("limitStepperLabel")}
       </p>
       <div className="flex shrink-0 items-center overflow-clip rounded-lg border border-border bg-muted">
-        <span
-          aria-hidden
-          className="flex size-9 items-center justify-center text-primary"
+        <Button variant="ghost" size="icon"
+          type="button"
+          aria-label={`${t("limitStepperLabel")} − ${t("hours", { count: 1 })}`}
+          disabled={disabled || minutes <= minimumMinutes}
+          onClick={() => onChange(Math.max(minimumMinutes, Math.floor((minutes - 1) / 60) * 60))}
+          className="rounded-none border-0 text-primary"
         >
           <Minus className="size-4" />
-        </span>
+        </Button>
         <span className="min-w-14 text-center text-sm font-medium text-foreground">
-          {t("hours", { count: SERVICE_LIMIT.hours })}
+          {t("hours", { count: minutes / 60 })}
         </span>
-        <span
-          aria-hidden
-          className="flex size-9 items-center justify-center text-primary"
+        <Button variant="ghost" size="icon"
+          type="button"
+          aria-label={`${t("limitStepperLabel")} + ${t("hours", { count: 1 })}`}
+          disabled={disabled || maximumMinutes === undefined || minutes >= maximumMinutes}
+          onClick={() => onChange(Math.min(maximumMinutes ?? CUSTOM_BOUNDS.dailyLimitHours.max * 60, (Math.floor(minutes / 60) + 1) * 60))}
+          className="rounded-none border-0 text-primary"
         >
           <Plus className="size-4" />
-        </span>
+        </Button>
       </div>
     </Surface>
   );
@@ -356,8 +371,10 @@ export function ServiceFormScreen({
   const [problem, setProblem] = useState<string | null>(null);
   const [updatedService, setUpdatedService] = useState<AdvisorService | null>(null);
   const profiles = useResource("advisors/me/availability/profiles", listMyAvailabilityProfiles);
+  const globalAvailability = useResource("availability/global", availabilityApi.getGlobal);
   const categories = useResource("service-categories", listServiceCategories);
   const [limitEnabled, setLimitEnabled] = useState<boolean | null>(null);
+  const [selectedLimitMinutes, setSelectedLimitMinutes] = useState<number | null>(null);
   const [screeningEnabled, setScreeningEnabled] = useState<boolean | null>(null);
   const [trialEnabled, setTrialEnabled] = useState<boolean | null>(null);
   const resolvedServiceId = serviceId ?? record?.serviceId;
@@ -374,7 +391,9 @@ export function ServiceFormScreen({
     return days;
   }, {});
   const noProfile = state === "no-profile";
-  const limitOn = state === "limit-on";
+  const limitOn = limitEnabled ?? (Boolean(apiRecord?.dailyConsultationLimitMinutes) || state === "limit-on");
+  const maximumLimitMinutes = globalAvailability.data ? globalAvailability.data.dailyConsultationLimitMinutes ?? CUSTOM_BOUNDS.dailyLimitHours.max * 60 : undefined;
+  const limitMinutes = selectedLimitMinutes ?? apiRecord?.dailyConsultationLimitMinutes ?? Math.min(SERVICE_LIMIT.hours * 60, maximumLimitMinutes ?? Number.MAX_SAFE_INTEGER);
   const serviceDetailHref = resolvedServiceId ? `/advisor/services/view?serviceId=${encodeURIComponent(resolvedServiceId)}` : "/advisor/services";
   const backHref = edit && resolvedServiceId
     ? serviceDetailHref
@@ -399,7 +418,7 @@ export function ServiceFormScreen({
     setProblem(null);
     try {
       const isTrial = trialEnabled ?? apiRecord?.trialEnabled ?? false;
-      const input = { name, categoryId, availabilityProfileId: profileId, description: String(data.get("description") ?? ""), priceSatang: price * 100, durationMinutes: duration, isPublished: edit ? (apiRecord?.isPublished ?? false) : publishAction && publish, screeningRequired: screeningEnabled ?? apiRecord?.screeningRequired ?? false, trialEnabled: isTrial, ...(isTrial ? { trialDurationMinutes: apiRecord?.trialDurationMinutes ?? SLOT_MINUTES } : {}), dailyConsultationLimitMinutes: (limitEnabled ?? Boolean(apiRecord?.dailyConsultationLimitMinutes)) ? SERVICE_LIMIT.hours * 60 : null };
+      const input = { name, categoryId, availabilityProfileId: profileId, description: String(data.get("description") ?? ""), priceSatang: price * 100, durationMinutes: duration, isPublished: edit ? (apiRecord?.isPublished ?? false) : publishAction && publish, screeningRequired: screeningEnabled ?? apiRecord?.screeningRequired ?? false, trialEnabled: isTrial, ...(isTrial ? { trialDurationMinutes: apiRecord?.trialDurationMinutes ?? SLOT_MINUTES } : {}), dailyConsultationLimitMinutes: limitOn ? limitMinutes : null };
       const saved = edit && resolvedServiceId ? await updateAdvisorService(resolvedServiceId, input) : await createAdvisorService(input);
       invalidate("advisors/me/services");
       router.push(`/advisor/services/view?serviceId=${encodeURIComponent(saved.id)}`);
@@ -455,7 +474,7 @@ export function ServiceFormScreen({
       <form id="advisor-service-form" key={apiRecord?.modifiedAt ?? "new"} onSubmit={(event) => void submit(event, true)}>
       <ScreenBody className="gap-4 pb-6 lg:gap-0 lg:pb-0">
         {problem ? <p className="mx-6 mt-4 rounded-card border border-destructive/30 p-3 text-sm" role="alert">{problem}</p> : null}
-        {profiles.error || categories.error || (edit && !liveOverride && liveService.error) ? <div className="mx-6 mt-4 rounded-card border border-destructive/30 p-3 text-sm" role="alert"><p>{(profiles.error ?? categories.error ?? liveService.error)?.message}</p><button className="mt-2 text-primary underline" type="button" onClick={() => { profiles.reload(); categories.reload(); liveService.reload(); }}>{t("retry")}</button></div> : null}
+        {profiles.error || categories.error || (edit && !liveOverride && liveService.error) ? <div className="mx-6 mt-4 rounded-card border border-destructive/30 p-3 text-sm" role="alert"><p>{(profiles.error ?? categories.error ?? liveService.error)?.message}</p><Button variant="link" className="mt-2 h-auto border-0 p-0 font-normal underline" type="button" onClick={() => { profiles.reload(); categories.reload(); liveService.reload(); }}>{t("retry")}</Button></div> : null}
         {edit && !liveOverride && liveService.loading ? <p className="mx-6 mt-4 text-sm text-muted-foreground" role="status">{t("loadingService")}</p> : null}
         {!profiles.loading && profileRows.length === 0 ? <p className="mx-6 mt-4 rounded-card bg-muted p-3 text-sm" role="status">{t("noProfileHint")}</p> : null}
         <div className={HEAD_BAND}>
@@ -571,7 +590,7 @@ export function ServiceFormScreen({
               caption={limitOn ? t("limitOnCaption") : t("limitOffCaption")}
               title={
                 limitOn
-                  ? t("limitOnTitle", { hours: SERVICE_LIMIT.hours })
+                  ? t("limitOnTitle", { hours: limitMinutes / 60 })
                   : t("limitOffTitle")
               }
               titleClassName="text-base font-medium"
@@ -579,19 +598,14 @@ export function ServiceFormScreen({
                 <Switch
                   aria-label={t("limitOffTitle")}
                   className="shrink-0"
-                  checked={limitEnabled ?? (Boolean(apiRecord?.dailyConsultationLimitMinutes) || limitOn)}
+                  checked={limitOn}
                   onCheckedChange={setLimitEnabled}
                 />
               }
             />
-            {limitOn ? <LimitStepper /> : null}
+            {limitOn ? <LimitStepper minutes={limitMinutes} maximumMinutes={maximumLimitMinutes} disabled={saving || !globalAvailability.data} onChange={setSelectedLimitMinutes} /> : null}
             <GroundNote tone="accent">
-              {limitOn
-                ? t("limitOnNote", {
-                    global: SERVICE_LIMIT.globalHours,
-                    hours: SERVICE_LIMIT.hours,
-                  })
-                : t("limitOffNote")}
+              {globalAvailability.error && limitOn ? t("apiUnavailable") : limitOn ? t("limitActiveNote", { hours: limitMinutes / 60 }) : t("limitOffNote")}
             </GroundNote>
           </div>
 
@@ -665,7 +679,7 @@ export function ServiceFormScreen({
           /* Figma "Danger Zone" — hiding is reversible and keeps existing bookings;
              deleting is neither, which is why only it opens a confirmation. */
           <div className="order-5 flex w-full shrink-0 flex-col items-start gap-2 overflow-clip px-6 lg:px-0">
-            <SettingRow caption={t("hideCaption")} title={apiRecord?.isPublished ? t("hideTitle") : t("publish")} trailing={<button className="text-sm font-medium text-primary" type="button" disabled={saving || !apiRecord} onClick={() => void togglePublished()}>{apiRecord?.isPublished ? t("hideTitle") : t("publish")}</button>} />
+            <SettingRow caption={t("hideCaption")} title={apiRecord?.isPublished ? t("hideTitle") : t("publish")} trailing={<Button variant="link" className="h-auto border-0 p-0 text-sm font-medium" type="button" disabled={saving || !apiRecord} onClick={() => void togglePublished()}>{apiRecord?.isPublished ? t("hideTitle") : t("publish")}</Button>} />
             <SettingRow
               caption={t("deleteCaption")}
               href={`/advisor/services/manage/delete?serviceId=${encodeURIComponent(resolvedServiceId ?? "")}`}

@@ -4,7 +4,8 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { FileText } from "lucide-react";
 import { useTranslations } from "next-intl";
-import { useCallback, useId, useMemo, useState } from "react";
+import { useCallback, useEffect, useId, useMemo, useState } from "react";
+import { ApiError } from "@/lib/api/client";
 
 import { CmsApiError, CmsCardSkeleton, useRuling } from "@/components/cms/api";
 import { CmsCard } from "@/components/cms/card";
@@ -25,7 +26,7 @@ import {
   ADMIN_KEYS,
   ADMIN_MAX_LIMIT,
   approveIdentityVerification,
-  documentUrl,
+  getIdentityDocumentUrl,
   getIdentityVerification,
   listIdentityVerifications,
   listSkillProofs,
@@ -51,10 +52,8 @@ const IDENTITY_KEY = ADMIN_KEYS.identity;
  *
  * ## The document
  *
- * `documentObjectKey` is a SeaweedFS object key for a real upload, and no admin
- * route presigns it, so that card says no document can be shown rather than
- * drawing a stock picture that is not this applicant's. The demo seed's keys are
- * specimen cards under `public/demo-docs/`, which `documentUrl` opens.
+ * The document is read through its permission-checked document-url route. A
+ * fresh URL is requested on each review and refreshed before it expires.
  *
  * Also absent from the DTO, so absent here: full name, birth date, national id,
  * credential and field. The applicant is a display name and an email.
@@ -112,7 +111,14 @@ function Review({ request }: { readonly request: IdentityVerification }) {
   const [reason, setReason] = useState("");
   const [reasonError, setReasonError] = useState<string | undefined>();
   const name = accountName(request.advisorId) ?? request.displayName;
-  const document = documentUrl(request.documentObjectKey);
+  const fetchDocument = useCallback((signal: AbortSignal) => getIdentityDocumentUrl(request.advisorId, signal), [request.advisorId]);
+  const document = useResource(`admin/identity-verifications/${request.advisorId}/document-url:${reasonId}`, fetchDocument);
+  const reloadDocument = document.reload;
+  useEffect(() => {
+    if (!document.data) return;
+    const timer = window.setTimeout(reloadDocument, Math.max(1, document.data.expiresInSeconds - 30) * 1000);
+    return () => window.clearTimeout(timer);
+  }, [document.data, reloadDocument]);
 
   const queueFetcher = useCallback(
     (signal: AbortSignal) =>
@@ -235,8 +241,14 @@ function Review({ request }: { readonly request: IdentityVerification }) {
 
         <section className="mt-6 border-t border-border pt-6">
           <h2 className="mb-4 text-sm font-semibold text-highlighted">{t("idCard")}</h2>
-          {document ? (
-            <CmsDocument className="max-w-lg" name={t("idCard")} url={document} />
+          {document.error instanceof ApiError && document.error.status === 404 ? (
+            <p className="text-sm text-muted-foreground">{t("noDocument")}</p>
+          ) : document.error ? (
+            <CmsApiError error={document.error} onRetry={document.reload} />
+          ) : document.loading ? (
+            <CmsCardSkeleton rows={1} />
+          ) : document.data ? (
+            <CmsDocument className="max-w-lg" name={t("idCard")} url={document.data.url} />
           ) : (
             <p className="text-sm text-muted-foreground">{t("noDocument")}</p>
           )}

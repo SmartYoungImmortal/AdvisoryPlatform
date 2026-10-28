@@ -22,6 +22,7 @@ import { StatTile } from "@/components/mobile/stat-tile";
 import { surfaceClass } from "@/components/mobile/surface";
 import { ThaiText } from "@/components/mobile/thai-text";
 import { NeutralButton } from "@/components/mobile/buttons";
+import { Button } from "@/components/ui/button";
 import { TopBar } from "@/components/topbar";
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
@@ -89,10 +90,9 @@ function OptionChip({
 }) {
   if (name !== undefined) return (
     <label className={cn(
-      "has-[:checked]:border-transparent has-[:checked]:bg-primary has-[:checked]:text-primary-foreground flex shrink-0 cursor-pointer items-center rounded-full border px-3.5 py-[7px] text-sm font-medium",
-      selected ? "border-transparent bg-primary text-primary-foreground" : "border-border bg-card text-foreground",
+      "has-[:checked]:border-transparent has-[:checked]:bg-primary has-[:checked]:text-primary-foreground flex shrink-0 cursor-pointer items-center rounded-full border border-border bg-card px-3.5 py-[7px] text-sm font-medium text-foreground",
     )}>
-      <input className="sr-only" type="radio" name={name} value={value} defaultChecked={selected} />{children}
+      <Input className="sr-only size-px border-0 p-0 shadow-none" type="radio" name={name} value={value} defaultChecked={selected} />{children}
     </label>
   );
   return (
@@ -248,6 +248,8 @@ export function GlobalAvailabilityScreen({
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
+  const [limitEnabled, setLimitEnabled] = useState<boolean | null>(null);
+  const [customSelection, setCustomSelection] = useState<Partial<Record<"horizon" | "buffer" | "dailyLimit", boolean>>>({});
   const data = resource.data;
   const fixture = data ? {
     horizonDays: HORIZON_DAY_OPTIONS.some((value) => value === data.bookingHorizonDays) ? data.bookingHorizonDays : null,
@@ -257,7 +259,10 @@ export function GlobalAvailabilityScreen({
     customBufferMinutes: BUFFER_MINUTE_OPTIONS.some((value) => value === data.bufferMinutes) ? undefined : data.bufferMinutes,
     customDailyLimitHours: data.dailyConsultationLimitMinutes !== null && !DAILY_LIMIT_HOUR_OPTIONS.some((value) => value * 60 === data.dailyConsultationLimitMinutes) ? data.dailyConsultationLimitMinutes / 60 : undefined,
   } : GLOBAL_AVAILABILITY[state];
-  const limitOn = data ? data.dailyConsultationLimitMinutes !== null : state !== "default";
+  const limitOn = limitEnabled ?? (data ? data.dailyConsultationLimitMinutes !== null : state !== "default");
+  const customHorizon = customSelection.horizon ?? fixture.horizonDays === null;
+  const customBuffer = customSelection.buffer ?? fixture.bufferMinutes === null;
+  const customDailyLimit = customSelection.dailyLimit ?? fixture.dailyLimitHours === null;
   const bufferMinutes = fixture.bufferMinutes ?? fixture.customBufferMinutes ?? 0;
   const dailyLimitHours =
     fixture.dailyLimitHours ?? fixture.customDailyLimitHours ?? 0;
@@ -288,7 +293,7 @@ export function GlobalAvailabilityScreen({
       <NeutralButton className="w-30 shrink-0 lg:w-auto lg:px-6" href="/advisor/profile">
         {c("cancel")}
       </NeutralButton>
-      <button disabled={saving} className="min-w-px flex-1 rounded-lg bg-primary px-6 py-2 font-medium text-primary-foreground disabled:opacity-50 lg:w-auto lg:flex-none lg:px-8" type="submit">{saving ? "กำลังบันทึก…" : t("save")}</button>
+      <Button disabled={saving} className="h-auto min-w-px flex-1 rounded-lg border-0 px-6 py-2 text-base lg:w-auto lg:flex-none lg:px-8" type="submit">{saving ? "กำลังบันทึก…" : t("save")}</Button>
     </>
   );
 
@@ -296,7 +301,12 @@ export function GlobalAvailabilityScreen({
     // Figma "Desktop / Availability - Global (Light)" (1994:27872 / 27993 /
     // 28129): the heading becomes a white band and the whole form becomes one
     // 800px card on the grey ground, with its actions inside it.
-    <form key={data?.advisorId ?? state} onSubmit={onSave} className="contents"><MobileScreen className="pb-0" wide>
+    <form key={data ? JSON.stringify(data) : state} onSubmit={onSave} onChange={(event) => {
+      const input = event.target;
+      if (input instanceof HTMLInputElement && (input.name === "horizon" || input.name === "buffer" || input.name === "dailyLimit")) {
+        setCustomSelection((current) => ({ ...current, [input.name]: input.value === "custom" }));
+      }
+    }} className="contents"><MobileScreen className="pb-0" wide>
       <div className="hidden w-full lg:block">
         <TopBar unreadNotifications />
       </div>
@@ -403,10 +413,10 @@ export function GlobalAvailabilityScreen({
               {t("custom")}
             </OptionChip>
           </GroupSurface>
-          {fixture.customHorizonDays ? (
+          {customHorizon ? (
             <CustomValueRow
               unit={t("dayUnit")}
-              name="customHorizon" value={fixture.customHorizonDays}
+              name="customHorizon" value={fixture.customHorizonDays ?? 60}
             />
           ) : null}
         </Group>
@@ -435,10 +445,10 @@ export function GlobalAvailabilityScreen({
               {t("custom")}
             </OptionChip>
           </GroupSurface>
-          {fixture.customBufferMinutes ? (
+          {customBuffer ? (
             <CustomValueRow
               unit={t("minuteUnit")}
-              name="customBuffer" value={fixture.customBufferMinutes}
+              name="customBuffer" value={fixture.customBufferMinutes ?? 0}
             />
           ) : null}
         </Group>
@@ -481,7 +491,11 @@ export function GlobalAvailabilityScreen({
               aria-label={t("limitLabel")}
               className="shrink-0"
               name="limitEnabled"
-              defaultChecked={limitOn}
+              checked={limitOn}
+              onCheckedChange={(checked) => {
+                setLimitEnabled(checked);
+                setCustomSelection((current) => ({ ...current, dailyLimit: fixture.dailyLimitHours === null }));
+              }}
             />
           </GroupSurface>
 
@@ -503,10 +517,10 @@ export function GlobalAvailabilityScreen({
             </GroupSurface>
           ) : null}
 
-          {fixture.customDailyLimitHours ? (
+          {limitOn && customDailyLimit ? (
             <CustomValueRow
               unit={t("hourUnit")}
-              name="customDailyLimit" value={fixture.customDailyLimitHours}
+              name="customDailyLimit" value={fixture.customDailyLimitHours ?? 3}
             />
           ) : null}
         </Group>

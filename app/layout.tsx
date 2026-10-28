@@ -54,6 +54,7 @@ export default function RootLayout({
   return (
     <html
       lang="th"
+      data-scroll-behavior="smooth"
       className={cn("h-full", "antialiased", "font-sans")}
     >
       {/* The frame around the mobile canvas is a themed surface, not a raw palette

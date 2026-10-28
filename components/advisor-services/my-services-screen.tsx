@@ -16,6 +16,7 @@ import { StatTile } from "@/components/mobile/stat-tile";
 import { StatusPill } from "@/components/mobile/status-pill";
 import { surfaceClass } from "@/components/mobile/surface";
 import { TopBar } from "@/components/topbar";
+import { Button } from "@/components/ui/button";
 import { useResource } from "@/lib/api/use-resource";
 import { listMyAdvisorServices, listMyAvailabilityProfiles, type AdvisorService } from "@/lib/advisor-services/api";
 import { PAGE } from "@/lib/layout";
@@ -192,7 +193,7 @@ export function MyServicesScreen() {
 
           <div className="flex w-full shrink-0 flex-col items-start gap-3 px-6 lg:col-start-1 lg:row-start-1 lg:px-0">
             {services.loading ? <p className="text-sm text-muted-foreground" role="status">{t("loading")}</p> : null}
-            {services.error || profiles.error ? <div role="alert" className="w-full rounded-card border border-destructive/30 p-4 text-sm"><p>{(services.error ?? profiles.error)?.message}</p><button className="mt-2 text-primary underline" onClick={() => { services.reload(); profiles.reload(); }} type="button">{t("retry")}</button></div> : null}
+            {services.error || profiles.error ? <div role="alert" className="w-full rounded-card border border-destructive/30 p-4 text-sm"><p>{(services.error ?? profiles.error)?.message}</p><Button variant="link" className="mt-2 h-auto border-0 p-0 font-normal underline" onClick={() => { services.reload(); profiles.reload(); }} type="button">{t("retry")}</Button></div> : null}
             {!services.loading && !services.error && rows.length === 0 ? <div className="w-full rounded-card border border-border p-6 text-center"><p className="text-sm text-muted-foreground">{t("empty")}</p><Link className="mt-3 inline-flex text-sm font-medium text-primary" href="/advisor/services/new">{t("create")}</Link></div> : null}
             {rows.map((record) => <ServiceCard key={record.id} record={record} profileName={profiles.data?.find((profile) => profile.id === record.availabilityProfileId)?.name} />)}
           </div>

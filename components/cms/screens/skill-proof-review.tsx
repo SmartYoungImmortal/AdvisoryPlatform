@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { FileText } from "lucide-react";
 import { useTranslations } from "next-intl";
-import { useCallback, useId, useState } from "react";
+import { useCallback, useEffect, useId, useState } from "react";
 
 import { CmsApiError, CmsCardSkeleton, useRuling } from "@/components/cms/api";
 import { CmsCard } from "@/components/cms/card";
@@ -25,7 +25,7 @@ import {
   ADMIN_KEYS,
   ADMIN_MAX_LIMIT,
   approveSkillProof,
-  documentUrl,
+  getSkillProofDocumentUrl,
   listSkillProofs,
   rejectSkillProof,
   type SkillProof,
@@ -40,11 +40,8 @@ const BACK = "/admin/skill-proofs";
  * One skill-proof document — Nexus's record page: the document and its facts in
  * one card, the status, audit and ruling in the options panel.
  *
- * There is no `GET /admin/skill-proofs/:id`, so the row is found in the list the
- * table read (same key, no second request). The document is shown when its key
- * opens (`documentUrl`) — a PDF in the browser's viewer, an image as itself; a
- * real upload's storage key has no admin route that presigns it, so the file is
- * named instead of shown.
+ * The queue supplies the record; its document is read through the permission-
+ * checked document-url route and refreshed before the signed URL expires.
  */
 export function SkillProofReviewScreen() {
   const t = useTranslations("cms.verification");
@@ -108,7 +105,14 @@ function ProofRecord({
   const [reasonError, setReasonError] = useState<string | undefined>();
   const pending = proof.reviewStatus === "PENDING";
   const advisor = accountName(proof.advisorId) ?? proof.advisorDisplayName;
-  const url = documentUrl(proof.objectKey);
+  const fetchDocument = useCallback((signal: AbortSignal) => getSkillProofDocumentUrl(proof.id, signal), [proof.id]);
+  const document = useResource(`admin/skill-proofs/${proof.id}/document-url:${reasonId}`, fetchDocument);
+  const reloadDocument = document.reload;
+  useEffect(() => {
+    if (!document.data) return;
+    const timer = window.setTimeout(reloadDocument, Math.max(1, document.data.expiresInSeconds - 30) * 1000);
+    return () => window.clearTimeout(timer);
+  }, [document.data, reloadDocument]);
 
   async function approve() {
     const ok = await confirm({
@@ -169,9 +173,13 @@ function ProofRecord({
                 ) : null}
               </dl>
 
-              {url ? (
+              {document.error ? (
+                <CmsApiError error={document.error} onRetry={document.reload} />
+              ) : document.loading ? (
+                <CmsCardSkeleton rows={1} />
+              ) : document.data ? (
                 <div className="mt-6 border-t border-border pt-6">
-                  <CmsDocument name={proof.originalFileName} url={url} />
+                  <CmsDocument name={proof.originalFileName} url={document.data.url} />
                 </div>
               ) : null}
 

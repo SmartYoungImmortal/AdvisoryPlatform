@@ -310,7 +310,7 @@ export function roleHome(role: Role): string {
  * link cannot bounce a fresh session somewhere else.
  */
 export function safeNext(next: string | null | undefined): string | null {
-  if (!next?.startsWith("/") || next.startsWith("//")) return null;
+  if (!next?.startsWith("/") || next.startsWith("//") || /[\\\u0000-\u001f\u007f]/.test(next)) return null;
   return next;
 }
 
