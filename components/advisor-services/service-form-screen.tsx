@@ -51,6 +51,11 @@ import {
   type ServiceFormState,
 } from "@/lib/advisor-services/form";
 
+function formText(data: FormData, name: string): string {
+  const value = data.get(name);
+  return typeof value === "string" ? value : "";
+}
+
 /**
  * Figma "Back Bar" — the 52px row under the app's nav, at the page inset, and
  * the white "Head Band" the title sits in above the grey body.
@@ -407,13 +412,22 @@ export function ServiceFormScreen({
     ? serviceDetailHref
     : "/advisor/services";
 
+  async function uploadSelectedImages(id: string) {
+    // Preserve selection order: the first uploaded image becomes the thumbnail.
+    for (const file of imageFiles) {
+      const uploaded = await uploadAdvisorServiceImage(id, file);
+      setUploadedImages(uploaded.images);
+      setImageFiles((remaining) => remaining.filter((item) => item !== file));
+    }
+  }
+
   async function submit(event: FormEvent<HTMLFormElement>, publish: boolean) {
     event.preventDefault();
     if (saving) return;
     const data = new FormData(event.currentTarget);
     const submitter = (event.nativeEvent as SubmitEvent).submitter;
     const publishAction = !(submitter instanceof HTMLButtonElement && submitter.value === "false");
-    const name = String(data.get("name") ?? "").trim();
+    const name = formText(data, "name").trim();
     const price = Number(data.get("price"));
     const duration = Number(data.get("duration") ?? SLOT_MINUTES);
     const profileId = selectedProfile || apiRecord?.availabilityProfileId || "";
@@ -428,16 +442,12 @@ export function ServiceFormScreen({
     setProblem(null);
     try {
       const isTrial = trialEnabled ?? apiRecord?.trialEnabled ?? false;
-      const input = { name, categoryId, availabilityProfileId: profileId, description: String(data.get("description") ?? ""), priceSatang: price * 100, durationMinutes: duration, isPublished: false, screeningRequired: screeningEnabled ?? apiRecord?.screeningRequired ?? false, trialEnabled: isTrial, ...(isTrial ? { trialDurationMinutes: apiRecord?.trialDurationMinutes ?? SLOT_MINUTES } : {}), dailyConsultationLimitMinutes: limitOn ? limitMinutes : null };
+      const input = { name, categoryId, availabilityProfileId: profileId, description: formText(data, "description"), priceSatang: price * 100, durationMinutes: duration, isPublished: false, screeningRequired: screeningEnabled ?? apiRecord?.screeningRequired ?? false, trialEnabled: isTrial, ...(isTrial ? { trialDurationMinutes: apiRecord?.trialDurationMinutes ?? SLOT_MINUTES } : {}), dailyConsultationLimitMinutes: limitOn ? limitMinutes : null };
       const id = resolvedServiceId ?? draftId;
       const saved = id ? await updateAdvisorService(id, { ...input, isPublished: edit ? undefined : false }) : await createAdvisorService(input);
       setDraftId(saved.id);
-      for (const file of imageFiles) {
-        const uploaded = await uploadAdvisorServiceImage(saved.id, file);
-        setUploadedImages(uploaded.images);
-        setImageFiles((remaining) => remaining.filter((item) => item !== file));
-      }
-      if (shouldPublish && !saved.isPublished) await updateAdvisorService(saved.id, { isPublished: true });
+      await uploadSelectedImages(saved.id);
+      if (shouldPublish) await updateAdvisorService(saved.id, { isPublished: true });
       invalidate(`services`);
       invalidate(`advisors/me/services/${saved.id}/images`);
       invalidate("advisors/me/services");
@@ -453,11 +463,7 @@ export function ServiceFormScreen({
     setSaving(true);
     setProblem(null);
     try {
-      for (const file of imageFiles) {
-        const uploaded = await uploadAdvisorServiceImage(resolvedServiceId, file);
-        setUploadedImages(uploaded.images);
-        setImageFiles((remaining) => remaining.filter((item) => item !== file));
-      }
+      await uploadSelectedImages(resolvedServiceId);
       const updated = await updateAdvisorService(resolvedServiceId, { isPublished: !apiRecord.isPublished });
       setUpdatedService(updated);
       invalidate(`advisors/me/services/${resolvedServiceId}`);
