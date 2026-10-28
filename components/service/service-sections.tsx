@@ -18,7 +18,7 @@ import { useFormatter, useTranslations } from "next-intl";
 import { useCallback, useState, type ReactNode } from "react";
 
 import { PanelError } from "@/components/advisor-public/profile-parts";
-import { LIVE_ADVISOR_PATH, liveAdvisorHref } from "@/components/bookings/booking-flow";
+import { liveAdvisorHref } from "@/components/bookings/booking-flow";
 import { chatWithHref } from "@/components/chat/chat-data";
 import { ResultCard } from "@/components/search/search-screen";
 import { Face } from "@/components/service/service-head";
@@ -42,8 +42,11 @@ import { cn } from "@/lib/utils";
  * and below each section's hairline.
  */
 
-/** How many reviews the page shows before pointing at the advisor's profile. */
+/** How many reviews the page shows before "see all" opens the rest under them. */
 const REVIEW_LIMIT = 6;
+
+/** The rest, read in one page: the reviews route's largest. */
+const ALL_REVIEWS = 100;
 
 /** A section head: 22/600 at 1440. */
 const SECTION_TITLE = "text-xl leading-tight font-semibold text-foreground lg:text-heading lg:leading-tight";
@@ -215,6 +218,61 @@ function HowReviewsWork() {
  * (356 wide, 40 apart at 1440) and unboxed; under them the full-width grey
  * button to every review on the advisor's profile, and what a review here is.
  */
+/**
+ * The reviews after the first page, read once "see all" is pressed and
+ * drawn on in the same grid: the first page again from the top (the route's
+ * order is fixed), less the ones already shown. Placeholders hold their two
+ * cells while it loads.
+ */
+function MoreReviews({
+  advisorId,
+  advisorName,
+  serviceName,
+  shown,
+}: {
+  readonly advisorId: string;
+  readonly advisorName: string;
+  readonly serviceName: string;
+  readonly shown: number;
+}) {
+  const a = useTranslations("advisorProfile");
+  const fetcher = useCallback(
+    (signal: AbortSignal) => listAdvisorReviews(advisorId, { limit: ALL_REVIEWS }, signal),
+    [advisorId],
+  );
+  const all = useResource<Paginated<ApiReview>>(`advisors/${advisorId}/reviews?limit=${ALL_REVIEWS}`, fetcher);
+
+  if (all.error) {
+    return (
+      <li className="md:col-span-2">
+        <PanelError error={all.error} onRetry={all.reload} title={a("reviewsError")} />
+      </li>
+    );
+  }
+  if (all.loading) {
+    return (
+      <>
+        {[0, 1].map((key) => (
+          <li aria-hidden className="flex flex-col gap-4" key={`more-${key}`}>
+            <span className="flex items-center gap-4">
+              <span className="size-10 animate-pulse rounded-full bg-muted lg:size-[47.5px]" />
+              <span className="h-4 w-1/3 animate-pulse rounded-md bg-muted" />
+            </span>
+            <span className="h-4 w-4/5 animate-pulse rounded-md bg-muted" />
+          </li>
+        ))}
+      </>
+    );
+  }
+  return (
+    <>
+      {(all.data?.items ?? []).slice(shown).map((review) => (
+        <Review advisorName={advisorName} key={review.appointmentId} review={review} serviceName={serviceName} />
+      ))}
+    </>
+  );
+}
+
 export function ReviewsSection({
   service,
   advisorName,
@@ -237,6 +295,7 @@ export function ReviewsSection({
   const reviews = useResource<Paginated<ApiReview>>(`advisors/${advisorId}/reviews?limit=${REVIEW_LIMIT}`, fetcher);
   const items = reviews.data?.items ?? [];
   const total = reviews.data?.total ?? summary?.total ?? 0;
+  const [expanded, setExpanded] = useState(false);
 
   const title = summary ? (
     <span className="inline-flex items-center gap-2 lg:gap-[9.5px]">
@@ -277,13 +336,22 @@ export function ReviewsSection({
           {items.map((review) => (
             <Review advisorName={advisorName} key={review.appointmentId} review={review} serviceName={service.name} />
           ))}
+          {expanded ? (
+            <MoreReviews advisorId={advisorId} advisorName={advisorName} serviceName={service.name} shown={items.length} />
+          ) : null}
         </ul>
-        <Link
-          className={cn(WIDE_BUTTON, "mt-10 lg:mt-[57px]")}
-          href={`${LIVE_ADVISOR_PATH}/reviews?advisorId=${advisorId}`}
-        >
-          {t("allReviews", { count: total })}
-        </Link>
+        {/* The rest open here, under the first ones, rather than on another
+            page; the button goes once they are all in. */}
+        {!expanded && total > items.length ? (
+          <Button
+            className={cn(WIDE_BUTTON, "mt-10 lg:mt-[57px]")}
+            onClick={() => setExpanded(true)}
+            type="button"
+            variant="ghost"
+          >
+            {t("allReviews", { count: total })}
+          </Button>
+        ) : null}
         <div className="mt-4 lg:mt-[19px]">
           <HowReviewsWork />
         </div>

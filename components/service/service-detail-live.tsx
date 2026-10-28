@@ -17,6 +17,7 @@ import { TopBar } from "@/components/topbar";
 import {
   BookingBar,
   BookingCard,
+  BookingPicker,
   PackageCards,
   usePicker,
   FailedNotice,
@@ -153,8 +154,8 @@ function similarTo(
 
 /**
  * The frame every state shares: the docking bar over the 1710 column on the
- * account pages' plain white, and the phone's bar along the bottom when there
- * is one. No rail: this is a page of the marketplace, the search's next step,
+ * account pages' plain white, and the phone's price floating over the foot
+ * when there is one (the column's foot padding is what clears it). No rail: this is a page of the marketplace, the search's next step,
  * not an account page. No footer either: the page ends on its last section,
  * and the column beside it never gives way to one.
  *
@@ -169,7 +170,7 @@ function Frame({ children, bar }: { readonly children: ReactNode; readonly bar?:
       <ScreenBody className="bg-card">
         <TopBar dock unreadNotifications />
         {/* 1594 wide from `lg`, the two columns `COLUMNS` measures. */}
-        <div className="app-scale mx-auto flex w-full flex-1 flex-col px-5 pt-2 pb-14 md:px-12 md:pt-4 lg:max-w-[1658px] lg:px-8 lg:pt-9.5 lg:pb-0">
+        <div className="app-scale mx-auto flex w-full flex-1 flex-col px-6 pt-2 pb-32 md:px-12 md:pt-4 lg:max-w-[1658px] lg:px-8 lg:pt-9.5 lg:pb-0">
           {children}
         </div>
       </ScreenBody>
@@ -187,21 +188,23 @@ export function LiveServiceDetailSkeleton() {
   return (
     <Frame
       bar={
-        // The phone's bar holds its place too, so the page does not lift
-        // when the price arrives.
-        <div aria-hidden className="flex w-full shrink-0 items-center gap-2 border-t border-border bg-card px-5 py-3 md:px-12 lg:hidden">
-          <span className="flex flex-col gap-1.5">
-            <span className="h-5 w-16 animate-pulse rounded-md bg-muted" />
-            <span className="h-3 w-24 animate-pulse rounded-md bg-muted" />
-          </span>
-          <span className="ml-auto h-11 w-40 animate-pulse rounded-full bg-muted" />
+        // The phone's floating price holds its place too, so nothing
+        // appears from nowhere when the price arrives.
+        <div aria-hidden className="pointer-events-none absolute inset-x-0 bottom-4 z-20 flex justify-center px-6 md:px-12 lg:hidden">
+          <div className="flex h-[70px] w-full max-w-xl items-center justify-between gap-3 rounded-full bg-card py-2 pr-2 pl-5 shadow-float">
+            <span className="flex flex-col gap-1.5">
+              <span className="h-5 w-24 animate-pulse rounded-md bg-muted" />
+              <span className="h-3 w-28 animate-pulse rounded-md bg-muted" />
+            </span>
+            <span className="h-13.5 w-40 animate-pulse rounded-full bg-muted" />
+          </div>
         </div>
       }
     >
       <div aria-busy className={COLUMNS}>
         <div aria-hidden className={cn(INTRO_COLUMN, "items-center")} style={INTRO_VARS}>
-          <span className="block aspect-[493/241] w-full animate-pulse rounded-2xl bg-muted lg:rounded-[28.5px]" />
-          <span className="-mt-9 size-18 rounded-full bg-muted ring-3 ring-card lg:-mt-[51px] lg:size-[102px]" />
+          <span className="-mx-6 -mt-2 block aspect-[402/200] animate-pulse self-stretch bg-muted md:mx-0 md:mt-0 md:aspect-[493/241] md:rounded-2xl lg:rounded-[28.5px]" />
+          <span className="relative -mt-8 size-16 rounded-full bg-muted ring-3 ring-card md:-mt-9 md:size-18 lg:-mt-[51px] lg:size-[102px]" />
           <span className="mt-4 h-8 w-3/4 animate-pulse rounded-lg bg-muted lg:mt-[23.75px] lg:h-[42.75px]" />
           <span className="mt-3 h-4 w-4/5 animate-pulse rounded-md bg-muted lg:mt-[23.75px] lg:h-[23.75px]" />
           <span className="mt-2 h-4 w-3/5 animate-pulse rounded-md bg-muted lg:h-[23.75px]" />
@@ -279,30 +282,19 @@ function ServiceView({ service }: { readonly service: ApiPublicService }) {
   const settled = !(catalogue.loading && !item);
 
   return (
-    <Frame
-      bar={
-        <BookingBar
-          advisorName={name}
-          photos={settled ? photos : []}
-          picker={picker}
-          selection={selection}
-          service={service}
-        />
-      }
-    >
+    <Frame bar={<BookingBar picker={picker} selection={selection} service={service} />}>
+      <BookingPicker
+        advisorName={name}
+        photos={settled ? photos : []}
+        picker={picker}
+        selection={selection}
+        service={service}
+      />
       <div className={COLUMNS}>
         {/* `items-start` on the grid is what lets the column ride. */}
         <aside aria-label={t("panelLabel")} className={INTRO_COLUMN} style={INTRO_VARS}>
           <ServiceIntro
-            booking={
-              <BookingCard
-                advisorName={name}
-                photos={settled ? photos : []}
-                picker={picker}
-                selection={selection}
-                service={service}
-              />
-            }
+            booking={<BookingCard picker={picker} selection={selection} service={service} />}
             category={category}
             face={face}
             photos={settled ? photos : []}

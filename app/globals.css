@@ -110,6 +110,16 @@
   --text-frame-meta--line-height: 1.5385;
   --text-frame-label: 0.890625rem;
   --text-frame-label--line-height: 1.3;
+  /* The booking panel's title, 26/30 on the screen at 1440, in the same
+     1710 space. */
+  --text-frame-headline: 1.9296875rem;
+  --text-frame-headline--line-height: 1.1538;
+  /* The phone's sheet titles, unzoomed: 22/33 a package's name, 26/39 the
+     booking panel's. */
+  --text-display-xs: 1.375rem;
+  --text-display-xs--line-height: 1.5;
+  --text-display-sm: 1.625rem;
+  --text-display-sm--line-height: 1.5;
 
   --color-success: var(--success);
   --color-success-foreground: var(--success-foreground);
@@ -181,6 +191,12 @@
     0 8px 16px -4px color-mix(in srgb, var(--scrim) 10%, transparent);
   --shadow-panel: 0 8px 24px -4px color-mix(in srgb, var(--scrim) 10%, transparent),
     0 1px 2px color-mix(in srgb, var(--scrim) 4%, transparent);
+  /* A popup lifted off a blurred page: the booking dialogs. */
+  --shadow-dialog: 0 8px 28px color-mix(in srgb, var(--scrim) 28%, transparent);
+  /* A bar floating over the page's foot: a hairline, a near shadow and a far one. */
+  --shadow-float: 0 0 0 1px color-mix(in srgb, var(--scrim) 2%, transparent),
+    0 6px 8px color-mix(in srgb, var(--scrim) 8%, transparent),
+    0 12px 30px color-mix(in srgb, var(--scrim) 18%, transparent);
   --color-footer-surface: var(--footer-surface);
   --color-footer-surface-deep: var(--footer-surface-deep);
   --color-scrim: var(--scrim);
