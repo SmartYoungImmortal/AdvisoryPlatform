@@ -34,10 +34,28 @@ for (const width of [1440, 390]) {
       const readPublished = async () => z.object({ data: z.object({ isPublished: z.boolean() }) }).parse(await (await context.request.get(`${api}/${id}`)).json()).data.isPublished;
       expect(await readPublished()).toBe(false);
       await page.goto(`/advisor/services/manage?serviceId=${id}`);
+      await page.getByRole("button", { name: "เผยแพร่บริการ", exact: true }).click();
+      await expect(page.getByText("เพิ่มรูปภาพบริการอย่างน้อย 1 รูปก่อนเผยแพร่", { exact: true })).toBeVisible();
+      expect(await readPublished()).toBe(false);
+      expect((await context.request.patch(`${api}/${id}`, { data: { isPublished: true } })).status()).toBe(400);
+      await page.locator('input[type="file"]').setInputFiles("public/icon-512.png");
       const published = page.waitForResponse((response) => response.url() === `${api}/${id}` && response.request().method() === "PATCH");
       await page.getByRole("button", { name: "เผยแพร่บริการ", exact: true }).click();
       expect((await published).status()).toBe(200);
       expect(await readPublished()).toBe(true);
+      const gallery = await context.request.get(`${api}/${id}/images`);
+      const urls = z.object({ data: z.object({ images: z.array(z.string()).min(1) }) }).parse(await gallery.json()).data.images;
+      expect((await context.request.get(urls[0])).status()).toBe(200);
+      await page.reload();
+      const thumbnail = page.getByRole("img", { name: "รูปภาพบริการ", exact: true }).first();
+      await expect(thumbnail).toBeVisible();
+      await expect.poll(() => thumbnail.evaluate((node: HTMLImageElement) => node.complete && node.naturalWidth > 0)).toBe(true);
+      const publicDetail = await context.request.get(`http://localhost:3200/api/v1/services/${id}`);
+      expect(publicDetail.status()).toBe(200);
+      expect(z.object({ data: z.object({ images: z.array(z.string()).min(1) }) }).parse(await publicDetail.json()).data.images[0]).toContain(`/services/${id}/`);
+
+      await page.screenshot({ path: `test-results/service-image-published-${width}.png`, fullPage: true });
+
       await page.reload();
       const hidden = page.waitForResponse((response) => response.url() === `${api}/${id}` && response.request().method() === "PATCH");
       await page.getByRole("button", { name: "ซ่อนบริการนี้", exact: true }).click();
@@ -123,6 +141,49 @@ for (const width of [1440, 390]) {
     } finally {
       expect((await context.request.delete(`${api}/${id}`)).status()).toBe(200);
       expect((await context.request.put(globalApi, { data: originalGlobal })).status()).toBe(200);
+    }
+  });
+}
+
+for (const width of [1440, 390]) {
+  test(`new service uploads its selected image before publishing at ${width}px`, async ({ page, context }) => {
+    await page.setViewportSize({ width, height: 1000 });
+    expect((await context.request.post("http://localhost:3200/api/auth/sign-in/email", {
+      data: { email: "kanya.p@advisory.demo", password: "AdvisoryDemo!2026" },
+      headers: { origin: "http://localhost:3001" },
+    })).status()).toBe(200);
+    let id = "";
+    const errors: string[] = [];
+    page.on("pageerror", (error) => errors.push(error.message));
+    try {
+      await page.goto("/advisor/services/new");
+      await page.getByRole("textbox", { name: "ชื่อบริการ", exact: true }).fill(`Image publish proof ${width}`);
+      await page.locator('input[name="price"]').fill("450");
+      await page.locator('input[name="duration"]').fill("30");
+      for (const select of ["#service-category", "#service-profile"]) {
+        await page.locator(select).click();
+        await page.getByRole("option").first().click();
+      }
+      await page.locator('input[type="file"]').setInputFiles("public/icon-512.png");
+      await expect(page.getByRole("img", { name: "icon-512.png" })).toBeVisible();
+      const created = page.waitForResponse((response) => response.url() === api && response.request().method() === "POST");
+      await page.getByRole("button", { name: "เผยแพร่บริการ", exact: true }).filter({ visible: true }).click();
+      const response = await created;
+      expect(response.status()).toBe(201);
+      const draft = z.object({ data: serviceSchema.extend({ isPublished: z.boolean() }) }).parse(await response.json()).data;
+      id = draft.id;
+      expect(draft.isPublished).toBe(false);
+      await expect(page).toHaveURL(new RegExp(`/advisor/services/view\\?serviceId=${id}`));
+      const persisted = await context.request.get(`${api}/${id}`);
+      expect((await persisted.json()).data.isPublished).toBe(true);
+      await page.goto(`/advisor/services/manage?serviceId=${id}`);
+      const image = page.getByRole("img", { name: "รูปภาพบริการ", exact: true });
+      await expect(image).toBeVisible();
+      await expect.poll(() => image.evaluate((node: HTMLImageElement) => node.complete && node.naturalWidth > 0)).toBe(true);
+      await page.screenshot({ path: `test-results/service-create-image-${width}.png`, fullPage: true });
+      expect(errors).toEqual([]);
+    } finally {
+      if (id) expect((await context.request.delete(`${api}/${id}`)).status()).toBe(200);
     }
   });
 }

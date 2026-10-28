@@ -233,6 +233,12 @@
     "nextPage": "Next page"
   },
   "serviceForm": {
+    "imageLoadError": "Could not load service images. Try again before publishing.",
+    "imagePublishHint": "Optional for drafts. Add at least one image before publishing. JPEG, PNG or WebP, up to 5 MiB each.",
+    "imageRequired": "Add a service image before publishing.",
+    "imageCountError": "A service can have at most six images.",
+    "imageFileError": "Choose JPEG, PNG or WebP images, up to 5 MiB each.",
+
     "limitActiveNote": "This service is limited to {hours} hours per day. Your availability's overall daily limit also applies."
   },
   "bookings": {

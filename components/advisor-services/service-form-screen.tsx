@@ -5,7 +5,7 @@ import Link from "next/link";
 import { ChevronRight, Globe, Info, Minus, Plus } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { useRouter } from "next/navigation";
-import { useState, type FormEvent } from "react";
+import { useEffect, useMemo, useState, type FormEvent } from "react";
 import type { ReactNode } from "react";
 
 import { DeleteServiceDialog } from "@/components/advisor-services/delete-service-dialog";
@@ -35,7 +35,7 @@ import { PAGE } from "@/lib/layout";
 import { cn } from "@/lib/utils";
 import { ApiError } from "@/lib/api/client";
 import { useResource, invalidate } from "@/lib/api/use-resource";
-import { createAdvisorService, getMyAdvisorService, listMyAvailabilityProfiles, listServiceCategories, updateAdvisorService, type AdvisorService } from "@/lib/advisor-services/api";
+import { createAdvisorService, getAdvisorServiceImages, uploadAdvisorServiceImage, getMyAdvisorService, listMyAvailabilityProfiles, listServiceCategories, updateAdvisorService, type AdvisorService } from "@/lib/advisor-services/api";
 import { SLOT_MINUTES, type AdvisorServiceRecord } from "@/lib/advisor-services";
 import type { Weekday } from "@/lib/availability/profiles";
 import { availabilityApi } from "@/lib/availability/api";
@@ -261,39 +261,32 @@ function CreateProfileRow() {
   );
 }
 
-/** Figma "Image Strip" (edit) — the service's gallery with an add tile trailing. */
-function ImageStrip({ record }: { readonly record: AdvisorServiceRecord }) {
-  return (
-    <div className="flex w-full shrink-0 items-start gap-2 overflow-clip">
-      {record.service.gallery.slice(0, 3).map((image) => (
-        <Image
-          alt=""
-          className="h-22 min-w-px flex-1 rounded-card object-cover lg:h-28"
-          key={image.src}
-          src={image}
-        />
-      ))}
-      <span className="flex h-22 min-w-px flex-1 items-center justify-center overflow-clip rounded-card border border-dashed border-input bg-muted lg:h-28">
-        <Plus className="size-4.5 text-muted-foreground" />
-      </span>
-    </div>
-  );
+function SelectedImage({ file }: { readonly file: File }) {
+  const url = useMemo(() => URL.createObjectURL(file), [file]);
+  useEffect(() => () => URL.revokeObjectURL(url), [url]);
+  return <Image unoptimized src={url} alt={file.name} width={120} height={100} className="h-22 w-28 rounded-card object-cover lg:h-28" />;
 }
 
-/** Figma "Dropzone" (create) — nothing uploaded yet, so the whole row is the target. */
-function ImageDropzone() {
+function ServiceImages({ images, files, disabled, onChange }: {
+  readonly images: readonly string[];
+  readonly files: readonly File[];
+  readonly disabled: boolean;
+  readonly onChange: (files: File[]) => void;
+}) {
   const t = useTranslations("serviceForm");
-
-  return (
-    <div className="flex h-30 w-full shrink-0 flex-col items-center justify-center gap-2 overflow-clip rounded-card border border-dashed border-input bg-muted lg:h-36">
-      <span className="flex size-9 items-center justify-center rounded-full bg-card">
-        <Plus className="size-4.5 text-primary" />
-      </span>
-      <p className="text-xs font-normal text-muted-foreground">
-        {t("addImages", { max: MAX_SERVICE_IMAGES })}
-      </p>
-    </div>
-  );
+  return <div className="flex w-full flex-col gap-2">
+    {(images.length > 0 || files.length > 0) && <div className="flex flex-wrap gap-2">
+      {images.map((url) => <Image unoptimized key={url} src={url} alt={t("imagesLabel")} width={120} height={100} className="h-22 w-28 rounded-card object-cover lg:h-28" />)}
+      {files.map((file) => <SelectedImage key={`${file.name}-${file.lastModified}`} file={file} />)}
+    </div>}
+    <label className="relative flex min-h-30 w-full cursor-pointer flex-col items-center justify-center gap-2 overflow-clip rounded-card border border-dashed border-input bg-muted lg:min-h-36">
+      <span className="flex size-9 items-center justify-center rounded-full bg-card"><Plus className="size-4.5 text-primary" /></span>
+      <span className="text-xs text-muted-foreground">{t("addImages", { max: MAX_SERVICE_IMAGES })}</span>
+      <Input type="file" multiple accept="image/jpeg,image/png,image/webp" aria-label={t("imagesLabel")} disabled={disabled}
+        className="absolute inset-0 h-full w-full cursor-pointer opacity-0" onChange={(event) => { onChange(Array.from(event.target.files ?? [])); event.target.value = ""; }} />
+    </label>
+    <p className="text-xs text-muted-foreground">{t("imagePublishHint")}</p>
+  </div>;
 }
 
 /** Figma "Limit stepper" — the per-service ceiling, adjusted an hour at a time. */
@@ -367,6 +360,8 @@ export function ServiceFormScreen({
   const router = useRouter();
   const [selectedProfile, setSelectedProfile] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("");
+  const [imageFiles, setImageFiles] = useState<File[]>([]);
+  const [draftId, setDraftId] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [problem, setProblem] = useState<string | null>(null);
   const [updatedService, setUpdatedService] = useState<AdvisorService | null>(null);
@@ -379,6 +374,19 @@ export function ServiceFormScreen({
   const [trialEnabled, setTrialEnabled] = useState<boolean | null>(null);
   const resolvedServiceId = serviceId ?? record?.serviceId;
   const edit = mode === "edit";
+  const imageServiceId = resolvedServiceId ?? draftId;
+  const storedImages = useResource(`advisors/me/services/${imageServiceId ?? "new"}/images`, (signal) => imageServiceId ? getAdvisorServiceImages(imageServiceId, signal) : Promise.resolve({ images: [] }));
+  const [uploadedImages, setUploadedImages] = useState<string[] | null>(null);
+  const images = uploadedImages ?? storedImages.data?.images ?? [];
+  function selectImages(files: File[]) {
+    if (images.length + files.length > MAX_SERVICE_IMAGES) { setProblem(t("imageCountError")); return; }
+    if (files.some((file) => !["image/jpeg", "image/png", "image/webp"].includes(file.type) || file.size > 5 * 1024 * 1024)) {
+      setProblem(t("imageFileError")); return;
+    }
+    setProblem(null);
+    setImageFiles(files);
+  }
+
   const liveService = useResource<AdvisorService | null>(`advisors/me/services/${resolvedServiceId ?? "new"}`, (signal) => resolvedServiceId ? getMyAdvisorService(resolvedServiceId, signal) : Promise.resolve(null));
   const profileRows = profiles.data ?? [];
   const categoryRows = categories.data?.items ?? [];
@@ -414,12 +422,24 @@ export function ServiceFormScreen({
       setProblem(t("validationError"));
       return;
     }
+    const shouldPublish = edit ? (apiRecord?.isPublished ?? false) : publishAction && publish;
+    if (shouldPublish && images.length + imageFiles.length === 0) { setProblem(t("imageRequired")); return; }
     setSaving(true);
     setProblem(null);
     try {
       const isTrial = trialEnabled ?? apiRecord?.trialEnabled ?? false;
-      const input = { name, categoryId, availabilityProfileId: profileId, description: String(data.get("description") ?? ""), priceSatang: price * 100, durationMinutes: duration, isPublished: edit ? (apiRecord?.isPublished ?? false) : publishAction && publish, screeningRequired: screeningEnabled ?? apiRecord?.screeningRequired ?? false, trialEnabled: isTrial, ...(isTrial ? { trialDurationMinutes: apiRecord?.trialDurationMinutes ?? SLOT_MINUTES } : {}), dailyConsultationLimitMinutes: limitOn ? limitMinutes : null };
-      const saved = edit && resolvedServiceId ? await updateAdvisorService(resolvedServiceId, input) : await createAdvisorService(input);
+      const input = { name, categoryId, availabilityProfileId: profileId, description: String(data.get("description") ?? ""), priceSatang: price * 100, durationMinutes: duration, isPublished: false, screeningRequired: screeningEnabled ?? apiRecord?.screeningRequired ?? false, trialEnabled: isTrial, ...(isTrial ? { trialDurationMinutes: apiRecord?.trialDurationMinutes ?? SLOT_MINUTES } : {}), dailyConsultationLimitMinutes: limitOn ? limitMinutes : null };
+      const id = resolvedServiceId ?? draftId;
+      const saved = id ? await updateAdvisorService(id, { ...input, isPublished: edit ? undefined : false }) : await createAdvisorService(input);
+      setDraftId(saved.id);
+      for (const file of imageFiles) {
+        const uploaded = await uploadAdvisorServiceImage(saved.id, file);
+        setUploadedImages(uploaded.images);
+        setImageFiles((remaining) => remaining.filter((item) => item !== file));
+      }
+      if (shouldPublish && !saved.isPublished) await updateAdvisorService(saved.id, { isPublished: true });
+      invalidate(`services`);
+      invalidate(`advisors/me/services/${saved.id}/images`);
       invalidate("advisors/me/services");
       router.push(`/advisor/services/view?serviceId=${encodeURIComponent(saved.id)}`);
     } catch (error) {
@@ -429,9 +449,15 @@ export function ServiceFormScreen({
 
   async function togglePublished() {
     if (!resolvedServiceId || !apiRecord || saving) return;
+    if (!apiRecord.isPublished && images.length + imageFiles.length === 0) { setProblem(t("imageRequired")); return; }
     setSaving(true);
     setProblem(null);
     try {
+      for (const file of imageFiles) {
+        const uploaded = await uploadAdvisorServiceImage(resolvedServiceId, file);
+        setUploadedImages(uploaded.images);
+        setImageFiles((remaining) => remaining.filter((item) => item !== file));
+      }
       const updated = await updateAdvisorService(resolvedServiceId, { isPublished: !apiRecord.isPublished });
       setUpdatedService(updated);
       invalidate(`advisors/me/services/${resolvedServiceId}`);
@@ -503,7 +529,8 @@ export function ServiceFormScreen({
         <div className="contents lg:col-start-1 lg:row-start-1 lg:flex lg:flex-col lg:gap-3.5">
         <div className="order-1 flex w-full shrink-0 flex-col items-start gap-2 overflow-clip px-6 lg:px-0">
           <FieldLabel>{t("imagesLabel")}</FieldLabel>
-          {edit && record ? <ImageStrip record={record} /> : <ImageDropzone />}
+          <ServiceImages images={images} files={imageFiles} disabled={saving || storedImages.loading} onChange={selectImages} />
+          {storedImages.error ? <div role="alert" className="text-sm text-destructive"><p>{t("imageLoadError")}</p><Button type="button" variant="link" onClick={storedImages.reload}>{t("retry")}</Button></div> : null}
         </div>
 
         <div className="order-2 flex w-full shrink-0 flex-col items-start gap-3.5 overflow-clip px-6 lg:px-0">
