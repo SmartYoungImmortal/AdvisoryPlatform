@@ -45,4 +45,4 @@ The final design file is [Advisory Platform](https://www.figma.com/design/pddSCc
 
 Configured frontend coverage measures selected domain and API modules. It excludes the other owners' onboarding component and does not establish 80% coverage of all Taj-owned UI source. The browser proof covers the real consumers separately.
 
-Refund status and historical payment data still depend on the payment contract. Timed login lockout, authoritative balance-based account deletion, default-profile semantics, complete Figma acceptance and deployment verification remain unresolved. Do not close all workload issues from this change.
+Invoice history and receipt endpoints are now merged into the API. Refund-request status and the exact appointment-to-invoice association still need acceptance; receipt rows do not expose a booking UUID. Timed login lockout, authoritative balance-based account deletion, default-profile semantics, complete Figma acceptance and deployment verification remain unresolved. Do not close all workload issues from this change.

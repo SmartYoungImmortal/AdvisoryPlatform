@@ -24,7 +24,14 @@ describe("shared API transport", () => {
     const { api } = await import("@/lib/api/client");
 
     await expect(api.get("/bookings/me", { query: { page: 0, active: false, search: "a & b", omitted: undefined } })).resolves.toEqual(bookings);
-    expect(fetchMock).toHaveBeenCalledWith("https://api.example.test/api/v1/bookings/me?page=0&active=false&search=a+%26+b", expect.objectContaining({ method: "GET", credentials: "include", headers: { Accept: "application/json" }, body: undefined }));
+    expect(fetchMock).toHaveBeenCalledWith("https://api.example.test/api/v1/bookings/me?page=0&active=false&search=a+%26+b", expect.objectContaining({ method: "GET", credentials: "include", headers: { Accept: "application/json", "Accept-Language": "th" }, body: undefined }));
+  });
+
+  it("sends the reader's selected language with subsequent API requests", async () => {
+    const { api, setRequestLocale } = await import("@/lib/api/client");
+    setRequestLocale("en");
+    await api.get("services");
+    expect(fetchMock.mock.calls[0]?.[1]?.headers).toMatchObject({ "Accept-Language": "en" });
   });
 
   it("preserves raw auth replies including the null signed-out session", async () => {
@@ -52,7 +59,7 @@ describe("shared API transport", () => {
     const { api } = await import("@/lib/api/client");
     await api.post("chat/attachments", { body: form });
     expect(fetchMock.mock.calls[0]?.[1]?.body).toBe(form);
-    expect(fetchMock.mock.calls[0]?.[1]?.headers).toEqual({ Accept: "application/json" });
+    expect(fetchMock.mock.calls[0]?.[1]?.headers).toEqual({ Accept: "application/json", "Accept-Language": "th" });
   });
 
   it.each([
