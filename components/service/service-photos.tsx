@@ -181,7 +181,9 @@ export function CoverPhoto({
           aria-hidden
           className="absolute inset-0 bg-scrim/0 transition-colors duration-150 group-hover/cover:bg-scrim/10"
         />
-        <span className="pointer-events-none absolute top-3 right-3 inline-flex items-center gap-1.5 rounded-full bg-card/95 px-3 py-1 text-xs font-medium text-foreground shadow-hero-card lg:top-[19px] lg:right-[19px] lg:gap-[7.125px] lg:px-[19px] lg:py-[7.125px] lg:text-frame-meta">
+        {/* On the phone the bar floats over the cover's top and the intro's
+            sheet laps its foot by 32, so the count sits 12 above the sheet. */}
+        <span className="pointer-events-none absolute right-3 bottom-11 inline-flex md:top-3 md:bottom-auto items-center gap-1.5 rounded-full bg-card/95 px-3 py-1 text-xs font-medium text-foreground shadow-hero-card lg:top-[19px] lg:right-[19px] lg:gap-[7.125px] lg:px-[19px] lg:py-[7.125px] lg:text-frame-meta">
           <Images aria-hidden className="size-3.5 lg:size-[19px]" strokeWidth={1.75} />
           {t("allPhotos", { count: total })}
         </span>

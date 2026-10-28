@@ -3,7 +3,7 @@
 import type { StaticImageData } from "next/image";
 import Link from "next/link";
 import { SearchX } from "lucide-react";
-import { useCallback, type CSSProperties, type ReactNode } from "react";
+import { useCallback, useEffect, type CSSProperties, type ReactNode } from "react";
 import { useTranslations } from "next-intl";
 
 import { ApiError } from "@/lib/api/client";
@@ -25,6 +25,7 @@ import {
   useSelection,
 } from "@/components/service/service-booking";
 import { ServiceIntro } from "@/components/service/service-head";
+import { servicePhotoSet } from "@/components/service/service-photo-sets";
 import {
   AdvisorSection,
   KnowSection,
@@ -126,6 +127,9 @@ function useAdvisor(advisorId: string): ApiPublicAdvisor | undefined {
  * cover among them.
  */
 function photosOf(item: LiveService | undefined, service: ApiPublicService): readonly string[] {
+  // This page's own three, where the service has them (`service-photo-sets`).
+  const own = servicePhotoSet(service.id);
+  if (own) return own;
   const all = [item?.cover.src, ...(service.images ?? item?.images ?? [])];
   return [...new Set(all.filter((src): src is string => Boolean(src)))];
 }
@@ -165,10 +169,20 @@ function similarTo(
  * read the same size here as there.
  */
 function Frame({ children, bar }: { readonly children: ReactNode; readonly bar?: ReactNode }) {
+  // This page's neutral greys (`.neutral-greys`): on the frame for what it
+  // draws, on <body> while it is mounted for the dialogs and sheets that
+  // portal out of it.
+  useEffect(() => {
+    document.body.classList.add("neutral-greys");
+    return () => document.body.classList.remove("neutral-greys");
+  }, []);
+
   return (
-    <MobileScreen className="pb-0" wide="md">
+    <MobileScreen className="neutral-greys pb-0" wide="md">
       <ScreenBody className="bg-card">
-        <TopBar dock unreadNotifications />
+        {/* On the phone the bar floats over the cover, which starts at the
+            top edge; from the portrait tablet it sits above the page. */}
+        <TopBar dock overlay="phone" unreadNotifications />
         {/* 1594 wide from `lg`, the two columns `COLUMNS` measures. */}
         <div className="app-scale mx-auto flex w-full flex-1 flex-col px-6 pt-2 pb-32 md:px-12 md:pt-4 lg:max-w-[1658px] lg:px-8 lg:pt-9.5 lg:pb-0">
           {children}
@@ -203,7 +217,7 @@ export function LiveServiceDetailSkeleton() {
     >
       <div aria-busy className={COLUMNS}>
         <div aria-hidden className={cn(INTRO_COLUMN, "items-center")} style={INTRO_VARS}>
-          <span className="-mx-6 -mt-2 block aspect-[402/200] animate-pulse self-stretch bg-muted md:mx-0 md:mt-0 md:aspect-[493/241] md:rounded-2xl lg:rounded-[28.5px]" />
+          <span className="-mx-6 -mt-2 block aspect-[4/3] animate-pulse self-stretch bg-muted md:mx-0 md:mt-0 md:aspect-[493/241] md:rounded-2xl lg:rounded-[28.5px]" />
           <span className="relative -mt-8 size-16 rounded-full bg-muted ring-3 ring-card md:-mt-9 md:size-18 lg:-mt-[51px] lg:size-[102px]" />
           <span className="mt-4 h-8 w-3/4 animate-pulse rounded-lg bg-muted lg:mt-[23.75px] lg:h-[42.75px]" />
           <span className="mt-3 h-4 w-4/5 animate-pulse rounded-md bg-muted lg:mt-[23.75px] lg:h-[23.75px]" />

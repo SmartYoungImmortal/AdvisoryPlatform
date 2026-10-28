@@ -127,13 +127,13 @@ export function ServiceIntro({
 
   return (
     <div className="flex flex-col items-center text-center lg:flex-1">
-      {/* On the phone the cover runs edge to edge under the bar, 402 by 200
-          at 402, and the rest of the intro is a white sheet lapping its
-          foot by 32, round at its top corners, the face centred on its edge.
-          From the portrait tablet the sheet is gone (`contents`) and the
-          cover is the column's card. */}
+      {/* On the phone the cover runs edge to edge from the top of the
+          screen, 4:3, the bar floating over it; the rest of the intro is a
+          white sheet lapping its foot by 32, round at its top corners, the
+          face centred on its edge. From the portrait tablet the sheet is
+          gone (`contents`) and the cover is the column's card. */}
       <CoverPhoto
-        className="-mx-6 -mt-2 aspect-[402/200] self-stretch rounded-none md:mx-0 md:mt-0 md:aspect-[493/241] md:rounded-2xl lg:rounded-[28.5px]"
+        className="-mx-6 -mt-2 aspect-[4/3] self-stretch rounded-none md:mx-0 md:mt-0 md:aspect-[493/241] md:rounded-2xl lg:rounded-[28.5px]"
         photos={photos}
         title={service.name}
       />

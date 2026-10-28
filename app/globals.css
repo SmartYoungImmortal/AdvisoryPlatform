@@ -421,6 +421,22 @@
   --sidebar-ring: oklch(0.705 0.015 286.067);
 }
 
+/* The service page's greys: neutral, not cooled toward blue. A blue-grey
+   ground and blue-grey secondary text read as a dashboard; a neutral grey
+   reads warmer on the page that sells someone's time. Same lightness as the
+   cool steps they replace, so contrast is where it was (the text 5.4:1 on
+   white). Scoped like `.cms-admin`: on the page's frame and on <body> while
+   the page is mounted, so its dialogs and sheets, which portal out, take it
+   too. Light theme only. */
+html:not(.dark) .neutral-greys {
+  --background: #f5f5f5;
+  --secondary: #f0f0f0;
+  --muted: #f0f0f0;
+  --muted-foreground: #6a6a6a;
+  --accent: #f0f0f0;
+  --border: #e5e5e5;
+}
+
 /* Admin console — Nexus's black/white CMS theme (`.cms-admin` in Nexus's
    main.css), mapped onto this project's token names. Scoped to the console's
    wrapper and to <body> while the console is mounted, so dialogs and menus that
