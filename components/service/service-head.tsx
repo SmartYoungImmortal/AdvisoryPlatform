@@ -2,11 +2,12 @@
 
 import Image, { type StaticImageData } from "next/image";
 import Link from "next/link";
-import { ArrowLeft, BadgeCheck, Gift, ShieldCheck, Star } from "lucide-react";
+import { BadgeCheck, Star } from "lucide-react";
 import { useFormatter, useTranslations } from "next-intl";
 import type { ReactNode } from "react";
 
-import { baht, liveAdvisorHref } from "@/components/bookings/booking-flow";
+import { liveAdvisorHref } from "@/components/bookings/booking-flow";
+import { CoverPhoto } from "@/components/service/service-photos";
 import type { ApiPublicService, ApiRatingSummary } from "@/lib/api/types";
 import { cn } from "@/lib/utils";
 
@@ -57,185 +58,128 @@ export function Face({
   );
 }
 
-/** One figure: the value over its label, a hairline between neighbours. */
-function Figure({ label, children }: { readonly label: string; readonly children: ReactNode }) {
-  return (
-    <div className="flex min-w-0 flex-col items-center gap-0.5 px-2 text-center lg:items-start lg:gap-1 lg:px-8 lg:text-left lg:first:pl-0 lg:last:pr-0">
-      <dt className="order-2 text-xs whitespace-nowrap text-muted-foreground lg:text-frame-label">{label}</dt>
-      <dd className="order-1 flex items-center gap-1 font-latin text-base font-semibold whitespace-nowrap text-foreground tabular-nums md:text-lg lg:gap-2 lg:text-frame-heading">
-        {children}
-      </dd>
-    </div>
-  );
-}
-
-/** A figure still on its way: the shape of a value, not a zero. */
-function FigurePending({ label }: { readonly label: string }) {
-  return (
-    <Figure label={label}>
-      <span aria-hidden className="my-1 h-4 w-10 animate-pulse rounded-md bg-muted lg:h-6 lg:w-14" />
-    </Figure>
-  );
-}
 
 /**
- * The showcase head: the advisor's face beside the service's name, the line
- * that says who they are, what the service is, and the figures behind it.
+ * The column that rides beside the page from `lg`, drawn after the listing
+ * pages of a large marketplace for services: the cover, the advisor's face
+ * lapping its lower edge, the service's name centred under it, what the
+ * service is, a line of facts (the score and the reviews, which is the way
+ * to them, and the category), and at its foot, on the screen's bottom edge,
+ * the price card (`booking`).
  *
- * Only figures the API has: price and length from the service, the score and
- * the review count from the advisor's summary (reviews belong to an advisor,
- * not to one service). Nobody scored yet reads as "no reviews yet", never as
- * a zero, which would read as the lowest score.
+ * Measured there at 1440 and drawn here in the 1710 space at ×1.1875, so it
+ * reads the same size on a 1440 screen: the cover 493:241 and 24 round, the
+ * face 86 with its rim, the name 32/600, the line 16/22 in grey, the facts
+ * 12, the card 52 tall at its button.
  *
- * On a desktop the face hangs in the margin across the title and the advisor
- * line, and everything under them keeps the title's left edge; on the phone
- * the title has the full width and the face sits beside the advisor line.
+ * On the phone the same stack opens the page, and the card gives way to the
+ * booking bar along the bottom.
  */
-export function ServiceHead({
+export function ServiceIntro({
   service,
   category,
+  photos,
   face,
   name,
-  headline,
   rating,
-  ratingSettled,
+  reviewCount,
+  booking,
 }: {
   readonly service: ApiPublicService;
   readonly category: string;
+  /** Every photograph, the cover first; a grey cell while there are none. */
+  readonly photos: readonly string[];
   readonly face: StaticImageData | null;
   readonly name: string;
-  readonly headline: string;
   readonly rating: ApiRatingSummary | undefined;
-  readonly ratingSettled: boolean;
+  /** The advisor's review count; undefined while it loads, null when unknown. */
+  readonly reviewCount: number | null | undefined;
+  readonly booking: ReactNode;
 }) {
   const t = useTranslations("service");
-  const s = useTranslations("search");
   const format = useFormatter();
   const profile = liveAdvisorHref(service.advisorId);
   const trial = service.trialEnabled ? service.trialDurationMinutes : null;
 
-  let score: ReactNode;
+  const facts: { readonly key: string; readonly node: ReactNode }[] = [];
   if (rating) {
-    score = (
-      <>
-        <Figure label={t("statRating")}>
-          <Star aria-hidden className="size-4 fill-primary text-primary lg:size-5" />
+    facts.push({
+      key: "score",
+      node: (
+        <span className="inline-flex items-center gap-1 font-medium text-foreground">
+          <Star aria-hidden className="size-3 fill-current lg:size-[14.25px]" />
           {format.number(rating.average, { minimumFractionDigits: 1, maximumFractionDigits: 1 })}
-        </Figure>
-        <Figure label={t("statReviews")}>
-          {/* The count is the way to the reviews themselves. */}
-          <a className="underline-offset-4 hover:underline" href="#reviews">
-            {format.number(rating.total)}
-          </a>
-        </Figure>
-      </>
-    );
-  } else if (ratingSettled) {
-    score = (
-      <Figure label={t("statRating")}>
-        <span className="text-sm font-normal text-muted-foreground lg:text-frame-meta">{s("noReviews")}</span>
-      </Figure>
-    );
-  } else {
-    score = (
-      <>
-        <FigurePending label={t("statRating")} />
-        <FigurePending label={t("statReviews")} />
-      </>
-    );
+        </span>
+      ),
+    });
   }
+  if (typeof reviewCount === "number") {
+    facts.push({
+      key: "reviews",
+      node: (
+        <a className="underline-offset-4 hover:underline" href="#reviews">
+          {t("reviewCount", { count: reviewCount })}
+        </a>
+      ),
+    });
+  }
+  if (category) facts.push({ key: "category", node: category });
 
   return (
-    <header className="flex flex-col gap-5 lg:gap-6">
-      <nav
-        aria-label={t("breadcrumbLabel")}
-        className="flex min-w-0 items-center gap-2 text-sm text-muted-foreground lg:gap-3 lg:text-frame-meta"
-      >
-        <Link className="inline-flex shrink-0 items-center gap-1.5 py-1 transition-colors hover:text-foreground lg:gap-2" href="/search">
-          <ArrowLeft aria-hidden className="size-4 lg:size-5" />
-          {t("back")}
-        </Link>
-        {category ? (
-          <>
-            <span aria-hidden className="text-border">
-              /
-            </span>
-            <Link
-              className="truncate py-1 transition-colors hover:text-foreground"
-              href={`/search?q=${encodeURIComponent(category)}`}
-            >
-              {category}
-            </Link>
-          </>
-        ) : null}
-      </nav>
+    <div className="flex flex-col items-center text-center lg:flex-1">
+      <CoverPhoto
+        className="aspect-[493/241] w-full rounded-2xl lg:rounded-[28.5px]"
+        photos={photos}
+        title={service.name}
+      />
 
-      {/* From `lg` the page sits in the app frame's panel, drawn in the 1710
-          space and zoomed by `app-scale`, on the `frame-*` steps the other
-          framed pages use: the title at the frame's title step, as theirs. */}
-      <div className="grid grid-cols-[auto_minmax(0,1fr)] items-center gap-x-3 gap-y-4 lg:gap-x-6 lg:gap-y-2">
-        {/* Balanced, so a two-line name splits near its middle rather than
-            leaving one Thai syllable alone on the second line. */}
-        <h1 className="col-span-2 font-hero text-heading font-normal tracking-tight text-balance text-hero-ink md:text-heading-lg lg:col-span-1 lg:col-start-2 lg:row-start-1 lg:self-end lg:text-frame-title">
-          {service.name}
-        </h1>
-        {/* The name beside it is the same link and the one a keyboard
-            reaches; the face is for the pointer. */}
+      {/* The name under the title is the same link and the one a keyboard
+          reaches; the face is for the pointer. */}
+      <Link aria-hidden className="relative -mt-9 block rounded-full lg:-mt-[51px]" href={profile} tabIndex={-1}>
+        <Face className="size-18 text-2xl lg:size-[102px] lg:text-frame-title" face={face} name={name} />
+      </Link>
+
+      {/* Balanced, so a two-line name splits near its middle rather than
+          leaving one Thai syllable alone on the second line. */}
+      <h1 className="mt-4 max-w-[427px] text-2xl leading-[1.25] font-semibold text-balance text-foreground lg:mt-[23.75px] lg:text-frame-title lg:leading-[1.125]">
+        {service.name}
+      </h1>
+      {name ? (
         <Link
-          aria-hidden
-          className="rounded-full lg:col-start-1 lg:row-span-2 lg:row-start-1"
+          className="mt-1.5 text-sm text-muted-foreground underline-offset-4 hover:text-foreground hover:underline lg:mt-[7.125px] lg:text-frame-meta"
           href={profile}
-          tabIndex={-1}
         >
-          <Face className="size-12 text-base lg:size-20 lg:text-2xl" face={face} name={name} verified />
+          {name}
         </Link>
-        <div className="flex min-w-0 flex-col gap-0.5 lg:col-start-2 lg:row-start-2 lg:gap-1 lg:self-start">
-          <span className="flex flex-wrap items-center gap-x-2 gap-y-1 lg:gap-x-3">
-            {name ? (
-              <Link
-                className="text-base font-semibold text-foreground underline-offset-4 hover:underline lg:text-frame-body"
-                href={profile}
-              >
-                {name}
-              </Link>
-            ) : (
-              <span aria-hidden className="h-5 w-36 animate-pulse rounded-md bg-muted lg:h-6 lg:w-44" />
-            )}
-            <span className="inline-flex items-center gap-1 rounded-full bg-accent-surface px-2 py-0.5 text-xs font-medium text-primary lg:gap-1.5 lg:px-3 lg:py-1 lg:text-frame-label">
-              <ShieldCheck aria-hidden className="size-3.5 lg:size-4.5" />
-              {t("verifiedIdentity")}
-            </span>
-          </span>
-          {headline ? <span className="text-sm text-muted-foreground lg:text-frame-meta">{headline}</span> : null}
-        </div>
-      </div>
+      ) : null}
 
       {service.description ? (
-        // Indented by the face and its gap (80 + 24), so it keeps the title's left edge.
-        <p className="max-w-2xl text-base leading-7 text-pretty text-muted-foreground lg:ml-26 lg:max-w-3xl lg:text-frame-body">
+        <p className="mt-3 max-w-[427px] text-base leading-[1.375] text-pretty text-muted-foreground lg:mt-[23.75px] lg:text-frame-body lg:leading-[1.375]">
           {service.description}
         </p>
       ) : null}
 
-      <div className="flex flex-col gap-3 lg:flex-row lg:flex-wrap lg:items-center lg:gap-x-8 lg:gap-y-4 lg:pl-26">
-        <dl
-          aria-label={t("atAGlance")}
-          className={cn(
-            "grid divide-x divide-border rounded-2xl border border-border bg-card py-3 lg:flex lg:rounded-none lg:border-0 lg:bg-transparent lg:py-0",
-            rating || !ratingSettled ? "grid-cols-4" : "grid-cols-3",
-          )}
-        >
-          <Figure label={t("statPrice")}>{format.number(baht(service.priceSatang), "baht")}</Figure>
-          <Figure label={t("statLength")}>{s("durationMinutes", { count: service.durationMinutes })}</Figure>
-          {score}
-        </dl>
-        {trial ? (
-          <span className="inline-flex h-9 items-center gap-2 self-start rounded-full bg-accent-surface px-4 text-sm font-medium text-primary lg:h-11 lg:self-center lg:px-5 lg:text-frame-meta">
-            <Gift aria-hidden className="size-4 lg:size-5" />
-            {t("trialFree", { minutes: trial })}
-          </span>
+      <div className="mt-4 flex flex-col items-center gap-0.5 text-xs lg:mt-[28.5px] lg:gap-[2.375px] lg:text-frame-label">
+        {facts.length > 0 ? (
+          <p className="flex flex-wrap items-center justify-center gap-x-1.5 text-foreground lg:gap-x-[7.125px]">
+            {facts.map((fact, i) => (
+              <span className="inline-flex items-center gap-x-1.5 lg:gap-x-[7.125px]" key={fact.key}>
+                {i > 0 ? <span aria-hidden>·</span> : null}
+                {fact.node}
+              </span>
+            ))}
+          </p>
         ) : null}
+        <p className="text-muted-foreground">
+          {trial ? `${t("videoInApp")} · ${t("trialFree", { minutes: trial })}` : t("videoInApp")}
+        </p>
       </div>
-    </header>
+
+      {/* From `lg` only, docked on the screen's bottom edge (the column is
+          the screen's height and this is its last child, pushed down); below
+          it the booking bar along the bottom holds the price and the way to
+          the times. */}
+      <div className="hidden w-full pt-[57px] lg:mt-auto lg:block">{booking}</div>
+    </div>
   );
 }

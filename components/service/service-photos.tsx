@@ -4,7 +4,7 @@ import { Dialog as DialogPrimitive } from "@base-ui/react/dialog";
 import { ChevronLeft, ChevronRight, Images, X } from "lucide-react";
 import Image from "next/image";
 import { useTranslations } from "next-intl";
-import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogClose, DialogOverlay, DialogPortal, DialogTitle } from "@/components/ui/dialog";
@@ -126,201 +126,77 @@ function ViewerBody({ photos, start }: { readonly photos: readonly string[]; rea
   );
 }
 
-/** One photo of the desktop collage, and the way into the viewer at it. */
-function Tile({
-  src,
-  index,
-  label,
-  onOpen,
-  children,
-}: {
-  readonly src: string;
-  readonly index: number;
-  readonly label: string;
-  readonly onOpen: (index: number) => void;
-  readonly children?: ReactNode;
-}) {
-  const t = useTranslations("service");
-  return (
-    <Button
-      aria-label={label}
-      className="group/tile relative size-full cursor-zoom-in overflow-hidden rounded-2xl bg-muted p-0 shadow-hero-card hover:bg-muted"
-      onClick={() => onOpen(index)}
-      // What the zoom cursor promises, said on hover.
-      title={t("openPhotos")}
-      type="button"
-      variant="ghost"
-    >
-      <Image
-        alt=""
-        className="object-cover"
-        fetchPriority={index === 0 ? "high" : undefined}
-        fill
-        loading={index === 0 ? "eager" : "lazy"}
-        sizes={index === 0 ? "(min-width: 1024px) 500px, 100vw" : "(min-width: 1024px) 250px, 50vw"}
-        src={src}
-      />
-      {/* A shade under the pointer, the one sign the photo can be opened. */}
-      <span
-        aria-hidden
-        className="absolute inset-0 bg-scrim/0 transition-colors duration-150 group-hover/tile:bg-scrim/10"
-      />
-      {children}
-    </Button>
-  );
-}
 
 /**
- * The service's photographs: the cover first, then whatever else the advisor
- * has added (`ApiPublicService.images`).
- *
- * Phone and portrait tablet: a track that swipes, each photo a page with the
- * next one peeking in at the edge, so a second photo announces itself.
- * Desktop: an editorial collage, the cover large and the next two stacked
- * beside it, so every photo is in the first screen rather than in a row of
- * thumbnails under the fold. Any photo opens the large viewer at itself.
- *
- * One photo is a composition of its own rather than a gallery with nothing
- * in it: no counter, no tiles, only the photograph and the line about the
- * session laid over its corner.
+ * The cover, and the way into every photograph: the first one fills the
+ * frame, and with more than one it is a button that opens the large viewer,
+ * a white pill on its top corner saying how many there are (top, not bottom:
+ * the advisor's face laps the bottom edge). The photographs are drawn once,
+ * here, rather than again in a gallery further down the page.
  */
-export function ServicePhotos({
+export function CoverPhoto({
   photos,
   title,
-  chip,
+  className,
 }: {
   readonly photos: readonly string[];
   /** The service's name, for the viewer's heading. */
   readonly title: string;
-  /** A line laid over the first photo's corner. */
-  readonly chip?: ReactNode;
+  /** The frame: its size, shape and corners. */
+  readonly className: string;
 }) {
   const t = useTranslations("service");
-  const [viewer, setViewer] = useState({ open: false, start: 0 });
+  const [open, setOpen] = useState(false);
   const total = photos.length;
-  const many = total > 1;
-  // The collage's right column: the next two; the rest wait in the viewer.
-  const side = photos.slice(1, 3);
-  const open = (start: number) => setViewer({ open: true, start });
+  const frame = cn("relative block overflow-hidden bg-muted", className);
+  if (total === 0) return <span className={frame} />;
 
-  const overlay = chip ? <span className="pointer-events-none absolute bottom-3 left-3 lg:bottom-4 lg:left-4">{chip}</span> : null;
+  const image = (
+    <Image
+      alt=""
+      className="object-cover"
+      fetchPriority="high"
+      fill
+      loading="eager"
+      sizes="(min-width: 1024px) 500px, 100vw"
+      src={photos[0]}
+    />
+  );
+  if (total === 1) return <span className={frame}>{image}</span>;
 
   return (
-    <section aria-label={t("galleryLabel")}>
-      {/* The track bleeds to the screen's edges, its first page lined up
-          with the column. */}
-      <div className="-mx-5 flex snap-x snap-mandatory gap-3 overflow-x-auto px-5 scroll-px-5 md:-mx-12 md:px-12 md:scroll-px-12 lg:hidden">
-        {photos.map((src, i) => {
-          const frame = cn(
-            "relative aspect-[4/3] shrink-0 snap-start overflow-hidden rounded-2xl bg-muted shadow-hero-card",
-            many ? "w-[86%] md:w-[72%]" : "w-full",
-          );
-          const image = (
-            <Image
-              alt=""
-              className="object-cover"
-              fetchPriority={i === 0 ? "high" : undefined}
-              fill
-              loading={i === 0 ? "eager" : "lazy"}
-              sizes="(min-width: 768px) 72vw, 86vw"
-              src={src}
-            />
-          );
-          if (!many) {
-            return (
-              <div className={frame} key={src}>
-                {image}
-                {overlay}
-              </div>
-            );
-          }
-          return (
-            <Button
-              aria-label={t("photoOf", { current: i + 1, total })}
-              className={cn(frame, "h-auto p-0 hover:bg-muted")}
-              key={src}
-              onClick={() => open(i)}
-              type="button"
-              variant="ghost"
-            >
-              {image}
-              {i === 0 ? overlay : null}
-              <span
-                aria-hidden
-                className="absolute right-3 bottom-3 rounded-full bg-scrim/55 px-2.5 py-1 font-latin text-xs font-normal text-on-media tabular-nums"
-              >
-                {t("photoCounter", { current: i + 1, total })}
-              </span>
-            </Button>
-          );
-        })}
-      </div>
+    <>
+      <Button
+        aria-label={t("allPhotos", { count: total })}
+        className={cn(frame, "group/cover h-auto cursor-zoom-in p-0 hover:bg-muted")}
+        onClick={() => setOpen(true)}
+        // What the zoom cursor promises, said on hover.
+        title={t("openPhotos")}
+        type="button"
+        variant="ghost"
+      >
+        {image}
+        {/* A shade under the pointer, the one sign the photo can be opened. */}
+        <span
+          aria-hidden
+          className="absolute inset-0 bg-scrim/0 transition-colors duration-150 group-hover/cover:bg-scrim/10"
+        />
+        <span className="pointer-events-none absolute top-3 right-3 inline-flex items-center gap-1.5 rounded-full bg-card/95 px-3 py-1 text-xs font-medium text-foreground shadow-hero-card lg:top-[19px] lg:right-[19px] lg:gap-[7.125px] lg:px-[19px] lg:py-[7.125px] lg:text-frame-meta">
+          <Images aria-hidden className="size-3.5 lg:size-[19px]" strokeWidth={1.75} />
+          {t("allPhotos", { count: total })}
+        </span>
+      </Button>
 
-      <div className="hidden lg:block">
-        {many ? (
-          // 21:9, a quarter shorter than the 16:9 it was: at 16:9 the collage
-          // filled the first screen under the head and pushed everything else
-          // below it. The cover's frame comes out near 3:2.
-          <div className="grid aspect-[21/9] grid-cols-[2fr_1fr] gap-3">
-            <Tile index={0} label={t("photoOf", { current: 1, total })} onOpen={open} src={photos[0]}>
-              {overlay}
-            </Tile>
-            <div className={cn("grid gap-3", side.length > 1 ? "grid-rows-2" : "grid-rows-1")}>
-              {side.map((src, k) => {
-                const i = k + 1;
-                const last = k === side.length - 1;
-                // Past three, the corner says how many more wait in the viewer.
-                const more = total > 3 ? t("morePhotos", { count: total - 3 }) : t("allPhotos", { count: total });
-                return (
-                  <Tile
-                    index={i}
-                    key={src}
-                    label={last ? more : t("photoOf", { current: i + 1, total })}
-                    onOpen={open}
-                    src={src}
-                  >
-                    {last ? (
-                      <span className="pointer-events-none absolute right-4 bottom-4 inline-flex h-11 items-center gap-2 rounded-full bg-card/85 px-4 text-frame-meta font-medium text-foreground shadow-hero-card backdrop-blur-md">
-                        <Images aria-hidden className="size-5" />
-                        {more}
-                      </span>
-                    ) : null}
-                  </Tile>
-                );
-              })}
-            </div>
-          </div>
-        ) : (
-          <div className="relative aspect-[21/9] overflow-hidden rounded-2xl bg-muted shadow-hero-card">
-            <Image
-              alt=""
-              className="object-cover"
-              fetchPriority="high"
-              fill
-              loading="eager"
-              sizes="(min-width: 1024px) 760px, 100vw"
-              src={photos[0]}
-            />
-            {overlay}
-          </div>
-        )}
-      </div>
-
-      {many ? (
-        <Dialog
-          onOpenChange={(next) => setViewer((value) => ({ ...value, open: next }))}
-          open={viewer.open}
-        >
-          <DialogPortal>
-            <DialogOverlay className="bg-scrim/85 supports-backdrop-filter:backdrop-blur-md" />
-            {/* A plain 150ms fade in and out, as a panel opening, nothing more. */}
-            <DialogPrimitive.Popup className="fixed inset-0 z-50 outline-none transition-opacity duration-150 data-ending-style:opacity-0 data-starting-style:opacity-0 motion-reduce:transition-none">
-              <DialogTitle className="sr-only">{title}</DialogTitle>
-              <ViewerBody photos={photos} start={viewer.start} />
-            </DialogPrimitive.Popup>
-          </DialogPortal>
-        </Dialog>
-      ) : null}
-    </section>
+      <Dialog onOpenChange={setOpen} open={open}>
+        <DialogPortal>
+          <DialogOverlay className="bg-scrim/85 supports-backdrop-filter:backdrop-blur-md" />
+          {/* A plain 150ms fade in and out, as a panel opening, nothing more. */}
+          <DialogPrimitive.Popup className="fixed inset-0 z-50 outline-none transition-opacity duration-150 data-ending-style:opacity-0 data-starting-style:opacity-0 motion-reduce:transition-none">
+            <DialogTitle className="sr-only">{title}</DialogTitle>
+            <ViewerBody photos={photos} start={0} />
+          </DialogPrimitive.Popup>
+        </DialogPortal>
+      </Dialog>
+    </>
   );
 }

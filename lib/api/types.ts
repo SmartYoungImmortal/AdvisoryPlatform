@@ -41,6 +41,21 @@ export interface ApiPublicService {
    * field existed does not send it; read it as empty then.
    */
   readonly images?: readonly string[];
+  /**
+   * The packages the service is sold in, in the order offered, on the detail
+   * route only. Empty (or absent, from an API built before them) means it is
+   * sold as itself, at `priceSatang` for `durationMinutes`.
+   */
+  readonly packages?: readonly ApiServicePackage[];
+}
+
+/** `ServicePackageResponseDto` — advisor-services/dtos/service-package.dto.ts */
+export interface ApiServicePackage {
+  readonly id: string;
+  readonly name: string;
+  readonly description: string | null;
+  readonly durationMinutes: number;
+  readonly priceSatang: number;
 }
 
 /** `PublicServiceQueryDto` — the filters `GET /services` accepts. */
@@ -93,6 +108,8 @@ export interface ApiSlotQuery {
   readonly from: string;
   /** `YYYY-MM-DD` */
   readonly to: string;
+  /** Cuts the slots to this package's length; the service's own without it. */
+  readonly packageId?: string;
 }
 
 /** `ReviewResponseDto` — reviews/dtos */
@@ -190,6 +207,8 @@ export type ApiBookingState =
 export interface ApiBooking {
   readonly id: string;
   readonly serviceId: string;
+  /** The package booked; null (or absent, from an older API) for a service sold as itself. */
+  readonly packageId?: string | null;
   readonly advisorId: string;
   readonly adviseeId: string;
   readonly startTime: string;
@@ -214,6 +233,8 @@ export interface ApiBookingInput {
   readonly serviceId: string;
   /** ISO 8601, and the exact `startTime` of a slot the slots route returned. */
   readonly startTime: string;
+  /** The package to book, when the service is sold in packages; its length sets the end. */
+  readonly packageId?: string;
 }
 
 /* ------------------------------------------------------------- own reviews */

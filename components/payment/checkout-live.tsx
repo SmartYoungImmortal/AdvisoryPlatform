@@ -94,8 +94,17 @@ function AdvisorRow({ advisorId }: { readonly advisorId: string }) {
   );
 }
 
-/** The service line, once the booking has named it. */
-function ServiceSummary({ serviceId }: { readonly serviceId: string }) {
+/**
+ * The service line, once the booking has named it: with the package booked
+ * when there is one, its name beside the service's and its price the total.
+ */
+function ServiceSummary({
+  serviceId,
+  packageId,
+}: {
+  readonly serviceId: string;
+  readonly packageId: string | null;
+}) {
   const t = useTranslations("payment");
   const format = useFormatter();
 
@@ -113,7 +122,8 @@ function ServiceSummary({ serviceId }: { readonly serviceId: string }) {
   }
   if (!service.data) return null;
 
-  const total = format.number(baht(service.data.priceSatang), "baht");
+  const booked = service.data.packages?.find((item) => item.id === packageId);
+  const total = format.number(baht(booked ? booked.priceSatang : service.data.priceSatang), "baht");
 
   return (
     <Surface className="w-full divide-y divide-border overflow-hidden">
@@ -124,7 +134,7 @@ function ServiceSummary({ serviceId }: { readonly serviceId: string }) {
       </div>
       <div className="flex w-full shrink-0 items-center justify-between gap-3 px-3.5 py-2.5">
         <span className="min-w-px flex-1 text-sm font-normal text-muted-foreground">
-          <ThaiText>{service.data.name}</ThaiText>
+          <ThaiText>{booked ? `${service.data.name} · ${booked.name}` : service.data.name}</ThaiText>
         </span>
         <span className="font-latin shrink-0 text-sm font-normal whitespace-nowrap tabular-nums text-foreground">
           {total}
@@ -241,7 +251,7 @@ export function LiveCheckoutScreen({
           {/* The 380 aside at 1440, above the phone's fields — the same grid the
               fixture checkout and the invoice both lay out on. */}
           <div className="flex w-full shrink-0 flex-col items-start px-6 pt-2 lg:col-start-2 lg:row-start-1 lg:px-0 lg:pt-0">
-            <ServiceSummary serviceId={live.serviceId} />
+            <ServiceSummary packageId={live.packageId ?? null} serviceId={live.serviceId} />
           </div>
 
           {/* What is actually held, and its state. This is the column the card
