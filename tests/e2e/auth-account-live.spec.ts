@@ -18,7 +18,8 @@ test("real invalid reset link and anonymous account access are denied", async ({
   const rejected = page.waitForResponse(response => response.url().endsWith("/api/auth/reset-password"));
   await page.locator('button[type="submit"]').click();
   expect((await rejected).status()).toBe(400);
-  await expect(page.getByText("ลิงก์นี้หมดอายุหรือถูกใช้แล้ว ขอรับลิงก์ใหม่ได้จากหน้าลืมรหัสผ่าน")).toBeVisible();
+  await expect(page.getByRole("heading", { name: "ลิงก์นี้ใช้ไม่ได้แล้ว" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "ขอลิงก์ใหม่" })).toHaveAttribute("href", "/forgot-password");
   await page.screenshot({ path: `${output}/invalid-reset-link.png`, fullPage: true });
 });
 
@@ -273,7 +274,8 @@ test("real registration, verification, desktop/mobile profile, password reset an
     expect((await login(page, email, password)).status()).toBe(200);
   });
   await test.step("Delete only this new account and confirm access is revoked", async () => {
-    await page.goto("http://localhost:3001/settings/delete");
+    await page.goto("http://localhost:3001/settings");
+    await page.getByRole("button", { name: "ลบ", exact: true }).click();
     await page.locator("#delete-confirm").fill("DELETE");
     const deleted = page.waitForResponse(response => response.url().endsWith("/api/v1/users/me") && response.request().method() === "DELETE");
     await page.locator('button[type="submit"]').click();

@@ -11,8 +11,11 @@ import { legalChrome } from "@/lib/legal/chrome";
 import type { LegalDoc } from "@/lib/legal/types";
 import { cn } from "@/lib/utils";
 
-/** The prose, in the foreground ink: in a contract the body text is the page. */
-const PROSE = "text-base leading-relaxed text-foreground";
+/**
+ * The prose, in the foreground ink: in a contract the body text is the page.
+ * 14 on a phone, where every step of this page is one smaller; 16 from `md`.
+ */
+const PROSE = "text-sm leading-relaxed text-foreground md:text-base";
 
 /**
  * A legal document page, the terms and the privacy policy alike.
@@ -86,10 +89,10 @@ export function LegalDocument({
             document is the 1710 desktop page made smaller, not desktop-sized
             type in two thirds of the room. */}
         <article
-          className="doc-scale mx-auto flex w-full max-w-280 flex-1 flex-col px-6 pt-6 pb-16 md:px-8 lg:pt-10 lg:pb-24"
+          className="doc-scale mx-auto flex w-full max-w-280 flex-1 flex-col px-5 pt-4 pb-12 md:px-8 md:pt-6 md:pb-16 lg:pt-10 lg:pb-24"
           ref={article}
         >
-          <nav aria-label="Breadcrumb" className="text-sm text-muted-foreground">
+          <nav aria-label="Breadcrumb" className="text-xs text-muted-foreground md:text-sm">
             <ol className="flex flex-wrap items-center gap-1.5">
               <li>
                 <Link className="hover:text-foreground" href="/">
@@ -103,23 +106,23 @@ export function LegalDocument({
             </ol>
           </nav>
 
-          <header className="mt-5 flex flex-col gap-3">
-            <h1 className="text-3xl leading-tight font-bold text-foreground md:text-4xl lg:text-5xl">
+          <header className="mt-4 flex flex-col gap-2 md:mt-5 md:gap-3">
+            <h1 className="text-2xl leading-tight font-bold text-foreground md:text-4xl lg:text-5xl">
               {doc.title}
             </h1>
-            <p className="text-sm text-muted-foreground">
+            <p className="text-xs text-muted-foreground md:text-sm">
               {doc.effective} · {doc.version}
             </p>
           </header>
 
           {/* The two documents as tabs: a reader of one usually wants the
               other next. Pills, as every action on this site is. */}
-          <div className="mt-6 flex flex-wrap gap-2" role="tablist">
+          <div className="mt-5 flex flex-wrap gap-2 md:mt-6" role="tablist">
             {tabs.map((tab) => (
               <Link
                 aria-selected={tab.id === current}
                 className={cn(
-                  "flex h-10 items-center rounded-full px-4 text-sm font-medium transition-colors",
+                  "flex h-9 items-center rounded-full px-3.5 text-xs font-medium transition-colors md:h-10 md:px-4 md:text-sm",
                   tab.id === current
                     ? "bg-hero-action text-hero-action-foreground"
                     : "border border-border text-foreground hover:bg-muted",
@@ -133,7 +136,7 @@ export function LegalDocument({
             ))}
           </div>
 
-          <div className="mt-10 grid grid-cols-1 gap-10 lg:mt-14 lg:grid-cols-[15rem_minmax(0,1fr)] lg:gap-16">
+          <div className="mt-7 grid grid-cols-1 gap-10 md:mt-10 lg:mt-14 lg:grid-cols-[15rem_minmax(0,1fr)] lg:gap-16">
             {/* The contents, beside the text on a desktop and in step with it.
                 Hidden below `lg`, where there is no column for it. */}
             <aside className="hidden lg:block">
@@ -165,8 +168,8 @@ export function LegalDocument({
               </nav>
             </aside>
 
-            <div className="flex max-w-200 min-w-0 flex-col gap-12">
-              <div className="flex flex-col gap-4">
+            <div className="flex max-w-200 min-w-0 flex-col gap-8 md:gap-12">
+              <div className="flex flex-col gap-3 md:gap-4">
                 {doc.lead.map((paragraph) => (
                   <p className={PROSE} key={paragraph}>
                     {paragraph}
@@ -177,8 +180,8 @@ export function LegalDocument({
               {doc.sections.map((section, index) => (
                 // `scroll-mt-28`: a jump to `#booking` lands below the sticky
                 // bar rather than under it.
-                <section className="flex scroll-mt-28 flex-col gap-4" id={section.id} key={section.id}>
-                  <h2 className="flex gap-3 text-xl leading-snug font-bold text-foreground md:text-2xl">
+                <section className="flex scroll-mt-28 flex-col gap-3 md:gap-4" id={section.id} key={section.id}>
+                  <h2 className="flex gap-2 text-base leading-snug font-bold text-foreground md:gap-3 md:text-2xl">
                     <span className="font-latin text-muted-foreground tabular-nums">{index + 1}.</span>
                     {section.title}
                   </h2>
@@ -188,15 +191,15 @@ export function LegalDocument({
                     </p>
                   ))}
                   {section.bullets?.length ? (
-                    <ul className={cn("flex list-outside list-disc flex-col gap-2 pl-5", PROSE)}>
+                    <ul className={cn("flex list-outside list-disc flex-col gap-1.5 pl-5 md:gap-2", PROSE)}>
                       {section.bullets.map((bullet) => (
                         <li key={bullet}>{bullet}</li>
                       ))}
                     </ul>
                   ) : null}
                   {section.subsections?.map((sub, subIndex) => (
-                    <div className="flex flex-col gap-2 pt-2" key={sub.title}>
-                      <h3 className="flex gap-2 text-base font-semibold text-foreground md:text-lg">
+                    <div className="flex flex-col gap-1.5 pt-1 md:gap-2 md:pt-2" key={sub.title}>
+                      <h3 className="flex gap-2 text-sm font-semibold text-foreground md:text-lg">
                         <span className="font-latin text-muted-foreground tabular-nums">
                           {index + 1}.{subIndex + 1}
                         </span>
@@ -208,7 +211,7 @@ export function LegalDocument({
                         </p>
                       ))}
                       {sub.bullets?.length ? (
-                        <ul className={cn("flex list-outside list-disc flex-col gap-2 pl-5", PROSE)}>
+                        <ul className={cn("flex list-outside list-disc flex-col gap-1.5 pl-5 md:gap-2", PROSE)}>
                           {sub.bullets.map((bullet) => (
                             <li key={bullet}>{bullet}</li>
                           ))}
@@ -219,7 +222,7 @@ export function LegalDocument({
                 </section>
               ))}
 
-              <p className="border-t border-border pt-8 text-base text-muted-foreground">
+              <p className="border-t border-border pt-6 text-sm text-muted-foreground md:pt-8 md:text-base">
                 {doc.contact.body}{" "}
                 <a
                   className="font-latin font-semibold text-foreground underline underline-offset-2"

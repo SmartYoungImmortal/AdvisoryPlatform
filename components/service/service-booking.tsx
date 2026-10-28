@@ -33,10 +33,11 @@ const SLOT_WINDOW_DAYS = 7;
 
 /**
  * The page's pills at desktop size. The desktop is drawn in 1710 space and
- * zoomed down (`doc-scale`, ×0.84 at 1440), so the capsule `authPill` gives
- * a tablet reads small there: from `lg` it is 56 tall with an 18px label.
+ * zoomed down (`app-scale`, ×0.84 at 1440), so the capsule `authPill` gives
+ * a tablet reads small there: from `lg` it is 52 tall (44 on the screen) with
+ * the frame's body step for its label.
  */
-export const PILL_LG = "lg:h-14 lg:gap-3 lg:px-8 lg:text-lg";
+export const PILL_LG = "lg:h-13 lg:gap-2.5 lg:px-7 lg:text-frame-body";
 
 /**
  * The day and time being chosen, held by the page rather than by a picker:
@@ -94,7 +95,7 @@ export function Notice({
       <span className="flex size-11 items-center justify-center rounded-full bg-card text-foreground shadow-hero-card lg:size-13">
         <Icon aria-hidden className="size-5 lg:size-6" />
       </span>
-      <div className="max-w-72 text-sm leading-6 text-foreground lg:text-base lg:leading-7">{children}</div>
+      <div className="max-w-72 text-sm leading-6 text-foreground lg:text-frame-meta">{children}</div>
       {action}
     </div>
   );
@@ -283,7 +284,7 @@ export function BookingPicker({
   };
 
   const failureNotice = failure ? (
-    <p className="text-center text-sm text-destructive lg:text-base" role="alert">
+    <p className="text-center text-sm text-destructive lg:text-frame-meta" role="alert">
       {failure}
     </p>
   ) : null;
@@ -320,8 +321,8 @@ export function BookingPicker({
     <div className="flex flex-col gap-5 lg:gap-6">
       <div className="flex flex-col gap-2.5 lg:gap-3">
         <div className="flex items-baseline justify-between gap-3">
-          <span className="text-sm font-medium text-foreground lg:text-base">{t("pickDay")}</span>
-          <span className="text-xs text-muted-foreground lg:text-base">
+          <span className="text-sm font-medium text-foreground lg:text-frame-meta">{t("pickDay")}</span>
+          <span className="text-xs text-muted-foreground lg:text-frame-meta">
             {format.dateTime(new Date(`${selected}T00:00:00`), { month: "long", year: "numeric" })}
           </span>
         </div>
@@ -347,10 +348,10 @@ export function BookingPicker({
                 type="button"
                 variant="outline"
               >
-                <span className="text-xs font-normal text-muted-foreground lg:text-base">
+                <span className="text-xs font-normal text-muted-foreground lg:text-frame-meta">
                   {format.dateTime(date, { weekday })}
                 </span>
-                <span className="font-latin text-base font-semibold tabular-nums lg:text-xl">{date.getDate()}</span>
+                <span className="font-latin text-base font-semibold tabular-nums lg:text-frame-body">{date.getDate()}</span>
               </Button>
             );
           })}
@@ -358,7 +359,7 @@ export function BookingPicker({
       </div>
 
       <div className="flex flex-col gap-2.5 lg:gap-3">
-        <span className="text-sm font-medium text-foreground lg:text-base">{t("timesOn", { day: dayLabel(selected) })}</span>
+        <span className="text-sm font-medium text-foreground lg:text-frame-meta">{t("timesOn", { day: dayLabel(selected) })}</span>
         {/* Room for five rows; a longer day scrolls inside it, under a fade
             that says so, since scrollbars are hidden app-wide. */}
         <div
@@ -383,7 +384,7 @@ export function BookingPicker({
                 type="button"
                 variant="outline"
               >
-                <span className="font-latin text-sm font-medium tabular-nums lg:text-base">{hour(slot.startTime)}</span>
+                <span className="font-latin text-sm font-medium tabular-nums lg:text-frame-meta">{hour(slot.startTime)}</span>
               </Button>
             );
           })}
@@ -401,7 +402,7 @@ export function BookingPicker({
           {label}
         </Button>
         <MessageButton advisorId={service.advisorId} />
-        <p className="text-center text-xs text-muted-foreground lg:text-base">{t("pickTimeHint")}</p>
+        <p className="text-center text-xs text-muted-foreground lg:text-frame-meta">{t("pickTimeHint")}</p>
         {failureNotice}
       </div>
     </div>
@@ -418,19 +419,19 @@ function PriceSummary({ service }: { readonly service: ApiPublicService }) {
   return (
     <div className="flex flex-col gap-2 lg:gap-2.5">
       <p className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
-        <span className="font-latin text-3xl font-semibold tracking-tight text-foreground tabular-nums lg:text-4xl">
+        <span className="font-latin text-2xl font-semibold tracking-tight text-foreground tabular-nums lg:text-frame-heading">
           {format.number(baht(service.priceSatang), "baht")}
         </span>
-        <span className="text-sm text-muted-foreground lg:text-base">
+        <span className="text-sm text-muted-foreground lg:text-frame-meta">
           {t("perSession", { duration: s("durationMinutes", { count: service.durationMinutes }) })}
         </span>
       </p>
-      <p className="flex items-center gap-2 text-sm text-muted-foreground lg:text-base">
+      <p className="flex items-center gap-2 text-sm text-muted-foreground lg:text-frame-meta">
         <Video aria-hidden className="size-4 shrink-0 lg:size-5" />
         {t("videoInApp")}
       </p>
       {trial ? (
-        <span className="inline-flex h-8 items-center gap-1.5 self-start rounded-full bg-accent-surface px-3 text-xs font-medium text-primary lg:mt-1 lg:h-10 lg:gap-2 lg:px-4 lg:text-base">
+        <span className="inline-flex h-8 items-center gap-1.5 self-start rounded-full bg-accent-surface px-3 text-xs font-medium text-primary lg:mt-1 lg:h-10 lg:gap-2 lg:px-4 lg:text-frame-meta">
           <Gift aria-hidden className="size-3.5 lg:size-4.5" />
           {t("trialFree", { minutes: trial })}
         </span>
@@ -445,7 +446,7 @@ export function TrustLine({ className }: { readonly className?: string }) {
   return (
     <ul
       className={cn(
-        "flex flex-wrap items-center justify-center gap-x-5 gap-y-2 text-xs text-muted-foreground lg:gap-x-6 lg:text-base",
+        "flex flex-wrap items-center justify-center gap-x-5 gap-y-2 text-xs text-muted-foreground lg:gap-x-6 lg:text-frame-meta",
         className,
       )}
     >

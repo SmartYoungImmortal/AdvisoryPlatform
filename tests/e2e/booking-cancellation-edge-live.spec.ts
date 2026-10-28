@@ -29,6 +29,12 @@ async function openBooking(page: Page, context: BrowserContext) {
   return id;
 }
 
+// The card asks once before it calls a booking off: open the prompt, then confirm.
+async function confirmCancel(page: Page) {
+  await page.getByRole("button", { name: "ยกเลิกการจอง", exact: true }).click();
+  await page.getByRole("button", { name: "ยืนยันการยกเลิก", exact: true }).click();
+}
+
 // Pause only for the review recording, after assertions have established the state.
 async function showForReview(page: Page) {
   await page.waitForTimeout(1500);
@@ -37,7 +43,7 @@ async function showForReview(page: Page) {
 test("offline cancellation requires a status check before retrying", async ({ page, context }) => {
   const id = await openBooking(page, context);
   await context.setOffline(true);
-  await page.getByRole("button", { name: "ยกเลิกการจอง", exact: true }).click();
+  await confirmCancel(page);
   await expect(page.getByRole("button", { name: "ตรวจสอบสถานะ", exact: true })).toBeVisible();
   await expect(page.getByRole("button", { name: "ยกเลิกการจอง", exact: true })).toBeDisabled();
   await showForReview(page);
@@ -57,7 +63,7 @@ test("a lost response after the API commits is reconciled without a second cance
     expect(response.status()).toBe(200);
     await route.abort("connectionreset"); // Lose only the response; the real API already committed.
   });
-  await page.getByRole("button", { name: "ยกเลิกการจอง", exact: true }).click();
+  await confirmCancel(page);
   await expect(page.getByText("การจองนี้ถูกยกเลิกแล้ว", { exact: true })).toBeVisible();
   await expect(page.getByRole("button", { name: "ยกเลิกการจอง", exact: true })).toHaveCount(0);
   expect(posts).toBe(1);
@@ -70,10 +76,10 @@ test("two tabs cancelling the same booking converge on the API state", async ({ 
   const other = await context.newPage();
   await other.goto(`/bookings/detail?bookingId=${id}`);
   await expect(other.getByRole("button", { name: "ยกเลิกการจอง", exact: true })).toBeVisible();
-  await other.getByRole("button", { name: "ยกเลิกการจอง", exact: true }).click();
+  await confirmCancel(other);
   await expect(other.getByText("การจองนี้ถูกยกเลิกแล้ว", { exact: true })).toBeVisible();
   const conflict = page.waitForResponse((response) => response.url().endsWith(`/bookings/${id}/cancel`));
-  await page.getByRole("button", { name: "ยกเลิกการจอง", exact: true }).click();
+  await confirmCancel(page);
   expect((await conflict).status()).toBe(409);
   await expect(page.getByText("การจองนี้ถูกยกเลิกแล้ว", { exact: true })).toBeVisible();
   await expect(page.getByRole("button", { name: "ยกเลิกการจอง", exact: true })).toHaveCount(0);
@@ -85,7 +91,7 @@ test("expired sessions offer sign in and do not claim cancellation", async ({ pa
   const id = await openBooking(page, context);
   await context.clearCookies();
   const denied = page.waitForResponse((response) => response.url().endsWith(`/bookings/${id}/cancel`));
-  await page.getByRole("button", { name: "ยกเลิกการจอง", exact: true }).click();
+  await confirmCancel(page);
   expect((await denied).status()).toBe(401);
   await expect(page.getByText("เซสชันหมดอายุ กรุณาเข้าสู่ระบบอีกครั้งเพื่อตรวจสอบการจอง", { exact: true })).toBeVisible();
   await expect(page.getByRole("button", { name: "ยกเลิกการจอง", exact: true })).toBeDisabled();
@@ -108,8 +114,10 @@ test("a delayed response keeps double clicks to one cancellation request", async
     await gate;
     await route.fulfill({ response });
   });
-  await page.getByRole("button", { name: "ยกเลิกการจอง", exact: true }).dblclick({ force: true });
-  await expect(page.getByRole("button", { name: "ยกเลิกการจอง", exact: true })).toBeDisabled();
+  await page.getByRole("button", { name: "ยกเลิกการจอง", exact: true }).click();
+  const confirm = page.getByRole("button", { name: "ยืนยันการยกเลิก", exact: true });
+  await confirm.dblclick();
+  await expect(confirm).toBeDisabled();
   await expect.poll(() => posts).toBe(1);
   await showForReview(page);
   release();
@@ -125,7 +133,7 @@ test("an advisor starting the session prevents stale cancellation", async ({ pag
   await signIn(advisor, email);
   const started = await advisor.request.post(`http://localhost:3200/api/v1/advisors/me/bookings/${id}/start`);
   expect(started.status()).toBe(200);
-  await page.getByRole("button", { name: "ยกเลิกการจอง", exact: true }).click();
+  await confirmCancel(page);
   await expect(page.getByText("สถานะการจองเปลี่ยนไปและไม่สามารถยกเลิกได้แล้ว โปรดตรวจสอบสถานะล่าสุด", { exact: true })).toBeVisible();
   await expect(page.getByRole("button", { name: "ยกเลิกการจอง", exact: true })).toHaveCount(0);
   expect((await (await context.request.get(`http://localhost:3200/api/v1/bookings/${id}`)).json()).data.state).toBe("IN_PROGRESS");
@@ -137,12 +145,15 @@ test("the booking list also blocks cancellation until an offline result is check
   const id = await openBooking(page, context);
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto("/bookings");
-  const card = page.locator(`a[href="/bookings/detail?bookingId=${id}"]`).locator("..");
-  const cancel = card.getByRole("button", { name: "ยกเลิก", exact: true });
+  // A plain click on the row opens the booking over the list.
+  await page.locator(`a[href="/bookings/detail?bookingId=${id}"]`).click();
+  const booking = page.getByRole("dialog");
+  const cancel = booking.getByRole("button", { name: "ยกเลิกการจอง", exact: true });
   await expect(cancel).toBeEnabled();
   await context.setOffline(true);
   await cancel.click();
-  await expect(page.getByRole("button", { name: "ตรวจสอบสถานะ", exact: true })).toBeVisible();
+  await booking.getByRole("button", { name: "ยืนยันการยกเลิก", exact: true }).click();
+  await expect(booking.getByRole("button", { name: "ตรวจสอบสถานะ", exact: true })).toBeVisible();
   await expect(cancel).toBeDisabled();
   await showForReview(page);
   await context.setOffline(false);

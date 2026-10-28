@@ -196,6 +196,20 @@ async function unwrap<T>(response: Response, enveloped: boolean): Promise<T> {
   return (payload as { data: unknown }).data as T;
 }
 
+/**
+ * The language the reader chose, sent with every request as `Accept-Language`
+ * so the API answers translated content (service names, categories, an
+ * advisor's headline, notifications) in it. Set by `LocaleProvider` when the
+ * language is applied, before the screens re-read in it; Thai until then, as
+ * the page was rendered. The browser's own `Accept-Language` is the device's
+ * language list, not the choice made in the app, so it is replaced.
+ */
+let requestLocale: "th" | "en" = "th";
+
+export function setRequestLocale(locale: "th" | "en"): void {
+  requestLocale = locale;
+}
+
 async function request<T>(
   method: "GET" | "POST" | "PATCH" | "PUT" | "DELETE",
   path: string,
@@ -220,6 +234,7 @@ async function request<T>(
       // replace the boundary with nothing and the upload would arrive unparseable.
       headers: {
         Accept: "application/json",
+        "Accept-Language": requestLocale,
         ...(options.body !== undefined && !isFormData
           ? { "Content-Type": "application/json" }
           : {}),

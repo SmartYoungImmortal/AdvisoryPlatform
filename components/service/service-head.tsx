@@ -61,8 +61,8 @@ export function Face({
 function Figure({ label, children }: { readonly label: string; readonly children: ReactNode }) {
   return (
     <div className="flex min-w-0 flex-col items-center gap-0.5 px-2 text-center lg:items-start lg:gap-1 lg:px-8 lg:text-left lg:first:pl-0 lg:last:pr-0">
-      <dt className="order-2 text-xs whitespace-nowrap text-muted-foreground lg:text-base">{label}</dt>
-      <dd className="order-1 flex items-center gap-1 font-latin text-base font-semibold whitespace-nowrap text-foreground tabular-nums md:text-lg lg:gap-2 lg:text-3xl">
+      <dt className="order-2 text-xs whitespace-nowrap text-muted-foreground lg:text-frame-label">{label}</dt>
+      <dd className="order-1 flex items-center gap-1 font-latin text-base font-semibold whitespace-nowrap text-foreground tabular-nums md:text-lg lg:gap-2 lg:text-frame-heading">
         {children}
       </dd>
     </div>
@@ -73,7 +73,7 @@ function Figure({ label, children }: { readonly label: string; readonly children
 function FigurePending({ label }: { readonly label: string }) {
   return (
     <Figure label={label}>
-      <span aria-hidden className="my-1 h-4 w-10 animate-pulse rounded-md bg-muted lg:h-8 lg:w-16" />
+      <span aria-hidden className="my-1 h-4 w-10 animate-pulse rounded-md bg-muted lg:h-6 lg:w-14" />
     </Figure>
   );
 }
@@ -119,7 +119,7 @@ export function ServiceHead({
     score = (
       <>
         <Figure label={t("statRating")}>
-          <Star aria-hidden className="size-4 fill-primary text-primary lg:size-6" />
+          <Star aria-hidden className="size-4 fill-primary text-primary lg:size-5" />
           {format.number(rating.average, { minimumFractionDigits: 1, maximumFractionDigits: 1 })}
         </Figure>
         <Figure label={t("statReviews")}>
@@ -133,7 +133,7 @@ export function ServiceHead({
   } else if (ratingSettled) {
     score = (
       <Figure label={t("statRating")}>
-        <span className="text-sm font-normal text-muted-foreground lg:text-xl">{s("noReviews")}</span>
+        <span className="text-sm font-normal text-muted-foreground lg:text-frame-meta">{s("noReviews")}</span>
       </Figure>
     );
   } else {
@@ -149,7 +149,7 @@ export function ServiceHead({
     <header className="flex flex-col gap-5 lg:gap-6">
       <nav
         aria-label={t("breadcrumbLabel")}
-        className="flex min-w-0 items-center gap-2 text-sm text-muted-foreground lg:gap-3 lg:text-base"
+        className="flex min-w-0 items-center gap-2 text-sm text-muted-foreground lg:gap-3 lg:text-frame-meta"
       >
         <Link className="inline-flex shrink-0 items-center gap-1.5 py-1 transition-colors hover:text-foreground lg:gap-2" href="/search">
           <ArrowLeft aria-hidden className="size-4 lg:size-5" />
@@ -170,13 +170,13 @@ export function ServiceHead({
         ) : null}
       </nav>
 
-      {/* From `lg` the page is the 1710 frame zoomed down (`doc-scale`), so
-          every size below is set for 1710 and lands about a sixth smaller on
-          a 1440: the title at 60, nothing under 16. */}
-      <div className="grid grid-cols-[auto_minmax(0,1fr)] items-center gap-x-3 gap-y-4 lg:gap-x-6 lg:gap-y-3">
+      {/* From `lg` the page sits in the app frame's panel, drawn in the 1710
+          space and zoomed by `app-scale`, on the `frame-*` steps the other
+          framed pages use: the title at the frame's title step, as theirs. */}
+      <div className="grid grid-cols-[auto_minmax(0,1fr)] items-center gap-x-3 gap-y-4 lg:gap-x-6 lg:gap-y-2">
         {/* Balanced, so a two-line name splits near its middle rather than
             leaving one Thai syllable alone on the second line. */}
-        <h1 className="col-span-2 font-hero text-heading font-normal tracking-tight text-balance text-hero-ink md:text-heading-lg lg:col-span-1 lg:col-start-2 lg:row-start-1 lg:self-end lg:text-6xl lg:leading-tight">
+        <h1 className="col-span-2 font-hero text-heading font-normal tracking-tight text-balance text-hero-ink md:text-heading-lg lg:col-span-1 lg:col-start-2 lg:row-start-1 lg:self-end lg:text-frame-title">
           {service.name}
         </h1>
         {/* The name beside it is the same link and the one a keyboard
@@ -187,36 +187,37 @@ export function ServiceHead({
           href={profile}
           tabIndex={-1}
         >
-          <Face className="size-12 text-base lg:size-28 lg:text-4xl" face={face} name={name} verified />
+          <Face className="size-12 text-base lg:size-20 lg:text-2xl" face={face} name={name} verified />
         </Link>
         <div className="flex min-w-0 flex-col gap-0.5 lg:col-start-2 lg:row-start-2 lg:gap-1 lg:self-start">
           <span className="flex flex-wrap items-center gap-x-2 gap-y-1 lg:gap-x-3">
             {name ? (
               <Link
-                className="text-base font-semibold text-foreground underline-offset-4 hover:underline lg:text-xl"
+                className="text-base font-semibold text-foreground underline-offset-4 hover:underline lg:text-frame-body"
                 href={profile}
               >
                 {name}
               </Link>
             ) : (
-              <span aria-hidden className="h-5 w-36 animate-pulse rounded-md bg-muted lg:h-7 lg:w-48" />
+              <span aria-hidden className="h-5 w-36 animate-pulse rounded-md bg-muted lg:h-6 lg:w-44" />
             )}
-            <span className="inline-flex items-center gap-1 rounded-full bg-accent-surface px-2 py-0.5 text-xs font-medium text-primary lg:gap-1.5 lg:px-3 lg:py-1 lg:text-base">
+            <span className="inline-flex items-center gap-1 rounded-full bg-accent-surface px-2 py-0.5 text-xs font-medium text-primary lg:gap-1.5 lg:px-3 lg:py-1 lg:text-frame-label">
               <ShieldCheck aria-hidden className="size-3.5 lg:size-4.5" />
               {t("verifiedIdentity")}
             </span>
           </span>
-          {headline ? <span className="text-sm text-muted-foreground lg:text-lg">{headline}</span> : null}
+          {headline ? <span className="text-sm text-muted-foreground lg:text-frame-meta">{headline}</span> : null}
         </div>
       </div>
 
       {service.description ? (
-        <p className="max-w-2xl text-base leading-7 text-pretty text-muted-foreground lg:ml-34 lg:text-lg lg:leading-8">
+        // Indented by the face and its gap (80 + 24), so it keeps the title's left edge.
+        <p className="max-w-2xl text-base leading-7 text-pretty text-muted-foreground lg:ml-26 lg:max-w-3xl lg:text-frame-body">
           {service.description}
         </p>
       ) : null}
 
-      <div className="flex flex-col gap-3 lg:flex-row lg:flex-wrap lg:items-center lg:gap-x-8 lg:gap-y-4 lg:pl-34">
+      <div className="flex flex-col gap-3 lg:flex-row lg:flex-wrap lg:items-center lg:gap-x-8 lg:gap-y-4 lg:pl-26">
         <dl
           aria-label={t("atAGlance")}
           className={cn(
@@ -229,7 +230,7 @@ export function ServiceHead({
           {score}
         </dl>
         {trial ? (
-          <span className="inline-flex h-9 items-center gap-2 self-start rounded-full bg-accent-surface px-4 text-sm font-medium text-primary lg:h-12 lg:self-center lg:px-5 lg:text-base">
+          <span className="inline-flex h-9 items-center gap-2 self-start rounded-full bg-accent-surface px-4 text-sm font-medium text-primary lg:h-11 lg:self-center lg:px-5 lg:text-frame-meta">
             <Gift aria-hidden className="size-4 lg:size-5" />
             {t("trialFree", { minutes: trial })}
           </span>

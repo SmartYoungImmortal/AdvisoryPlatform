@@ -3,7 +3,7 @@
 รายการหน้าที่ยังต้อง redesign เรียงตามลำดับที่ควรทำ แต่ละข้อเป็นหนึ่ง ticket
 ติ๊ก `[x]` เมื่อพี่ดูแล้ว **ผ่าน** ไม่ใช่แค่เขียนโค้ดเสร็จ
 
-อัปเดตล่าสุด: 25 ตุลาคม 2569
+อัปเดตล่าสุด: 28 ตุลาคม 2569
 
 ## หลักที่ใช้กับทุกหน้า
 
@@ -27,7 +27,9 @@
 - [x] `/forgot-password`, `/reset-sent`
 - [x] ของที่ใช้ร่วมกัน: navbar, เมนูมือถือ, ปุ่ม TH/EN
 - [x] `/search` และ `/search/no-results` (ใช้หน้าเดียวกัน)
-- [x] `/notifications` (+ `/notifications/view` หน้าข้อความเต็มของแจ้งเตือนที่อ่านอย่างเดียว) ผ่าน 25 ต.ค.
+- [x] `/notifications` ผ่าน 25 ต.ค.; `/notifications/view` (ทุกแถวเปิดหน้านี้ มีปุ่มไปต่อ: แชท, การจองเปิด popup บน `/bookings`, ใบเสร็จเปิด popup บน `/transactions`) และ `/notifications/advisor` ผ่าน 28 ต.ค.
+- [x] `/settings` และ popup ของมัน: เปลี่ยนอีเมล (`/settings/email`, `/settings/email/verify`), เปลี่ยนรหัสผ่าน (`/settings/password` + ตั้งรหัสใหม่ทางอีเมลใน popup ถัดไป), ออกจากระบบ (`/settings/logout`), ลบบัญชี (popup ในหน้า), `/settings/updated` ผ่าน 28 ต.ค.
+- [x] `/transactions` (+ popup ใบเสร็จ, "ดูการจองของฉัน" เปิด popup การจองนั้นบน `/bookings`), `/transactions/detail`, `/transactions/detail/failed`, `/transactions/detail/refunded` ผ่าน 28 ต.ค.
 
 ## ทำแล้วแต่ยังไม่ผ่าน
 
@@ -37,21 +39,16 @@
 - [ ] `/` ส่วนใต้ hero: concept "คำถามในใจ" (คำถามลายมือ คำตอบตัวพิมพ์) 4 บท + FAQ + ปิดท้ายบนรูปห้อง
   พี่สั่งให้หยุดและเก็บแบบที่เห็นไว้ก่อน (25 ต.ค.) hero ไม่ได้แตะ
 
-### RD-01 / RD-12 · บัญชี (กรอบ `AppFrame` แถบไอคอนซ้าย, desktop ไม่มี navbar)
+### RD-01 · บัญชี (กรอบ `AppFrame` แถบไอคอนซ้าย, desktop ไม่มี navbar)
 - [ ] `/profile`: หัวโปรไฟล์ + กล่องตัวเลข + แบนเนอร์ + แท็บ
 - [ ] `/profile/edit`, `/profile/edit/save-failed`: หัวโปรไฟล์ชุดเดียวกันแบบแก้ได้
-- [ ] `/settings`: มีแถวภาษาและออกจากระบบ, `/settings/logout` เปิดทับหน้า settings
 - [ ] `/bookings`: ใส่กรอบและปรับขนาดตัวหนังสือ ข้างในยังไม่ redesign
-- หน้าย่อย settings (`/password`, `/email`, `/delete`, `/updated`) อยู่ในกรอบแล้ว แต่ข้างในยังเป็นการ์ด 800px แบบเก่าและยังไม่มีภาษาอังกฤษ
 
 ### RD-02 · โปรไฟล์สาธารณะของผู้ให้คำปรึกษา
 - [ ] `/advisors/[advisorId]`, `/about`, `/services`, `/reviews`: หน้าโปรไฟล์สาธารณะ อยู่ใน `AppFrame`
 
 ### RD-03 · หน้าบริการ
 - [ ] `/service/[id]`: หัว showcase + แกลเลอรี (ปก + 2 รูปจาก `service_images`) + กล่องจองติดขวา + รีวิว/ผู้เชี่ยวชาญ/บริการอื่น
-
-### RD-04 (บางส่วน) · ประวัติการชำระเงิน
-- [ ] `/transactions`, `/transactions/detail`, `/transactions/detail/failed`, `/transactions/detail/refunded`
 
 ### RD-10 · สมัครเป็นผู้ให้คำปรึกษา
 - [ ] `/advisor/apply`
@@ -60,7 +57,6 @@
 
 ### RD-11 · แชตและการแจ้งเตือน
 - [ ] `/chat`, `/chat/empty`, `/chat/session-banner`; ห้องแชตย้ายไป `/chat/room?id=…` (+ `/message-failed`, `/report`, `/report/submitted`)
-- [ ] `/notifications/advisor` (ฝั่ง advisor ใช้หน้าเดียวกับ `/notifications` ที่ผ่านแล้ว รอพี่ดู)
 
 ## ยังไม่ได้ทำ
 
@@ -69,6 +65,12 @@
 
 ใช้ร่วมกันทุกหน้า แก้ครั้งเดียวได้ทุกหน้า ตอนนี้ยังเป็นแบบที่ลอก Systronic มา ต้อง redesign ให้เข้าชุดกับ home / login / terms (ปุ่มแคปซูล, Kanit, พื้นขาวหรือแสงฟ้า-ม่วงจางๆ) พร้อมสองภาษา และ scale จาก 1710 บน iPad แนวนอน
 
+### RD-18 · Toast (ทุกหน้า)
+- [ ] `components/mobile/toast.tsx` (`StatusToast`): การ์ดขาว ไอคอนติ๊ก แถบนับถอยหลัง มุมขวาล่างบน desktop ใช้กับเปิด/ปิดแจ้งเตือนบนอุปกรณ์ (การ์ดข้าง `/notifications`) และ "อัปเดตรหัสผ่านแล้ว" (`/settings/updated`)
+- [ ] `components/notifications/notification-toaster.tsx`: แจ้งเตือนใหม่ที่เด้งทุกหน้า ยังเป็นแถบดำแบบ Figma "In-app toast" คนละหน้าตากับตัวบน
+
+ตอนนี้มี toast สองแบบที่ไม่เข้าชุดกัน ต้อง redesign ให้เป็นแบบเดียว (ตำแหน่ง ขนาด สี ไอคอน ปุ่ม "ดู" ของแจ้งเตือนใหม่) แล้วค่อยใช้แทน banner ที่ยังเหลือในหน้าอื่น ฝั่ง admin มีของตัวเองใน `components/cms/feedback.tsx` อยู่ใน RD-16
+
 ### RD-03 · จับคู่ผู้เชี่ยวชาญ
 - [ ] `/matching`, `/matching/searching`, `/matching/results`
 
@@ -76,7 +78,7 @@
 - [ ] `/checkout/card`, `/checkout/card/saved`
 - [ ] `/checkout/processing`, `/checkout/success`, `/checkout/failed`
 - [ ] `/checkout/slot-taken`, `/checkout/unconfirmed`
-- [ ] ข้างในของ `/bookings` (กรอบทำแล้ว ดู RD-01 / RD-12)
+- [ ] ข้างในของ `/bookings` (กรอบทำแล้ว ดู RD-01)
 
 ### RD-05 · โปรไฟล์และหน้าทำงานของผู้ให้คำปรึกษา ⭐
 - [ ] `/advisor/profile` (ควรเป็น dashboard: สวิตช์รับงาน นัดวันนี้ คำขอที่รอตอบ รายได้ สถานะยืนยันตัวตน)
@@ -104,13 +106,10 @@
 - [ ] `/reviews`, `/reviews/empty`, `/reviews/replying`, `/reviews/reply-failed`
 - [ ] `/reviews/session`, `/reviews/session/submitted`
 
-### RD-12 · ข้างในหน้าย่อยของการตั้งค่า
-- [ ] `/settings/email`, `/settings/email/verify`, `/settings/password`, `/settings/delete`, `/settings/updated` (กรอบทำแล้ว ข้างในยังเก่า ยังไม่มีภาษาอังกฤษ)
-
 ### RD-13 · หน้า auth ที่เหลือ (เร็ว ใช้ `AuthSplit` ได้เลย)
-- [ ] `/reset-password`
-- [ ] `/verification-sent`: ทำแล้วบน `AuthSplit` รอพี่ดู (อีเมลยังไม่ถูกส่งจริง เพราะ API ยังไม่มีบริการส่งเมล)
-- [ ] `/email-verified`: ทำแล้วบน `AuthSplit` รอพี่ดู
+- [ ] `/reset-password`: ทำแล้วบน `AuthSplit` (ฟอร์ม, เปลี่ยนแล้ว, ลิงก์ใช้ไม่ได้) รอพี่ดู
+- [ ] `/verification-sent`: ทำแล้วบน `AuthSplit` จัดกึ่งกลางใต้ `lg` รอพี่ดู (อีเมลยังไม่ถูกส่งจริง เพราะ API ยังไม่มีบริการส่งเมล)
+- [ ] `/email-verified`: ทำแล้วบน `AuthSplit` จัดกึ่งกลางใต้ `lg` รอพี่ดู
 
 ### RD-14 · หน้าการตลาด
 - [ ] `/about`
@@ -143,6 +142,8 @@
 `/advisor-onboarding/stage-2/rejected`, `/advisor-onboarding/stage-3/missing-proof`,
 `/checkout/card/errors`, `/notifications/empty`, `/availability/profiles/empty`,
 `/matching/results/no-results`
+
+`/settings/delete` ลบแล้ว (28 ต.ค.): ลบบัญชีเป็น popup ในหน้า `/settings`
 
 `/search/browse` ก็ลบแล้ว: ซ้ำกับ `/search` ที่ไม่ใส่คำค้นก็แสดงบริการทั้งหมดพร้อมตัวกรองอยู่แล้ว
 ลิงก์ "หมวดหมู่" ใน footer ชี้ไป `/search` แทน

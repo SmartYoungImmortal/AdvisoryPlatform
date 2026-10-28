@@ -39,8 +39,11 @@ function corners(mine: boolean, first: boolean): string {
   return cn("rounded-2xl", first && (mine ? "rounded-tr-md" : "rounded-tl-md"));
 }
 
-/** Type for a line people read: one step up on a desktop, where the 1710 frame is scaled down. */
-const READING = "text-base lg:text-lg";
+/**
+ * Type for a line people read: the account pages' body step, 14 on a phone
+ * and the frame's meta step (14 rendered at 1440) on a desktop.
+ */
+const READING = "text-sm lg:text-frame-meta";
 
 /** The width a bubble may take: most of a phone, a comfortable measure on a desktop. */
 const MEASURE = "max-w-[min(80%,34rem)] lg:max-w-[min(72%,36rem)]";
@@ -118,10 +121,13 @@ export function OffPlatformNotice({
   text,
   mine,
   reportHref,
+  onReport,
 }: {
   readonly text: string;
   readonly mine: boolean;
   readonly reportHref?: string;
+  /** Opens the report over the conversation, in place of `reportHref`'s page. */
+  readonly onReport?: () => void;
 }) {
   const t = useTranslations("chat");
   const format = useFormatter();
@@ -136,14 +142,28 @@ export function OffPlatformNotice({
     <div
       className={cn(
         MEASURE,
-        "mt-1 flex items-start gap-2 rounded-xl bg-warning/10 px-3 py-2 text-xs text-foreground lg:gap-2.5 lg:px-4 lg:py-2.5 lg:text-base",
+        "mt-1 flex items-start gap-2 rounded-xl bg-warning/10 px-3 py-2 text-xs text-foreground lg:gap-2.5 lg:px-4 lg:py-2.5 lg:text-frame-label",
         mine && "self-end",
       )}
     >
       <ShieldAlert aria-hidden className="mt-px size-4 shrink-0 text-warning" />
       <p className="min-w-0 flex-1">
         {mine ? t("flagMine", { kinds: listed }) : t("flagTheirs", { kinds: listed })}
-        {!mine && reportHref ? (
+        {!mine && onReport ? (
+          <>
+            {" "}
+            {/* A link in the sentence, as the page's link was; it opens the popup. */}
+            <Button
+              className="h-auto rounded-none p-0 align-baseline text-xs font-semibold whitespace-nowrap text-inherit underline underline-offset-2 hover:underline lg:text-frame-label"
+              onClick={onReport}
+              type="button"
+              variant="link"
+            >
+              {t("flagReport")}
+            </Button>
+          </>
+        ) : null}
+        {!mine && !onReport && reportHref ? (
           <>
             {" "}
             <Link
@@ -255,12 +275,12 @@ export function FileBubble({
       >
         <FileTile image={image} mine={mine} />
         <span className="flex min-w-0 flex-1 flex-col gap-0.5">
-          <span className="line-clamp-2 text-sm font-medium wrap-break-word lg:text-lg">
+          <span className="line-clamp-2 text-sm font-medium wrap-break-word lg:text-frame-meta">
             {file.originalFileName}
           </span>
           <span
             className={cn(
-              "font-latin text-xs tabular-nums lg:text-base",
+              "font-latin text-xs tabular-nums lg:text-frame-label",
               mine ? "text-hero-action-foreground/70" : "text-muted-foreground",
             )}
           >
@@ -270,7 +290,7 @@ export function FileBubble({
         {opening ? <LoaderCircle aria-hidden className="size-4 shrink-0 animate-spin motion-reduce:animate-none" /> : null}
       </Button>
       {failed ? (
-        <p className="mt-1 text-xs text-destructive lg:text-base" role="alert">
+        <p className="mt-1 text-xs text-destructive lg:text-frame-label" role="alert">
           {t("fileOpenFailed")} · {failed}
         </p>
       ) : null}
@@ -326,11 +346,11 @@ export function OutgoingBubble({
           <FileTile image={image} mine />
         )}
         <span className="flex min-w-0 flex-1 flex-col gap-0.5">
-          <span className="line-clamp-2 text-sm font-medium wrap-break-word lg:text-lg">{name}</span>
+          <span className="line-clamp-2 text-sm font-medium wrap-break-word lg:text-frame-meta">{name}</span>
           {meta ? (
             <span
               className={cn(
-                "font-latin text-xs tabular-nums lg:text-base",
+                "font-latin text-xs tabular-nums lg:text-frame-label",
                 failed ? "text-muted-foreground" : "text-hero-action-foreground/70",
               )}
             >
@@ -345,7 +365,7 @@ export function OutgoingBubble({
         <UploadFailedRow onDismiss={onDismiss} onRetry={onRetry} />
       ) : (
         <output className="flex max-w-full flex-wrap items-center justify-end gap-x-2 gap-y-1">
-          <span className="flex items-center gap-1.5 text-xs text-muted-foreground lg:text-base">{t("uploading")}</span>
+          <span className="flex items-center gap-1.5 text-xs text-muted-foreground lg:text-frame-label">{t("uploading")}</span>
         </output>
       )}
       {failed && reason ? <Reason>{reason}</Reason> : null}
@@ -358,13 +378,13 @@ function UploadFailedRow({ onRetry, onDismiss }: { readonly onRetry?: () => void
   const t = useTranslations("chat");
   return (
     <div className="flex max-w-full flex-wrap items-center justify-end gap-x-2 gap-y-1" role="alert">
-      <span className="flex items-center gap-1.5 text-xs font-medium text-destructive lg:text-base">
+      <span className="flex items-center gap-1.5 text-xs font-medium text-destructive lg:text-frame-label">
         <TriangleAlert aria-hidden className="size-3.5" />
         {t("notSent")}
       </span>
       {onRetry ? (
         <Button
-          className="h-11 gap-1.5 rounded-full px-4 text-sm font-medium lg:h-12 lg:px-5 lg:text-base"
+          className="h-11 gap-1.5 rounded-full px-4 text-sm font-medium lg:h-12 lg:px-5 lg:text-frame-meta"
           onClick={onRetry}
           type="button"
           variant="outline"
@@ -375,7 +395,7 @@ function UploadFailedRow({ onRetry, onDismiss }: { readonly onRetry?: () => void
       ) : null}
       {onDismiss ? (
         <Button
-          className="h-11 gap-1.5 rounded-full px-3 text-sm font-medium text-muted-foreground lg:h-12 lg:px-4 lg:text-base"
+          className="h-11 gap-1.5 rounded-full px-3 text-sm font-medium text-muted-foreground lg:h-12 lg:px-4 lg:text-frame-meta"
           onClick={onDismiss}
           type="button"
           variant="ghost"
@@ -390,7 +410,7 @@ function UploadFailedRow({ onRetry, onDismiss }: { readonly onRetry?: () => void
 
 /** Why something of mine did not go: the API's own sentence, on a line of its own. */
 function Reason({ children }: { readonly children: ReactNode }) {
-  return <p className={cn(MEASURE, "text-right text-xs text-muted-foreground lg:text-base")}>{children}</p>;
+  return <p className={cn(MEASURE, "text-right text-xs text-muted-foreground lg:text-frame-label")}>{children}</p>;
 }
 
 /**
@@ -431,7 +451,7 @@ export function PendingTextBubble({
       <div className="flex max-w-full flex-wrap items-center justify-end gap-x-2 gap-y-1" role={failed ? "alert" : "status"}>
         <span
           className={cn(
-            "flex items-center gap-1.5 text-xs lg:text-base",
+            "flex items-center gap-1.5 text-xs lg:text-frame-label",
             failed ? "font-medium text-destructive" : "text-muted-foreground",
           )}
         >
@@ -440,7 +460,7 @@ export function PendingTextBubble({
         </span>
         {failed && onRetry ? (
           <Button
-            className="h-11 gap-1.5 rounded-full px-4 text-sm font-medium lg:h-12 lg:px-5 lg:text-base"
+            className="h-11 gap-1.5 rounded-full px-4 text-sm font-medium lg:h-12 lg:px-5 lg:text-frame-meta"
             onClick={onRetry}
             type="button"
             variant="outline"
@@ -451,7 +471,7 @@ export function PendingTextBubble({
         ) : null}
         {failed && onDismiss ? (
           <Button
-            className="h-11 gap-1.5 rounded-full px-3 text-sm font-medium text-muted-foreground lg:h-12 lg:px-4 lg:text-base"
+            className="h-11 gap-1.5 rounded-full px-3 text-sm font-medium text-muted-foreground lg:h-12 lg:px-4 lg:text-frame-meta"
             onClick={onDismiss}
             type="button"
             variant="ghost"

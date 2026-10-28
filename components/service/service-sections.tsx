@@ -20,20 +20,19 @@ import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
 /**
- * The sections under the head. Every size from `lg` is set for the 1710 frame
- * the desktop is drawn in and zoomed down from (`doc-scale`): heads at 40,
- * body copy at 18, card titles at 20, and nothing under 16, so that on a 1440
- * the smallest line still reads at about 13.
+ * The sections under the head. From `lg` the page sits in the app frame's
+ * panel, drawn in the 1710 space and zoomed by `app-scale`, so every size is a
+ * `frame-*` step, the ones the other framed pages use: heads at the frame's
+ * heading step, primary lines at its body step, the rest at meta.
  */
 
 /** How many reviews the page shows before pointing at the advisor's profile. */
 const REVIEW_LIMIT = 6;
 
-/** The page's section heads: Kanit, like the title, a step down from it. */
-const SECTION_TITLE = "font-hero text-xl font-normal tracking-tight text-hero-ink lg:text-hero";
+/** The page's section heads, as the advisor's profile sets its own. */
+const SECTION_TITLE = "text-lg font-semibold text-foreground lg:text-frame-heading";
 
 /** The one card padding, at every size the card is drawn. */
-const CARD = "rounded-card border border-border bg-card p-5 lg:p-6";
 
 /**
  * One section of the page: a hairline above, the head, then the content.
@@ -93,16 +92,20 @@ function Stars({ value, className }: { readonly value: number; readonly classNam
 
 /* --------------------------------------------------------------- session */
 
-/** A fact about the session: a glyph on the accent step, a line, and why. */
+/**
+ * A fact about the session, shaped like a notification row and unboxed like
+ * one: the glyph in the soft grey circle, a line, and why. The section's
+ * hairline groups the facts; a box round each one only added frames.
+ */
 function Fact({ icon: Icon, title, body }: { readonly icon: typeof Video; readonly title: string; readonly body: string }) {
   return (
-    <li className={cn(CARD, "flex gap-4 lg:gap-5")}>
-      <span className="flex size-10 shrink-0 items-center justify-center rounded-full bg-accent-surface text-primary lg:size-12">
-        <Icon aria-hidden className="size-5 lg:size-6" />
+    <li className="flex gap-3 lg:gap-5">
+      <span className="flex size-9 shrink-0 items-center justify-center rounded-full bg-muted text-foreground lg:size-12">
+        <Icon aria-hidden className="size-4 lg:size-6" strokeWidth={1.75} />
       </span>
       <span className="flex min-w-0 flex-col gap-1 lg:gap-1.5">
-        <span className="text-base font-semibold text-foreground lg:text-xl">{title}</span>
-        <span className="text-sm leading-6 text-muted-foreground lg:text-base lg:leading-7">{body}</span>
+        <span className="text-base font-semibold text-foreground lg:text-frame-body">{title}</span>
+        <span className="text-sm leading-6 text-muted-foreground lg:text-frame-meta">{body}</span>
       </span>
     </li>
   );
@@ -159,7 +162,7 @@ export function SessionSection({
         </ul>
 
         <div className="flex flex-col gap-5 lg:gap-7">
-          <h3 className="text-base font-semibold text-foreground lg:text-2xl">{t("journeyTitle")}</h3>
+          <h3 className="text-base font-semibold text-foreground lg:text-frame-body">{t("journeyTitle")}</h3>
           <ol className="grid gap-6 md:grid-cols-3 md:gap-8">
             {steps.map(({ key, icon: Icon, title, body }, i) => (
               <li className="relative flex gap-4 md:flex-col md:gap-3 lg:gap-4" key={key}>
@@ -172,12 +175,12 @@ export function SessionSection({
                     className="absolute top-10 -bottom-6 left-5 w-px bg-border md:top-5 md:bottom-auto md:left-10 md:h-px md:w-[calc(100%-0.5rem)] lg:top-6 lg:left-12 lg:w-[calc(100%-1rem)]"
                   />
                 ) : null}
-                <span className="relative flex size-10 shrink-0 items-center justify-center rounded-full border border-hero-card-border bg-card text-foreground shadow-hero-card lg:size-12">
-                  <Icon aria-hidden className="size-4.5 lg:size-5.5" />
+                <span className="relative flex size-10 shrink-0 items-center justify-center rounded-full bg-muted text-foreground lg:size-12">
+                  <Icon aria-hidden className="size-4.5 lg:size-5.5" strokeWidth={1.75} />
                 </span>
                 <span className="flex min-w-0 flex-col gap-1 pt-1.5 md:pt-0 lg:gap-1.5">
-                  <span className="text-sm font-semibold text-foreground lg:text-xl">{title}</span>
-                  <span className="text-sm leading-6 text-muted-foreground lg:text-base lg:leading-7">{body}</span>
+                  <span className="text-sm font-semibold text-foreground lg:text-frame-body">{title}</span>
+                  <span className="text-sm leading-6 text-muted-foreground lg:text-frame-meta">{body}</span>
                 </span>
               </li>
             ))}
@@ -196,19 +199,20 @@ function ScoreBoard({ summary }: { readonly summary: ApiRatingSummary }) {
   const format = useFormatter();
 
   return (
-    <div className="grid items-center gap-6 rounded-card bg-muted/60 p-5 sm:grid-cols-[auto_minmax(0,1fr)] sm:gap-10 lg:gap-14 lg:p-6">
+    // On the page, not in a tinted box: the section's hairline frames it.
+    <div className="grid items-center gap-6 sm:grid-cols-[auto_minmax(0,1fr)] sm:gap-10 lg:gap-14">
       <div className="flex flex-col items-start gap-1.5 lg:gap-2">
-        <span className="font-latin text-5xl leading-none font-semibold tracking-tight text-foreground tabular-nums lg:text-6xl">
+        <span className="font-latin text-4xl leading-none font-semibold tracking-tight text-foreground tabular-nums lg:text-frame-title lg:leading-none">
           {format.number(summary.average, { minimumFractionDigits: 1, maximumFractionDigits: 1 })}
         </span>
         <Stars className="size-4 lg:size-5" value={summary.average} />
-        <span className="text-sm text-muted-foreground lg:text-base">{t("reviewsBasedOn", { count: summary.total })}</span>
+        <span className="text-sm text-muted-foreground lg:text-frame-meta">{t("reviewsBasedOn", { count: summary.total })}</span>
       </div>
       <ul className="flex flex-col gap-2 lg:gap-2.5">
         {[5, 4, 3, 2, 1].map((stars) => {
           const count = summary.distribution.find((bar) => bar.stars === stars)?.count ?? 0;
           return (
-            <li className="flex items-center gap-3 text-xs text-muted-foreground lg:gap-4 lg:text-base" key={stars}>
+            <li className="flex items-center gap-3 text-xs text-muted-foreground lg:gap-4 lg:text-frame-meta" key={stars}>
               <span className="flex w-7 shrink-0 items-center gap-1 font-latin tabular-nums lg:w-9">
                 {stars}
                 <Star aria-hidden className="size-3 fill-current lg:size-4" />
@@ -241,36 +245,38 @@ function ReviewCard({
   const t = useTranslations("service");
   const format = useFormatter();
   return (
-    <li className={cn(CARD, "flex flex-col gap-3 lg:gap-4")}>
+    // One review to a row, the whole column wide, a hairline between them
+    // (the list's `divide-y`): unboxed, the way the notification feed lists.
+    <li className="flex flex-col gap-3 py-5 first:pt-0 last:pb-0 lg:gap-4 lg:py-7">
       {/* The name has its line to itself, the stars and the date under it:
           beside the name, five stars cut a Thai full name short. */}
       <div className="flex items-center gap-3 lg:gap-4">
         <span
           aria-hidden
-          className="flex size-10 shrink-0 items-center justify-center rounded-full bg-accent-surface text-sm font-semibold text-primary lg:size-12 lg:text-lg"
+          className="flex size-10 shrink-0 items-center justify-center rounded-full bg-muted text-sm font-semibold text-foreground lg:size-12 lg:text-frame-meta"
         >
           {review.reviewerDisplayName.slice(0, 1)}
         </span>
         <span className="flex min-w-0 flex-1 flex-col gap-0.5 lg:gap-1">
-          <span className="truncate text-sm font-semibold text-foreground lg:text-xl">{review.reviewerDisplayName}</span>
-          <span className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-muted-foreground lg:gap-x-3 lg:text-base">
+          <span className="truncate text-sm font-semibold text-foreground lg:text-frame-body">{review.reviewerDisplayName}</span>
+          <span className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-muted-foreground lg:gap-x-3 lg:text-frame-meta">
             <Stars value={review.stars} />
             {format.dateTime(new Date(review.createdAt), { dateStyle: "medium" })}
           </span>
         </span>
       </div>
-      {review.comment ? <p className="text-sm leading-6 text-foreground lg:text-lg lg:leading-8">{review.comment}</p> : null}
+      {review.comment ? <p className="text-sm leading-6 text-foreground lg:text-frame-body">{review.comment}</p> : null}
       {review.serviceName === serviceName ? (
-        <span className="self-start rounded-full bg-accent-surface px-2.5 py-0.5 text-xs font-medium text-primary lg:px-3 lg:py-1 lg:text-base">
+        <span className="self-start rounded-full bg-accent-surface px-2.5 py-0.5 text-xs font-medium text-primary lg:px-3 lg:py-1 lg:text-frame-meta">
           {t("reviewThisService")}
         </span>
       ) : (
-        <span className="text-xs text-muted-foreground lg:text-base">{t("reviewFor", { service: review.serviceName })}</span>
+        <span className="text-xs text-muted-foreground lg:text-frame-meta">{t("reviewFor", { service: review.serviceName })}</span>
       )}
       {review.advisorReply ? (
         <div className="flex flex-col gap-1 border-l-2 border-border pl-3 lg:pl-4">
-          <span className="text-xs font-medium text-foreground lg:text-base">{t("advisorReply", { name: advisorName })}</span>
-          <p className="text-sm leading-6 text-muted-foreground lg:text-base lg:leading-7">{review.advisorReply}</p>
+          <span className="text-xs font-medium text-foreground lg:text-frame-meta">{t("advisorReply", { name: advisorName })}</span>
+          <p className="text-sm leading-6 text-muted-foreground lg:text-frame-meta">{review.advisorReply}</p>
         </div>
       ) : null}
     </li>
@@ -318,7 +324,7 @@ export function ReviewsSection({
     );
   } else if (items.length === 0) {
     body = (
-      <p className="flex items-center gap-3 rounded-card bg-muted/60 p-5 text-sm text-muted-foreground lg:p-6 lg:text-lg">
+      <p className="flex items-center gap-3 text-sm text-muted-foreground lg:text-frame-meta">
         <Star aria-hidden className="size-4 shrink-0 lg:size-5" />
         {t("noAdvisorReviews")}
       </p>
@@ -327,7 +333,7 @@ export function ReviewsSection({
     body = (
       <div className="flex flex-col gap-5 lg:gap-6">
         {summary ? <ScoreBoard summary={summary} /> : null}
-        <ul className="grid gap-4 md:grid-cols-2 lg:gap-5">
+        <ul className="flex flex-col divide-y divide-border border-t border-border pt-5 lg:pt-7">
           {items.map((review) => (
             <ReviewCard
               advisorName={advisorName}
@@ -355,7 +361,7 @@ export function ReviewsSection({
     <Section
       aside={
         advisorName ? (
-          <p className="text-sm text-muted-foreground lg:text-lg">{t("reviewsScope", { name: advisorName })}</p>
+          <p className="text-sm text-muted-foreground lg:text-frame-meta">{t("reviewsScope", { name: advisorName })}</p>
         ) : null
       }
       id="reviews"
@@ -372,8 +378,8 @@ export function ReviewsSection({
 function AdvisorFigure({ label, children }: { readonly label: string; readonly children: ReactNode }) {
   return (
     <div className="flex min-w-0 flex-col items-center gap-0.5 px-2 text-center lg:gap-1">
-      <dt className="order-2 text-xs text-muted-foreground lg:text-base">{label}</dt>
-      <dd className="order-1 flex items-center gap-1 font-latin text-lg font-semibold text-foreground tabular-nums lg:gap-1.5 lg:text-2xl">
+      <dt className="order-2 text-xs text-muted-foreground lg:text-frame-meta">{label}</dt>
+      <dd className="order-1 flex items-center gap-1 font-latin text-lg font-semibold text-foreground tabular-nums lg:gap-1.5 lg:text-frame-figure">
         {children}
       </dd>
     </div>
@@ -408,27 +414,28 @@ export function AdvisorSection({
 
   return (
     <Section id="advisor" title={t("tabAbout")}>
-      <div className={cn(CARD, "flex flex-col gap-6 shadow-hero-card lg:gap-7")}>
+      {/* On the page, not in a card: the section's hairline groups it. */}
+      <div className="flex flex-col gap-6 lg:gap-7">
         <div className="flex items-center gap-4 lg:gap-6">
-          <Face className="size-16 text-xl md:size-20 md:text-2xl lg:size-24" face={face} name={name} verified />
+          <Face className="size-16 text-xl md:size-20 md:text-2xl lg:size-20" face={face} name={name} verified />
           <div className="flex min-w-0 flex-col gap-0.5 lg:gap-1">
-            <Link className="font-hero text-xl text-hero-ink underline-offset-4 hover:underline md:text-2xl lg:text-3xl" href={profile}>
+            <Link className="font-hero text-xl text-hero-ink underline-offset-4 hover:underline md:text-2xl lg:text-frame-heading" href={profile}>
               {name}
             </Link>
-            {headline ? <p className="text-sm text-muted-foreground md:text-base lg:text-lg">{headline}</p> : null}
+            {headline ? <p className="text-sm text-muted-foreground md:text-base lg:text-frame-meta">{headline}</p> : null}
           </div>
         </div>
 
-        <p className="flex items-start gap-2.5 rounded-xl bg-accent-surface/60 px-4 py-3 text-sm leading-6 text-foreground lg:gap-3 lg:px-5 lg:py-4 lg:text-base lg:leading-7">
+        <p className="flex items-start gap-2.5 text-sm leading-6 text-foreground lg:gap-3 lg:text-frame-meta">
           <ShieldCheck aria-hidden className="mt-0.5 size-4 shrink-0 text-primary lg:mt-1 lg:size-5" />
           {t("verifiedDetail")}
         </p>
 
-        {advisor?.bio ? <p className="text-base leading-7 text-muted-foreground lg:text-lg lg:leading-8">{advisor.bio}</p> : null}
+        {advisor?.bio ? <p className="text-base leading-7 text-muted-foreground lg:text-frame-body">{advisor.bio}</p> : null}
 
         <dl
           className={cn(
-            "grid divide-x divide-border rounded-2xl border border-border py-3 lg:py-5",
+            "grid divide-x divide-border border-y border-border py-3 lg:py-5",
             summary || !summarySettled ? "grid-cols-3" : "grid-cols-2",
           )}
         >
@@ -443,7 +450,7 @@ export function AdvisorSection({
           ) : null}
           {!summary && summarySettled ? (
             <AdvisorFigure label={t("statRating")}>
-              <span className="text-sm font-normal text-muted-foreground lg:text-lg">{s("noReviews")}</span>
+              <span className="text-sm font-normal text-muted-foreground lg:text-frame-meta">{s("noReviews")}</span>
             </AdvisorFigure>
           ) : null}
           {!summary && !summarySettled ? (
@@ -457,11 +464,11 @@ export function AdvisorSection({
 
         {advisor && advisor.skills.length > 0 ? (
           <div className="flex flex-col gap-2.5 lg:gap-3">
-            <p className="text-sm font-semibold text-foreground lg:text-lg">{t("skillsTitle")}</p>
+            <p className="text-sm font-semibold text-foreground lg:text-frame-meta">{t("skillsTitle")}</p>
             <ul className="flex flex-wrap gap-2">
               {advisor.skills.map((skill) => (
                 <li
-                  className="rounded-full border border-border px-3 py-1 text-sm text-foreground lg:px-4 lg:py-1.5 lg:text-base"
+                  className="rounded-full border border-border px-3 py-1 text-sm text-foreground lg:px-4 lg:py-1.5 lg:text-frame-meta"
                   key={skill}
                 >
                   {skill}
@@ -505,14 +512,14 @@ function CardRating({ item }: { readonly item: LiveService }) {
   }
   if (item.reviews === 0) {
     return (
-      <span className="flex items-center gap-1 text-xs text-muted-foreground lg:gap-1.5 lg:text-base">
+      <span className="flex items-center gap-1 text-xs text-muted-foreground lg:gap-1.5 lg:text-frame-meta">
         <Star aria-hidden className="size-3.5 lg:size-4" />
         {s("noReviews")}
       </span>
     );
   }
   return (
-    <span className="flex items-center gap-1 text-xs lg:gap-1.5 lg:text-base">
+    <span className="flex items-center gap-1 text-xs lg:gap-1.5 lg:text-frame-meta">
       <Star aria-hidden className="size-3.5 fill-primary text-primary lg:size-4.5" />
       <span className="font-latin font-semibold text-foreground tabular-nums">{item.rating.toFixed(1)}</span>
       <span className="text-muted-foreground tabular-nums">({item.reviews})</span>
@@ -542,22 +549,22 @@ function ServiceCard({ item, withAdvisor }: { readonly item: LiveService; readon
         {withAdvisor ? (
           <span className="flex min-w-0 items-center gap-2">
             <Face className="size-6 text-2xs lg:size-8 lg:text-xs" face={item.face} name={item.advisorName} rim={false} />
-            <span className="truncate text-xs font-medium text-foreground lg:text-base">{item.advisorName}</span>
+            <span className="truncate text-xs font-medium text-foreground lg:text-frame-meta">{item.advisorName}</span>
           </span>
         ) : null}
-        <span className="line-clamp-2 text-sm leading-snug font-semibold text-foreground md:text-base lg:text-xl">
+        <span className="line-clamp-2 text-sm leading-snug font-semibold text-foreground md:text-base lg:text-frame-body">
           {item.title}
         </span>
-        <span className="line-clamp-2 text-xs leading-5 text-muted-foreground lg:text-base lg:leading-7">
+        <span className="line-clamp-2 text-xs leading-5 text-muted-foreground lg:text-frame-meta">
           {item.description}
         </span>
         <span className="mt-auto flex flex-wrap items-end justify-between gap-x-2 gap-y-1 pt-1">
           <CardRating item={item} />
           <span className="flex items-baseline gap-1 whitespace-nowrap">
-            <span className="font-latin text-sm font-bold text-foreground tabular-nums md:text-base lg:text-xl">
+            <span className="font-latin text-sm font-bold text-foreground tabular-nums md:text-base lg:text-frame-body">
               {format.number(item.price, { style: "currency", currency: "THB", maximumFractionDigits: 0 })}
             </span>
-            <span className="text-xs text-muted-foreground lg:text-base">{s("perSession", { minutes: item.minutes })}</span>
+            <span className="text-xs text-muted-foreground lg:text-frame-meta">{s("perSession", { minutes: item.minutes })}</span>
           </span>
         </span>
       </span>
@@ -589,7 +596,7 @@ export function AdvisorServices({
     <Section
       action={
         <Link
-          className="shrink-0 py-1 text-sm font-medium text-foreground underline-offset-4 hover:underline lg:text-lg"
+          className="shrink-0 py-1 text-sm font-medium text-foreground underline-offset-4 hover:underline lg:text-frame-meta"
           href={liveAdvisorHref(advisorId)}
         >
           {t("viewAll")}

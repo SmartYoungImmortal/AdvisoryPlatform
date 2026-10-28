@@ -127,14 +127,20 @@ test("cancelling a booking moves it to the cancelled list without reloading", as
   await page.goto("/bookings");
 
   await expect(page.getByRole("heading", { name: "การจองของฉัน" })).toBeVisible();
-  await expect(page.getByText(serviceName, { exact: true }).first()).toBeVisible();
-  await page.getByRole("button", { name: "ยกเลิก", exact: true }).click();
+  // The row opens the booking over the list, where cancelling asks once.
+  await page.getByRole("link", { name: serviceName }).click();
+  const booking = page.getByRole("dialog");
+  await booking.getByRole("button", { name: "ยกเลิกการจอง", exact: true }).click();
+  await booking.getByRole("button", { name: "ยืนยันการยกเลิก", exact: true }).click();
+  await expect(booking.getByText("ยกเลิกแล้ว", { exact: true })).toBeVisible();
+  await page.keyboard.press("Escape");
 
-  const cancelledTab = page.getByRole("tab", { name: "ยกเลิก" });
-  await expect(cancelledTab).toHaveAttribute("aria-selected", "false");
+  // The tabs are capsules that say which is chosen with aria-pressed.
+  const cancelledTab = page.getByRole("button", { name: "ยกเลิกแล้ว", exact: true });
+  await expect(cancelledTab).toHaveAttribute("aria-pressed", "false");
   await expect(page.getByText(serviceName, { exact: true })).toHaveCount(0);
 
   await cancelledTab.click();
-  await expect(cancelledTab).toHaveAttribute("aria-selected", "true");
+  await expect(cancelledTab).toHaveAttribute("aria-pressed", "true");
   await expect(page.getByText(serviceName, { exact: true }).first()).toBeVisible();
 });

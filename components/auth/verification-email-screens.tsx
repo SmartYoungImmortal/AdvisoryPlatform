@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useTranslations } from "next-intl";
 import { useState } from "react";
 
-import { AuthHeading, AuthSplit, authPill } from "@/components/auth/auth-split";
+import { AuthHeading, AuthMark, AuthSplit, authPill } from "@/components/auth/auth-split";
 import { AlertBanner } from "@/components/mobile/banner";
 import { Button } from "@/components/ui/button";
 import { ApiUnreachableError } from "@/lib/api/client";
@@ -20,13 +20,16 @@ function verificationCallback(email: string): string {
   return callback.toString();
 }
 
-/** The address, on the muted step, so a typo is caught here and not after a wait. */
+/**
+ * The address, on the muted step, so a typo is caught here and not after a
+ * wait. Centred below `lg` with the mark and heading above it.
+ */
 function SentTo({ email }: { readonly email: string }) {
   const t = useTranslations("verificationEmail");
   return (
-    <div className="flex flex-col gap-0.5 rounded-2xl bg-muted px-4 py-3.5">
+    <div className="flex flex-col items-center gap-0.5 rounded-2xl bg-muted px-4 py-3.5 text-center lg:items-start lg:text-left">
       <span className="text-xs text-muted-foreground">{t("sentToLabel")}</span>
-      <span className="truncate font-latin text-sm font-medium text-foreground">{email}</span>
+      <span className="max-w-full truncate font-latin text-sm font-medium text-foreground">{email}</span>
     </div>
   );
 }
@@ -62,15 +65,15 @@ export function VerificationEmailSentScreen() {
 
   return (
     <AuthSplit>
-      <span className="flex size-14 items-center justify-center rounded-full bg-muted">
+      <AuthMark>
         <MailCheck aria-hidden className="size-6 text-foreground" />
-      </span>
-      <AuthHeading subtitle={t("sentBody")} title={t("sentTitle")} />
+      </AuthMark>
+      <AuthHeading centred subtitle={t("sentBody")} title={t("sentTitle")} />
 
       {email ? <SentTo email={email} /> : null}
 
       {resent ? (
-        <p aria-live="polite" className="text-sm text-muted-foreground">
+        <p aria-live="polite" className="text-center text-sm text-muted-foreground lg:text-left">
           {t("resent")}
         </p>
       ) : null}
@@ -112,14 +115,15 @@ export function EmailVerifiedScreen() {
 
   return (
     <AuthSplit>
-      <span className="flex size-14 items-center justify-center rounded-full bg-muted">
+      <AuthMark>
         {expired ? (
           <TriangleAlert aria-hidden className="size-6 text-foreground" />
         ) : (
           <BadgeCheck aria-hidden className="size-6 text-primary" />
         )}
-      </span>
+      </AuthMark>
       <AuthHeading
+        centred
         subtitle={expired ? t("expiredBody") : t("verifiedBody")}
         title={expired ? t("expiredTitle") : t("verifiedTitle")}
       />

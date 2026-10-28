@@ -1,36 +1,51 @@
 "use client";
 
 import {
-  ChevronRight,
+  ChevronLeft,
   CircleCheckBig,
+  Clock3,
   CreditCard,
   ReceiptText,
   RotateCcw,
-  ShieldCheck,
   TriangleAlert,
+  X,
   type LucideIcon,
 } from "lucide-react";
+import Image from "next/image";
 import Link from "next/link";
-import { useFormatter, useTranslations } from "next-intl";
-import { useId, useState, type ReactNode } from "react";
+import { useSearchParams } from "next/navigation";
+import { useFormatter, useTimeZone, useTranslations } from "next-intl";
+import { Suspense, useCallback, useId, useState, type ReactNode } from "react";
 
 import { AccountShell } from "@/components/account/account-shell";
 import { AppFrame } from "@/components/account/app-frame";
 import { AUTH_LINK, authPill } from "@/components/auth/auth-split";
+import { asUuid, useQueryValue } from "@/components/bookings/booking-flow";
 import { Figures } from "@/components/figures";
 import { MobileScreen, ScreenBody, ScreenTopBar } from "@/components/mobile/screen";
-import { StatusPill, type StatusTone } from "@/components/mobile/status-pill";
 import {
-  RECEIPTS,
-  RECEIPT_HREF,
-  TRANSACTIONS,
   groupByMonth,
+  invoiceReceipt,
+  invoiceTransaction,
+  sampleHistory,
+  sampleReceipt,
   type Receipt,
+  type SampleStatus,
+  type ServiceKey,
   type Transaction,
   type TransactionStatus,
 } from "@/components/payment/transactions-data";
+import { ApiErrorCard } from "@/components/service/parts";
 import { Button } from "@/components/ui/button";
+import { DayGroup, FEED_COLUMN } from "@/components/notifications/notification-center-screen";
+import { Dialog, DialogClose, DialogContent } from "@/components/ui/dialog";
+import { ApiError, isApiConfigured, type Paginated } from "@/lib/api/client";
+import { getMyInvoice, listMyInvoices } from "@/lib/api/resources";
+import type { ApiAdviseeInvoice } from "@/lib/api/types";
+import { useResource } from "@/lib/api/use-resource";
+import { logo } from "@/lib/assets/r2";
 import { PAGE } from "@/lib/layout";
+import { useSession } from "@/lib/session";
 import { cn } from "@/lib/utils";
 
 /**
@@ -63,53 +78,53 @@ const GUTTER = "px-5 md:px-10 lg:px-0";
 /**
  * The capsule from `lg`. The account column is drawn at 1710 and zoomed (×0.84
  * on a 1440 screen), so `authPill`'s 48px / 16px would land near 40 / 13.
+ * The booking sheet's capsules share it (`components/bookings/booking-sheet.tsx`).
  */
-const PILL_LG = "lg:h-14 lg:px-8 lg:text-lg";
+export const PILL_LG = "lg:h-14 lg:px-8 lg:text-lg";
 
-/** How each outcome is said: its pill, its mark, and the panel that explains it. */
+/** A placeholder's surface while the API answers, still for a reader who asks for less motion. */
+const BONE = "animate-pulse bg-muted motion-reduce:animate-none";
+
+/**
+ * `ApiErrorCard` is drawn at phone sizes; from `lg` it takes the frame's type
+ * steps, since the column is zoomed down from 1710 there. The notification
+ * centre's card, step for step.
+ */
+const ERROR_CARD_LG =
+  "lg:gap-4 lg:p-7 lg:[&_[data-slot=button]]:h-12 lg:[&_[data-slot=button]]:px-5 lg:[&_[data-slot=button]]:text-frame-meta lg:[&_p]:text-frame-meta lg:[&_p:first-child]:text-frame-figure";
+
+/** How each outcome is said: its mark beside the receipt's heading, and its ink. */
 const OUTCOME = {
-  paid: {
-    tone: "success",
-    icon: CircleCheckBig,
-    mark: "bg-success-surface text-success",
-    panel: "bg-success-surface/60",
-    ink: "text-success",
-  },
-  refunded: {
-    tone: "info",
-    icon: RotateCcw,
-    mark: "bg-accent-surface text-primary",
-    panel: "bg-accent-surface/60",
-    ink: "text-primary",
-  },
-  failed: {
-    tone: "danger",
-    icon: TriangleAlert,
-    mark: "bg-destructive/10 text-destructive",
-    panel: "bg-destructive/6",
-    ink: "text-destructive",
-  },
-} as const satisfies Record<
-  TransactionStatus,
-  {
-    readonly tone: StatusTone;
-    readonly icon: LucideIcon;
-    readonly mark: string;
-    readonly panel: string;
-    readonly ink: string;
-  }
->;
+  paid: { icon: CircleCheckBig, ink: "text-success" },
+  refunded: { icon: RotateCcw, ink: "text-primary" },
+  failed: { icon: TriangleAlert, ink: "text-destructive" },
+  // Nothing has happened to the money yet: muted, not an alarm.
+  pending: { icon: Clock3, ink: "text-muted-foreground" },
+} as const satisfies Record<TransactionStatus, { readonly icon: LucideIcon; readonly ink: string }>;
 
-/** Baht as the reader's language writes it, always with the ฿ sign. */
-function useBaht(): (value: number) => string {
+/**
+ * Satang as the reader's language writes baht, always with the ฿ sign. Whole
+ * baht print as the receipts always have; the satang show only when there
+ * are some, so a fee of 62.50 is not rounded on a receipt.
+ */
+function useBaht(): (satang: number) => string {
   const format = useFormatter();
-  return (value) =>
-    format.number(value, {
+  return (satang) => {
+    const digits = satang % 100 === 0 ? 0 : 2;
+    return format.number(satang / 100, {
       style: "currency",
       currency: "THB",
       currencyDisplay: "narrowSymbol",
-      maximumFractionDigits: 0,
+      minimumFractionDigits: digits,
+      maximumFractionDigits: digits,
     });
+  };
+}
+
+/** A sample's service in the reader's language. The API's arrive already named. */
+function useServiceName(): (key: ServiceKey) => string {
+  const t = useTranslations("transactions");
+  return (key) => t(`services.${key}`);
 }
 
 /**
@@ -143,106 +158,122 @@ function TransactionsFrame({
 
 /* ------------------------------------------------------------------ history */
 
-const FILTERS = ["all", "paid", "refunded", "failed"] as const;
-type Filter = (typeof FILTERS)[number];
+type Filter = "all" | TransactionStatus;
+
+/** The outcomes in the order their capsules sit, for the list to keep only the ones it has. */
+const STATUS_ORDER: readonly TransactionStatus[] = ["paid", "refunded", "failed", "pending"];
+
+/** The row's mark: what happened to the money, in the feed's soft grey circle. */
+const ROW_ICON = {
+  paid: CreditCard,
+  refunded: RotateCcw,
+  failed: TriangleAlert,
+  pending: Clock3,
+} as const satisfies Record<TransactionStatus, LucideIcon>;
 
 /**
- * What the history adds up to: everything that was actually charged, which is
- * the paid rows only. A refunded row was charged and returned, a failed one
- * never charged. Beside it, the one standing fact about where that money is.
+ * The page around the history, laid out like the notification centre: one
+ * column in the app frame, the heading, the filters and the list.
+ *
+ * No running total of what the account has spent. The reader comes here to
+ * check one charge or one refund, and a lifetime sum only puts the cost in
+ * front of them before the next booking. Where the money waits (escrow) is
+ * said on the paid receipt, where it is about that payment.
+ *
+ * From `lg` the page takes the notification feed's column (`FEED_COLUMN`), so
+ * the title sits where that page's does as the rail moves between them, and
+ * the rows run its width unboxed, a hairline between months, as the feed's
+ * do. Rows rather than a table of columns: a table reads as a back office.
+ *
+ * `wide="md"`: a tablet held upright gets the phone layout at its own width.
  */
-function PaidSummary({
-  rows,
-  className,
-}: {
-  readonly rows: readonly Transaction[];
-  readonly className?: string;
-}) {
-  const t = useTranslations("transactions");
-  const baht = useBaht();
-  const label = useId();
-  const paid = rows.filter((row) => row.status === "paid");
-  const total = paid.reduce((sum, row) => sum + row.amount, 0);
-
+function HistoryFrame({ children }: { readonly children: ReactNode }) {
   return (
-    <div className={cn("w-full shrink-0", GUTTER, className)}>
-      {/* The home hero's two lights, faintly, behind the one figure on the page. */}
-      <section
-        aria-labelledby={label}
-        className="flex flex-col gap-5 rounded-card border border-hero-card-border bg-card bg-legal-wash p-5 shadow-hero-card md:p-6 lg:flex-row lg:items-center lg:justify-between lg:gap-10 lg:px-8 lg:py-7"
-      >
-        <div className="flex flex-col gap-1">
-          <p className="text-sm text-muted-foreground lg:text-base" id={label}>
-            {t("summaryLabel")}
-          </p>
-          <p className="font-latin text-3xl font-semibold tracking-tight tabular-nums text-hero-ink md:text-4xl lg:text-frame-title">
-            {baht(total)}
-          </p>
-          <p className="text-sm text-muted-foreground lg:text-base">
-            <Figures>{t("summaryCount", { count: paid.length })}</Figures>
-          </p>
-        </div>
-        <p className="flex items-start gap-3 rounded-xl bg-card/80 p-3.5 text-sm text-foreground lg:max-w-sm lg:p-4 lg:text-base">
-          <span className="flex size-8 shrink-0 items-center justify-center rounded-full bg-success-surface text-success lg:size-10">
-            <ShieldCheck aria-hidden className="size-4.5 lg:size-5" />
-          </span>
-          <span className="pt-1 lg:pt-2">{t("escrowNote")}</span>
-        </p>
-      </section>
-    </div>
+    <MobileScreen className="bg-card" wide="md">
+      <AppFrame active="payments">
+        <ScreenBody className="bg-card">
+          <AccountShell active="transactions">
+            {/* `lg:flex-1`: the column runs to the panel's foot, so an empty
+                history's box can fill it (`HistoryEmpty`). */}
+            <div className={cn("flex w-full min-w-0 flex-col pt-6 pb-12 lg:flex-1 lg:pt-0 lg:pb-0", FEED_COLUMN, GUTTER)}>
+              {children}
+            </div>
+          </AccountShell>
+        </ScreenBody>
+      </AppFrame>
+    </MobileScreen>
   );
 }
 
 /**
- * The four outcomes as pill toggles, each with how many rows it holds, the
- * chosen one in the hero's black like the search page's chips. 44px on the
- * phone and 52 from `lg`: they are the page's buttons.
+ * The heading: the phone's back chevron on a row of its own, then the title at
+ * the frame's title step. The rail is the way back from `lg`.
+ *
+ * No search and no date filter: an advisee pays a few times a month at most,
+ * so the list stays short and the month headings already index it by date.
+ */
+function HistoryHeader() {
+  const t = useTranslations("transactions");
+  const c = useTranslations("common");
+
+  return (
+    <header className="flex w-full flex-col items-start gap-3 lg:gap-0">
+      <Button
+        aria-label={c("back")}
+        className="relative -ml-1.5 size-8 shrink-0 text-foreground before:absolute before:-inset-1.5 before:content-[''] lg:hidden"
+        nativeButton={false}
+        render={<Link href="/profile" />}
+        size="icon"
+        variant="ghost"
+      >
+        <ChevronLeft aria-hidden className="size-6" />
+      </Button>
+      <h1 className="font-hero text-title-compact font-normal tracking-tight text-hero-ink lg:text-frame-title">
+        {t("title")}
+      </h1>
+    </header>
+  );
+}
+
+/**
+ * The filters as capsules, the chosen one filled in ink, the same as the
+ * notification centre's. An outcome only gets a capsule when the list has it.
  */
 function StatusFilter({
   value,
-  counts,
+  kinds,
   onChange,
-  className,
 }: {
   readonly value: Filter;
-  readonly counts: Readonly<Record<Filter, number>>;
+  readonly kinds: readonly TransactionStatus[];
   readonly onChange: (next: Filter) => void;
-  readonly className?: string;
 }) {
   const t = useTranslations("transactions");
+  const options: readonly Filter[] = ["all", ...kinds];
 
   return (
     // `<fieldset>`: a group by its own semantics; reset so it lays out as the row it was.
     <fieldset
       aria-label={t("filterLabel")}
-      className={cn("flex w-full min-w-0 shrink-0 gap-2 overflow-x-auto border-0 py-0", GUTTER, className)}
+      className="-mx-5 flex min-w-0 gap-2 overflow-x-auto border-0 px-5 py-0 md:-mx-10 md:px-10 lg:mx-0 lg:gap-3 lg:px-0"
     >
-      {FILTERS.map((key) => {
+      {options.map((key) => {
         const active = key === value;
         return (
           <Button
             aria-pressed={active}
             className={cn(
-              "h-11 shrink-0 gap-2 rounded-full px-4 text-sm font-medium shadow-none lg:h-13 lg:px-6 lg:text-base",
+              "h-9 shrink-0 rounded-full border px-3.5 text-sm font-medium whitespace-nowrap lg:h-12 lg:px-5 lg:text-frame-meta",
               active
-                ? // The outline variant darkens its ink on hover; the chosen pill keeps its white.
-                  "border-transparent bg-hero-action text-hero-action-foreground hover:bg-hero-action/85 hover:text-hero-action-foreground"
+                ? "border-hero-action bg-hero-action text-hero-action-foreground hover:bg-hero-action/90 hover:text-hero-action-foreground"
                 : "border-border bg-card text-foreground hover:bg-muted",
             )}
             key={key}
             onClick={() => onChange(key)}
             type="button"
-            variant="outline"
+            variant="ghost"
           >
             {key === "all" ? t("filterAll") : t(`status.${key}`)}
-            <span
-              className={cn(
-                "font-latin text-xs font-normal tabular-nums lg:text-base",
-                active ? "text-hero-action-foreground/70" : "text-muted-foreground",
-              )}
-            >
-              {counts[key]}
-            </span>
           </Button>
         );
       })}
@@ -251,225 +282,298 @@ function StatusFilter({
 }
 
 /**
- * One payment: the day as a tile (the month is the group's heading already),
- * what it was for and with whom, then the amount and how it ended.
+ * One transaction, shaped like a notification row at every width: what
+ * happened in a soft circle, what it was for, with whom and on which day, then
+ * the amount over how it ended at the right edge. Only a paid row's amount is
+ * in full ink: the others are money that did not leave, came back, or has not
+ * been asked for yet.
  *
- * On the phone the amount sits over its status at the right edge. From `lg`
- * the row is a grid and each takes a column of its own, status first, so the
- * figures line up down the right edge the way a statement's do. Only a paid
- * row's amount is in full ink: the others are money that did not leave, or
- * came back.
+ * A plain click opens the row's receipt over the list (`onOpen`); the row is
+ * still a link to the receipt's own page, so a new tab or a copied address
+ * works.
  */
-function TransactionRow({ row }: { readonly row: Transaction }) {
+function TransactionRow({
+  row,
+  onOpen,
+}: {
+  readonly row: Transaction;
+  readonly onOpen: (receipt: Receipt) => void;
+}) {
   const t = useTranslations("transactions");
   const format = useFormatter();
   const baht = useBaht();
   const date = new Date(row.date);
-  const look = OUTCOME[row.status];
+  const Icon = ROW_ICON[row.status];
 
   return (
-    <Link
-      className="group grid grid-cols-[2.75rem_minmax(0,1fr)_auto] items-center gap-x-3.5 px-4 py-3.5 outline-none transition-colors duration-150 hover:bg-muted/60 focus-visible:bg-muted/60 focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:ring-inset motion-reduce:transition-none md:px-5 lg:grid-cols-[4rem_minmax(0,1fr)_12rem_8rem_1.25rem] lg:gap-x-6 lg:px-7 lg:py-5"
-      href={RECEIPT_HREF[row.status]}
-    >
-      <span
-        aria-hidden
-        className="flex size-11 flex-col items-center justify-center gap-1 rounded-xl bg-muted lg:size-16 lg:gap-1.5 lg:rounded-2xl"
+    <li>
+      <Link
+        className="-mx-3 flex items-start gap-3 rounded-card px-3 py-2.5 outline-none transition-colors duration-150 hover:bg-muted/60 focus-visible:ring-3 focus-visible:ring-ring/50 motion-reduce:transition-none lg:-mx-4 lg:gap-5 lg:px-4 lg:py-3.5"
+        href={row.href}
+        onClick={(event) => {
+          // A new tab or window keeps the link's own behaviour.
+          if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey || event.button !== 0) return;
+          event.preventDefault();
+          onOpen(row.receipt);
+        }}
       >
-        <span className="text-xs leading-none text-muted-foreground lg:text-base lg:leading-none">
-          {format.dateTime(date, { weekday: "short" })}
+        <span className="flex size-9 shrink-0 items-center justify-center rounded-full bg-muted text-foreground lg:size-12">
+          <Icon aria-hidden className="size-4 lg:size-6" strokeWidth={1.75} />
         </span>
-        <span className="font-latin text-base leading-none font-semibold tabular-nums text-foreground lg:text-xl lg:leading-none">
-          {format.dateTime(date, { day: "numeric" })}
-        </span>
-      </span>
-      <span className="flex min-w-0 flex-col gap-0.5">
-        <span className="truncate text-sm font-medium text-foreground md:text-base lg:text-lg">
-          {t(`services.${row.service}`)}
-        </span>
-        <span className="truncate text-xs text-muted-foreground md:text-sm lg:text-base">
-          {row.advisor}
-          <span className="sr-only">
-            {", "}
-            {format.dateTime(date, { day: "numeric", month: "long", year: "numeric" })}
+        <span className="flex min-w-0 flex-1 flex-col gap-0.5 lg:gap-1">
+          <span className="truncate text-sm font-medium text-foreground lg:text-frame-body">{row.service}</span>
+          <span className="truncate text-xs text-muted-foreground lg:text-frame-meta">
+            {row.advisor}
+            {" · "}
+            <Figures>{format.dateTime(date, { day: "numeric", month: "short" })}</Figures>
           </span>
         </span>
-      </span>
-      <span className="flex flex-col items-end gap-1 lg:contents">
-        <span
-          className={cn(
-            "font-latin text-sm font-semibold whitespace-nowrap tabular-nums md:text-base lg:order-2 lg:justify-self-end lg:text-xl",
-            row.status === "paid" ? "text-foreground" : "text-muted-foreground",
-          )}
-        >
-          {baht(row.amount)}
+        <span className="flex shrink-0 flex-col items-end gap-0.5 lg:gap-1">
+          <span
+            className={cn(
+              // A step under the row's title: Latin figures stand taller than
+              // Thai at the same size, and at the title's step the amounts
+              // read heavier than the feed's rows do.
+              "font-latin text-sm font-semibold whitespace-nowrap tabular-nums lg:text-frame-meta",
+              row.status === "paid" ? "text-foreground" : "text-muted-foreground",
+            )}
+          >
+            {baht(row.amount)}
+          </span>
+          <span className={cn("text-xs whitespace-nowrap lg:text-frame-label", OUTCOME[row.status].ink)}>
+            {t(`status.${row.status}`)}
+          </span>
         </span>
-        <StatusPill
-          className="lg:order-1 lg:justify-self-start lg:px-3.5 lg:py-1.5 lg:text-base"
-          icon={look.icon}
-          tone={look.tone}
-        >
-          {t(`status.${row.status}`)}
-        </StatusPill>
-      </span>
-      <ChevronRight
-        aria-hidden
-        className="hidden size-5 text-muted-foreground transition-colors duration-150 group-hover:text-foreground motion-reduce:transition-none lg:order-3 lg:block"
-      />
-    </Link>
+      </Link>
+    </li>
   );
 }
 
 /**
- * A month: its name and how many payments it holds, then one card of rows.
- * No rule under every row; the tile, the padding and the hover keep them
- * apart, and the card is what groups them.
+ * Nothing yet, unboxed like the notification centre's: one muted icon, what
+ * will land here, and the way to start. Centred in the space below the heading
+ * on a phone or an upright tablet; from `lg` a box that fills the column down
+ * to the panel's foot.
  */
-function MonthGroup({
-  date,
-  rows,
-}: {
-  readonly date: Date;
-  readonly rows: readonly Transaction[];
-}) {
+function HistoryEmpty() {
   const t = useTranslations("transactions");
-  const format = useFormatter();
-  const heading = useId();
 
   return (
-    <section aria-labelledby={heading} className="flex w-full flex-col gap-2.5">
-      <div className="flex items-baseline justify-between gap-3 px-1">
-        <h2 className="text-base font-semibold text-foreground lg:text-xl" id={heading}>
-          <Figures>{format.dateTime(date, { month: "long", year: "numeric" })}</Figures>
-        </h2>
-        <span className="text-sm text-muted-foreground lg:text-base">
-          <Figures>{t("monthCount", { count: rows.length })}</Figures>
-        </span>
+    <div className="mt-6 flex min-h-[calc(100dvh-11rem)] w-full flex-col items-center justify-center gap-3 px-6 py-12 text-center lg:mt-8 lg:min-h-0 lg:flex-1 lg:gap-5 lg:rounded-2xl lg:border lg:border-border lg:py-20">
+      <span className="flex size-11 items-center justify-center rounded-full bg-muted text-hero-ink/75 lg:size-14">
+        <ReceiptText aria-hidden className="size-5 lg:size-7" strokeWidth={1.5} />
+      </span>
+      <div className="flex flex-col items-center gap-1">
+        <h2 className="text-base font-semibold text-foreground lg:text-frame-figure">{t("emptyTitle")}</h2>
+        <p className="text-xs text-balance text-muted-foreground lg:text-frame-meta">{t("emptyBody")}</p>
       </div>
-      <ul className="flex flex-col overflow-hidden rounded-card border border-hero-card-border bg-card shadow-hero-card">
-        {rows.map((row) => (
-          <li key={row.id}>
-            <TransactionRow row={row} />
-          </li>
-        ))}
-      </ul>
-    </section>
+      <Button
+        className={cn(authPill(true), "mt-1 h-10 w-auto px-4 text-sm md:h-10 md:px-5 md:text-sm lg:h-12 lg:px-6 lg:text-frame-body")}
+        nativeButton={false}
+        render={<Link href="/search" />}
+      >
+        {t("findExpert")}
+      </Button>
+    </div>
   );
 }
 
-/** Nothing to list: none at all yet, or none with the chosen status. */
-function HistoryEmpty({
-  filtered = false,
-  onShowAll,
-  className,
-}: {
-  readonly filtered?: boolean;
-  readonly onShowAll?: () => void;
-  readonly className?: string;
-}) {
+/** A filter that leaves nothing: say so, and the way back to everything. */
+function FilteredEmpty({ onShowAll }: { readonly onShowAll: () => void }) {
   const t = useTranslations("transactions");
 
   return (
-    <div
-      className={cn(
-        "flex w-full flex-col items-center gap-4 px-6 py-14 text-center lg:py-20",
-        className,
-      )}
-    >
-      <span className="flex size-14 items-center justify-center rounded-full bg-muted">
-        <ReceiptText aria-hidden className="size-6 text-muted-foreground" />
-      </span>
-      <div className="flex max-w-md flex-col gap-1.5">
-        <h2 className="text-lg font-semibold text-foreground md:text-xl">
-          {filtered ? t("filteredEmptyTitle") : t("emptyTitle")}
-        </h2>
-        <p className="text-sm text-balance text-muted-foreground md:text-base">
-          {filtered ? t("filteredEmptyBody") : t("emptyBody")}
-        </p>
-      </div>
-      {filtered ? (
-        <Button className={cn(authPill(), "w-auto", PILL_LG)} onClick={onShowAll} type="button" variant="outline">
-          {t("showAll")}
-        </Button>
-      ) : (
-        <Button
-          className={cn(authPill(true), "w-auto", PILL_LG)}
-          nativeButton={false}
-          render={<Link href="/search" />}
-        >
-          {t("findExpert")}
-        </Button>
-      )}
+    <div className="flex w-full flex-col items-start gap-2 pt-8 lg:pt-12">
+      <h2 className="text-base font-semibold text-foreground lg:text-frame-figure">{t("filteredEmptyTitle")}</h2>
+      <Button
+        className="h-11 px-0 text-sm font-normal text-muted-foreground underline underline-offset-4 hover:bg-transparent hover:text-foreground lg:text-frame-body"
+        onClick={onShowAll}
+        type="button"
+        variant="ghost"
+      >
+        {t("showAll")}
+      </Button>
     </div>
   );
 }
 
 /**
- * `/transactions`: the advisee's money history, newest first and grouped by
- * month, under what it all adds up to and a filter by outcome.
- *
- * The rows are the sample fixture (`transactions-data.ts`): there is no
- * advisee-facing invoice route to read yet, so there is nothing to wait for
- * and nothing that can fail here.
+ * The list's own shape while it loads, so nothing shifts when it lands: the
+ * capsules' row (everything and paid, what most histories hold), then two
+ * months of two rows with the hairline between, each row the circle, the two
+ * lines and the amount over its status. Each line is one line box of its
+ * text's step (`h-lh`) with the bone inside, so a row stands as tall as a
+ * real one.
  */
-export function TransactionHistoryScreen() {
+function HistorySkeleton() {
   const t = useTranslations("transactions");
-  const [filter, setFilter] = useState<Filter>("all");
-  const rows = filter === "all" ? TRANSACTIONS : TRANSACTIONS.filter((row) => row.status === filter);
-  const counts: Record<Filter, number> = {
-    all: TRANSACTIONS.length,
-    paid: TRANSACTIONS.filter((row) => row.status === "paid").length,
-    refunded: TRANSACTIONS.filter((row) => row.status === "refunded").length,
-    failed: TRANSACTIONS.filter((row) => row.status === "failed").length,
-  };
 
   return (
-    <TransactionsFrame back="/profile">
-      <header className={cn("flex w-full shrink-0 flex-col gap-1.5 pt-2 lg:pt-0", GUTTER)}>
-        <h1 className="font-hero text-2xl font-normal tracking-tight text-hero-ink md:text-heading-lg lg:text-frame-title">
-          {t("title")}
-        </h1>
-        <p className="text-sm text-muted-foreground md:text-base lg:text-lg">{t("subtitle")}</p>
-      </header>
-
-      {TRANSACTIONS.length === 0 ? (
-        <HistoryEmpty className="mt-4 pb-10 lg:pb-0" />
-      ) : (
-        <>
-          <PaidSummary className="mt-6 lg:mt-8" rows={TRANSACTIONS} />
-          <StatusFilter className="mt-7 lg:mt-10" counts={counts} onChange={setFilter} value={filter} />
-          {/* Says what the filter left, for a reader who cannot see the list change. */}
-          <p aria-live="polite" className="sr-only">
-            {t("showing", { count: rows.length })}
-          </p>
-          <div className={cn("mt-5 flex w-full flex-col gap-7 pb-10 lg:mt-6 lg:gap-9 lg:pb-0", GUTTER)}>
-            {rows.length === 0 ? (
-              <HistoryEmpty filtered onShowAll={() => setFilter("all")} />
-            ) : (
-              groupByMonth(rows).map((group) => (
-                <MonthGroup date={group.date} key={group.key} rows={group.rows} />
-              ))
-            )}
+    <div aria-busy className="flex w-full flex-col">
+      <span className="sr-only">{t("loading")}</span>
+      <div aria-hidden className="mt-5 flex gap-2 lg:mt-8 lg:gap-3">
+        {["w-18 lg:w-23", "w-20 lg:w-25"].map((width) => (
+          <span className={cn(BONE, "h-9 shrink-0 rounded-full lg:h-12", width)} key={width} />
+        ))}
+      </div>
+      <div aria-hidden className="flex flex-col divide-y divide-border">
+        {[0, 1].map((month) => (
+          <div className="flex flex-col pt-5 lg:pt-8" key={month}>
+            <span className="flex h-lh items-center text-xs lg:text-frame-label">
+              <span className={cn(BONE, "h-3 w-24 rounded lg:h-3.5 lg:w-28")} />
+            </span>
+            {[0, 1].map((i) => (
+              <div className="flex items-start gap-3 py-2.5 lg:gap-5 lg:py-3.5" key={i}>
+                <span className={cn(BONE, "size-9 shrink-0 rounded-full lg:size-12")} />
+                <span className="flex min-w-0 flex-1 flex-col gap-0.5 lg:gap-1">
+                  <span className="flex h-lh items-center text-sm lg:text-frame-body">
+                    <span className={cn(BONE, "h-3.5 w-1/2 rounded lg:h-4.5")} />
+                  </span>
+                  <span className="flex h-lh items-center text-xs lg:text-frame-meta">
+                    <span className={cn(BONE, "h-3 w-1/3 rounded lg:h-4")} />
+                  </span>
+                </span>
+                <span className="flex shrink-0 flex-col items-end gap-0.5 lg:gap-1">
+                  <span className="flex h-lh items-center text-sm lg:text-frame-meta">
+                    <span className={cn(BONE, "h-3.5 w-12 rounded lg:h-4 lg:w-14")} />
+                  </span>
+                  <span className="flex h-lh items-center text-xs lg:text-frame-label">
+                    <span className={cn(BONE, "h-3 w-10 rounded lg:h-3.5 lg:w-12")} />
+                  </span>
+                </span>
+              </div>
+            ))}
           </div>
-        </>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+/**
+ * `/transactions`: the advisee's money history, laid out like the
+ * notification centre. Newest first, a month to a group with a hairline
+ * between groups, and filters by outcome above. A row opens its receipt over
+ * the list (`ReceiptDialog`).
+ *
+ * The rows are the signed-in advisee's invoices whenever the build has an API
+ * (`listMyInvoices`); without one, the samples (`transactions-data.ts`).
+ */
+export function TransactionHistoryScreen() {
+  return isApiConfigured ? <LiveTransactionHistory /> : <SampleTransactionHistory />;
+}
+
+function SampleTransactionHistory() {
+  const serviceName = useServiceName();
+  return <TransactionHistory history={sampleHistory(serviceName)} />;
+}
+
+/**
+ * The first page of the API's invoices, fifty of them: an advisee pays a few
+ * times a month at most, so that is years of history and no paging to draw.
+ * Each row carries its own receipt, so the dialog needs no second call.
+ */
+function LiveTransactionHistory() {
+  const t = useTranslations("transactions");
+  const fetcher = useCallback((signal: AbortSignal) => listMyInvoices({ page: 1, limit: 50 }, signal), []);
+  const invoices = useResource<Paginated<ApiAdviseeInvoice>>("payment/invoices?page=1&limit=50", fetcher);
+
+  if (invoices.data) return <TransactionHistory history={invoices.data.items.map(invoiceTransaction)} />;
+
+  return (
+    <HistoryFrame>
+      <HistoryHeader />
+      {invoices.error ? (
+        // The API's own sentence: it tells "signed out" from "the server is down".
+        <div className="mt-5 lg:mt-8">
+          <ApiErrorCard
+            className={ERROR_CARD_LG}
+            error={invoices.error}
+            onRetry={invoices.reload}
+            title={t("loadFailed")}
+          />
+        </div>
+      ) : (
+        <HistorySkeleton />
       )}
-    </TransactionsFrame>
+    </HistoryFrame>
+  );
+}
+
+/** The history once its rows are in, whichever source they came from. */
+function TransactionHistory({ history }: { readonly history: readonly Transaction[] }) {
+  const t = useTranslations("transactions");
+  const format = useFormatter();
+  const timeZone = useTimeZone() ?? "Asia/Bangkok";
+  const [filter, setFilter] = useState<Filter>("all");
+  // Which receipt is open, kept apart from whether the dialog is: the receipt
+  // stays on screen while the dialog plays its exit.
+  const [receipt, setReceipt] = useState<Receipt | null>(null);
+  const [receiptOpen, setReceiptOpen] = useState(false);
+  // `?invoiceId=`, a link to one receipt (a payment notification's "see the
+  // receipt"): the history opens with it over the list, until the reader
+  // closes it or opens another.
+  const linkedId = asUuid(useQueryValue("invoiceId"));
+  const [linkSpent, setLinkSpent] = useState(false);
+  const linked = linkSpent || !linkedId ? undefined : history.find((row) => row.id === linkedId);
+  const openReceipt = (next: Receipt) => {
+    setLinkSpent(true);
+    setReceipt(next);
+    setReceiptOpen(true);
+  };
+  const receiptOpenChange = (next: boolean) => {
+    // A linked receipt that closes keeps its sheet for the exit, as any other.
+    if (linked) {
+      setLinkSpent(true);
+      setReceipt(linked.receipt);
+    }
+    setReceiptOpen(next);
+  };
+  const rows = filter === "all" ? history : history.filter((row) => row.status === filter);
+  const kinds = STATUS_ORDER.filter((status) => history.some((row) => row.status === status));
+
+  if (history.length === 0) {
+    return (
+      <HistoryFrame>
+        <HistoryHeader />
+        <HistoryEmpty />
+      </HistoryFrame>
+    );
+  }
+
+  return (
+    <HistoryFrame>
+      <HistoryHeader />
+      <div className="mt-5 lg:mt-8">
+        <StatusFilter kinds={kinds} onChange={setFilter} value={filter} />
+      </div>
+      {/* Says what the filter left, for a reader who cannot see the list change. */}
+      <p aria-live="polite" className="sr-only">
+        {t("showing", { count: rows.length })}
+      </p>
+      {rows.length === 0 ? (
+        <FilteredEmpty onShowAll={() => setFilter("all")} />
+      ) : (
+        <div className="flex flex-col divide-y divide-border">
+          {groupByMonth(rows, timeZone).map((group) => (
+            <DayGroup key={group.key} label={format.dateTime(group.date, { month: "long", year: "numeric" })}>
+              {group.rows.map((row) => (
+                <TransactionRow key={row.id} onOpen={openReceipt} row={row} />
+              ))}
+            </DayGroup>
+          ))}
+        </div>
+      )}
+      <ReceiptDialog
+        onOpenChange={receiptOpenChange}
+        open={receiptOpen || linked !== undefined}
+        receipt={linked ? linked.receipt : receipt}
+      />
+    </HistoryFrame>
   );
 }
 
 /* ------------------------------------------------------------------ receipt */
-
-/** The outcome's mark at the head of the receipt, in its status colour. */
-function StatusMark({ status }: { readonly status: TransactionStatus }) {
-  const look = OUTCOME[status];
-  const Icon = look.icon;
-
-  return (
-    <span className={cn("flex size-14 items-center justify-center rounded-full lg:size-16", look.mark)}>
-      <Icon aria-hidden className="size-7 lg:size-8" />
-    </span>
-  );
-}
 
 /** A receipt line: what, then how much or which, in a definition list. */
 function Line({
@@ -486,11 +590,13 @@ function Line({
 }) {
   return (
     <div className="flex items-baseline justify-between gap-4">
-      <dt className="text-sm text-muted-foreground lg:text-base">{label}</dt>
+      <dt className="min-w-0 text-xs text-muted-foreground lg:text-frame-meta">{label}</dt>
       <dd
         className={cn(
-          "min-w-0 text-right text-sm break-words text-foreground lg:text-lg",
-          latin && "font-latin tabular-nums",
+          "min-w-0 text-right text-xs break-words text-foreground lg:text-frame-meta",
+          // An amount never breaks: on a narrow sheet "฿855" split into
+          // "฿85 / 5". The label beside it wraps instead.
+          latin && "shrink-0 font-latin whitespace-nowrap tabular-nums",
           valueClassName,
         )}
       >
@@ -500,187 +606,240 @@ function Line({
   );
 }
 
+/** One of the facts under the amount: its name small and muted over the value. */
+function Fact({
+  label,
+  children,
+  className,
+}: {
+  readonly label: ReactNode;
+  readonly children: ReactNode;
+  readonly className?: string;
+}) {
+  return (
+    <div className="flex min-w-0 flex-col gap-1">
+      <dt className="text-xs text-muted-foreground lg:text-frame-label">{label}</dt>
+      <dd className={cn("text-xs break-words text-foreground lg:text-frame-meta", className)}>{children}</dd>
+    </div>
+  );
+}
+
 /**
  * The card as a receipt names it, "Visa •••• 4242", held together with
  * no-break spaces so a wrapping sentence never leaves the last four digits on
  * a line of their own.
  */
-function cardName(receipt: Receipt): string {
-  return `${receipt.card.brand} •••• ${receipt.card.last4}`;
+function cardName(card: NonNullable<Receipt["card"]>): string {
+  return `${card.brand} •••• ${card.last4}`;
 }
 
-/** A receipt's perforation between its parts. */
-function Perforation() {
-  return <div aria-hidden className="mx-5 border-t border-dashed border-border md:mx-6 lg:mx-10" />;
-}
-
-const RECEIPT_PART = "flex flex-col gap-3 px-5 py-5 md:px-6 lg:px-10 lg:py-6";
+/** The receipt's side margin, on the paper itself: the phone's on an upright tablet too. */
+export const SHEET_X = "px-5 lg:px-10";
 
 /**
- * The receipt itself, top to bottom the way a paper one reads: how it ended
- * and for how much, what was bought, what it cost, and how it was paid.
+ * The facts of the booking and the card, two to a row: who advised, when, the
+ * card it went on, who it is made out to, and how the booking stands.
  */
-function ReceiptCard({ receipt }: { readonly receipt: Receipt }) {
+function ReceiptFacts({ receipt }: { readonly receipt: Receipt }) {
   const t = useTranslations("transactions");
   const format = useFormatter();
-  const baht = useBaht();
-  const look = OUTCOME[receipt.status];
-  const at = new Date(receipt.at);
   const clock = (iso: string) =>
     format.dateTime(new Date(iso), { hour: "2-digit", minute: "2-digit", hourCycle: "h23" });
-  const service = t(`services.${receipt.service}`);
-  const card = cardName(receipt);
-  const charged = receipt.price + receipt.fee;
-  // A refund's receipt leads with what came back; the others with what was asked for.
-  const headline = receipt.status === "refunded" ? (receipt.refund ?? charged) : charged;
-  const { from, to } = receipt.session;
+  const { session, card } = receipt;
+  const signedIn = useSession();
+  const payer = signedIn.status === "authenticated" ? signedIn.account : null;
 
   return (
-    <article className="flex w-full flex-col overflow-hidden rounded-card border border-hero-card-border bg-card shadow-hero-card">
-      <header className="flex flex-col items-center px-6 pt-8 pb-7 text-center lg:px-10 lg:pt-10 lg:pb-8">
-        <StatusMark status={receipt.status} />
-        <h1 className="mt-4 font-hero text-xl font-normal tracking-tight text-hero-ink md:text-2xl lg:mt-5 lg:text-frame-title">
-          {t(`headline.${receipt.status}`)}
-        </h1>
-        <p className="font-latin mt-1.5 text-4xl font-semibold tracking-tight tabular-nums text-foreground lg:text-hero">
-          {baht(headline)}
-        </p>
-        <StatusPill className="mt-3 lg:mt-4 lg:px-3.5 lg:py-1.5 lg:text-base" icon={look.icon} tone={look.tone}>
-          {t(`pill.${receipt.status}`)}
-        </StatusPill>
-        <p className="mt-3 text-sm text-muted-foreground lg:text-base">
-          <Figures>
-            {t(`at.${receipt.status}`, {
-              date: format.dateTime(at, { day: "numeric", month: "short", year: "numeric" }),
-              time: clock(receipt.at),
-            })}
-          </Figures>
-        </p>
-      </header>
-
-      <Perforation />
-      <dl className={RECEIPT_PART}>
-        <Line label={t("serviceLabel")} value={service} />
-        <Line label={t("advisorLabel")} value={receipt.advisor} />
-        <Line
-          label={receipt.booking === "unconfirmed" ? t("requestedDateLabel") : t("sessionDateLabel")}
-          value={
+    <dl className="mt-2.5 grid grid-cols-2 gap-x-5 gap-y-2 md:mt-3 md:gap-y-2.5 lg:mt-7 lg:gap-x-6 lg:gap-y-5">
+      <Fact label={t("advisorLabel")}>{receipt.advisor}</Fact>
+      {session ? (
+        <Fact label={receipt.booking === "unconfirmed" ? t("requestedDateLabel") : t("sessionDateLabel")}>
+          {/* The day, then the hours on a line of their own. */}
+          <span className="block">
             <Figures>
-              {format.dateTime(new Date(receipt.session.date), {
+              {format.dateTime(new Date(session.date), {
                 weekday: "short",
                 day: "numeric",
                 month: "short",
                 year: "numeric",
               })}
             </Figures>
-          }
-        />
-        {from && to ? (
-          <Line
-            label={t("timeLabel")}
-            value={<Figures>{t("timeRange", { from: clock(from), to: clock(to) })}</Figures>}
-          />
-        ) : null}
-        {receipt.booking ? (
-          <Line
-            label={t("bookingLabel")}
-            value={t(`booking.${receipt.booking}`)}
-            valueClassName="font-medium text-destructive"
-          />
-        ) : null}
-      </dl>
-
-      <Perforation />
-      <dl className={RECEIPT_PART}>
-        <Line label={service} latin value={baht(receipt.price)} />
-        <Line label={t("feeLabel")} latin value={baht(receipt.fee)} />
-        {receipt.refund ? (
-          // U+2212, a true minus: the figure lines up with the ones above it.
-          <Line label={t("refundLabel")} latin value={`−${baht(receipt.refund)}`} />
-        ) : null}
-        <div className="mt-1 flex items-baseline justify-between gap-4 border-t border-border pt-4">
-          <dt className="text-base font-semibold text-foreground lg:text-xl">{t(`total.${receipt.status}`)}</dt>
-          <dd className="font-latin text-2xl font-semibold tracking-tight tabular-nums text-foreground lg:text-2xl">
-            {baht(charged - (receipt.refund ?? 0))}
-          </dd>
-        </div>
-      </dl>
-
-      <Perforation />
-      <dl className={RECEIPT_PART}>
-        <Line
-          label={t(`cardLabel.${receipt.status}`)}
-          latin
-          value={
-            <span className="inline-flex items-center gap-2">
-              <CreditCard aria-hidden className="size-4 text-muted-foreground" />
-              {card}
+          </span>
+          {session.from && session.to ? (
+            <span className="block">
+              <Figures>{t("timeRange", { from: clock(session.from), to: clock(session.to) })}</Figures>
             </span>
-          }
-        />
-        {receipt.status === "failed" ? (
-          <Line label={t("reasonLabel")} value={t("reasonValue")} valueClassName="text-destructive" />
+          ) : null}
+        </Fact>
+      ) : null}
+      {card ? (
+        <Fact className="font-latin" label={t(`cardLabel.${receipt.status}`)}>
+          <span className="inline-flex items-center gap-2">
+            <CreditCard aria-hidden className="size-4 text-muted-foreground" />
+            {cardName(card)}
+          </span>
+        </Fact>
+      ) : null}
+      {/* Who the receipt is made out to, as a printed one names them. */}
+      {payer ? (
+        <Fact label={t("billedToLabel")}>
+          <span className="block">{payer.name}</span>
+          <span className="block truncate text-muted-foreground">{payer.email}</span>
+        </Fact>
+      ) : null}
+      {receipt.booking ? (
+        <Fact className="font-medium text-destructive" label={t("bookingLabel")}>
+          {t(`booking.${receipt.booking}`)}
+        </Fact>
+      ) : null}
+    </dl>
+  );
+}
+
+/**
+ * The receipt itself, laid out as a sheet of paper rather than a panel: narrow
+ * and upright, top to bottom the way a printed one reads. Who issued it and
+ * its number; how it ended, for how much and when; the facts of the booking
+ * and the card; the line items and their total; then the references.
+ *
+ * A fact the record does not hold (no session, no card, no instant for a
+ * refund) is left out rather than drawn empty or made up.
+ *
+ * `inDialog`: the sheet is the dialog's own surface, so it drops its border
+ * and shadow, and its heading is an `h2` under the page's `h1`, named by
+ * `titleId` for the dialog to be labelled by.
+ */
+function ReceiptCard({
+  receipt,
+  inDialog = false,
+  titleId,
+}: {
+  readonly receipt: Receipt;
+  readonly inDialog?: boolean;
+  readonly titleId?: string;
+}) {
+  const t = useTranslations("transactions");
+  const format = useFormatter();
+  const baht = useBaht();
+  const look = OUTCOME[receipt.status];
+  const StatusIcon = look.icon;
+  const clock = (iso: string) =>
+    format.dateTime(new Date(iso), { hour: "2-digit", minute: "2-digit", hourCycle: "h23" });
+  const charged = receipt.price + receipt.fee;
+  // A refund's receipt leads with what came back; the others with what was asked for.
+  const headline = receipt.status === "refunded" ? (receipt.refund ?? charged) : charged;
+  const { at } = receipt;
+  const Heading = inDialog ? "h2" : "h1";
+
+  return (
+    <article
+      className={cn(
+        "flex w-full flex-col bg-card",
+        !inDialog && "rounded-card border border-hero-card-border shadow-hero-card",
+      )}
+    >
+      {/* In the popup the close sits outside the sheet, so the header starts
+          the sheet at every width. */}
+      <header className={cn("flex items-start justify-between gap-4", inDialog ? "pt-5 md:pt-4 lg:pt-9" : "pt-6 lg:pt-9", SHEET_X)}>
+        <Image alt="Advisory" className="h-5 w-auto lg:h-8" src={logo} />
+        <div className="flex flex-col items-end gap-0.5 text-right">
+          <p className="text-xs text-muted-foreground lg:text-frame-label">{t("receiptLabel")}</p>
+          <p className="font-latin text-xs tabular-nums text-foreground lg:text-frame-meta">{receipt.invoiceNo}</p>
+        </div>
+      </header>
+
+      {/* Below `lg` the sheet keeps its steps tight: on a phone or an upright
+          tablet it opens as a popup, and every row it saves is one less to
+          scroll inside it. */}
+      <section className={cn("flex flex-col pt-3 pb-3 md:pt-4 md:pb-4 lg:pt-9 lg:pb-8", SHEET_X)}>
+        <Heading
+          className={cn("flex items-center gap-1.5 text-xs font-medium lg:gap-2 lg:text-frame-meta", look.ink)}
+          id={titleId}
+        >
+          <StatusIcon aria-hidden className="size-4 shrink-0 lg:size-5" />
+          {t(`headline.${receipt.status}`)}
+        </Heading>
+        <p className="font-latin mt-1.5 text-2xl font-semibold tracking-tight tabular-nums text-hero-ink lg:mt-2 lg:text-frame-title">
+          {baht(headline)}
+        </p>
+        {at ? (
+          <p className="mt-1.5 text-xs text-muted-foreground lg:text-frame-meta">
+            <Figures>
+              {t(`at.${receipt.status}`, {
+                date: format.dateTime(new Date(at), { day: "numeric", month: "short", year: "numeric" }),
+                time: clock(at),
+              })}
+            </Figures>
+          </p>
         ) : null}
-        <Line label={t("invoiceNoLabel")} latin value={receipt.invoiceNo} />
-        <Line label={t("chargeIdLabel")} latin value={receipt.chargeId} valueClassName="text-muted-foreground" />
-      </dl>
+
+        <ReceiptFacts receipt={receipt} />
+      </section>
+
+      {/* The line items on a faint ground of their own, the way a printed
+          receipt boxes what was bought. */}
+      <section className={cn("border-t border-dashed border-border pt-2.5 pb-3 md:pt-3 md:pb-4 lg:pt-6 lg:pb-9", SHEET_X)}>
+        <h2 className="text-xs font-medium text-muted-foreground lg:text-frame-label">{t("summaryHeading")}</h2>
+        <dl className="mt-1.5 flex flex-col gap-1.5 rounded-xl bg-muted/50 p-2.5 md:mt-2 md:gap-2 md:p-3 lg:mt-4 lg:gap-4 lg:p-5">
+          <Line label={<span className="text-foreground">{receipt.service}</span>} latin value={baht(receipt.price)} />
+          <Line label={t("feeLabel")} latin value={baht(receipt.fee)} />
+          {receipt.refund ? (
+            // U+2212, a true minus: the figure lines up with the ones above it.
+            <Line label={t("refundLabel")} latin value={`−${baht(receipt.refund)}`} />
+          ) : null}
+          <div className="flex items-baseline justify-between gap-4 border-t border-border pt-3 lg:pt-4">
+            <dt className="text-xs font-semibold text-foreground lg:text-frame-body">{t(`total.${receipt.status}`)}</dt>
+            <dd className="font-latin text-sm font-semibold tabular-nums text-foreground lg:text-frame-figure">
+              {baht(charged - (receipt.refund ?? 0))}
+            </dd>
+          </div>
+        </dl>
+        {/* No card network reference here: the API keeps the charge id to
+            itself (it strips it from the invoice it returns), and the receipt
+            number at the top is what the reader quotes to support. The
+            reason is said only when it is known: the API sends none. */}
+        {receipt.status === "failed" && receipt.issuerDeclined ? (
+          <dl className="mt-3 px-1 lg:mt-4">
+            <Line label={t("reasonLabel")} value={t("reasonValue")} valueClassName="text-destructive" />
+          </dl>
+        ) : null}
+      </section>
     </article>
   );
 }
 
 /**
- * What the outcome means and what to do about it: the escrow promise under a
- * paid receipt; for a declined one, that nothing was taken and the way to pay
- * again; for a refund, where the money went and that a bank can take a while
- * to show it. Then a way to ask about it, quoting the receipt number.
+ * What to do next, and nothing that repeats the receipt: the outcome, the
+ * amount, the card and the reason are all on the sheet above, so there is no
+ * note restating them. The way on for this outcome, then one quiet, centred
+ * line for a question about this charge, quoting the receipt number.
  */
-function NextSteps({ receipt }: { readonly receipt: Receipt }) {
+function NextSteps({ receipt, className }: { readonly receipt: Receipt; readonly className?: string }) {
   const t = useTranslations("transactions");
   const l = useTranslations("landing");
-  const baht = useBaht();
-  const look = OUTCOME[receipt.status];
-  const card = cardName(receipt);
 
-  const notes: Record<TransactionStatus, { icon: LucideIcon; title?: string; body: string }> = {
-    paid: { icon: ShieldCheck, body: t("escrowNote") },
-    failed: { icon: look.icon, title: t("failedTitle"), body: t("failedBody") },
-    refunded: {
-      icon: look.icon,
-      title: t("refundedTitle", { amount: baht(receipt.refund ?? 0), card }),
-      body: t("refundedBody"),
-    },
-  };
+  // The booking this was for, open over the list.
+  const bookings = receipt.bookingHref ?? "/bookings";
   const actions: Record<TransactionStatus, readonly { label: string; href: string; solid: boolean }[]> = {
-    paid: [{ label: t("viewBookings"), href: "/bookings", solid: true }],
+    paid: [{ label: t("viewBookings"), href: bookings, solid: true }],
     failed: [{ label: t("payAgain"), href: "/checkout/card", solid: true }],
     refunded: [
       { label: t("findExpert"), href: "/search", solid: true },
-      { label: t("viewBookings"), href: "/bookings", solid: false },
+      { label: t("viewBookings"), href: bookings, solid: false },
     ],
+    // The booking it is for is where the reader picks it up again.
+    pending: [{ label: t("viewBookings"), href: bookings, solid: true }],
   };
-  const note = notes[receipt.status];
-  const NoteIcon = note.icon;
   const subject = encodeURIComponent(t("supportSubject", { number: receipt.invoiceNo }));
 
   return (
-    <aside className="w-full lg:sticky lg:top-28">
-      <div className="flex flex-col gap-4">
-        <div className={cn("flex items-start gap-3 rounded-card p-4 lg:p-5", look.panel)}>
-          <NoteIcon aria-hidden className={cn("mt-0.5 size-5 shrink-0", look.ink)} />
-          <div className="flex min-w-0 flex-col gap-1">
-            {note.title ? (
-              <p className="text-sm font-semibold text-foreground lg:text-lg">
-                <Figures>{note.title}</Figures>
-              </p>
-            ) : null}
-            <p className="text-sm text-foreground/80 lg:text-base">{note.body}</p>
-          </div>
-        </div>
-
+    <aside className={cn("w-full", className)}>
+      <div className="flex flex-col gap-2.5 md:gap-3 lg:gap-4">
         <div className="flex flex-col gap-2.5">
           {actions[receipt.status].map((action) => (
             <Button
-              className={cn(authPill(action.solid), PILL_LG)}
+              // The phone's 44px on an upright tablet too: the sheet there is a phone's width.
+              className={cn(authPill(action.solid), "md:h-11 md:text-sm", PILL_LG)}
               key={action.href}
               nativeButton={false}
               render={<Link href={action.href} />}
@@ -691,65 +850,268 @@ function NextSteps({ receipt }: { readonly receipt: Receipt }) {
           ))}
         </div>
 
-        <div className="flex flex-col gap-1 border-t border-border pt-4 text-sm lg:text-base">
-          <p className="text-muted-foreground">{t("helpPrompt")}</p>
-          <p className="flex flex-wrap items-center gap-x-5">
-            <a
-              className={cn(AUTH_LINK, "py-1.5")}
-              href={`mailto:${l("footerEmailAddress")}?subject=${subject}`}
-            >
-              {t("contactSupport")}
-            </a>
-            <Link className={cn(AUTH_LINK, "py-1.5")} href="/landing#faq">
-              {t("faq")}
-            </Link>
-          </p>
-        </div>
+        <p className="text-center text-xs text-muted-foreground lg:text-frame-label">
+          {t("helpPrompt")}{" "}
+          <a className={cn(AUTH_LINK, "py-1.5")} href={`mailto:${l("footerEmailAddress")}?subject=${subject}`}>
+            {t("contactSupport")}
+          </a>
+        </p>
       </div>
     </aside>
   );
 }
 
+/** The sheet's width from `lg`, in the 1710 space: narrow and upright, the shape of a receipt. */
+export const SHEET_W = "lg:w-144";
+
 /**
- * `/transactions/detail` and its `failed` / `refunded` siblings: one receipt.
+ * A receipt over the history: the sheet, then what the outcome means and what
+ * to do next under it, on one white surface that scrolls inside the window
+ * with its close button held at the top.
  *
- * The receipt is a single card that reads like paper; beside it from `lg`
- * (under it on the phone) is what the outcome means and what to do next. The
- * app bar's sidebar is the way back on a desktop, with the breadcrumb saying
- * where this sits; the phone has its back chevron.
+ * The popup is portalled out of the account column, so it takes that column's
+ * zoom itself (`app-scale`) from `lg` and its sizes match the page behind it;
+ * below `lg` the wrapper is `contents` and nothing is zoomed, as in the column.
+ *
+ * `receipt` is null until a row is first opened; the dialog is closed then.
+ */
+function ReceiptDialog({
+  receipt,
+  open,
+  onOpenChange,
+}: {
+  readonly receipt: Receipt | null;
+  readonly open: boolean;
+  readonly onOpenChange: (open: boolean) => void;
+}) {
+  const t = useTranslations("transactions");
+  const title = useId();
+
+  return (
+    <Dialog onOpenChange={onOpenChange} open={open}>
+      <DialogContent
+        aria-labelledby={title}
+        // On a phone 24px clear of each edge rather than the dialog's 16, so
+        // the receipt reads as a sheet over the list rather than a second page.
+        // The popup itself only places things: the sheet below scrolls, and
+        // the close sits outside it.
+        className="block max-w-[calc(100%-3rem)] gap-0 overflow-visible bg-transparent p-0 text-foreground ring-0 sm:max-w-sm lg:w-auto lg:max-w-none"
+        // The close sits out on the page in white, so the page under it is
+        // dimmed by half, as under the settings' dialogs.
+        overlayClassName="bg-scrim/50"
+        showCloseButton={false}
+      >
+        {receipt ? (
+          <>
+            {/* Out on the dimmed page above the sheet's top right corner at
+                every width, so it never sits over the receipt: the bare glyph
+                in white, a thumb's 44px around it to press. */}
+            <DialogClose
+              render={
+                <Button
+                  aria-label={t("closeReceipt")}
+                  className="absolute -top-12 right-0 size-11 text-on-media hover:bg-transparent hover:text-on-media md:-top-13 lg:-top-14 lg:size-12"
+                  size="icon"
+                  variant="ghost"
+                />
+              }
+            >
+              <X aria-hidden className="size-6 lg:size-7" />
+            </DialogClose>
+            {/* As tall as the screen allows under the close (its 48 and a
+                margin), so the whole receipt fits without scrolling on any
+                phone the height of an SE or more. */}
+            <div className="max-h-[calc(100dvh-7rem)] overflow-y-auto overscroll-contain rounded-card bg-card shadow-hero-card md:max-h-[calc(100dvh-8rem)] lg:max-h-[calc(100dvh-9rem)]">
+              <div className={cn("app-scale contents lg:block", SHEET_W)}>
+                <ReceiptCard inDialog receipt={receipt} titleId={title} />
+                <NextSteps className={cn("pb-5 md:pb-4 lg:pb-6", SHEET_X)} receipt={receipt} />
+              </div>
+            </div>
+          </>
+        ) : null}
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+/**
+ * The receipt page's column, whatever it holds: centred in the panel, narrow
+ * the way a receipt is, under the breadcrumb that says where this sits on a
+ * desktop. `crumb` is the receipt's number, once there is one to name.
+ */
+function ReceiptColumn({ crumb, children }: { readonly crumb?: string; readonly children: ReactNode }) {
+  const t = useTranslations("transactions");
+
+  return (
+    <TransactionsFrame back="/transactions">
+      <div className={cn("flex w-full flex-col lg:mx-auto", SHEET_W)}>
+        <nav aria-label={t("breadcrumbLabel")} className="hidden text-frame-meta text-muted-foreground lg:block">
+          <ol className="flex flex-wrap items-center gap-1.5">
+            <li>
+              <Link className="transition-colors hover:text-foreground" href="/transactions">
+                {t("title")}
+              </Link>
+            </li>
+            {crumb ? (
+              <>
+                <li aria-hidden>/</li>
+                <li aria-current="page" className="font-latin text-foreground">
+                  {crumb}
+                </li>
+              </>
+            ) : null}
+          </ol>
+        </nav>
+
+        <div className={cn("flex w-full flex-col gap-6 pt-2 pb-10 md:mx-auto md:max-w-xl lg:mt-6 lg:max-w-none lg:gap-8 lg:pt-0 lg:pb-0", GUTTER)}>
+          {children}
+        </div>
+      </div>
+    </TransactionsFrame>
+  );
+}
+
+/** One receipt on its page, with what to do next under it. */
+function ReceiptPage({ receipt }: { readonly receipt: Receipt }) {
+  return (
+    <ReceiptColumn crumb={receipt.invoiceNo}>
+      <ReceiptCard receipt={receipt} />
+      <NextSteps receipt={receipt} />
+    </ReceiptColumn>
+  );
+}
+
+/** The sheet's own shape while the invoice loads: the heading row, the amount, the facts, the line items. */
+function ReceiptSkeleton() {
+  const t = useTranslations("transactions");
+
+  return (
+    <ReceiptColumn>
+      <div aria-busy className="flex w-full flex-col gap-6 lg:gap-8">
+        <span className="sr-only">{t("loadingReceipt")}</span>
+        <div
+          aria-hidden
+          className={cn(
+            "flex w-full flex-col gap-5 rounded-card border border-hero-card-border bg-card pt-6 pb-6 shadow-hero-card lg:gap-8 lg:pt-9 lg:pb-9",
+            SHEET_X,
+          )}
+        >
+          <div className="flex items-start justify-between gap-4">
+            <span className={cn(BONE, "h-5 w-24 rounded lg:h-8 lg:w-36")} />
+            <span className={cn(BONE, "h-4 w-32 rounded lg:h-5 lg:w-44")} />
+          </div>
+          <div className="flex flex-col gap-2 lg:gap-3">
+            <span className={cn(BONE, "h-4 w-32 rounded lg:h-5 lg:w-44")} />
+            <span className={cn(BONE, "h-8 w-40 rounded-lg lg:h-12 lg:w-56")} />
+            <span className={cn(BONE, "h-4 w-48 rounded lg:h-5 lg:w-64")} />
+          </div>
+          <div className="grid grid-cols-2 gap-x-5 gap-y-3 lg:gap-x-6 lg:gap-y-5">
+            {[0, 1, 2, 3].map((i) => (
+              <span className={cn(BONE, "h-10 rounded lg:h-12")} key={i} />
+            ))}
+          </div>
+          <span className={cn(BONE, "h-32 w-full rounded-xl lg:h-44")} />
+        </div>
+        <span aria-hidden className={cn(BONE, "h-11 w-full rounded-full lg:h-14")} />
+      </div>
+    </ReceiptColumn>
+  );
+}
+
+/**
+ * The invoice could not be shown. A 404 is an id that is not one of the
+ * reader's receipts, which asking again will not change: say so, with the way
+ * back to the list. Anything else is the API's own sentence with a retry.
+ */
+function ReceiptUnavailable({ error, onRetry }: { readonly error: Error; readonly onRetry: () => void }) {
+  const t = useTranslations("transactions");
+
+  if (error instanceof ApiError && error.status === 404) {
+    return (
+      <ReceiptColumn>
+        <div className="flex w-full flex-col items-center justify-center gap-3 px-6 py-12 text-center lg:gap-5 lg:rounded-2xl lg:border lg:border-border lg:py-20">
+          <span className="flex size-11 items-center justify-center rounded-full bg-muted text-hero-ink/75 lg:size-14">
+            <ReceiptText aria-hidden className="size-5 lg:size-7" strokeWidth={1.5} />
+          </span>
+          <div className="flex flex-col items-center gap-1">
+            <h1 className="text-base font-semibold text-foreground lg:text-frame-figure">{t("notFoundTitle")}</h1>
+            <p className="text-xs text-balance text-muted-foreground lg:text-frame-meta">{t("notFoundBody")}</p>
+          </div>
+          <Button
+            className={cn(authPill(true), "mt-1 h-10 w-auto px-4 text-sm md:h-10 md:px-5 md:text-sm lg:h-12 lg:px-6 lg:text-frame-body")}
+            nativeButton={false}
+            render={<Link href="/transactions" />}
+          >
+            {t("backToList")}
+          </Button>
+        </div>
+      </ReceiptColumn>
+    );
+  }
+
+  return (
+    <ReceiptColumn>
+      <ApiErrorCard className={ERROR_CARD_LG} error={error} onRetry={onRetry} title={t("receiptLoadFailed")} />
+    </ReceiptColumn>
+  );
+}
+
+/** One of the reader's invoices, read from the API by its id. */
+function LiveInvoiceDetail({ invoiceId }: { readonly invoiceId: string }) {
+  const fetcher = useCallback((signal: AbortSignal) => getMyInvoice(invoiceId, signal), [invoiceId]);
+  const invoice = useResource<ApiAdviseeInvoice>(`payment/invoices/${invoiceId}`, fetcher);
+
+  if (invoice.data) return <ReceiptPage receipt={invoiceReceipt(invoice.data)} />;
+  if (invoice.error) return <ReceiptUnavailable error={invoice.error} onRetry={invoice.reload} />;
+  return <ReceiptSkeleton />;
+}
+
+/** The route's sample receipt, unchanged from before the API existed. */
+function SampleInvoiceDetail({ state }: { readonly state: SampleStatus }) {
+  const serviceName = useServiceName();
+  return <ReceiptPage receipt={sampleReceipt(state, serviceName)} />;
+}
+
+/**
+ * `?id=` names an invoice, and with an API to ask it is that invoice's
+ * receipt. Without either it is exactly what it was: the route's sample.
+ *
+ * `useSearchParams`, as the service page reads `?serviceId=`, so a link that
+ * keeps the path and changes only the query still lands. Keyed by the id, so
+ * the next invoice starts from its own clean state.
+ */
+function InvoiceDetailHandoff({ state }: { readonly state: SampleStatus }) {
+  const query = useSearchParams();
+  const invoiceId = isApiConfigured ? query.get("id") : null;
+  if (invoiceId) return <LiveInvoiceDetail invoiceId={invoiceId} key={invoiceId} />;
+  return <SampleInvoiceDetail state={state} />;
+}
+
+/**
+ * `/transactions/detail` and its `failed` / `refunded` siblings: one receipt
+ * on a page of its own, for a link from a notification or an email, or a row
+ * opened in a new tab. The history itself opens the same receipt in
+ * `ReceiptDialog`.
+ *
+ * The sheet is centred in the panel, narrow the way a receipt is, with what
+ * the outcome means and what to do next under it. The rail is the way back on
+ * a desktop, with the breadcrumb saying where this sits; the phone has its
+ * back chevron.
  *
  * No download: the old button had nothing behind it, and a control that does
  * nothing on a money page costs more trust than it adds.
  */
-export function InvoiceDetailScreen({ state }: { readonly state: TransactionStatus }) {
-  const t = useTranslations("transactions");
-  const receipt = RECEIPTS[state];
-
+export function InvoiceDetailScreen({ state }: { readonly state: SampleStatus }) {
+  // The query is only known in the browser, so the prerendered HTML is this
+  // fallback. On the route the history's rows link to, with an API to ask, it
+  // is the receipt's skeleton: as the sample, a cold load of a real receipt
+  // would first paint a made-up one, amount and all. The sibling routes keep
+  // their samples.
   return (
-    <TransactionsFrame back="/transactions">
-      <nav aria-label={t("breadcrumbLabel")} className="hidden text-base text-muted-foreground lg:block">
-        <ol className="flex flex-wrap items-center gap-1.5">
-          <li>
-            <Link className="transition-colors hover:text-foreground" href="/transactions">
-              {t("title")}
-            </Link>
-          </li>
-          <li aria-hidden>/</li>
-          <li aria-current="page" className="font-latin text-foreground">
-            {receipt.invoiceNo}
-          </li>
-        </ol>
-      </nav>
-
-      <div
-        className={cn(
-          "flex w-full flex-col gap-5 pt-2 pb-10 md:mx-auto md:max-w-2xl lg:mt-6 lg:grid lg:max-w-none lg:grid-cols-[minmax(0,1fr)_23rem] lg:items-start lg:gap-10 lg:pt-0 lg:pb-0",
-          GUTTER,
-        )}
-      >
-        <ReceiptCard receipt={receipt} />
-        <NextSteps receipt={receipt} />
-      </div>
-    </TransactionsFrame>
+    <Suspense
+      fallback={isApiConfigured && state === "paid" ? <ReceiptSkeleton /> : <SampleInvoiceDetail state={state} />}
+    >
+      <InvoiceDetailHandoff state={state} />
+    </Suspense>
   );
 }

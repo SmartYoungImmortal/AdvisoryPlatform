@@ -10,6 +10,7 @@ import {
   type ReactNode,
 } from "react";
 
+import { setRequestLocale } from "@/lib/api/client";
 import { formats } from "@/lib/i18n/requests";
 import th from "@/messages/th.json";
 
@@ -71,6 +72,10 @@ export function LocaleProvider({ children }: { readonly children: ReactNode }) {
 
   const apply = useCallback(async (locale: Locale) => {
     const messages = await messagesFor(locale);
+    // Before the state changes: the screens re-read their data when the locale
+    // does (`useResource` keys its cache by it), and those reads must already
+    // ask the API for the new language.
+    setRequestLocale(locale === "en" ? "en" : "th");
     setState({ locale, messages });
     document.documentElement.lang = locale;
   }, []);

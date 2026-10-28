@@ -59,6 +59,8 @@ export interface ApiChatRoom {
    * per-room read; absent from an API older than the field.
    */
   readonly lastMessage?: ApiChatMessage | null;
+  /** The signed-in member has this room's notifications off; absent from an API older than the field. */
+  readonly isMuted?: boolean;
 }
 
 /**
@@ -280,6 +282,19 @@ export function markChatRead(
 ): Promise<ApiChatRead> {
   return api.patch(`chat/rooms/${chatRoomId}/read`, {
     body: { messageId },
+    signal,
+  });
+}
+
+/**
+ * `PATCH /chat/rooms/:chatRoomId/mute` — mutes or unmutes the room for the
+ * signed-in member, and answers the room with its new `isMuted`. Muted, a new
+ * line in it sends them no notification and no push; it still counts as
+ * unread on the inbox row.
+ */
+export function setChatRoomMuted(chatRoomId: string, muted: boolean, signal?: AbortSignal): Promise<ApiChatRoom> {
+  return api.patch(`chat/rooms/${chatRoomId}/mute`, {
+    body: { muted },
     signal,
   });
 }

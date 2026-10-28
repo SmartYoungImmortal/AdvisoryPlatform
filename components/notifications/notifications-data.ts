@@ -10,6 +10,8 @@
  * read.
  */
 
+import { liveServiceHref } from "@/components/bookings/booking-flow";
+import { receiptHref } from "@/components/payment/transactions-data";
 import { api, type CursorPage } from "@/lib/api/client";
 
 /* -------------------------------------------------------------------- shapes */
@@ -25,7 +27,9 @@ export type NotificationType =
   | "SCREENING_DECIDED"
   | "REVIEW_RECEIVED"
   | "VERIFICATION_DECIDED"
-  | "POLICY_WARNING";
+  | "POLICY_WARNING"
+  /** The one each account gets on sign-up (and every account had backfilled). */
+  | "WELCOME";
 
 /** `NotificationResponseDto` */
 export interface ApiNotification {
@@ -98,18 +102,83 @@ export function notificationHref(notification: ApiNotification): string | null {
       return id ? `/screening/review?requestId=${id}` : "/screening/requests";
     case "BOOKING_RECEIVED":
       return "/work/calendar";
+    case "WELCOME":
+      // Its first step, which its copy names. The API marks an advisor's
+      // welcome with their own id: theirs is filling in the profile advisees
+      // find them by; everyone else's (no resource) is finding an expert.
+      return id ? "/advisor/edit" : "/search";
     default:
       return null;
   }
 }
 
 /**
- * Where a notification opens: what `notificationHref` names, otherwise its own
- * page (`/notifications/view`), the title and the whole message, for the ones
- * that only inform and may run longer than the row shows.
+ * Where a toast's "view" goes: what `notificationHref` names, otherwise the
+ * notification's own page. The feed's rows always open the page
+ * (`notificationPageHref`).
  */
 export function notificationTarget(notification: ApiNotification): string {
-  return notificationHref(notification) ?? `/notifications/view?id=${notification.id}`;
+  return notificationHref(notification) ?? notificationPageHref(notification);
+}
+
+/** A notification's own page: its title, when, the whole message and the way on (`notificationAction`). */
+export function notificationPageHref(notification: ApiNotification): string {
+  return `/notifications/view?id=${notification.id}`;
+}
+
+/** The capsule's word on a notification's page, a key in `notifications`. */
+export type NotificationActionLabel =
+  | "actionChat"
+  | "actionBooking"
+  | "actionCalendar"
+  | "actionRequest"
+  | "actionService"
+  | "actionReceipt"
+  | "actionEarnings"
+  | "actionReviews"
+  | "actionProfile"
+  | "actionEditProfile"
+  | "actionFindExpert";
+
+/**
+ * The way on from a notification's own page, as a capsule under its message:
+ * the chat it came from, the booking or the receipt it is about, and so on,
+ * named for where it goes. `resourceId` is the record the API sent it about:
+ * the chat room, the appointment (a booking, a reminder), the invoice, the
+ * screening request, the service a decision was on. Null for a notice that
+ * only informs (a policy warning).
+ */
+export function notificationAction(
+  notification: ApiNotification,
+): { readonly href: string; readonly label: NotificationActionLabel } | null {
+  const id = notification.resourceId;
+  switch (notification.type) {
+    case "NEW_MESSAGE":
+      return { href: id ? `/chat/room?id=${id}` : "/chat", label: "actionChat" };
+    case "BOOKING_CONFIRMED":
+    case "SESSION_REMINDER":
+      // The bookings list with this one open over it, as a tap in the list opens it.
+      return { href: id ? `/bookings?bookingId=${id}` : "/bookings", label: "actionBooking" };
+    case "BOOKING_RECEIVED":
+      return { href: "/work/calendar", label: "actionCalendar" };
+    case "SCREENING_REQUESTED":
+      return { href: id ? `/screening/review?requestId=${id}` : "/screening/requests", label: "actionRequest" };
+    case "SCREENING_DECIDED":
+      return id ? { href: liveServiceHref(id), label: "actionService" } : null;
+    case "PAYMENT_SUCCEEDED":
+      // The history with this receipt open over it, as a tap in the history opens it.
+      return { href: id ? receiptHref(id) : "/transactions", label: "actionReceipt" };
+    case "PAYOUT_SENT":
+      return { href: "/work", label: "actionEarnings" };
+    case "REVIEW_RECEIVED":
+      return { href: "/reviews", label: "actionReviews" };
+    case "VERIFICATION_DECIDED":
+      return { href: "/profile", label: "actionProfile" };
+    case "WELCOME":
+      return id ? { href: "/advisor/edit", label: "actionEditProfile" } : { href: "/search", label: "actionFindExpert" };
+    default:
+      return null;
+  }
 }
 
 /**
