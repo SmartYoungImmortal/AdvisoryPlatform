@@ -512,11 +512,8 @@ function PackageDialog({
         {pack ? (
           <div className="app-scale relative grid h-[631.75px] w-[1225.5px] grid-cols-[593.75px_minmax(0,1fr)] p-[19px]">
             {rail ? (
-              <div
-                aria-label={t("packagesTitle")}
-                className="absolute top-1/2 right-full mr-[52.25px] flex -translate-y-1/2 flex-col gap-[14.25px]"
-                role="group"
-              >
+              <fieldset className="absolute top-1/2 right-full mr-[52.25px] flex -translate-y-1/2 flex-col gap-[14.25px]">
+                <legend className="sr-only">{t("packagesTitle")}</legend>
                 {packages.map((item) => {
                   const photo = packagePhoto(service, photos, item);
                   const active = item.id === pack.id;
@@ -539,7 +536,7 @@ function PackageDialog({
                     </Button>
                   );
                 })}
-              </div>
+              </fieldset>
             ) : null}
 
             <div className="relative overflow-hidden rounded-[19px] bg-muted">
@@ -888,10 +885,8 @@ function Schedule({
   readonly Title: TitleSlot;
 }) {
   const t = useTranslations("service");
-  const s = useTranslations("search");
   const format = useFormatter();
-  const locale = useLocale();
-  const own = useOwnService(service.advisorId);
+  const { dayLabel, hour } = useCalendarFormat();
   const today = useMemo(() => isoDay(new Date()), []);
   const last = addDays(today, SLOT_DAYS - 1);
   const { slots, lanes, openDays } = useServiceSlots(service, today, last);
@@ -901,238 +896,22 @@ function Schedule({
   });
   const [view, setView] = useState<"week" | "month">("week");
   const weeks = useMemo(() => weeksBetween(today, last), [today, last]);
-  const months = useMemo(() => monthsBetween(today, last), [today, last]);
-  const strip = useRef<HTMLDivElement>(null);
-  const [shownWeek, setShownWeek] = useState(0);
 
   const firstOpen = useMemo(() => [...openDays].sort((a, b) => a.localeCompare(b))[0] ?? null, [openDays]);
   const day = selection.day && openDays.has(selection.day) ? selection.day : firstOpen;
-  const takenLane =
-    day && selection.time
-      ? lanes.find(
-          (lane) =>
-            (lane.pack?.id ?? null) === selection.packageId &&
-            (lane.byDay.get(day) ?? []).some((slot) => slot.startTime === selection.time),
-        )
-      : undefined;
-  const taken = takenLane ? selection.time : null;
-
-  // The picked day's week in view: on opening, and after a day is picked
-  // from the months.
-  useEffect(() => {
-    const el = strip.current;
-    if (!el || !day || view !== "week") return;
-    const index = weeks.findIndex((week) => week.includes(day));
-    if (index >= 0) el.scrollTo({ left: index * el.clientWidth, behavior: "instant" });
-  }, [day, weeks, view]);
-
-  const date = (key: string) => new Date(`${key}T00:00:00`);
-  const hour = (iso: string) => format.dateTime(new Date(iso), { hour: "2-digit", minute: "2-digit" });
-  const dayLabel = (key: string) => format.dateTime(date(key), { weekday: "short", day: "numeric", month: "short" });
-  // Thai's "short" weekday is the whole word ("อาทิตย์"), too long for a
-  // seventh of the row; "narrow" is the calendar's own "อา". English keeps
-  // "Sun": its narrow "S" cannot tell Saturday from Sunday.
-  const weekday = locale === "th" ? "narrow" : "short";
-  const weekdays = weeks[0].map((key) => (
-    <span key={key}>{format.dateTime(date(key), { weekday })}</span>
-  ));
-
-  const dayButton = (key: string, className: string, strike: boolean) => {
-    const open = openDays.has(key);
-    const chosen = key === day;
-    return (
-      <Button
-        aria-label={open ? dayLabel(key) : t("dayClosed", { day: dayLabel(key) })}
-        aria-pressed={chosen}
-        className={cn(
-          className,
-          chosen && "bg-foreground text-background hover:bg-foreground hover:text-background",
-          !chosen && open && "text-foreground hover:bg-muted",
-          !open && "text-muted-foreground/50",
-          !open && strike && "line-through",
-          view === "month" && key === today && !chosen && "ring-1 ring-foreground",
-        )}
-        disabled={!open}
-        onClick={() => selection.pick(key)}
-        type="button"
-        variant="ghost"
-      >
-        {date(key).getDate()}
-      </Button>
-    );
-  };
+  const taken = takenOn(lanes, selection, day);
+  const calendar: Calendar = { today, day, openDays, onPick: selection.pick };
 
   if (view === "month") {
     return (
-      <div className="flex min-h-0 flex-1 flex-col">
-        <Title className="sr-only">{t("book")}</Title>
-        <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
-          <div aria-hidden className={S.monthHead}>
-            {weekdays}
-          </div>
-          {months.map((month) => (
-            <section key={month}>
-              <h3 className={S.monthName}>{format.dateTime(date(`${month}-01`), { month: "long", year: "numeric" })}</h3>
-              <div className={S.monthGrid}>
-                {monthGrid(month).map((cell) =>
-                  cell.inMonth ? (
-                    <span className="flex justify-center" key={cell.date}>
-                      {dayButton(cell.date, S.monthDay, false)}
-                    </span>
-                  ) : (
-                    <span aria-hidden key={cell.date} />
-                  ),
-                )}
-              </div>
-            </section>
-          ))}
-        </div>
-        <div className={S.monthFoot}>
-          <Button className={cn(authPill(true), S.monthNext)} onClick={() => setView("week")} type="button">
-            {t("next")}
-          </Button>
-        </div>
-      </div>
-    );
-  }
-
-  const shown = weeks[shownWeek] ?? weeks[0];
-  const labelDay = day && shown.includes(day) ? day : (shown.find((key) => key >= today) ?? shown[0]);
-  const pendingLanes = Math.max(service.packages?.length ?? 0, 1);
-
-  let body: ReactNode;
-  if (own) {
-    body = (
-      <div className={S.notice}>
-        <OwnNotice />
-      </div>
-    );
-  } else if (slots.error) {
-    body = (
-      <div className={S.notice}>
-        <SlotsNotice advisorName={advisorName} error={slots.error} onRetry={slots.reload} service={service} />
-      </div>
-    );
-  } else if (!slots.loading && !day) {
-    body = (
-      <div className={S.notice}>
-        <Notice action={<MessageButton advisorId={service.advisorId} />} icon={CalendarX2}>
-          {t("noSlotsAhead")}
-        </Notice>
-      </div>
-    );
-  } else {
-    body = (
-      <>
-        <div className={S.monthRow}>
-          <span aria-live="polite" className={S.monthLabel}>
-            {format.dateTime(date(labelDay), { month: "long", year: "numeric" })}
-          </span>
-          <Button
-            aria-label={t("openCalendar")}
-            className={S.calendar}
-            onClick={() => setView("month")}
-            size="icon"
-            type="button"
-            variant="ghost"
-          >
-            <CalendarDays aria-hidden className={S.calendarIcon} />
-          </Button>
-        </div>
-        <div aria-hidden className={S.weekdays}>
-          {weekdays}
-        </div>
-        <div
-          aria-busy={slots.loading || undefined}
-          className="flex snap-x snap-mandatory overflow-x-auto overscroll-x-contain"
-          onScroll={(event) => {
-            const el = event.currentTarget;
-            setShownWeek(Math.round(el.scrollLeft / el.clientWidth));
-          }}
-          ref={strip}
-        >
-          {weeks.map((week) => (
-            <div className={S.week} key={week[0]}>
-              {week.map((key) => (
-                <span className="flex justify-center" key={key}>
-                  {dayButton(key, S.day, true)}
-                </span>
-              ))}
-            </div>
-          ))}
-        </div>
-        <div className={S.divider} />
-
-        {slots.loading ? (
-          <div aria-hidden className={S.lanes}>
-            {Array.from({ length: pendingLanes }, (_, i) => (
-              <div key={`pending-${i}`}>
-                <div className={S.laneHead}>
-                  <span className={cn(S.thumb, "animate-pulse")} />
-                  <span className="h-4 w-1/2 animate-pulse rounded-md bg-muted" />
-                </div>
-                <div className={S.slots}>
-                  {Array.from({ length: 6 }, (_, j) => (
-                    <span className={cn(S.slot, "animate-pulse border border-border bg-muted")} key={`pending-slot-${j}`} />
-                  ))}
-                </div>
-              </div>
-            ))}
-          </div>
-        ) : (
-          <div className={S.lanes}>
-            {lanes.map((lane) => {
-              const times = day ? (lane.byDay.get(day) ?? []) : [];
-              const photo = lane.pack ? packagePhoto(service, photos, lane.pack) : (photos[0] ?? null);
-              const laneId = lane.pack?.id ?? null;
-              return (
-                <section aria-label={lane.pack?.name ?? service.name} key={laneId ?? "service"}>
-                  <div className={S.laneHead}>
-                    <span className={S.thumb}>
-                      {photo ? <Image alt="" className="object-cover" fill sizes="80px" src={photo} /> : null}
-                    </span>
-                    <div className="flex min-w-0 flex-col">
-                      <h3 className={S.laneName}>{lane.pack?.name ?? service.name}</h3>
-                      <p className={S.lanePrice}>
-                        <span className="font-latin font-semibold text-foreground tabular-nums">
-                          {format.number(baht(lane.pack?.priceSatang ?? service.priceSatang), "baht")}
-                        </span>
-                        {` · ${s("durationMinutes", { count: lane.pack?.durationMinutes ?? service.durationMinutes })}`}
-                      </p>
-                    </div>
-                  </div>
-                  {day && times.length > 0 ? (
-                    <div className={S.slots}>
-                      {times.map((slot) => {
-                        const active = taken === slot.startTime && selection.packageId === laneId;
-                        return (
-                          <Button
-                            aria-pressed={active}
-                            className={cn(
-                              S.slot,
-                              active
-                                ? "border-foreground bg-foreground text-background hover:bg-foreground hover:text-background"
-                                : "border-border bg-card text-foreground hover:border-foreground hover:bg-card",
-                            )}
-                            key={slot.startTime}
-                            onClick={() => selection.take(laneId, day, slot.startTime)}
-                            type="button"
-                            variant="outline"
-                          >
-                            <span className={S.slotText}>{hour(slot.startTime)}</span>
-                          </Button>
-                        );
-                      })}
-                    </div>
-                  ) : (
-                    <p className={S.none}>{t("noTimesThatDay")}</p>
-                  )}
-                </section>
-              );
-            })}
-          </div>
-        )}
-      </>
+      <MonthList
+        calendar={calendar}
+        months={monthsBetween(today, last)}
+        onDone={() => setView("week")}
+        sizes={S}
+        Title={Title}
+        week={weeks[0]}
+      />
     );
   }
 
@@ -1140,32 +919,436 @@ function Schedule({
     <div className="flex min-h-0 flex-1 flex-col">
       <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
         <Title className={S.title}>{t("book")}</Title>
-        {body}
+        <ScheduleBody
+          advisorName={advisorName}
+          calendar={calendar}
+          lanes={lanes}
+          onCalendar={() => setView("month")}
+          photos={photos}
+          selection={selection}
+          service={service}
+          sizes={S}
+          slots={slots}
+          taken={taken}
+          weeks={weeks}
+        />
       </div>
       {failure ? (
         <p className={S.failure} role="alert">
           {failure}
         </p>
       ) : null}
-      {takenLane && taken && day ? (
+      {taken ? (
         <div className={S.footer}>
           <p className="flex min-w-0 flex-wrap items-baseline gap-x-2">
             <span className={S.footPrice}>
-              {format.number(baht(takenLane.pack?.priceSatang ?? service.priceSatang), "baht")}
+              {format.number(baht(taken.lane.pack?.priceSatang ?? service.priceSatang), "baht")}
             </span>
-            <span className={S.footNote}>{`${dayLabel(day)} · ${hour(taken)}`}</span>
+            <span className={S.footNote}>{`${dayLabel(taken.day)} · ${hour(taken.time)}`}</span>
           </p>
           <Button
             aria-busy={booking || undefined}
             className={cn(authPill(true), S.next)}
             disabled={booking}
-            onClick={() => book(taken, selection.packageId)}
+            onClick={() => book(taken.time, selection.packageId)}
             type="button"
           >
             {booking ? t("booking") : t("next")}
           </Button>
         </div>
       ) : null}
+    </div>
+  );
+}
+
+/**
+ * The panel under its title: whose service it is on the advisor's own, the
+ * slots route's notice when it answered with anything but a list, a notice
+ * when nothing is open in the 90 days, and otherwise the week and every
+ * package's times on the day picked.
+ */
+function ScheduleBody({
+  service,
+  advisorName,
+  selection,
+  photos,
+  sizes: S,
+  slots,
+  lanes,
+  weeks,
+  calendar,
+  taken,
+  onCalendar,
+}: Party & {
+  readonly selection: Selection;
+  readonly photos: readonly string[];
+  readonly sizes: typeof WIDE;
+  readonly slots: ReturnType<typeof useServiceSlots>["slots"];
+  readonly lanes: readonly Lane[];
+  readonly weeks: readonly (readonly string[])[];
+  readonly calendar: Calendar;
+  readonly taken: Taken | null;
+  readonly onCalendar: () => void;
+}) {
+  const t = useTranslations("service");
+  const own = useOwnService(service.advisorId);
+  const { day } = calendar;
+
+  if (own) {
+    return (
+      <div className={S.notice}>
+        <OwnNotice />
+      </div>
+    );
+  }
+  if (slots.error) {
+    return (
+      <div className={S.notice}>
+        <SlotsNotice advisorName={advisorName} error={slots.error} onRetry={slots.reload} service={service} />
+      </div>
+    );
+  }
+  if (!slots.loading && !day) {
+    return (
+      <div className={S.notice}>
+        <Notice action={<MessageButton advisorId={service.advisorId} />} icon={CalendarX2}>
+          {t("noSlotsAhead")}
+        </Notice>
+      </div>
+    );
+  }
+  return (
+    <>
+      <WeekStrip busy={slots.loading} calendar={calendar} onCalendar={onCalendar} sizes={S} weeks={weeks} />
+      {day && !slots.loading ? (
+        <div className={S.lanes}>
+          {lanes.map((lane) => (
+            <LaneTimes
+              day={day}
+              key={lane.pack?.id ?? "service"}
+              lane={lane}
+              photos={photos}
+              selection={selection}
+              service={service}
+              sizes={S}
+              taken={taken}
+            />
+          ))}
+        </div>
+      ) : (
+        <PendingLanes count={Math.max(service.packages?.length ?? 0, 1)} sizes={S} />
+      )}
+    </>
+  );
+}
+
+/** The day picked, what is open, and how a day is picked: what the week and the months share. */
+type Calendar = {
+  readonly today: string;
+  readonly day: string | null;
+  readonly openDays: ReadonlySet<string>;
+  readonly onPick: (day: string) => void;
+};
+
+/** A time taken: its lane, its day and its start. */
+type Taken = { readonly lane: Lane; readonly day: string; readonly time: string };
+
+/** The time taken, when it is one of its package's times on the day shown; null otherwise. */
+function takenOn(lanes: readonly Lane[], selection: Selection, day: string | null): Taken | null {
+  const time = selection.time;
+  if (!day || !time) return null;
+  const lane = lanes.find(
+    (item) =>
+      (item.pack?.id ?? null) === selection.packageId &&
+      (item.byDay.get(day) ?? []).some((slot) => slot.startTime === time),
+  );
+  return lane ? { lane, day, time } : null;
+}
+
+/** The calendar's words in the reader's locale: a day's date, an hour, a day, a weekday, a month. */
+function useCalendarFormat() {
+  const format = useFormatter();
+  const locale = useLocale();
+  // Thai's "short" weekday is the whole word ("อาทิตย์"), too long for a
+  // seventh of the row; "narrow" is the calendar's own "อา". English keeps
+  // "Sun": its narrow "S" cannot tell Saturday from Sunday.
+  const weekday = locale === "th" ? "narrow" : "short";
+  return useMemo(() => {
+    const date = (key: string) => new Date(`${key}T00:00:00`);
+    return {
+      date,
+      hour: (iso: string) => format.dateTime(new Date(iso), { hour: "2-digit", minute: "2-digit" }),
+      dayLabel: (key: string) => format.dateTime(date(key), { weekday: "short", day: "numeric", month: "short" }),
+      weekdayLabel: (key: string) => format.dateTime(date(key), { weekday }),
+      monthLabel: (key: string) => format.dateTime(date(key), { month: "long", year: "numeric" }),
+    };
+  }, [format, weekday]);
+}
+
+/**
+ * One day's button: filled when picked, dark when it has open times, faded
+ * (and, in the week, struck through) when it has none; ringed when it is
+ * today, in the months.
+ */
+function DayButton({
+  day,
+  calendar,
+  className,
+  strike,
+  ringToday,
+}: {
+  readonly day: string;
+  readonly calendar: Calendar;
+  readonly className: string;
+  readonly strike: boolean;
+  readonly ringToday: boolean;
+}) {
+  const t = useTranslations("service");
+  const { date, dayLabel } = useCalendarFormat();
+  const open = calendar.openDays.has(day);
+  const chosen = day === calendar.day;
+  return (
+    <Button
+      aria-label={open ? dayLabel(day) : t("dayClosed", { day: dayLabel(day) })}
+      aria-pressed={chosen}
+      className={cn(
+        className,
+        chosen && "bg-foreground text-background hover:bg-foreground hover:text-background",
+        !chosen && open && "text-foreground hover:bg-muted",
+        !open && "text-muted-foreground/50",
+        !open && strike && "line-through",
+        ringToday && day === calendar.today && !chosen && "ring-1 ring-foreground",
+      )}
+      disabled={!open}
+      onClick={() => calendar.onPick(day)}
+      type="button"
+      variant="ghost"
+    >
+      {date(day).getDate()}
+    </Button>
+  );
+}
+
+/**
+ * The month shown, the calendar's button, the weekdays, and the weeks paging
+ * sideways under them. Keeps the picked day's week in view: on opening, and
+ * on coming back from the months.
+ */
+function WeekStrip({
+  weeks,
+  calendar,
+  busy,
+  sizes: S,
+  onCalendar,
+}: {
+  readonly weeks: readonly (readonly string[])[];
+  readonly calendar: Calendar;
+  readonly busy: boolean;
+  readonly sizes: typeof WIDE;
+  readonly onCalendar: () => void;
+}) {
+  const t = useTranslations("service");
+  const { monthLabel, weekdayLabel } = useCalendarFormat();
+  const strip = useRef<HTMLDivElement>(null);
+  const [shownWeek, setShownWeek] = useState(0);
+  const { day, today } = calendar;
+
+  useEffect(() => {
+    const el = strip.current;
+    if (!el || !day) return;
+    const index = weeks.findIndex((week) => week.includes(day));
+    if (index >= 0) el.scrollTo({ left: index * el.clientWidth, behavior: "instant" });
+  }, [day, weeks]);
+
+  const shown = weeks[shownWeek] ?? weeks[0];
+  const labelDay = day && shown.includes(day) ? day : (shown.find((key) => key >= today) ?? shown[0]);
+
+  return (
+    <>
+      <div className={S.monthRow}>
+        <span aria-live="polite" className={S.monthLabel}>
+          {monthLabel(labelDay)}
+        </span>
+        <Button aria-label={t("openCalendar")} className={S.calendar} onClick={onCalendar} size="icon" type="button" variant="ghost">
+          <CalendarDays aria-hidden className={S.calendarIcon} />
+        </Button>
+      </div>
+      <div aria-hidden className={S.weekdays}>
+        {weeks[0].map((key) => (
+          <span key={key}>{weekdayLabel(key)}</span>
+        ))}
+      </div>
+      <div
+        aria-busy={busy || undefined}
+        className="flex snap-x snap-mandatory overflow-x-auto overscroll-x-contain"
+        onScroll={(event) => {
+          const el = event.currentTarget;
+          setShownWeek(Math.round(el.scrollLeft / el.clientWidth));
+        }}
+        ref={strip}
+      >
+        {weeks.map((week) => (
+          <div className={S.week} key={week[0]}>
+            {week.map((key) => (
+              <span className="flex justify-center" key={key}>
+                <DayButton calendar={calendar} className={S.day} day={key} ringToday={false} strike />
+              </span>
+            ))}
+          </div>
+        ))}
+      </div>
+      <div className={S.divider} />
+    </>
+  );
+}
+
+/**
+ * The months ahead one under another, under weekdays that stay at the top,
+ * to pick a day from; the button at the foot turns the panel back to its
+ * week.
+ */
+function MonthList({
+  months,
+  week,
+  calendar,
+  sizes: S,
+  onDone,
+  Title,
+}: {
+  readonly months: readonly string[];
+  readonly week: readonly string[];
+  readonly calendar: Calendar;
+  readonly sizes: typeof WIDE;
+  readonly onDone: () => void;
+  readonly Title: TitleSlot;
+}) {
+  const t = useTranslations("service");
+  const { monthLabel, weekdayLabel } = useCalendarFormat();
+  return (
+    <div className="flex min-h-0 flex-1 flex-col">
+      <Title className="sr-only">{t("book")}</Title>
+      <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
+        <div aria-hidden className={S.monthHead}>
+          {week.map((key) => (
+            <span key={key}>{weekdayLabel(key)}</span>
+          ))}
+        </div>
+        {months.map((month) => (
+          <section key={month}>
+            <h3 className={S.monthName}>{monthLabel(`${month}-01`)}</h3>
+            <div className={S.monthGrid}>
+              {monthGrid(month).map((cell) =>
+                cell.inMonth ? (
+                  <span className="flex justify-center" key={cell.date}>
+                    <DayButton calendar={calendar} className={S.monthDay} day={cell.date} ringToday strike={false} />
+                  </span>
+                ) : (
+                  <span aria-hidden key={cell.date} />
+                ),
+              )}
+            </div>
+          </section>
+        ))}
+      </div>
+      <div className={S.monthFoot}>
+        <Button className={cn(authPill(true), S.monthNext)} onClick={onDone} type="button">
+          {t("next")}
+        </Button>
+      </div>
+    </div>
+  );
+}
+
+/** One package (or the service itself) on the day picked: its photograph, name, price and length, and its times. */
+function LaneTimes({
+  lane,
+  day,
+  service,
+  photos,
+  selection,
+  taken,
+  sizes: S,
+}: {
+  readonly lane: Lane;
+  readonly day: string;
+  readonly service: ApiPublicService;
+  readonly photos: readonly string[];
+  readonly selection: Selection;
+  readonly taken: Taken | null;
+  readonly sizes: typeof WIDE;
+}) {
+  const t = useTranslations("service");
+  const s = useTranslations("search");
+  const format = useFormatter();
+  const { hour } = useCalendarFormat();
+  const laneId = lane.pack?.id ?? null;
+  const name = lane.pack?.name ?? service.name;
+  const times = lane.byDay.get(day) ?? [];
+  const photo = lane.pack ? packagePhoto(service, photos, lane.pack) : (photos[0] ?? null);
+
+  return (
+    <section aria-label={name}>
+      <div className={S.laneHead}>
+        <span className={S.thumb}>
+          {photo ? <Image alt="" className="object-cover" fill sizes="80px" src={photo} /> : null}
+        </span>
+        <div className="flex min-w-0 flex-col">
+          <h3 className={S.laneName}>{name}</h3>
+          <p className={S.lanePrice}>
+            <span className="font-latin font-semibold text-foreground tabular-nums">
+              {format.number(baht(lane.pack?.priceSatang ?? service.priceSatang), "baht")}
+            </span>
+            {` · ${s("durationMinutes", { count: lane.pack?.durationMinutes ?? service.durationMinutes })}`}
+          </p>
+        </div>
+      </div>
+      {times.length > 0 ? (
+        <div className={S.slots}>
+          {times.map((slot) => {
+            const active = taken?.lane === lane && taken.time === slot.startTime;
+            return (
+              <Button
+                aria-pressed={active}
+                className={cn(
+                  S.slot,
+                  active
+                    ? "border-foreground bg-foreground text-background hover:bg-foreground hover:text-background"
+                    : "border-border bg-card text-foreground hover:border-foreground hover:bg-card",
+                )}
+                key={slot.startTime}
+                onClick={() => selection.take(laneId, day, slot.startTime)}
+                type="button"
+                variant="outline"
+              >
+                <span className={S.slotText}>{hour(slot.startTime)}</span>
+              </Button>
+            );
+          })}
+        </div>
+      ) : (
+        <p className={S.none}>{t("noTimesThatDay")}</p>
+      )}
+    </section>
+  );
+}
+
+/** The packages' places while their times load: a photograph, a line, and a row of times. */
+function PendingLanes({ count, sizes: S }: { readonly count: number; readonly sizes: typeof WIDE }) {
+  return (
+    <div aria-hidden className={S.lanes}>
+      {Array.from({ length: count }, (_, i) => (
+        <div key={`pending-${i}`}>
+          <div className={S.laneHead}>
+            <span className={cn(S.thumb, "animate-pulse")} />
+            <span className="h-4 w-1/2 animate-pulse rounded-md bg-muted" />
+          </div>
+          <div className={S.slots}>
+            {Array.from({ length: 6 }, (_, j) => (
+              <span className={cn(S.slot, "animate-pulse border border-border bg-muted")} key={`pending-slot-${j}`} />
+            ))}
+          </div>
+        </div>
+      ))}
     </div>
   );
 }
