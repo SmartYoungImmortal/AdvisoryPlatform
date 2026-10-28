@@ -46,3 +46,10 @@ The final design file is [Advisory Platform](https://www.figma.com/design/pddSCc
 Configured frontend coverage measures selected domain and API modules. It excludes the other owners' onboarding component and does not establish 80% coverage of all Taj-owned UI source. The browser proof covers the real consumers separately.
 
 Invoice history and receipt endpoints are now merged into the API. Refund-request status and the exact appointment-to-invoice association still need acceptance; receipt rows do not expose a booking UUID. Timed login lockout, authoritative balance-based account deletion, default-profile semantics, complete Figma acceptance and deployment verification remain unresolved. Do not close all workload issues from this change.
+
+
+## Exact receipt lookup for bookings
+
+The booking sheet now reads `GET /payment/invoices/for-booking/:bookingId`. The API resolves the stored appointment/invoice relation and verifies the booking belongs to the signed-in advisee. This replaces service/time matching against the first 50 invoices. Both sessions on a shared invoice open the same receipt, even when the selected session is not the earliest. Existing receipt layout and invoice session summary remain unchanged. Deploy the API change before the frontend.
+
+Local proof: the new opt-in `booking-invoice-live.spec.ts` follows both booking links into the receipt at 1440px and 390px, with no intercepted network requests. A disposable pending invoice and two appointments are inserted and removed from the named local proof database. A different advisee receives 404 and malformed UUID receives 400. Six repository integration tests, 52 focused payment unit tests, and 88 frontend unit tests pass. Exact Figma comparison remains blocked by sign-in; this is a data-link fix, not visual acceptance. Current screenshots and recording remain outside Git in the workspace audit folder; they are not yet attached to GitHub. Refund request/status UI remains unfinished.
