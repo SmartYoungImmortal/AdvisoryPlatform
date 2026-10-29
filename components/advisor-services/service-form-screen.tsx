@@ -269,7 +269,7 @@ function CreateProfileRow() {
 function SelectedImage({ file }: { readonly file: File }) {
   const url = useMemo(() => URL.createObjectURL(file), [file]);
   useEffect(() => () => URL.revokeObjectURL(url), [url]);
-  return <Image unoptimized src={url} alt={file.name} width={120} height={100} className="h-22 w-28 rounded-card object-cover lg:h-28" />;
+  return <div className="relative h-22 w-full"><Image unoptimized fill sizes="(min-width: 1024px) 83px, 25vw" src={url} alt={file.name} className="rounded-card object-cover" /></div>;
 }
 
 function ServiceImages({ images, files, disabled, onChange }: {
@@ -279,17 +279,21 @@ function ServiceImages({ images, files, disabled, onChange }: {
   readonly onChange: (files: File[]) => void;
 }) {
   const t = useTranslations("serviceForm");
+  const hasImages = images.length + files.length > 0;
   return <div className="flex w-full flex-col gap-2">
-    {(images.length > 0 || files.length > 0) && <div className="flex flex-wrap gap-2">
-      {images.map((url) => <Image unoptimized key={url} src={url} alt={t("imagesLabel")} width={120} height={100} className="h-22 w-28 rounded-card object-cover lg:h-28" />)}
+    <div className={cn(hasImages ? "grid w-full grid-cols-4 gap-2 lg:grid-cols-[repeat(4,83px)]" : "w-full")}>
+      {images.map((url) => <div key={url} className="relative h-22 w-full"><Image unoptimized fill sizes="(min-width: 1024px) 83px, 25vw" src={url} alt={t("imagesLabel")} className="rounded-card object-cover" /></div>)}
       {files.map((file) => <SelectedImage key={`${file.name}-${file.lastModified}`} file={file} />)}
-    </div>}
-    <label className="relative flex min-h-30 w-full cursor-pointer flex-col items-center justify-center gap-2 overflow-clip rounded-card border border-dashed border-input bg-muted lg:min-h-36">
-      <span className="flex size-9 items-center justify-center rounded-full bg-card"><Plus className="size-4.5 text-primary" /></span>
-      <span className="text-xs text-muted-foreground">{t("addImages", { max: MAX_SERVICE_IMAGES })}</span>
-      <Input type="file" multiple accept="image/jpeg,image/png,image/webp" aria-label={t("imagesLabel")} disabled={disabled}
-        className="absolute inset-0 h-full w-full cursor-pointer opacity-0" onChange={(event) => { onChange(Array.from(event.target.files ?? [])); event.target.value = ""; }} />
-    </label>
+      {images.length + files.length < MAX_SERVICE_IMAGES && <label className={cn(
+        "relative flex w-full cursor-pointer flex-col items-center justify-center gap-2 overflow-clip rounded-card border border-dashed border-input bg-muted focus-within:ring-2 focus-within:ring-ring",
+        hasImages ? "h-22" : "min-h-30 lg:min-h-36",
+      )}>
+        <span className={cn(!hasImages && "flex size-9 items-center justify-center rounded-full bg-card")}><Plus className={cn("size-4.5", hasImages ? "text-muted-foreground" : "text-primary")} /></span>
+        {!hasImages && <span className="text-xs text-muted-foreground">{t("addImages", { max: MAX_SERVICE_IMAGES })}</span>}
+        <Input type="file" multiple accept="image/jpeg,image/png,image/webp" aria-label={t("imagesLabel")} disabled={disabled}
+          className="absolute inset-0 h-full w-full cursor-pointer opacity-0" onChange={(event) => { onChange(Array.from(event.target.files ?? [])); event.target.value = ""; }} />
+      </label>}
+    </div>
     <p className="text-xs text-muted-foreground">{t("imagePublishHint")}</p>
   </div>;
 }
