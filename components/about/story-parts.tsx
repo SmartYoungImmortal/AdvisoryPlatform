@@ -216,11 +216,9 @@ export type ArtName =
   | "question_mark"
   | "book"
   | "chart"
-  | "building_office"
-  | "building_condo"
-  | "building_shophouse"
-  | "tree_round"
-  | "tree_tall"
+  | "street_block"
+  | "street_tree_a"
+  | "street_tree_b"
   | "phone"
   | "laptop"
   | "desk"
@@ -262,7 +260,7 @@ const ART_SIZE: Partial<Record<ArtName, readonly [number, number]>> = {
   asker_think: [395, 1148],
   asker_chin: [289, 1122],
   expert_wave: [367, 1198],
-  ask_walk: [439, 1100],
+  ask_walk: [495, 1100],
   answer_walk: [465, 1100],
   ask_phone: [338, 1137],
   ask_call: [600, 1122],
@@ -283,11 +281,9 @@ const ART_SIZE: Partial<Record<ArtName, readonly [number, number]>> = {
   clock: [481, 480],
   book: [351, 320],
   question_mark: [266, 340],
-  building_office: [539, 1039],
-  building_condo: [478, 915],
-  building_shophouse: [1128, 481],
-  tree_round: [590, 840],
-  tree_tall: [289, 1120],
+  street_block: [1329, 560],
+  street_tree_a: [753, 1100],
+  street_tree_b: [821, 1053],
   star: [265, 260],
   laptop: [471, 320],
   window_room: [508, 1000],
