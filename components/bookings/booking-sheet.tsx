@@ -36,8 +36,7 @@ import { SHEET_W, SHEET_X } from "@/components/payment/invoice-screens";
 import { invoiceHref } from "@/components/payment/transactions-data";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogClose, DialogContent } from "@/components/ui/dialog";
-import type { Paginated } from "@/lib/api/client";
-import { listMyInvoices, openBookingMeeting } from "@/lib/api/resources";
+import { getMyBookingInvoice, openBookingMeeting } from "@/lib/api/resources";
 import type { ApiAdviseeInvoice, ApiBooking, ApiPublicAdvisor, ApiPublicService } from "@/lib/api/types";
 import { useResource } from "@/lib/api/use-resource";
 import { cn } from "@/lib/utils";
@@ -223,24 +222,19 @@ function useJoinCall(bookingId: string) {
 }
 
 /**
- * The invoice that paid for a booking, if the reader's history holds one.
- *
- * The invoice names no booking: it carries its service and the start of the
- * appointment it covers, which a rescheduling moves with it. The two together
- * pick out one booking, so that is the match. The history is the payments
- * page's own request, so the cache answers it there and here alike.
+ * The invoice that paid for a booking, read by the booking's own id: the API
+ * keeps which invoice covers which booking, so a rescheduled booking and one
+ * of several sessions on a single invoice each find theirs.
  */
 function useBookingInvoice(booking: ApiBooking): ApiAdviseeInvoice | undefined {
-  const fetcher = useCallback((signal: AbortSignal) => listMyInvoices({ page: 1, limit: 50 }, signal), []);
-  const invoices = useResource<Paginated<ApiAdviseeInvoice>>("payment/invoices?page=1&limit=50", fetcher);
-  // `items` guarded too: an API (or a stand-in for one) that answers without
-  // a page simply has no invoice to show.
-  return invoices.data?.items?.find(
-    (invoice) =>
-      invoice.service.id === booking.serviceId &&
-      invoice.session !== null &&
-      Date.parse(invoice.session.startTime) === Date.parse(booking.startTime),
+  const fetcher = useCallback(
+    (signal: AbortSignal) => getMyBookingInvoice(booking.id, signal),
+    [booking.id],
   );
+  return useResource<ApiAdviseeInvoice>(
+    `payment/invoices/for-booking/${booking.id}`,
+    fetcher,
+  ).data;
 }
 
 /** The gutter every line hangs from: its icon centred in a column as wide as the title's square's. */

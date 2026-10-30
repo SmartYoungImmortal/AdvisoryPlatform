@@ -4,6 +4,7 @@ import { useTranslations } from "next-intl";
 import { NeutralButton } from "@/components/mobile/buttons";
 import { ThaiText } from "@/components/mobile/thai-text";
 import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
 
 /** Figma's date sheet, with values submitted by the editor form behind it. */
 export function AddDateSheet({ profileId = "" }: { readonly profileId?: string }) {
@@ -17,7 +18,7 @@ export function AddDateSheet({ profileId = "" }: { readonly profileId?: string }
       <div className="flex w-full shrink-0 flex-col items-start gap-1.5"><h2 className="w-full text-xl leading-7 font-semibold text-foreground">{t("addSheet.title")}</h2><p className="w-full text-sm text-muted-foreground"><ThaiText>{t("addSheet.subtitle")}</ThaiText></p></div>
       <label className="grid w-full shrink-0 gap-1.5 text-sm font-medium">{t("addSheet.dateLabel")}<Input name="newSpecificDate" type="date" required /></label>
       <div className="flex w-full shrink-0 flex-col items-start gap-1.5"><p className="w-full text-sm font-medium">{t("addSheet.rangeLabel")}</p><div className="flex w-full items-center gap-2"><Input aria-label={`${t("addSheet.rangeLabel")} เริ่ม`} className="h-10" name="newSpecificStart" type="time" required/><span className="text-muted-foreground">–</span><Input aria-label={`${t("addSheet.rangeLabel")} สิ้นสุด`} className="h-10" name="newSpecificEnd" type="time" required/></div><Link className="w-full text-sm font-medium text-primary" href={editorHref}>{t("addSheet.addAnother")}</Link><p className="w-full text-xs text-muted-foreground"><ThaiText>{t("addSheet.hint")}</ThaiText></p></div>
-      <div className="flex w-full items-start gap-3"><NeutralButton className="w-30 shrink-0" href={editorHref}>{c("cancel")}</NeutralButton><button className="min-w-px flex-1 rounded-lg bg-primary px-5 py-2 text-sm font-medium text-primary-foreground" type="submit">{t("addSheet.confirm")}</button></div>
+      <div className="flex w-full items-start gap-3"><NeutralButton className="w-30 shrink-0" href={editorHref}>{c("cancel")}</NeutralButton><Button className="h-auto min-w-px flex-1 rounded-lg border-0 px-5 py-2 text-sm" type="submit">{t("addSheet.confirm")}</Button></div>
     </div>
   </>;
 }

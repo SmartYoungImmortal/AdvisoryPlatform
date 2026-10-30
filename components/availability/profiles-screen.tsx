@@ -19,6 +19,7 @@ import {
 import { Surface, surfaceClass } from "@/components/mobile/surface";
 import { ThaiText } from "@/components/mobile/thai-text";
 import { TopBar } from "@/components/topbar";
+import { Button } from "@/components/ui/button";
 import { READING_COLUMN, SPLIT_WITH_ASIDE } from "@/lib/layout";
 import { cn } from "@/lib/utils";
 import { availabilityApi, type AvailabilityProfile } from "@/lib/availability/api";
@@ -217,7 +218,7 @@ export function ProfilesScreen({
         </div>
 
         <div className={cn("flex w-full shrink-0 flex-col items-start gap-2.5 overflow-clip px-6", COLUMN, "lg:pt-12")}>
-          {resource.loading || usageResource.loading ? <Surface className="w-full p-6"><p role="status">กำลังโหลดชุดเวลาว่าง…</p></Surface> : resource.error || usageResource.error ? <Surface className="w-full p-6"><p role="alert" className="text-destructive">{(resource.error ?? usageResource.error)?.message}</p><button className="mt-3 text-primary underline" onClick={() => { resource.reload(); usageResource.reload(); }} type="button">ลองอีกครั้ง</button></Surface> : isEmpty ? (
+          {resource.loading || usageResource.loading ? <Surface className="w-full p-6"><p role="status">กำลังโหลดชุดเวลาว่าง…</p></Surface> : resource.error || usageResource.error ? <Surface className="w-full p-6"><p role="alert" className="text-destructive">{(resource.error ?? usageResource.error)?.message}</p><Button variant="link" className="mt-3 h-auto border-0 p-0 text-base font-normal underline" onClick={() => { resource.reload(); usageResource.reload(); }} type="button">ลองอีกครั้ง</Button></Surface> : isEmpty ? (
             /* Figma "Empty" — a single card carrying the centred explanation, now
                the app's one `EmptyState`: same two lines, with the mark and the
                18px title an empty screen is supposed to lead with. */

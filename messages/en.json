@@ -232,6 +232,15 @@
     "previousPage": "Previous page",
     "nextPage": "Next page"
   },
+  "serviceForm": {
+    "imageLoadError": "Could not load service images. Try again before publishing.",
+    "imagePublishHint": "Optional for drafts. Add at least one image before publishing. JPEG, PNG or WebP, up to 5 MiB each.",
+    "imageRequired": "Add a service image before publishing.",
+    "imageCountError": "A service can have at most six images.",
+    "imageFileError": "Choose JPEG, PNG or WebP images, up to 5 MiB each.",
+
+    "limitActiveNote": "This service is limited to {hours} hours per day. Your availability's overall daily limit also applies."
+  },
   "bookings": {
     "title": "My bookings",
     "upcomingCount": "{count} upcoming bookings",
@@ -768,7 +777,7 @@
     "deleteNoteShort": "Removes your bookings and chats for good",
     "verifyNote": "Changes to your email or password take effect once you confirm them",
     "updatedTitle": "Password updated",
-    "updatedBody": "Your other devices have been signed out"
+    "updatedBody": "Your password is updated. Other devices will be signed out within 5 minutes."
   },
   "deleteAccount": {
     "title": "Delete account",
@@ -855,8 +864,8 @@
   },
   "changeEmail": {
     "title": "Change email",
-    "subtitle": "We'll send a confirmation link to the new address. Your current email keeps working until you open it.",
-    "subtitleShort": "We'll send a confirmation link to the new address.",
+    "subtitle": "Confirm the request from your current email first, then open the link sent to your new email. Your email changes after both steps.",
+    "subtitleShort": "Confirm from your current email first, then verify the new address.",
     "newLabel": "New email",
     "newPlaceholder": "you@example.com",
     "passwordLabel": "Current password",
@@ -874,7 +883,7 @@
   },
   "verifyEmail": {
     "title": "Check your inbox",
-    "subtitle": "We sent a confirmation link to {email}. Your email changes only after you open it.",
+    "subtitle": "Check your current email to confirm the request, then open the link sent to {email} to change your email.",
     "pendingFallback": "araya.new@gmail.com",
     "backToSettings": "Back to settings",
     "resend": "Send the link again",

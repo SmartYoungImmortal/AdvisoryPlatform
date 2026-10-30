@@ -385,6 +385,14 @@ export function listMyInvoices(
   return api.get("payment/invoices", { query: { ...query }, signal });
 }
 
+/** The exact invoice linked to an owned booking; 404 when no receipt exists. */
+export function getMyBookingInvoice(
+  bookingId: string,
+  signal?: AbortSignal,
+): Promise<ApiAdviseeInvoice> {
+  return api.get(`payment/invoices/for-booking/${encodeURIComponent(bookingId)}`, { signal });
+}
+
 /**
  * `GET /payment/invoices/:invoiceId` — one of them. 404 for anyone else's, as
  * for a missing one. The id comes from an address bar, so it is encoded: a

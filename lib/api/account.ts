@@ -7,7 +7,12 @@ export function requestEmailChange(
 ): Promise<unknown> {
   return api.post("api/auth/change-email", {
     unprefixed: true,
-    body: { newEmail, callbackURL },
+    body: {
+      newEmail,
+      callbackURL: callbackURL
+        ? new URL(callbackURL, window.location.origin).toString()
+        : undefined,
+    },
   });
 }
 
@@ -18,7 +23,7 @@ export function changePassword(input: {
 }): Promise<unknown> {
   return api.post("api/auth/change-password", {
     unprefixed: true,
-    body: input,
+    body: { ...input, revokeOtherSessions: true },
   });
 }
 

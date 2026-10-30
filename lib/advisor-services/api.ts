@@ -86,3 +86,13 @@ export function listMyAvailabilityProfiles(signal?: AbortSignal): Promise<readon
 export function listServiceCategories(signal?: AbortSignal): Promise<Paginated<ServiceCategory>> {
   return api.get("service-categories", { signal });
 }
+
+export function getAdvisorServiceImages(id: string, signal?: AbortSignal): Promise<{ images: string[] }> {
+  return api.get(`advisors/me/services/${encodeURIComponent(id)}/images`, { signal });
+}
+
+export function uploadAdvisorServiceImage(id: string, file: File): Promise<{ images: string[] }> {
+  const body = new FormData();
+  body.append("file", file);
+  return api.post(`advisors/me/services/${encodeURIComponent(id)}/images`, { body });
+}
