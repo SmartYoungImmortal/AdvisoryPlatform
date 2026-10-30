@@ -12,13 +12,18 @@ import {
   UserRound,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
+import { useCallback } from "react";
 import { useFormatter, useTranslations } from "next-intl";
 
 import {
   asUuid,
+  baht,
   liveServiceHref,
   useQueryValue,
 } from "@/components/bookings/booking-flow";
+import { getMyInvoice } from "@/lib/api/resources";
+import type { ApiAdviseeInvoice } from "@/lib/api/types";
+import { useResource } from "@/lib/api/use-resource";
 import { walletFailed, walletSuccess } from "@/lib/assets/r2";
 import { SiteFooter } from "@/components/marketing/site-footer";
 import { NeutralButton, PrimaryButton } from "@/components/mobile/buttons";
@@ -140,6 +145,89 @@ function useResultCopy(state: Result) {
   return table[state];
 }
 
+type ResultCopy = ReturnType<typeof useResultCopy>;
+
+/**
+ * The outcome of a real charge. The API's 3-D Secure callback sends the reader
+ * to `/checkout/success`, `/failed` or `/unconfirmed` with `?invoiceId=`, and
+ * the receipt it names (`GET /payment/invoices/:id`) replaces the fixture's
+ * figures: the amount, the card, the advisor and the session. Until it has
+ * answered there are no rows and no sentence with a number in it, rather than
+ * the fixture's numbers for a moment.
+ */
+function useLiveResult(state: Result, fixture: ResultCopy): { copy: ResultCopy; amount: string | null } | null {
+  const t = useTranslations("payment");
+  const format = useFormatter();
+  const invoiceId = asUuid(useQueryValue("invoiceId"));
+  const receipt = useResource<ApiAdviseeInvoice | null>(
+    invoiceId ? `payment/invoices/${invoiceId}` : "payment/invoices/none",
+    useCallback(
+      (signal: AbortSignal) => (invoiceId ? getMyInvoice(invoiceId, signal) : Promise.resolve(null)),
+      [invoiceId],
+    ),
+  );
+
+  if (!invoiceId || state === "slot-taken") return null;
+  const paid = receipt.data;
+  if (!paid) return { copy: { ...fixture, body: "", rows: [] }, amount: null };
+
+  const amount = format.number(baht(paid.amountSatang), "baht");
+  const card = paid.card ? `${paid.card.brand} •••• ${paid.card.lastDigits}` : null;
+  const start = paid.session ? new Date(paid.session.startTime) : null;
+  const end = paid.session ? new Date(paid.session.endTime) : null;
+  const clock = (at: Date) => format.dateTime(at, { hour: "2-digit", minute: "2-digit" });
+  const cardRow: readonly ResultRow[] = card
+    ? [{ icon: CreditCard, label: t("cardLabel"), value: card, latin: true }]
+    : [];
+
+  if (state === "success")
+    return {
+      amount,
+      copy: {
+        ...fixture,
+        body: t("successBodyLive", { amount, advisor: paid.advisor.displayName }),
+        rows: [
+          { icon: UserRound, label: t("advisorLabel"), value: paid.advisor.displayName },
+          ...(start && end
+            ? [
+                {
+                  icon: CalendarDays,
+                  label: t("dateLabel"),
+                  value: format.dateTime(start, { weekday: "short", day: "numeric", month: "short", year: "numeric" }),
+                },
+                { icon: Clock, label: t("timeLabel"), value: `${clock(start)} – ${clock(end)}`, latin: true },
+              ]
+            : []),
+        ],
+        primary: { label: t("viewBooking"), href: "/bookings" },
+        secondary: { label: t("backHome"), href: "/" },
+      },
+    };
+
+  if (state === "failed")
+    return {
+      amount,
+      copy: {
+        ...fixture,
+        rows: [...cardRow, { icon: CreditCard, label: t("amountLabel"), value: amount, latin: true }],
+        primary: { label: t("tryAgain"), href: "/bookings" },
+        secondary: { label: t("viewHistory"), href: "/transactions" },
+      },
+    };
+
+  return {
+    amount,
+    copy: {
+      ...fixture,
+      rows: [
+        ...cardRow,
+        { icon: Clock, label: t("statusLabel"), value: t("statusValue"), tone: "text-warning" },
+        { icon: ShieldCheck, label: t("refLabel"), value: paid.invoiceNumber, latin: true },
+      ],
+    },
+  };
+}
+
 /**
  * Figma payment outcomes — "Payment - Success" (995:10411), "Payment - Failed"
  * (995:10243), "Payment - Unconfirmed" (995:10455) and "Payment - Slot taken"
@@ -174,8 +262,11 @@ export function PaymentResultScreen({ state }: { readonly state: Result }) {
       ? new Date(attempted)
       : undefined;
 
-  const copy =
-    slotTaken && (attemptedAt || attemptedService)
+  const live = useLiveResult(state, fixture);
+
+  const copy = live
+    ? live.copy
+    : slotTaken && (attemptedAt || attemptedService)
       ? {
           ...fixture,
           rows: [
@@ -246,7 +337,7 @@ export function PaymentResultScreen({ state }: { readonly state: Result }) {
             )}
             {state === "unconfirmed" ? (
               <p className="font-latin mt-4 w-full text-center text-heading font-semibold tabular-nums text-foreground lg:text-heading-lg">
-                {t("unconfirmedAmount")}
+                {live ? live.amount : t("unconfirmedAmount")}
               </p>
             ) : null}
             {/* The outcome in colour. These four screens are the clearest case in

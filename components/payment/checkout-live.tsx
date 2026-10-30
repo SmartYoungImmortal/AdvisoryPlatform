@@ -1,172 +1,402 @@
 "use client";
 
-import { useRouter } from "next/navigation";
-import { CalendarDays, Clock, Lock, UserRound } from "lucide-react";
-import { useCallback, useState } from "react";
+import { Radio } from "@base-ui/react/radio";
+import { RadioGroup } from "@base-ui/react/radio-group";
+import { ArrowLeft, CreditCard, Lock, QrCode, Star } from "lucide-react";
+import Image from "next/image";
+import Link from "next/link";
+import { useCallback, useState, type ComponentProps, type FormEvent, type ReactNode } from "react";
 import { useFormatter, useTranslations } from "next-intl";
 
 import {
-  cancelBooking,
-  getAdvisor,
+  createBookingInvoice,
   getBooking,
+  getPaymentPublicKey,
   getService,
+  startCheckout,
 } from "@/lib/api/resources";
-import type {
-  ApiBooking,
-  ApiPublicAdvisor,
-  ApiPublicService,
-} from "@/lib/api/types";
+import type { ApiBooking, ApiPublicService } from "@/lib/api/types";
 import { useResource } from "@/lib/api/use-resource";
-import { baht, isCancellable } from "@/components/bookings/booking-flow";
-import { NeutralButton } from "@/components/mobile/buttons";
-import {
-  MobileScreen,
-  ScreenActions,
-  ScreenBody,
-  ScreenHeading,
-  ScreenSpacer,
-  ScreenTopBar,
-} from "@/components/mobile/screen";
-import { StatusPill } from "@/components/mobile/status-pill";
-import { Surface } from "@/components/mobile/surface";
+import { useLiveCatalogue } from "@/lib/catalogue/live";
+import { createCardToken } from "@/lib/payment/omise";
+import { baht } from "@/components/bookings/booking-flow";
+import { NeutralButton, PrimaryButton } from "@/components/mobile/buttons";
+import { MobileScreen, ScreenBody, ScreenTopBar } from "@/components/mobile/screen";
 import { ThaiText } from "@/components/mobile/thai-text";
 import { SiteFooter } from "@/components/marketing/site-footer";
-import { BODY_GRID, PAGE_HEAD_BAND } from "@/components/payment/invoice-screens";
-import { DetailRow, FootNote } from "@/components/screening/parts";
 import { ApiErrorCard } from "@/components/service/parts";
 import { TopBar } from "@/components/topbar";
-import { PAGE } from "@/lib/layout";
+import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 
 /**
- * `/checkout/card?bookingId=<uuid>` — the slot that is held, and what it costs.
+ * `/checkout/card?bookingId=<uuid>` — confirm and pay for a held slot.
  *
- * ## Why there is no card form here
+ * Laid out the way a booking ends on the best of the booking sites: the title
+ * with a round way back beside it, the ways to pay as one card of rows with the
+ * button under it on the left, and on the right a card of what is being bought
+ * — the service's cover, name, advisor and rating, when it is, and what it
+ * costs. 976 across, 524 + 80 + 372, at the sizes the screen draws them (this
+ * page is not zoomed by `app-scale`); the phone stacks the order card first.
  *
- * The slot chips on `/service/…` call `POST /bookings`, which answers
- * `PENDING_PAYMENT`: the range is blocked and nothing is charged. The next step
- * in the design is `POST /payment/checkout`, and this app cannot call it — see
- * `startCheckout` in `lib/api/resources.ts` for the three reasons, of which the
- * shortest is that it answers a 303 redirect to a 3-D Secure page and `fetch`
- * would chase that into a CORS wall.
+ * ## How it pays
  *
- * So the fixture screen's card fields do not appear in this mode. A form that
- * cannot charge, asking for a card number, is not a lesser version of checkout —
- * it is a place to type a card number into nothing. The screen states what is
- * true instead: the booking exists, it is unsettled, here is the amount, and here
- * are the two things that do work — look at it, or give the time back.
+ * `POST /bookings` has already held the time (`PENDING_PAYMENT`). Paying is
+ * four steps, all on the press of the button:
  *
- * Restoring the pay button needs one copy key (`payment.payAmount`, taking the
- * real total, because `payment.pay` has ฿1,260 baked into the string) and the API
- * change. Nothing else here would move.
+ * 1. the card becomes a token in Omise's own script (`lib/payment/omise.ts`),
+ *    against the API's public key, so its number never reaches our servers;
+ * 2. `POST /payment/invoice/for-booking/:id` makes (or finds) the invoice for
+ *    this booking, priced as booked;
+ * 3. `POST /payment/checkout` charges the invoice to the token and answers the
+ *    card's 3-D Secure page;
+ * 4. the browser goes there. The bank returns it to the API, which confirms the
+ *    booking and sends it on to `/checkout/success`, `/failed` or `/unconfirmed`
+ *    with the invoice's id.
+ *
+ * When the API has no public key, card payments are not set up: the button stays
+ * off and says so, and the two things that still work — the booking, and giving
+ * the time back — sit under it. PromptPay is listed and not yet choosable: the
+ * API charges cards only.
  *
  * ## Where the amount comes from
  *
- * `priceSatang` on the joined service, which is the price **now** rather than the
- * price this booking was taken at — the appointment records no amount and
- * `service_invoices` has no advisee-facing route. There is also no platform fee
- * to show: `platformFeeSatang` exists only on an invoice row, so the summary is
- * one line and its total, not the fixture's session + 5% + total.
+ * The order card shows the package booked, or the service, at its price now; the
+ * invoice is priced the same way when it is made, so the two agree.
  */
 
-/** The advisor's name, once the booking has named them. Its own component so the
- *  request never fires with an undefined id. */
-function AdvisorRow({ advisorId }: { readonly advisorId: string }) {
-  const t = useTranslations("payment");
+/** How a card number is shown while it is typed: groups of four. */
+function groupCardNumber(value: string): string {
+  return value
+    .replace(/\D/g, "")
+    .slice(0, 19)
+    .replace(/(\d{4})(?=\d)/g, "$1 ");
+}
 
-  const fetcher = useCallback(
-    (signal: AbortSignal) => getAdvisor(advisorId, signal),
-    [advisorId],
-  );
-  const advisor = useResource<ApiPublicAdvisor>(
-    `advisors/${advisorId}`,
-    fetcher,
-  );
+/** And an expiry: `MM / YY`. */
+function formatExpiry(value: string): string {
+  const digits = value.replace(/\D/g, "").slice(0, 4);
+  return digits.length > 2 ? `${digits.slice(0, 2)} / ${digits.slice(2)}` : digits;
+}
 
-  if (!advisor.data) return null;
+type CardInput = { number: string; expiry: string; cvc: string; first: string; last: string };
 
+/** The card as Omise takes it, or null while any part of it cannot be right. */
+function readCard(card: CardInput) {
+  const number = card.number.replace(/\D/g, "");
+  const expiry = /^(\d{2}) \/ (\d{2})$/.exec(card.expiry);
+  const month = expiry ? Number(expiry[1]) : 0;
+  const name = `${card.first.trim()} ${card.last.trim()}`.trim();
+  if (number.length < 13 || !expiry || month < 1 || month > 12) return null;
+  if (!/^\d{3,4}$/.test(card.cvc) || !name) return null;
+  return {
+    name,
+    number,
+    expiration_month: month,
+    expiration_year: 2000 + Number(expiry[2]),
+    security_code: card.cvc,
+  };
+}
+
+/** One way to pay: its icon, its name and a radio at the row's end, the whole row the target. */
+function MethodRow({
+  value,
+  icon: Icon,
+  label,
+  note,
+  detail,
+  disabled = false,
+  first = false,
+  children,
+}: {
+  readonly value: string;
+  readonly icon: typeof CreditCard;
+  readonly label: string;
+  readonly note?: string;
+  /** A small line under the name: the cards it takes. */
+  readonly detail?: string;
+  readonly disabled?: boolean;
+  readonly first?: boolean;
+  readonly children?: ReactNode;
+}) {
   return (
-    <DetailRow
-      icon={UserRound}
-      label={t("advisorLabel")}
-      value={advisor.data.displayName}
-    />
+    <div className={cn(!first && "border-t border-border")}>
+      <label className={cn("flex h-16 items-center gap-4", disabled ? "cursor-not-allowed opacity-50" : "cursor-pointer")}>
+        <Icon aria-hidden className="size-8 shrink-0 p-1 text-foreground" strokeWidth={1.5} />
+        <span className="flex min-w-0 flex-1 flex-col text-base text-foreground">
+          <span>
+            {label}
+            {note ? <span className="ml-2 text-xs text-muted-foreground">{note}</span> : null}
+          </span>
+          {detail ? <span className="font-latin text-2xs leading-3 font-semibold text-muted-foreground">{detail}</span> : null}
+        </span>
+        <Radio.Root
+          className="flex size-5.5 shrink-0 items-center justify-center rounded-full border border-muted-foreground/60 outline-none focus-visible:ring-3 focus-visible:ring-ring/50 data-checked:border-2 data-checked:border-foreground"
+          disabled={disabled}
+          value={value}
+        >
+          <Radio.Indicator className="size-3 rounded-full bg-foreground" />
+        </Radio.Root>
+      </label>
+      {children}
+    </div>
   );
 }
 
-/**
- * The service line, once the booking has named it: with the package booked
- * when there is one, its name beside the service's and its price the total.
- */
-function ServiceSummary({
-  serviceId,
-  packageId,
+/** A box of the card form's fields, hairlines between them, as the provider's own form groups them. */
+const FIELD_GROUP = "overflow-hidden rounded-[12px] border border-muted-foreground/70";
+
+/** One of those fields: 60 high, its name inside it until something is typed, the whole box its target. */
+function BoxInput({
+  label,
+  trailing,
+  className,
+  ...input
 }: {
-  readonly serviceId: string;
-  readonly packageId: string | null;
-}) {
+  readonly label: string;
+  readonly trailing?: ReactNode;
+  readonly className?: string;
+} & Omit<ComponentProps<"input">, "className" | "placeholder" | "aria-label">) {
+  return (
+    <label className={cn("relative flex h-15 items-center gap-1.5 px-5 focus-within:z-10 focus-within:ring-2 focus-within:ring-foreground focus-within:ring-inset", className)}>
+      {/* The primitive, without its own box: the group draws the box, and the
+          field's focus is the ring on the label. */}
+      <Input
+        aria-label={label}
+        className="h-full flex-1 rounded-none border-0 bg-transparent px-0 py-0 text-base text-foreground shadow-none focus-visible:ring-0 md:text-base dark:bg-transparent"
+        placeholder={label}
+        {...input}
+      />
+      {trailing}
+    </label>
+  );
+}
+
+/** The order on the right: what is bought, when, and for how much. */
+function OrderCard({ booking, className }: { readonly booking: ApiBooking; readonly className?: string }) {
   const t = useTranslations("payment");
   const format = useFormatter();
+  const catalogue = useLiveCatalogue();
+  const item = catalogue.items.find((entry) => entry.id === booking.serviceId);
 
   const fetcher = useCallback(
-    (signal: AbortSignal) => getService(serviceId, signal),
-    [serviceId],
+    (signal: AbortSignal) => getService(booking.serviceId, signal),
+    [booking.serviceId],
   );
-  const service = useResource<ApiPublicService>(
-    `services/${serviceId}`,
-    fetcher,
-  );
+  const service = useResource<ApiPublicService>(`services/${booking.serviceId}`, fetcher);
+  const booked = service.data?.packages?.find((entry) => entry.id === booking.packageId);
+  const name = service.data?.name ?? item?.title ?? "";
+  const line = booked ? `${name} · ${booked.name}` : name;
+  const amount = service.data
+    ? format.number(baht(booked ? booked.priceSatang : service.data.priceSatang), "baht")
+    : null;
 
-  if (service.loading) {
-    return <div className="h-24 w-full rounded-card bg-muted" />;
-  }
-  if (!service.data) return null;
-
-  const booked = service.data.packages?.find((item) => item.id === packageId);
-  const total = format.number(baht(booked ? booked.priceSatang : service.data.priceSatang), "baht");
+  const start = new Date(booking.startTime);
+  const end = new Date(booking.endTime);
+  const clock = (at: Date) => format.dateTime(at, { hour: "2-digit", minute: "2-digit" });
 
   return (
-    <Surface className="w-full divide-y divide-border overflow-hidden">
-      <div className="flex w-full items-center justify-between gap-3 p-3.5">
-        <span className="text-base font-semibold text-foreground lg:text-lg">
-          {t("orderSummary")}
-        </span>
+    <aside aria-label={t("orderSummary")} className={cn("w-full rounded-[24px] border border-border p-6", className)}>
+      <div className="flex items-start gap-4">
+        {item ? (
+          <Image alt="" className="size-[97px] shrink-0 rounded-md object-cover" src={item.cover} />
+        ) : (
+          <span className="size-[97px] shrink-0 rounded-md bg-muted" />
+        )}
+        <div className="flex min-w-0 flex-col gap-1">
+          <p className="text-lg leading-6 font-semibold text-foreground">
+            <ThaiText>{name}</ThaiText>
+          </p>
+          {item ? <p className="text-sm text-foreground">{item.advisorName}</p> : null}
+          {item?.rating ? (
+            <p className="flex items-center gap-1 text-xs font-medium text-foreground">
+              <Star aria-hidden className="size-3 fill-foreground" />
+              <span className="font-latin tabular-nums">
+                {item.rating.toFixed(1)} ({item.reviews})
+              </span>
+            </p>
+          ) : null}
+        </div>
       </div>
-      <div className="flex w-full shrink-0 items-center justify-between gap-3 px-3.5 py-2.5">
-        <span className="min-w-px flex-1 text-sm font-normal text-muted-foreground">
-          <ThaiText>{booked ? `${service.data.name} · ${booked.name}` : service.data.name}</ThaiText>
-        </span>
-        <span className="font-latin shrink-0 text-sm font-normal whitespace-nowrap tabular-nums text-foreground">
-          {total}
-        </span>
-      </div>
-      {/* One line and its total. The fixture screen adds a 5% platform fee; that
-          figure lives on `service_invoices.platform_fee_satang` and no route this
-          app can call returns it, so it is not shown rather than assumed. */}
-      <div className="flex w-full items-center justify-between gap-3 bg-muted px-3.5 py-3">
-        <span className="min-w-px flex-1 text-sm font-medium text-foreground">
-          {t("total")}
-        </span>
-        <span className="font-latin shrink-0 text-2xl font-semibold whitespace-nowrap tabular-nums text-foreground">
-          {total}
-        </span>
-      </div>
-    </Surface>
+      <p className="mt-5 text-sm text-foreground">{t("heldNote")}</p>
+
+      <OrderSection label={t("bookingDateLabel")}>
+        <p>{format.dateTime(start, { weekday: "long", day: "numeric", month: "long", year: "numeric" })}</p>
+        <p className="font-latin tabular-nums">{`${clock(start)} – ${clock(end)}`}</p>
+      </OrderSection>
+      <OrderSection label={t("priceDetails")}>
+        <p className="flex justify-between gap-3">
+          <span className="min-w-0">
+            <ThaiText>{line}</ThaiText>
+          </span>
+          <span className="font-latin shrink-0 tabular-nums">{amount}</span>
+        </p>
+      </OrderSection>
+      <p className="mt-4 flex justify-between gap-3 border-t border-border pt-4 text-sm font-semibold text-foreground">
+        <span>{t("total")}</span>
+        <span className="font-latin tabular-nums">{amount}</span>
+      </p>
+    </aside>
   );
 }
 
-export function LiveCheckoutScreen({
-  bookingId,
-}: {
-  readonly bookingId: string;
-}) {
+/** A block of the order card under a hairline: its label, then what it says. */
+function OrderSection({ label, children }: { readonly label: string; readonly children: ReactNode }) {
+  return (
+    <div className="mt-4 flex flex-col gap-2 border-t border-border pt-4 text-sm text-foreground">
+      <p className="font-semibold">{label}</p>
+      {children}
+    </div>
+  );
+}
+
+/** The ways to pay, the card's fields under its row, and the button that pays. */
+function PayForm({ booking, className }: { readonly booking: ApiBooking; readonly className?: string }) {
+  const t = useTranslations("payment");
+  const key = useResource<{ readonly publicKey: string }>(
+    "payment/public-key",
+    useCallback((signal: AbortSignal) => getPaymentPublicKey(signal), []),
+  );
+  const publicKey = key.data?.publicKey ?? "";
+  const configured = publicKey !== "";
+
+  const [card, setCard] = useState<CardInput>({ number: "", expiry: "", cvc: "", first: "", last: "" });
+  const [paying, setPaying] = useState(false);
+  const [problem, setProblem] = useState<string | null>(null);
+  const ready = readCard(card);
+
+  const onPay = useCallback(
+    (event: FormEvent) => {
+      event.preventDefault();
+      if (!ready) {
+        setProblem(t("cardIncomplete"));
+        return;
+      }
+      setPaying(true);
+      setProblem(null);
+      void (async () => {
+        try {
+          const cardToken = await createCardToken(publicKey, ready);
+          const invoice = await createBookingInvoice(booking.id);
+          const { url } = await startCheckout({ invoiceId: invoice.id, cardToken });
+          window.location.assign(url);
+        } catch (cause: unknown) {
+          setProblem(t("payFailed", { reason: cause instanceof Error ? cause.message : String(cause) }));
+          setPaying(false);
+        }
+      })();
+    },
+    [booking.id, publicKey, ready, t],
+  );
+
+  const set = (field: keyof CardInput) => (value: string) => setCard((now) => ({ ...now, [field]: value }));
+
+  return (
+    <form className={cn("flex w-full flex-col", className)} noValidate onSubmit={onPay}>
+      <section aria-labelledby="payment-method-title" className="w-full rounded-[24px] border border-border pb-1">
+        <h2 className="px-6 pt-6 pb-1 text-lg leading-none font-semibold text-foreground" id="payment-method-title">
+          {t("methodTitle")}
+        </h2>
+        <RadioGroup aria-labelledby="payment-method-title" className="flex flex-col px-6" defaultValue="card">
+          <MethodRow disabled first icon={QrCode} label={t("methodPromptPay")} note={t("promptPaySoon")} value="promptpay" />
+          <MethodRow detail={t("cardBrands")} icon={CreditCard} label={t("methodCard")} value="card">
+            {/* The card, then its holder's name, each a box of 60-high fields
+                with hairlines between, 14 apart. */}
+            <div className="flex flex-col gap-3.5 pb-4">
+              <div className={FIELD_GROUP}>
+                <BoxInput
+                  autoComplete="cc-number"
+                  className="font-latin tabular-nums"
+                  inputMode="numeric"
+                  label={t("cardNumberLabel")}
+                  onChange={(event) => set("number")(groupCardNumber(event.target.value))}
+                  trailing={<Lock aria-hidden className="size-3.5 shrink-0 text-muted-foreground" />}
+                  value={card.number}
+                />
+                <div className="flex border-t border-muted-foreground/70">
+                  <BoxInput
+                    autoComplete="cc-exp"
+                    className="flex-1 font-latin tabular-nums"
+                    inputMode="numeric"
+                    label={t("expiryLabel")}
+                    onChange={(event) => set("expiry")(formatExpiry(event.target.value))}
+                    value={card.expiry}
+                  />
+                  <BoxInput
+                    autoComplete="cc-csc"
+                    className="flex-1 border-l border-muted-foreground/70 font-latin tabular-nums"
+                    inputMode="numeric"
+                    label={t("cvcLabel")}
+                    onChange={(event) => set("cvc")(event.target.value.replace(/\D/g, "").slice(0, 4))}
+                    value={card.cvc}
+                  />
+                </div>
+              </div>
+              <div className={FIELD_GROUP}>
+                <BoxInput
+                  autoComplete="cc-given-name"
+                  label={t("firstNameLabel")}
+                  onChange={(event) => set("first")(event.target.value)}
+                  value={card.first}
+                />
+                <BoxInput
+                  autoComplete="cc-family-name"
+                  className="border-t border-muted-foreground/70"
+                  label={t("lastNameLabel")}
+                  onChange={(event) => set("last")(event.target.value)}
+                  value={card.last}
+                />
+              </div>
+            </div>
+          </MethodRow>
+        </RadioGroup>
+      </section>
+
+      <p className="mt-3.5 text-xs leading-4 text-foreground">
+        {t.rich("termsNote", {
+          terms: (chunks) => (
+            <Link className="font-semibold underline" href="/terms">
+              {chunks}
+            </Link>
+          ),
+          privacy: (chunks) => (
+            <Link className="font-semibold underline" href="/privacy-policy">
+              {chunks}
+            </Link>
+          ),
+        })}
+      </p>
+
+      <PrimaryButton
+        aria-describedby={configured ? undefined : "pay-unavailable"}
+        block
+        className="mt-3 h-12 rounded-[12px] text-base font-medium lg:h-12"
+        disabled={!configured || paying}
+        type="submit"
+      >
+        {paying ? t("payWorking") : t("confirmTitle")}
+      </PrimaryButton>
+      {!configured && !key.loading ? (
+        <p className="mt-2 text-xs text-muted-foreground" id="pay-unavailable">
+          {t("payUnavailable")}
+        </p>
+      ) : null}
+      {problem ? (
+        <p className="mt-2 text-sm text-destructive" role="alert">
+          {problem}
+        </p>
+      ) : null}
+    </form>
+  );
+}
+
+/** The page's column: 976 across on the desktop, the phone's gutter below it. */
+const COLUMN = "w-full px-6 pt-4 pb-12 lg:mx-auto lg:w-[976px] lg:px-0 lg:pt-8 lg:pb-20";
+
+export function LiveCheckoutScreen({ bookingId }: { readonly bookingId: string }) {
   const t = useTranslations("payment");
   const c = useTranslations("common");
   const s = useTranslations("search");
-  const format = useFormatter();
-  const router = useRouter();
-  const [releasing, setReleasing] = useState(false);
-  const [failure, setFailure] = useState<string | null>(null);
 
   const fetcher = useCallback(
     (signal: AbortSignal) => getBooking(bookingId, signal),
@@ -174,22 +404,12 @@ export function LiveCheckoutScreen({
   );
   const booking = useResource<ApiBooking>(`bookings/${bookingId}`, fetcher);
 
-  const onRelease = useCallback(() => {
-    setReleasing(true);
-    setFailure(null);
-    void cancelBooking(bookingId)
-      .then(() => router.push("/bookings"))
-      .catch((cause: unknown) => {
-        setFailure(cause instanceof Error ? cause.message : String(cause));
-        setReleasing(false);
-      });
-  }, [bookingId, router]);
-
   const head = (
     <>
       <ScreenTopBar className="lg:hidden" href="/search" label={c("back")} />
+      {/* No back control in the bar: the round one beside the title is it. */}
       <div className="hidden w-full lg:block">
-        <TopBar backHref="/search" />
+        <TopBar />
       </div>
     </>
   );
@@ -199,10 +419,12 @@ export function LiveCheckoutScreen({
       <MobileScreen wide>
         <ScreenBody>
           {head}
-          <div className={cn("flex w-full flex-col gap-4 px-6 pt-4", PAGE)}>
-            <div className="h-7 w-2/5 rounded-md bg-muted" />
-            <div className="h-32 w-full rounded-card bg-muted" />
-            <div className="h-24 w-full rounded-card bg-muted" />
+          <div className={cn(COLUMN, "flex flex-col gap-6")}>
+            <div className="h-9 w-2/5 rounded-md bg-muted" />
+            <div className="flex flex-col gap-8 lg:grid lg:grid-cols-[524px_372px] lg:gap-x-20">
+              <div className="h-60 rounded-[24px] bg-muted" />
+              <div className="h-96 rounded-[24px] bg-muted" />
+            </div>
           </div>
         </ScreenBody>
       </MobileScreen>
@@ -214,7 +436,7 @@ export function LiveCheckoutScreen({
       <MobileScreen wide>
         <ScreenBody>
           {head}
-          <div className={cn("w-full px-6 pt-4", PAGE)}>
+          <div className={COLUMN}>
             <ApiErrorCard
               error={booking.error ?? new Error(t("orderSummary"))}
               extra={
@@ -232,96 +454,32 @@ export function LiveCheckoutScreen({
   }
 
   const live = booking.data;
-  const start = new Date(live.startTime);
-  const end = new Date(live.endTime);
 
   return (
     <MobileScreen wide>
       <ScreenBody>
         {head}
 
-        <div className={PAGE_HEAD_BAND}>
-          <ScreenHeading
-            className={cn("pt-4 lg:pt-5 lg:pb-9", PAGE)}
-            title={t("orderSummary")}
-          />
-        </div>
-
-        <div className={BODY_GRID}>
-          {/* The 380 aside at 1440, above the phone's fields — the same grid the
-              fixture checkout and the invoice both lay out on. */}
-          <div className="flex w-full shrink-0 flex-col items-start px-6 pt-2 lg:col-start-2 lg:row-start-1 lg:px-0 lg:pt-0">
-            <ServiceSummary packageId={live.packageId ?? null} serviceId={live.serviceId} />
+        <div className={COLUMN}>
+          {/* The round way back hangs in the margin, its top on the title's and
+              24 from it, so the title lines up with both columns under it and
+              the cards start 24 under the title, not under the circle. */}
+          <div className="relative">
+            <Link
+              aria-label={c("back")}
+              className="absolute top-0 -left-17 hidden size-11 items-center justify-center rounded-full bg-muted text-foreground transition-colors hover:bg-accent lg:flex"
+              href="/search"
+            >
+              {/* 16 across with a 2px line: lucide draws on 24, so 3 here. */}
+              <ArrowLeft aria-hidden className="size-4" strokeWidth={3} />
+            </Link>
+            <h1 className="text-2xl font-semibold text-foreground lg:text-3xl lg:leading-9">{t("confirmTitle")}</h1>
           </div>
 
-          {/* What is actually held, and its state. This is the column the card
-              fields used to run down. */}
-          <div className="flex w-full flex-col lg:col-start-1 lg:row-span-3 lg:row-start-1 lg:*:px-0">
-            <div className="flex w-full shrink-0 flex-col items-start px-6 pt-4 lg:pt-0">
-              <Surface className="flex w-full flex-col items-start gap-3 p-3.5">
-                <AdvisorRow advisorId={live.advisorId} />
-                <DetailRow
-                  icon={CalendarDays}
-                  label={t("bookingDateLabel")}
-                  value={format.dateTime(start, {
-                    weekday: "short",
-                    day: "numeric",
-                    month: "short",
-                    year: "numeric",
-                  })}
-                />
-                <DetailRow
-                  icon={Clock}
-                  label={t("timeLabel")}
-                  value={`${format.dateTime(start, { hour: "2-digit", minute: "2-digit" })} – ${format.dateTime(end, { hour: "2-digit", minute: "2-digit" })}`}
-                  valueClassName="font-latin tabular-nums"
-                />
-                <DetailRow
-                  icon={Lock}
-                  label={t("bookingLabel")}
-                  value={
-                    <StatusPill tone="warning">
-                      {t("bookingUnconfirmed")}
-                    </StatusPill>
-                  }
-                />
-              </Surface>
-            </div>
-
-            {/* The note the fixture screen puts under its card fields. It is the
-                literal truth of where this flow stops: Omise tokenises the card
-                and the charge happens on confirmation, and neither has been
-                built yet. */}
-            <FootNote icon={Lock}>{t("secureNote")}</FootNote>
-
-            {failure ? (
-              <p className="w-full px-6 pt-2 text-sm font-normal text-destructive lg:px-0">
-                {failure}
-              </p>
-            ) : null}
+          <div className="mt-6 flex flex-col gap-8 lg:grid lg:grid-cols-[524px_372px] lg:items-start lg:gap-x-20">
+            <OrderCard booking={live} className="lg:col-start-2 lg:row-start-1" />
+            <PayForm booking={live} className="lg:col-start-1 lg:row-start-1" />
           </div>
-
-          <ScreenSpacer className="lg:hidden" />
-          <ScreenActions
-            className="lg:col-start-2 lg:row-start-2 lg:px-0 lg:pt-5 lg:pb-0"
-            stacked
-          >
-            <NeutralButton block className="lg:h-11" href="/bookings">
-              {t("viewBooking")}
-            </NeutralButton>
-            {/* Giving the time back is the other thing that genuinely works, and
-                the API allows it in exactly the two states it allows it in. */}
-            {isCancellable(live.state) ? (
-              <NeutralButton
-                block
-                className="lg:h-11"
-                disabled={releasing}
-                onClick={onRelease}
-              >
-                {c("cancel")}
-              </NeutralButton>
-            ) : null}
-          </ScreenActions>
         </div>
 
         <SiteFooter className="hidden lg:flex" />

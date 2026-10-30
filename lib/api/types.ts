@@ -309,16 +309,35 @@ export interface ApiAdviseeInvoice {
   readonly card: { readonly brand: string; readonly lastDigits: string } | null;
 }
 
+/** `InvoiceDto` — payment/dto/invoice.dto.ts: what a booking's payment charges. */
+export interface ApiInvoice {
+  readonly id: string;
+  readonly createdAt: string;
+  readonly status: ApiInvoiceStatus;
+  readonly amountSatang: number;
+  readonly platformFeeSatang: number;
+}
+
 /**
  * `CheckoutDto` — payment/dto/checkout.dto.ts
  *
  * `cardToken` is an Omise token (`tokn_…`), minted in the browser by Omise's own
- * script against the publishable key. Nothing in this app loads that script, so
- * there is no way to produce this value here yet — see `startCheckout`.
+ * script against the public key (`lib/payment/omise.ts`).
  */
 export interface ApiCheckoutInput {
-  readonly serviceId: string;
-  /** One or more slot starts, ISO 8601. */
-  readonly startTimes: readonly string[];
+  readonly invoiceId: string;
   readonly cardToken: string;
+}
+
+/** `CouponPreviewResponse` — payment/dto/coupon.dto.ts, in satang. */
+export interface ApiCouponPreview {
+  readonly code: string;
+  readonly priceSatang: number;
+  readonly discountSatang: number;
+  readonly amountSatang: number;
+}
+
+/** `CheckoutResponse`: the card's 3-D Secure page, which the browser goes to. */
+export interface ApiCheckoutResult {
+  readonly url: string;
 }
