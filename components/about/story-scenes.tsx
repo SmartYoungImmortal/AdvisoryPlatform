@@ -333,35 +333,44 @@ function AnswerScene() {
   return (
     <Scene id="s1" labelledBy="story-s1" staged>
       <Lines accent={0} id="story-s1" lines={[t("s1L1"), t("s1L2")]} />
-      {/* Answer's office, next door to Ask's room: she is a financial and tax
-          adviser, so it is a working adviser's room, light and orderly, in as
-          few pieces as Ask's: the window on the city, her certificate on the
-          wall, her desk with Answer standing behind it, the shelf of client
-          binders, and the plant framing the right edge. Sized to Answer
-          (163 cm, her head's top at 703): desk 78 cm, shelf 125. All stand on
-          the line 100 up, the plant a step nearer at 90. */}
+      {/* Answer's room, next door to Ask's and laid out like it the other way
+          round: the window with the desk under it and the chair pulled up on
+          the left, Answer in the middle, her bookshelf and the plant on the
+          right. Photographed like Ask's room, from eye height, and sized to
+          Answer as Ask's room is to Ask (590 high, about 160 cm): desk 75 cm,
+          chair 84, shelf 128. All stand on the line 100 up, the plant a step
+          nearer at 90. */}
       <Stage className="h-96">
-        <Part name="piece" spot="hidden lg:block lg:top-[240px] lg:left-[130px]">
-          <Art className="lg:h-[300px]" name="office_window" />
+        <Part name="piece" spot="hidden lg:block lg:top-[252px] lg:left-[355px]">
+          <Art className="lg:h-[455px]" name="window_linen" />
         </Part>
-        <Part name="piece" spot="hidden lg:block lg:top-[270px] lg:left-[1060px]">
-          <Art className="lg:h-[120px]" name="certificate" />
+        <Part name="piece" spot="bottom-0 left-0 lg:bottom-[100px] lg:left-[330px]">
+          <Art className="h-28 lg:h-[280px]" name="white_desk" />
         </Part>
-        <Part name="piece" spot="hidden lg:block lg:bottom-[100px] lg:left-[1220px]">
-          <Art className="lg:h-[460px]" name="binder_shelf" />
+        {/* On the desk, left to right: the lamp at the back corner, the books,
+            the coffee at the front. */}
+        <Part name="piece" spot="bottom-[100px] left-[16px] lg:bottom-[372px] lg:left-[380px]">
+          <Art className="h-14 lg:h-[140px]" name="table_lamp" />
         </Part>
-        {/* Answer is pictured from the hips up, standing behind the desk: the
-            picture's foot (363) is behind its front panel, which runs solid
-            from its top (390) to the floor. */}
-        <Part kind="right" name="answer" spot="inset-x-0 bottom-[80px] flex justify-center lg:inset-x-auto lg:bottom-[363px] lg:left-[694px]">
+        <Part name="piece" spot="hidden lg:block lg:bottom-[368px] lg:left-[480px]">
+          <Art className="lg:h-11.5" name="books_stack" />
+        </Part>
+        <Part name="piece" spot="hidden lg:block lg:bottom-[366px] lg:left-[600px]">
+          <Art className="lg:h-10" name="coffee_cup" />
+        </Part>
+        {/* The chair faces left in its picture; turned to face the desk. */}
+        <Part name="piece" spot="hidden lg:block lg:bottom-[100px] lg:left-[120px]">
+          <Art className="-scale-x-100 lg:h-[310px]" name="cane_chair" />
+        </Part>
+        <Part kind="right" name="answer" spot="right-4 bottom-0 lg:right-auto lg:bottom-[100px] lg:left-[800px]">
           <Bob>
-            <Art className="h-64 lg:h-[340px]" name="answer_casual" />
+            <Art className="h-80 lg:h-[590px]" name="answer_idea" />
           </Bob>
         </Part>
-        <Part name="piece" spot="inset-x-0 bottom-0 flex justify-center lg:inset-x-auto lg:bottom-[100px] lg:left-[560px]">
-          <Art className="h-28 lg:h-[290px]" name="panel_desk" />
+        <Part name="piece" spot="hidden lg:block lg:bottom-[100px] lg:left-[1140px]">
+          <Art className="lg:h-[470px]" name="bookshelf" />
         </Part>
-        <Part name="piece" spot="hidden lg:block lg:bottom-[90px] lg:left-[1500px]">
+        <Part name="piece" spot="hidden lg:block lg:bottom-[90px] lg:left-[1440px]">
           <Art className="lg:h-[360px]" name="snake_plant" />
         </Part>
       </Stage>

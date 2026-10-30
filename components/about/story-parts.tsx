@@ -241,11 +241,14 @@ export type ArtName =
   | "plant_big"
   | "office_chair"
   | "sticky_note"
-  | "answer_casual"
-  | "certificate"
-  | "office_window"
-  | "panel_desk"
-  | "binder_shelf"
+  | "answer_idea"
+  | "window_linen"
+  | "white_desk"
+  | "cane_chair"
+  | "table_lamp"
+  | "books_stack"
+  | "coffee_cup"
+  | "bookshelf"
   | "snake_plant";
 
 /**
@@ -292,11 +295,14 @@ const ART_SIZE: Partial<Record<ArtName, readonly [number, number]>> = {
   plant_big: [736, 1040],
   office_chair: [482, 760],
   sticky_note: [234, 240],
-  answer_casual: [674, 1172],
-  certificate: [568, 500],
-  office_window: [1042, 602],
-  panel_desk: [960, 600],
-  binder_shelf: [520, 890],
+  answer_idea: [374, 1088],
+  window_linen: [666, 1000],
+  white_desk: [756, 600],
+  cane_chair: [500, 700],
+  table_lamp: [181, 340],
+  books_stack: [310, 130],
+  coffee_cup: [152, 110],
+  bookshelf: [495, 1000],
   snake_plant: [366, 900],
 };
 
