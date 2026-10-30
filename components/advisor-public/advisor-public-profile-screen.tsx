@@ -22,9 +22,9 @@ import {
   type ProfileModel,
   type RatingModel,
   type ReviewModel,
-  type ServiceCardModel,
 } from "@/components/advisor-public/profile-parts";
 import { asUuid, useQueryValue } from "@/components/bookings/booking-flow";
+import type { LiveService } from "@/lib/catalogue/live";
 import {
   publicProfile,
   type ProfileTab,
@@ -46,8 +46,6 @@ function collagePhotos(profile: PublicProfile) {
 
 /** The tab order: the work first, then what people said, then the person. */
 const TABS: readonly ProfileTab[] = ["services", "reviews", "about"];
-
-const STAR_VALUES = [5, 4, 3, 2, 1] as const;
 
 function profileHref(advisorId: string, tab: ProfileTab): string {
   const base = `/advisors/${advisorId}`;
@@ -119,16 +117,26 @@ function FixtureProfile({
     reviewsHref: hrefFor("reviews"),
   };
 
-  const cards: ServiceCardModel[] = profile.listing.map((entry) => ({
-    key: entry.title,
+  // The listings as search's cards. A listing that is not a catalogue service
+  // of this same advisor has no page of its own, so it opens the services tab.
+  const items: LiveService[] = profile.listing.map((entry) => ({
+    id: entry.serviceId ?? entry.title,
     title: entry.title,
+    description: "",
+    category: "",
+    price: entry.price,
+    minutes: 30,
+    advisorId: advisor.id,
+    advisorName: advisor.name,
+    advisorHeadline: model.role ?? "",
+    card: null,
     cover: entry.cover,
-    length: t("slotLength"),
-    price: format.number(entry.price, "baht"),
-    rating: Number.parseFloat(entry.rating) || null,
-    ratingCount: entry.ratingCount,
-    // Only a catalogue service of this same advisor has a page to open.
-    href: entry.serviceId ? `/service/${entry.serviceId}` : undefined,
+    face: advisor.avatar,
+    rating: Number.parseFloat(entry.rating) || 0,
+    reviews: entry.ratingCount,
+    href: entry.serviceId ? `/service/${entry.serviceId}` : hrefFor("services"),
+    listedAt: 0,
+    images: [],
   }));
 
   const reviews: ReviewModel[] = profile.reviews.map((review) => ({
@@ -139,6 +147,7 @@ function FixtureProfile({
     date: review.date,
     stars: Number.parseFloat(review.stars),
     service: review.service,
+    pkg: null,
     comment: review.body,
     reply: null,
   }));
@@ -146,11 +155,6 @@ function FixtureProfile({
   const rating: RatingModel = {
     average: Number.parseFloat(advisor.rating) || 0,
     total: advisor.writtenReviews,
-    bars: STAR_VALUES.map((stars, index) => ({
-      stars,
-      count: Math.round((advisor.ratingBreakdown[index] / 100) * advisor.writtenReviews),
-      share: advisor.ratingBreakdown[index],
-    })),
   };
 
   return (
@@ -170,7 +174,7 @@ function FixtureProfile({
         onSelect={select}
       />
       <TabPanel>
-        {tab === "services" ? <ServiceGrid cards={cards} /> : null}
+        {tab === "services" ? <ServiceGrid items={items} /> : null}
         {/* Two of the three fixture advisors have no written excerpts, so this
             tab really does render empty on `/advisors/thanakrit-w/reviews`. */}
         {tab === "reviews" && reviews.length > 0 ? <ReviewList rating={rating} reviews={reviews} /> : null}

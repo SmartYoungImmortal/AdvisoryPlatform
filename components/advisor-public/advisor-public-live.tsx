@@ -26,7 +26,6 @@ import {
   type ProfileModel,
   type RatingModel,
   type ReviewModel,
-  type ServiceCardModel,
 } from "@/components/advisor-public/profile-parts";
 import {
   baht,
@@ -48,7 +47,7 @@ import type {
   ApiReview,
 } from "@/lib/api/types";
 import { useResource, type Resource } from "@/lib/api/use-resource";
-import { useLiveCatalogue } from "@/lib/catalogue/live";
+import { useLiveCatalogue, type LiveService } from "@/lib/catalogue/live";
 import type { ProfileTab } from "@/lib/catalogue/profiles";
 
 /**
@@ -70,13 +69,12 @@ import type { ProfileTab } from "@/lib/catalogue/profiles";
  *   (`isVerifiedAdvisor` in its discovery query), and 404s anyone else.
  * - `GET /advisors/:id/reviews/summary`: the review count on the handle row,
  *   the rating figure and the reviews tab's histogram.
- * - `GET /services?advisorId=`: the cards and the "from" price. Their
- *   photographs are the live catalogue's (`useLiveCatalogue`), so a service
- *   wears the same cover here as on the home page and in search.
- * - `GET /advisors/:id/reviews`: the reviews tab, and each card's own score,
- *   worked out from the reviews that name it, and only while the page of
- *   reviews holds all of them; a part of the reviews would give a part of an
- *   average.
+ * - `GET /services?advisorId=`: which services, in what order, and the
+ *   "from" price. Each is drawn as the live catalogue's card
+ *   (`useLiveCatalogue`), so it wears the same cover, score and price here
+ *   as in search.
+ * - `GET /advisors/:id/reviews`: the reviews tab, each naming the service
+ *   and the package it was for.
  *
  * Nothing that is absent is drawn as a zero: a figure that failed to load is
  * left out of the box, and one still loading shows its shape.
@@ -93,23 +91,6 @@ const TABS: readonly ProfileTab[] = ["services", "reviews", "about"];
 
 const REVIEW_PAGE = 100;
 
-/** Each service's own average, from reviews that name it; null when the page is partial. */
-function scoresByService(
-  reviews: Paginated<ApiReview> | undefined,
-): ReadonlyMap<string, { readonly average: number; readonly count: number }> | null {
-  if (!reviews || reviews.total > reviews.items.length) return null;
-  const sums = new Map<string, { sum: number; count: number }>();
-  for (const review of reviews.items) {
-    const entry = sums.get(review.serviceName) ?? { sum: 0, count: 0 };
-    entry.sum += review.stars;
-    entry.count += 1;
-    sums.set(review.serviceName, entry);
-  }
-  return new Map(
-    [...sums].map(([name, { sum, count }]) => [name, { average: sum / count, count }] as const),
-  );
-}
-
 /**
  * The average, or null before anyone has scored. The DTO types it a number,
  * but with no reviews the route answers `average: null`.
@@ -119,15 +100,10 @@ function averageOf(summary: ApiRatingSummary): number | null {
   return summary.total > 0 ? average : null;
 }
 
-/** The histogram, five stars down to one, as shares of the total. */
+/** The score the reviews tab opens on. */
 function ratingOf(summary: ApiRatingSummary | undefined): RatingModel | null {
   if (!summary) return null;
-  const total = summary.total;
-  const bars = [5, 4, 3, 2, 1].map((stars) => {
-    const count = summary.distribution.find((bar) => bar.stars === stars)?.count ?? 0;
-    return { stars, count, share: total > 0 ? (count / total) * 100 : 0 };
-  });
-  return { average: averageOf(summary) ?? 0, total, bars };
+  return { average: averageOf(summary) ?? 0, total: summary.total };
 }
 
 /**
@@ -193,24 +169,45 @@ function featuredOf(
   return { cover, title: service.name, href: liveServiceHref(service.id) };
 }
 
-/** The services tab: pending, failed, the grid, or the empty sketch. */
+/**
+ * The services tab: pending, failed, the grid, or the empty sketch. The
+ * cards are the catalogue's (`useLiveCatalogue`), the very ones search
+ * lists, in the order the advisor's own list gives them.
+ */
 function ServicesTab({
   services,
-  cards,
+  catalogue,
+  own,
   name,
   photos,
 }: {
   readonly services: Resource<Paginated<ApiPublicService>>;
-  readonly cards: readonly ServiceCardModel[];
+  readonly catalogue: ReturnType<typeof useLiveCatalogue>;
+  readonly own: readonly ApiPublicService[];
   readonly name: string;
   readonly photos: readonly Photo[];
 }) {
   const t = useTranslations("advisorProfile");
-  if (services.loading) return <ServiceGridPending />;
-  if (services.error) {
-    return <PanelError error={services.error} onRetry={services.reload} title={t("servicesError")} />;
+  const items = useMemo(() => {
+    const byId = new Map(catalogue.items.map((item) => [item.id, item] as const));
+    return own.map((service) => byId.get(service.id)).filter((item): item is LiveService => item !== undefined);
+  }, [catalogue.items, own]);
+
+  if (services.loading || (catalogue.loading && own.length > 0)) return <ServiceGridPending />;
+  const error = services.error ?? (own.length > 0 ? catalogue.error : null);
+  if (error) {
+    return (
+      <PanelError
+        error={error}
+        onRetry={() => {
+          services.reload();
+          catalogue.reload();
+        }}
+        title={t("servicesError")}
+      />
+    );
   }
-  if (cards.length > 0) return <ServiceGrid cards={cards} />;
+  if (items.length > 0) return <ServiceGrid items={items} />;
   return (
     <EmptyNotice
       body={t("noServicesBody", { name })}
@@ -257,7 +254,6 @@ export function LiveAdvisorProfileScreen({
   readonly tab?: ProfileTab;
 }) {
   const t = useTranslations("advisorProfile");
-  const s = useTranslations("search");
   const format = useFormatter();
 
   const hrefFor = useCallback((tab: ProfileTab) => liveTabHref(advisorId, tab), [advisorId]);
@@ -379,29 +375,17 @@ export function LiveAdvisorProfileScreen({
     reviewsHref: hrefFor("reviews"),
   };
 
-  const scores = scoresByService(reviews.data);
-  const cards: ServiceCardModel[] = own.map((service) => {
-    const score = scores?.get(service.name);
-    return {
-      key: service.id,
-      title: service.name,
-      cover: coverOf(service),
-      length: s("durationMinutes", { count: service.durationMinutes }),
-      price: format.number(baht(service.priceSatang), "baht"),
-      rating: score?.average ?? null,
-      ratingCount: score?.count ?? 0,
-      href: liveServiceHref(service.id),
-    };
-  });
-
   const reviewCards: ReviewModel[] = (reviews.data?.items ?? []).map((review) => ({
     key: review.appointmentId,
     name: review.reviewerDisplayName,
     initials: initialsOf(review.reviewerDisplayName),
     avatar: null,
-    date: format.dateTime(new Date(review.createdAt), "short"),
+    date: format.dateTime(new Date(review.createdAt), { dateStyle: "medium" }),
     stars: review.stars,
     service: review.serviceName,
+    pkg: review.packageName ?? null,
+    // An API older than the field leaves it out; the line then names the service without the way to it.
+    serviceHref: review.serviceId ? liveServiceHref(review.serviceId) : undefined,
     comment: review.comment,
     reply: review.advisorReply,
   }));
@@ -419,7 +403,7 @@ export function LiveAdvisorProfileScreen({
       <ProfileTabs current={tab} items={tabItems} label={t("tabsLabel")} onSelect={select} />
       <TabPanel>
         {tab === "services" ? (
-          <ServicesTab cards={cards} name={live.displayName} photos={photos} services={services} />
+          <ServicesTab catalogue={catalogue} name={live.displayName} own={own} photos={photos} services={services} />
         ) : null}
 
         {tab === "reviews" ? (

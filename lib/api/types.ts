@@ -121,8 +121,11 @@ export interface ApiReview {
   readonly createdAt: string;
   readonly modifiedAt: string;
   readonly appointmentStartTime: string;
+  readonly serviceId: string;
   readonly serviceName: string;
   readonly serviceDurationMinutes: number;
+  /** The package it was booked on; null for a service sold whole. */
+  readonly packageName: string | null;
   readonly reviewerDisplayName: string;
   /** A storage key, not a URL. See `avatarUrl` on the user endpoints. */
   readonly reviewerAvatarKey: string | null;

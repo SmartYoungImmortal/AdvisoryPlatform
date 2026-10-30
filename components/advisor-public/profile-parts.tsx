@@ -3,6 +3,7 @@
 import Image, { type StaticImageData } from "next/image";
 import Link from "next/link";
 import {
+  ArrowLeft,
   BadgeCheck,
   BriefcaseBusiness,
   CalendarPlus,
@@ -13,13 +14,15 @@ import {
   Star,
   type LucideIcon,
 } from "lucide-react";
-import { useTranslations } from "next-intl";
+import { useFormatter, useTranslations } from "next-intl";
 import { useCallback, useState, type MouseEvent, type ReactNode } from "react";
 
-import { AppFrame } from "@/components/account/app-frame";
 import { MobileScreen, ScreenBody, ScreenTopBar } from "@/components/mobile/screen";
+import { ResultCard } from "@/components/search/search-screen";
 import { ApiErrorCard } from "@/components/service/parts";
+import { TopBar } from "@/components/topbar";
 import { Button } from "@/components/ui/button";
+import type { LiveService } from "@/lib/catalogue/live";
 import type { ProfileTab } from "@/lib/catalogue/profiles";
 import { cn } from "@/lib/utils";
 
@@ -36,7 +39,7 @@ import { cn } from "@/lib/utils";
  *   tab strip.
  * - **Tablet** (`md`): the same with 36px gutters, the stats in their
  *   bordered box, the tab strip inset.
- * - **Desktop** (`lg`) sits in `AppFrame`'s white panel and is drawn in the
+ * - **Desktop** (`lg`) sits under the site's bar and is drawn in the
  *   1710 design space (`app-scale`: 0.842 at 1440, held there on wider
  *   screens), so every length here is its 1440 px ×1.1875. Type is the
  *   `frame-*` steps in `app/globals.css`.
@@ -113,11 +116,15 @@ export function isPlainClick(event: MouseEvent<HTMLAnchorElement>): boolean {
 
 /* ------------------------------------------------------------------- page */
 
+/** The wrapper the desktop bar sits in, for the tab jump to measure it. */
+const PROFILE_BAR_ID = "advisor-profile-bar";
+
 /**
  * The page around the profile: the phone keeps its own back bar and bottom
- * bar; from `lg` there is no bar at all, only `AppFrame`'s rail and panel.
- * The column inside: 1362px of content at most,
- * 36px in from the panel's edge and 40 down.
+ * bar; from `lg` the site's own bar, the one search and the service page
+ * wear (the rail is for the reader's own account pages, not someone else's
+ * profile), and under it the way back, 44 round at 1440. The column is the
+ * service page's: 1594 of content in the 1710 space, 32 in and 38 down.
  */
 export function ProfilePage({
   back,
@@ -137,15 +144,25 @@ export function ProfilePage({
   const c = useTranslations("common");
 
   return (
-    <MobileScreen className="bg-card pb-0 lg:bg-background" wide="md">
+    <MobileScreen className="bg-card pb-0" wide="md">
       <ScreenTopBar className="lg:hidden" href={back} label={c("back")} />
-      <AppFrame>
-        <ScreenBody className="bg-card">
-          <div className="app-scale flex w-full flex-col lg:max-w-[1702.875px] lg:px-[42.75px] lg:pt-[47.5px]">
-            {children}
-          </div>
-        </ScreenBody>
-      </AppFrame>
+      <ScreenBody className="bg-card">
+        {/* `contents`, so the bar is the scroller's own child and sticks. */}
+        <div className="hidden lg:contents" id={PROFILE_BAR_ID}>
+          <TopBar dock unreadNotifications />
+        </div>
+        <div className="app-scale mx-auto flex w-full flex-col lg:max-w-[1658px] lg:px-8 lg:pt-9.5">
+          <Link
+            aria-label={c("back")}
+            className="hidden size-[52.25px] shrink-0 items-center justify-center self-start rounded-full bg-muted text-foreground outline-none transition-colors hover:bg-accent focus-visible:ring-3 focus-visible:ring-ring/50 lg:flex"
+            href={back}
+          >
+            {/* The checkout's arrow: 22 across in a 2px line at 1440. */}
+            <ArrowLeft absoluteStrokeWidth aria-hidden className="size-[26.125px]" strokeWidth={2.375} />
+          </Link>
+          {children}
+        </div>
+      </ScreenBody>
       {actions ? (
         <div className="flex w-full shrink-0 items-center gap-3 overflow-clip border-t border-border bg-card px-6 py-3 shadow-panel lg:hidden">
           <Button
@@ -529,7 +546,10 @@ export function revealProfileContent(): void {
   const body = content?.closest<HTMLElement>('[data-slot="screen-body"]');
   if (!content || !body) return;
   const tabs = document.getElementById(PROFILE_TABS_ID)?.getBoundingClientRect().height ?? 0;
-  const top = content.getBoundingClientRect().top - body.getBoundingClientRect().top + body.scrollTop - tabs;
+  // The desktop bar the tabs stick under: `TopBar`'s last element is its
+  // sticky row, and the wrapper is hidden (0 tall) below `lg`.
+  const bar = document.getElementById(PROFILE_BAR_ID)?.lastElementChild?.getBoundingClientRect().height ?? 0;
+  const top = content.getBoundingClientRect().top - body.getBoundingClientRect().top + body.scrollTop - tabs - bar;
   body.scrollTo({ top, behavior: "instant" });
 }
 
@@ -576,8 +596,10 @@ export function useProfileTab(
 /**
  * Line tabs: a 48px tab, the label semibold when current with a
  * 2px rule on the hairline under the bar, and the bar sticking to the top of
- * the scroller. Every tab is the route it names, so it opens in a new tab and
- * survives a reload; a plain click switches in place (`onSelect`).
+ * the scroller, from `lg` to the foot of the site's bar: its 88 (zoomed by
+ * `doc-scale`) over this column's own zoom (`app-scale`). Every tab is the
+ * route it names, so it opens in a new tab and survives a reload; a plain
+ * click switches in place (`onSelect`).
  */
 export function ProfileTabs({
   current,
@@ -592,7 +614,7 @@ export function ProfileTabs({
 }) {
   return (
     <div
-      className="sticky top-0 z-10 mt-1 w-full border-b border-border bg-card px-4 pt-3 pb-px md:mx-6 md:mt-2 md:w-auto md:px-3 lg:-mx-[14.25px] lg:mt-[23.75px] lg:px-[14.25px] lg:pt-[14.25px]"
+      className="sticky top-0 z-10 mt-1 w-full border-b border-border bg-card px-4 pt-3 pb-px md:mx-6 md:mt-2 md:w-auto md:px-3 lg:top-[calc(88px*clamp(0.75,tan(atan2(100vw,1710px)),1)/tan(atan2(min(100vw,1440px),1710px)))] lg:-mx-[14.25px] lg:mt-[23.75px] lg:px-[14.25px] lg:pt-[14.25px]"
       id={PROFILE_TABS_ID}
     >
       <nav aria-label={label} className="flex items-end gap-0.5 md:min-h-13 lg:min-h-[61.75px] lg:gap-[2.375px]">
@@ -818,104 +840,44 @@ export function PanelError({
 
 /* --------------------------------------------------------------- services */
 
-export type ServiceCardModel = {
-  readonly key: string;
-  readonly title: string;
-  readonly cover: Photo | null;
-  /** "60 นาที", "ช่วงละ 30 นาที" — already in words. */
-  readonly length: string;
-  /** Already formatted, "฿1,200". */
-  readonly price: string;
-  /** This service's own average, or null when there is none to show. */
-  readonly rating: number | null;
-  readonly ratingCount: number;
-  readonly href?: string;
-};
-
-function Rating({ rating, count }: { readonly rating: number; readonly count: number }) {
-  return (
-    <span className="flex shrink-0 items-center gap-1 font-latin text-sm tabular-nums lg:gap-[4.75px] lg:text-frame-meta">
-      <Star aria-hidden className="size-3.5 fill-warning text-warning lg:size-[19px]" />
-      <span className="font-semibold text-foreground">{rating.toFixed(1)}</span>
-      <span className="text-muted-foreground">({count})</span>
-    </span>
-  );
-}
-
 /**
- * A service on the profile: the photograph beside the copy on the phone,
- * above it from `md`. A colour change under the pointer, nothing moves.
+ * The search page's grid and its card (`ResultCard`), so a service looks the
+ * same here as where it was found: on white, two across on the phone and the
+ * upright tablet. From `lg` five across rather than search's four, since this
+ * column is 1594 wide to search's 1136: five keeps each card near search's
+ * 254 (287), where four would blow it up to 369.
  */
-function ServiceCard({ card }: { readonly card: ServiceCardModel }) {
-  const body = (
-    <>
-      <span className="relative block size-22 shrink-0 overflow-hidden rounded-lg bg-muted md:aspect-[4/3] md:size-auto md:w-full md:rounded-none">
-        {card.cover ? (
-          <Image alt="" className="object-cover" fill sizes="(min-width: 1024px) 420px, (min-width: 768px) 360px, 88px" src={card.cover} />
-        ) : null}
-      </span>
-      <span className="flex min-w-0 flex-1 flex-col gap-1 py-1 pr-1 md:gap-1.5 md:p-4 lg:gap-[7.125px] lg:p-[23.75px]">
-        <span className="line-clamp-2 text-base font-semibold text-foreground lg:text-frame-body">{card.title}</span>
-        <span className="text-xs text-muted-foreground lg:text-frame-meta">{card.length}</span>
-        <span className="mt-auto flex items-center justify-between gap-2 pt-1 lg:pt-[4.75px]">
-          <span className="font-latin text-base font-semibold whitespace-nowrap text-foreground tabular-nums lg:text-frame-figure">
-            {card.price}
-          </span>
-          {card.rating !== null && card.ratingCount > 0 ? <Rating count={card.ratingCount} rating={card.rating} /> : null}
-        </span>
-      </span>
-    </>
-  );
-  const className =
-    "flex w-full items-stretch gap-3 overflow-hidden rounded-[16px] border border-border bg-card p-2 md:flex-col md:gap-0 md:p-0 lg:rounded-[19px]";
+const SERVICE_GRID =
+  "grid grid-cols-2 gap-x-4 gap-y-8 md:gap-x-8 md:gap-y-12 lg:grid-cols-5 lg:gap-x-10 lg:gap-y-14";
 
-  return card.href ? (
-    <Link
-      className={cn(className, "outline-none hover:border-accented focus-visible:ring-3 focus-visible:ring-ring/50")}
-      href={card.href}
-    >
-      {body}
-    </Link>
-  ) : (
-    <div className={className}>{body}</div>
-  );
-}
-
-/** The services as cards on the fade panel: one to a row, two from `md`, three from `lg`. */
-export function ServiceGrid({ cards }: { readonly cards: readonly ServiceCardModel[] }) {
+export function ServiceGrid({ items }: { readonly items: readonly LiveService[] }) {
   return (
-    <FadePanel className="p-3 md:p-5 lg:p-[28.5px]">
-      <ul className="grid grid-cols-1 gap-3 md:grid-cols-2 md:gap-4 lg:grid-cols-3 lg:gap-[23.75px]">
-        {cards.map((card) => (
-          <li className="flex" key={card.key}>
-            <ServiceCard card={card} />
-          </li>
-        ))}
-      </ul>
-    </FadePanel>
+    <ul className={SERVICE_GRID}>
+      {items.map((item) => (
+        // A grid cell, so the card fills the row's height and the prices line up.
+        <li className="grid" key={item.id}>
+          <ResultCard item={item} />
+        </li>
+      ))}
+    </ul>
   );
 }
 
-/** The grid's shape while the services are on their way. */
+/** The grid's shape while the services are on their way: the card's photo and three lines. */
 export function ServiceGridPending() {
   return (
-    <FadePanel className="p-3 md:p-5 lg:p-[28.5px]">
-      <div aria-hidden className="grid grid-cols-1 gap-3 md:grid-cols-2 md:gap-4 lg:grid-cols-3 lg:gap-[23.75px]">
-        {[0, 1, 2].map((index) => (
-          <span
-            className="flex gap-3 rounded-[16px] border border-border bg-card p-2 md:flex-col md:gap-0 md:p-0 lg:rounded-[19px]"
-            key={index}
-          >
-            <span className="block size-22 shrink-0 rounded-lg bg-muted md:aspect-[4/3] md:size-auto md:w-full md:rounded-none" />
-            <span className="flex flex-1 flex-col gap-2 py-1 md:p-4 lg:gap-[9.5px] lg:p-[23.75px]">
-              <Pending className="h-4 w-4/5 lg:h-6" />
-              <Pending className="h-3 w-1/3 lg:h-[19px]" />
-              <Pending className="mt-auto h-4 w-1/4 lg:h-6" />
-            </span>
+    <div aria-hidden className={SERVICE_GRID}>
+      {[0, 1, 2, 3].map((index) => (
+        <span className="flex flex-col gap-3" key={index}>
+          <span className="block aspect-[4/3] w-full rounded-2xl bg-muted" />
+          <span className="flex flex-col gap-2 px-0.5">
+            <Pending className="h-4 w-1/2" />
+            <Pending className="h-4 w-4/5" />
+            <Pending className="h-3 w-1/3" />
           </span>
-        ))}
-      </div>
-    </FadePanel>
+        </span>
+      ))}
+    </div>
   );
 }
 
@@ -929,6 +891,10 @@ export type ReviewModel = {
   readonly date: string;
   readonly stars: number;
   readonly service: string;
+  /** The package it was booked on; null for a service sold whole. */
+  readonly pkg: string | null;
+  /** The service's page, when it has one to open. */
+  readonly serviceHref?: string;
   readonly comment: string | null;
   readonly reply: string | null;
 };
@@ -936,16 +902,21 @@ export type ReviewModel = {
 export type RatingModel = {
   readonly average: number;
   readonly total: number;
-  /** 5 down to 1, each with its share of the total in per cent. */
-  readonly bars: readonly { readonly stars: number; readonly count: number; readonly share: number }[];
 };
 
-function StarRow({ value, className }: { readonly value: number; readonly className: string }) {
+/** The reviews' grid: one to a row on the phone, two from `md`, three from `lg`, 40 and 48 apart at 1440. */
+const REVIEW_GRID = "grid gap-10 md:grid-cols-2 md:gap-x-10 lg:grid-cols-3 lg:gap-x-[47.5px] lg:gap-y-[57px]";
+
+/** Five 9px stars at 1440, filled to the score, said once for a screen reader. */
+function StarRow({ value }: { readonly value: number }) {
+  const t = useTranslations("advisorProfile");
+  const filled = Math.round(value);
   return (
-    <span aria-hidden className="flex items-center gap-0.5 lg:gap-[2.375px]">
+    <span aria-label={t("reviewStars", { stars: value })} className="flex items-center gap-px lg:gap-[1.1875px]" role="img">
       {[1, 2, 3, 4, 5].map((step) => (
         <Star
-          className={cn(className, step <= Math.round(value) ? "fill-warning text-warning" : "fill-muted text-muted")}
+          aria-hidden
+          className={cn("size-2.5 lg:size-[10.7px]", step <= filled ? "fill-foreground text-foreground" : "fill-border text-border")}
           key={step}
         />
       ))}
@@ -953,78 +924,63 @@ function StarRow({ value, className }: { readonly value: number; readonly classN
   );
 }
 
-function RatingSummary({ rating }: { readonly rating: RatingModel }) {
+/**
+ * One review the way the service page draws its own, unboxed: the 40 face
+ * with the name 14/500 and, under it, the service and the package it was
+ * for (the way to that service); 16 under that the stars and the date; 13
+ * under them what they said, 14/20; the advisor's reply on a rule.
+ */
+function ReviewItem({ review }: { readonly review: ReviewModel }) {
   const t = useTranslations("advisorProfile");
+  const s = useTranslations("service");
+  const what = s("reviewFor", { service: review.pkg ? `${review.service} · ${review.pkg}` : review.service });
+  const whatClass = "truncate text-xs text-muted-foreground lg:text-frame-label";
 
   return (
-    <div className="flex w-full flex-col gap-4 rounded-[16px] border border-border bg-card p-4 sm:flex-row sm:items-center sm:gap-6 md:p-5 lg:gap-9.5 lg:rounded-[19px] lg:p-[28.5px]">
-      <div className="flex shrink-0 flex-col items-start gap-1 sm:items-center lg:gap-[7.125px] lg:px-[19px]">
-        <p className="font-latin text-heading-lg leading-none font-semibold text-foreground tabular-nums lg:text-5xl lg:leading-none">
-          <span className="sr-only">{t("averageOutOf", { average: rating.average.toFixed(1) })}</span>
-          <span aria-hidden>{rating.average.toFixed(1)}</span>
-        </p>
-        <StarRow className="size-4 lg:size-[19px]" value={rating.average} />
-        <p className="text-sm text-muted-foreground lg:text-frame-meta">{t("reviewCount", { count: rating.total })}</p>
-      </div>
-      <ul className="flex min-w-0 flex-1 flex-col gap-1.5 lg:gap-[9.5px]">
-        {rating.bars.map((bar) => (
-          <li className="flex items-center gap-2 lg:gap-[11.875px]" key={bar.stars}>
-            <span className="w-2 shrink-0 font-latin text-xs text-muted-foreground tabular-nums lg:w-[11.875px] lg:text-frame-meta">
-              {bar.stars}
-            </span>
-            <span className="h-1.5 min-w-px flex-1 overflow-hidden rounded-full bg-muted lg:h-[9.5px]">
-              <span className="block h-full rounded-full bg-foreground" style={{ width: `${bar.share}%` }} />
-            </span>
-            <span className="w-6 shrink-0 text-end font-latin text-xs text-muted-foreground tabular-nums lg:w-9.5 lg:text-frame-meta">
-              {bar.count}
-            </span>
-          </li>
-        ))}
-      </ul>
-    </div>
-  );
-}
-
-function ReviewCard({ review }: { readonly review: ReviewModel }) {
-  const t = useTranslations("advisorProfile");
-
-  return (
-    <article className="flex h-full w-full flex-col gap-3 rounded-[16px] border border-border bg-card p-4 lg:gap-[14.25px] lg:rounded-[19px] lg:p-[23.75px]">
-      <div className="flex items-center gap-3 lg:gap-[14.25px]">
-        <span className="relative flex size-10 shrink-0 items-center justify-center overflow-hidden rounded-full bg-muted text-sm font-medium text-muted-foreground lg:size-[47.5px] lg:text-frame-body">
+    <li className="flex min-w-0 flex-col">
+      <div className="flex items-center gap-4 lg:gap-[23.75px]">
+        <span className="relative flex size-10 shrink-0 items-center justify-center overflow-hidden rounded-full bg-muted text-sm font-medium text-foreground lg:size-[47.5px] lg:text-frame-meta">
           {review.avatar ? (
             <Image alt="" className="object-cover" fill sizes="48px" src={review.avatar} />
           ) : (
             <span aria-hidden>{review.initials}</span>
           )}
         </span>
-        <div className="flex min-w-0 flex-1 flex-col">
-          <p className="truncate text-sm font-semibold text-foreground lg:text-frame-body">{review.name}</p>
-          <p className="text-xs text-muted-foreground lg:text-frame-label">{review.date}</p>
-        </div>
-        <span className="flex shrink-0 items-center gap-1 font-latin text-sm font-semibold text-foreground tabular-nums lg:gap-[4.75px] lg:text-frame-body">
-          <Star aria-hidden className="size-3.5 fill-warning text-warning lg:size-[19px]" />
-          <span className="sr-only">{t("reviewStars", { stars: review.stars })}</span>
-          <span aria-hidden>{review.stars}</span>
+        <span className="flex min-w-0 flex-col">
+          <span className="truncate text-sm font-medium text-foreground lg:text-frame-meta lg:leading-[1.29]">{review.name}</span>
+          {review.serviceHref ? (
+            <Link className={cn(whatClass, "underline-offset-4 hover:text-foreground hover:underline")} href={review.serviceHref}>
+              {what}
+            </Link>
+          ) : (
+            <span className={whatClass}>{what}</span>
+          )}
         </span>
       </div>
-      <span className="inline-flex max-w-full self-start rounded-full border border-border px-2.5 py-0.5 text-xs text-muted-foreground lg:px-[14.25px] lg:py-[4.75px] lg:text-frame-meta">
-        <span className="truncate">{review.service}</span>
+      <span className="mt-4 flex items-center gap-1.5 text-xs text-muted-foreground lg:mt-[19px] lg:gap-[4.75px] lg:text-frame-label">
+        <StarRow value={review.stars} />
+        <span aria-hidden>·</span>
+        {review.date}
       </span>
       {review.comment ? (
-        <p className="text-sm leading-6 text-foreground lg:text-frame-body lg:leading-[1.6]">{review.comment}</p>
+        <p className="mt-3 text-sm leading-[1.43] text-foreground lg:mt-[15.4px] lg:text-frame-meta lg:leading-[1.43]">
+          {review.comment}
+        </p>
       ) : null}
       {review.reply ? (
-        <div className="rounded-xl bg-muted p-3 lg:rounded-[16.625px] lg:p-[19px]">
-          <p className="text-xs text-muted-foreground lg:text-frame-label">{t("advisorReply")}</p>
-          <p className="pt-1 text-sm text-foreground lg:text-frame-meta">{review.reply}</p>
+        <div className="mt-3 flex flex-col gap-0.5 border-l-2 border-border pl-3 lg:mt-[15.4px] lg:gap-[2.375px] lg:pl-[14.25px]">
+          <span className="text-xs font-medium text-foreground lg:text-frame-label">{t("advisorReply")}</span>
+          <p className="text-sm text-muted-foreground lg:text-frame-meta">{review.reply}</p>
         </div>
       ) : null}
-    </article>
+    </li>
   );
 }
 
-/** The summary, then the reviews two to a row from `md`, on the fade panel. */
+/**
+ * The reviews under a head that is the score itself, as on the service page
+ * (22/600 at 1440), then the reviews unboxed on white.
+ */
 export function ReviewList({
   rating,
   reviews,
@@ -1032,40 +988,53 @@ export function ReviewList({
   readonly rating: RatingModel | null;
   readonly reviews: readonly ReviewModel[];
 }) {
+  const t = useTranslations("advisorProfile");
+  const format = useFormatter();
+
   return (
-    <FadePanel className="flex flex-col gap-3 p-3 md:gap-4 md:p-5 lg:gap-[23.75px] lg:p-[28.5px]">
-      {rating && rating.total > 0 ? <RatingSummary rating={rating} /> : null}
-      <ul className="grid grid-cols-1 gap-3 md:grid-cols-2 md:gap-4 lg:gap-[23.75px]">
+    <section aria-labelledby="profile-reviews-title" className="flex flex-col">
+      <h2
+        className="mb-6 text-xl leading-tight font-semibold text-foreground lg:mb-9.5 lg:text-heading lg:leading-tight"
+        id="profile-reviews-title"
+      >
+        {rating && rating.total > 0 ? (
+          <span className="inline-flex items-center gap-2 lg:gap-[9.5px]">
+            <Star aria-hidden className="size-4 fill-current lg:size-[19px]" />
+            {format.number(rating.average, { minimumFractionDigits: 1, maximumFractionDigits: 1 })}
+            <span aria-hidden>·</span>
+            {t("reviewCount", { count: rating.total })}
+          </span>
+        ) : (
+          t("reviewsTitle")
+        )}
+      </h2>
+      <ul className={REVIEW_GRID}>
         {reviews.map((review) => (
-          <li className="flex" key={review.key}>
-            <ReviewCard review={review} />
-          </li>
+          <ReviewItem key={review.key} review={review} />
         ))}
       </ul>
-    </FadePanel>
+    </section>
   );
 }
 
-/** The reviews' shape while they are on their way. */
+/** The reviews' shape while they are on their way: the head, and three reviews' faces and lines. */
 export function ReviewListPending() {
   return (
-    <FadePanel className="flex flex-col gap-3 p-3 md:gap-4 md:p-5 lg:gap-[23.75px] lg:p-[28.5px]">
-      <div aria-hidden className="grid grid-cols-1 gap-3 md:grid-cols-2 md:gap-4 lg:gap-[23.75px]">
-        {[0, 1].map((index) => (
-          <span
-            className="flex flex-col gap-3 rounded-[16px] border border-border bg-card p-4 lg:gap-[14.25px] lg:rounded-[19px] lg:p-[23.75px]"
-            key={index}
-          >
-            <span className="flex items-center gap-3">
-              <span className="block size-10 rounded-full bg-muted lg:size-[47.5px]" />
-              <Pending className="h-4 w-1/3 lg:h-6" />
+    <div aria-hidden className="flex flex-col">
+      <Pending className="mb-6 h-7 w-48 lg:mb-9.5 lg:h-[33px] lg:w-[260px]" />
+      <div className={REVIEW_GRID}>
+        {[0, 1, 2].map((index) => (
+          <span className="flex flex-col gap-4 lg:gap-[19px]" key={index}>
+            <span className="flex items-center gap-4 lg:gap-[23.75px]">
+              <span className="block size-10 shrink-0 rounded-full bg-muted lg:size-[47.5px]" />
+              <Pending className="h-4 w-1/3 lg:h-[19px]" />
             </span>
-            <Pending className="h-3 w-4/5 lg:h-[19px]" />
-            <Pending className="h-3 w-3/5 lg:h-[19px]" />
+            <Pending className="h-3 w-4/5 lg:h-[16.6px]" />
+            <Pending className="h-3 w-3/5 lg:h-[16.6px]" />
           </span>
         ))}
       </div>
-    </FadePanel>
+    </div>
   );
 }
 
