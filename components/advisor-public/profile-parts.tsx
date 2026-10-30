@@ -7,6 +7,7 @@ import {
   BadgeCheck,
   BriefcaseBusiness,
   CalendarPlus,
+  FileCheck,
   MapPin,
   MessageCircle,
   MessageSquare,
@@ -1092,21 +1093,45 @@ export function PendingProfile({
 
 /* ------------------------------------------------------------------ about */
 
-/** An About section: a 19px head, the body 16px under it, a hairline at the foot. */
+/**
+ * An About section, after the profile pages of a large freelance
+ * marketplace: the head 19/500, the body under it, a hairline between one
+ * section and the next and none above the first.
+ */
 function AboutSection({ title, children }: { readonly title: string; readonly children: ReactNode }) {
   return (
-    <section className="border-b border-border p-4 lg:p-[19px]">
-      <header className="flex min-h-9 items-center lg:min-h-[42.75px]">
-        <h2 className="text-lg font-semibold text-foreground lg:text-frame-heading">{title}</h2>
-      </header>
-      <div className="mt-4 lg:mt-[19px]">{children}</div>
+    <section className="border-t border-border py-7 first:border-t-0 first:pt-0 lg:py-9.5 lg:first:pt-0">
+      <h2 className="mb-4 text-lg font-medium text-foreground lg:mb-[23.75px] lg:text-frame-heading">{title}</h2>
+      {children}
     </section>
   );
 }
 
 /**
- * The About tab: no panel, a column two thirds of the page wide from
- * `lg`, centred, one section per subject.
+ * A row of the same pages' experience list: a 64 grey tile, here holding a
+ * glyph where theirs holds initials, beside the head 17/500 and a line 15 in
+ * grey under it.
+ */
+function AboutItem({ icon: Icon, title, line }: { readonly icon: LucideIcon; readonly title: string; readonly line: string }) {
+  return (
+    <li className="flex items-start gap-4 lg:gap-[23.75px]">
+      <span className="flex size-14 shrink-0 items-center justify-center rounded-[12px] bg-muted lg:size-[76px] lg:rounded-[16.625px]">
+        <Icon aria-hidden className="size-6 text-foreground lg:size-[28.5px]" strokeWidth={1.5} />
+      </span>
+      <span className="flex min-w-0 flex-col gap-0.5 pt-1 lg:gap-[2.375px] lg:pt-[2.375px]">
+        <span className="text-base font-medium text-foreground lg:text-frame-body">{title}</span>
+        <span className="text-sm leading-[1.47] text-muted-foreground lg:text-frame-meta lg:leading-[1.47]">{line}</span>
+      </span>
+    </li>
+  );
+}
+
+/**
+ * The About tab, drawn after the same pages' own: the full column inset 38
+ * at 1440, one section per subject. Theirs also lists work experience,
+ * education, languages and licences; the API keeps none of those for an
+ * advisor, so this holds what it does keep: the introduction, the skills an
+ * admin approved proof for, and the checks behind the verified mark.
  */
 export function AboutView({
   bio,
@@ -1121,30 +1146,36 @@ export function AboutView({
   const s = useTranslations("service");
 
   return (
-    <div className="mx-auto flex w-full flex-col gap-4 pb-12 lg:w-2/3 lg:gap-[19px] lg:pb-[57px]">
+    <div className="flex w-full flex-col pb-12 lg:px-[45.125px] lg:pb-[57px]">
       <AboutSection title={t("introTitle")}>
-        <p className="text-base leading-7 text-foreground lg:text-frame-body lg:leading-[1.6]">{bio}</p>
+        <p className="text-base leading-7 whitespace-pre-line text-foreground lg:text-frame-body lg:leading-[1.6]">{bio}</p>
       </AboutSection>
       {skills.length > 0 ? (
         <AboutSection title={t("verifiedSkills")}>
-          <ul className="flex flex-wrap gap-1.5 lg:gap-[7.125px]">
+          <ul className="flex flex-wrap gap-3 lg:gap-[14.25px]">
             {skills.map((skill) => (
-              <SkillChip key={skill}>{skill}</SkillChip>
+              <li
+                className="flex min-h-11 items-center rounded-full border border-border px-5 text-base text-foreground lg:min-h-[54.625px] lg:px-[23.75px] lg:text-frame-body"
+                key={skill}
+              >
+                {skill}
+              </li>
             ))}
           </ul>
         </AboutSection>
       ) : null}
       {verified ? (
         <AboutSection title={t("verificationTitle")}>
-          <div className="flex items-start gap-3 lg:gap-[14.25px]">
-            <span className="flex size-9 shrink-0 items-center justify-center rounded-full bg-success-surface lg:size-[42.75px]">
-              <ShieldCheck aria-hidden className="size-4.5 text-success lg:size-[21.375px]" />
-            </span>
-            <div className="flex min-w-0 flex-col gap-0.5 lg:gap-[2.375px]">
-              <p className="text-base font-semibold text-foreground lg:text-frame-body">{s("verifiedIdentity")}</p>
-              <p className="text-sm text-muted-foreground lg:text-frame-meta">{s("verifiedDetail")}</p>
-            </div>
-          </div>
+          <ul className="flex flex-col gap-5 lg:gap-[23.75px]">
+            <AboutItem icon={ShieldCheck} line={t("identityCheckedBody")} title={s("verifiedIdentity")} />
+            {skills.length > 0 ? (
+              <AboutItem
+                icon={FileCheck}
+                line={t("skillsCheckedBody", { count: skills.length })}
+                title={t("skillsCheckedTitle")}
+              />
+            ) : null}
+          </ul>
         </AboutSection>
       ) : null}
     </div>

@@ -3124,7 +3124,10 @@
     "reviewsError": "โหลดรีวิวไม่สำเร็จ",
     "advisorReply": "คำตอบจากที่ปรึกษา",
     "reviewStars": "{stars} ดาว",
-    "averageOutOf": "คะแนนเฉลี่ย {average} จาก 5"
+    "averageOutOf": "คะแนนเฉลี่ย {average} จาก 5",
+    "identityCheckedBody": "ทีมงานตรวจบัตรประชาชนแล้ว ก่อนเปิดให้รับจองได้",
+    "skillsCheckedTitle": "ตรวจหลักฐานทักษะแล้ว",
+    "skillsCheckedBody": "{count} ทักษะ ส่งหลักฐานให้ทีมงานตรวจและอนุมัติแล้ว"
   },
   "changeEmail": {
     "title": "เปลี่ยนอีเมล",

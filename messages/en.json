@@ -1758,7 +1758,10 @@
     "reviewsError": "Couldn't load the reviews",
     "advisorReply": "Reply from the advisor",
     "reviewStars": "{stars, plural, one {# star} other {# stars}}",
-    "averageOutOf": "Average {average} out of 5"
+    "averageOutOf": "Average {average} out of 5",
+    "identityCheckedBody": "Our team checked their national ID before they could take bookings",
+    "skillsCheckedTitle": "Skill proof checked",
+    "skillsCheckedBody": "{count, plural, one {# skill} other {# skills}} with proof our team checked and approved"
   },
   "cms": {
     "document": {
