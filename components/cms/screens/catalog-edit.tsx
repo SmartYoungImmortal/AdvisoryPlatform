@@ -121,6 +121,12 @@ export function TaxonomyEditScreen({ kind }: { readonly kind: TaxonomyKind }) {
   );
 }
 
+/** What the toast says once a save lands: a category or a skill, made or changed. */
+const SAVED = {
+  categories: { create: "createdCategory", update: "updatedCategory" },
+  skills: { create: "createdSkill", update: "updatedSkill" },
+} as const satisfies Record<TaxonomyKind, { create: string; update: string }>;
+
 function TaxonomyForm({
   kind,
   record,
@@ -153,13 +159,12 @@ function TaxonomyForm({
       return;
     }
     const input = { name: trimmed, description: description.trim() || undefined };
+    const run = record ? () => spec.update(record.id, input) : () => spec.create(input);
     setBusy(true);
     const result = await rule({
       keyPrefix: spec.key,
-      run: [record ? () => spec.update(record.id, input) : () => spec.create(input)],
-      success: record
-        ? t(kind === "categories" ? "updatedCategory" : "updatedSkill")
-        : t(kind === "categories" ? "createdCategory" : "createdSkill"),
+      run: [run],
+      success: t(SAVED[kind][record ? "update" : "create"]),
     });
     setBusy(false);
     if (result.ok) router.push(spec.back);

@@ -86,6 +86,39 @@ export type CmsTableEmpty = {
 };
 
 /**
+ * What an empty page of the table says: nothing for this search (with the way
+ * to clear it), nothing for these filters, or nothing yet at all.
+ */
+function TableEmpty({
+  search,
+  filtered,
+  empty,
+  onClearSearch,
+}: {
+  readonly search: string;
+  readonly filtered: boolean;
+  readonly empty?: CmsTableEmpty;
+  readonly onClearSearch: () => void;
+}) {
+  const t = useTranslations("cms.table");
+  if (search)
+    return (
+      <CmsEmpty
+        action={
+          <CmsButton onClick={onClearSearch} size="sm" variant="secondary">
+            {t("clearSearch")}
+          </CmsButton>
+        }
+        body={t("noResultsBody")}
+        icon={SearchX}
+        title={t("noResults", { query: search })}
+      />
+    );
+  if (filtered) return <CmsEmpty body={t("filteredEmptyBody")} icon={SearchX} title={t("filteredEmpty")} />;
+  return <CmsEmpty body={empty?.body} icon={empty?.icon ?? Inbox} title={empty?.title ?? t("empty")} />;
+}
+
+/**
  * A list page's table, in the pattern the references share and the site's
  * own rows already follow: no box round it, a hairline under the head and
  * between rows, 52px rows of 14px type, the record's name in medium weight.
@@ -141,25 +174,10 @@ export function CmsTable<Row extends { readonly id: string }>({
   const end = Math.min(list.page * list.perPage, list.total);
   const span = columns.length + (selectable ? 1 : 0);
 
-  let emptyState: ReactNode = null;
-  if (rows.length === 0) {
-    emptyState = list.search ? (
-      <CmsEmpty
-        action={
-          <CmsButton onClick={() => list.setSearch("")} size="sm" variant="secondary">
-            {t("clearSearch")}
-          </CmsButton>
-        }
-        body={t("noResultsBody")}
-        icon={SearchX}
-        title={t("noResults", { query: list.search })}
-      />
-    ) : filtered ? (
-      <CmsEmpty body={t("filteredEmptyBody")} icon={SearchX} title={t("filteredEmpty")} />
-    ) : (
-      <CmsEmpty body={empty?.body} icon={empty?.icon ?? Inbox} title={empty?.title ?? t("empty")} />
-    );
-  }
+  const emptyState =
+    rows.length === 0 ? (
+      <TableEmpty empty={empty} filtered={filtered} onClearSearch={() => list.setSearch("")} search={list.search} />
+    ) : null;
 
   return (
     <div className="flex min-w-0 flex-col">

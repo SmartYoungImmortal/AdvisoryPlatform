@@ -250,6 +250,23 @@ function OrderSection({ label, children }: { readonly label: string; readonly ch
   );
 }
 
+/** The two documents the line over the button links to. */
+function termsLink(chunks: ReactNode) {
+  return (
+    <Link className="font-semibold underline" href="/terms">
+      {chunks}
+    </Link>
+  );
+}
+
+function privacyLink(chunks: ReactNode) {
+  return (
+    <Link className="font-semibold underline" href="/privacy-policy">
+      {chunks}
+    </Link>
+  );
+}
+
 /** The ways to pay, the card's fields under its row, and the button that pays. */
 function PayForm({ booking, className }: { readonly booking: ApiBooking; readonly className?: string }) {
   const t = useTranslations("payment");
@@ -353,18 +370,7 @@ function PayForm({ booking, className }: { readonly booking: ApiBooking; readonl
       </section>
 
       <p className="mt-3.5 text-xs leading-4 text-foreground">
-        {t.rich("termsNote", {
-          terms: (chunks) => (
-            <Link className="font-semibold underline" href="/terms">
-              {chunks}
-            </Link>
-          ),
-          privacy: (chunks) => (
-            <Link className="font-semibold underline" href="/privacy-policy">
-              {chunks}
-            </Link>
-          ),
-        })}
+        {t.rich("termsNote", { terms: termsLink, privacy: privacyLink })}
       </p>
 
       <PrimaryButton
@@ -467,7 +473,7 @@ export function LiveCheckoutScreen({ bookingId }: { readonly bookingId: string }
           <div className="relative">
             <Link
               aria-label={c("back")}
-              className="absolute top-0 -left-17 hidden size-11 items-center justify-center rounded-full bg-muted text-foreground transition-colors hover:bg-accent lg:flex"
+              className="absolute -top-1 -left-17 hidden size-11 items-center justify-center rounded-full bg-muted text-foreground transition-colors hover:bg-accent lg:flex"
               href="/search"
             >
               {/* 16 across with a 2px line: lucide draws on 24, so 3 here. */}

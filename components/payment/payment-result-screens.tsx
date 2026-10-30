@@ -264,9 +264,8 @@ export function PaymentResultScreen({ state }: { readonly state: Result }) {
 
   const live = useLiveResult(state, fixture);
 
-  const copy = live
-    ? live.copy
-    : slotTaken && (attemptedAt || attemptedService)
+  const attemptCopy =
+    slotTaken && (attemptedAt || attemptedService)
       ? {
           ...fixture,
           rows: [
@@ -305,6 +304,7 @@ export function PaymentResultScreen({ state }: { readonly state: Result }) {
           },
         }
       : fixture;
+  const copy = live ? live.copy : attemptCopy;
 
   return (
     <MobileScreen className="pt-6 lg:pt-0" wide>

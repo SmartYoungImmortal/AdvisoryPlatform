@@ -132,6 +132,9 @@ export function Scene({
 /** The story's type: Prompt semibold in the wordmark's ink. */
 export const HEADLINE = "font-story leading-tight font-semibold tracking-tight text-foreground";
 
+/** The places a scene's lines stand in, each line's key: two or three of them. */
+const LINE_PLACES = ["first", "second", "third"] as const;
+
 /**
  * A scene's words: two or three short lines, all one size, centred over the
  * picture, the line that matters in the logo mark's blue gradient. The words
@@ -186,10 +189,10 @@ export function Lines({
       {/* Keyed by place, not by text: the words change when the saved
           language arrives after the first paint, and a new key would swap in
           an element the timeline never animates. */}
-      {lines.map((line, i) => (
-        <span key={i} {...motion(i)} className="block">
+      {LINE_PLACES.slice(0, lines.length).map((place, i) => (
+        <span key={place} {...motion(i)} className="block">
           <span className={cn(i === accent && "bg-logo-gradient bg-clip-text py-[0.2em] text-transparent")}>
-            <ThaiText>{line}</ThaiText>
+            <ThaiText>{lines[i]}</ThaiText>
           </span>
         </span>
       ))}

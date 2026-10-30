@@ -35,7 +35,9 @@ const piecesOf = (root: ParentNode, selector: string) => Array.from(root.querySe
  */
 function restingTurn(el: HTMLElement): number {
   const match = /(?:^|\s)(-?)rotate-(\d+)(?=\s|$)/.exec(el.className);
-  return match ? Number(match[2]) * (match[1] ? -1 : 1) : 0;
+  if (!match) return 0;
+  const sign = match[1] ? -1 : 1;
+  return Number(match[2]) * sign;
 }
 
 /* ── The opening ─────────────────────────────────────────────────────────── */
@@ -397,7 +399,7 @@ export function buildDesktopStory(track: HTMLElement, scroller: HTMLElement) {
   tl.set({}, {}, at + 0.4);
 
   // Thai type arrives after the first paint and moves every line it sets.
-  document.fonts?.ready.then(() => ScrollTrigger.refresh());
+  void document.fonts?.ready.then(() => ScrollTrigger.refresh());
 }
 
 /* ── The phone: each piece once, as it is reached ────────────────────────── */

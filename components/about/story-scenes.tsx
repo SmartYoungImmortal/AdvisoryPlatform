@@ -435,8 +435,8 @@ function EveryoneScene() {
         <Part kind="rise" name="ask" spot={CENTRE}>
           <Art className="h-60 lg:h-[600px]" name="asker_think" />
         </Part>
-        {REPLIES.map(({ say, spot, tilt }, i) => (
-          <Part key={i} name="reply" spot={spot}>
+        {REPLIES.map(({ say, spot, tilt }) => (
+          <Part key={say} name="reply" spot={spot}>
             <div className={tilt}>
               <ChatBubble>{t(say)}</ChatBubble>
             </div>
@@ -617,8 +617,8 @@ function HighFiveScene() {
     <Scene id="s9" labelledBy="story-s9" staged>
       <Lines accent={1} id="story-s9" lines={[t("s9L1"), t("s9L2")]} />
       <Stage className="h-96">
-        {BURST.map(({ name, size }, i) => (
-          <Part key={i} name="burst" spot="hidden lg:block lg:top-[420px] lg:left-[800px]">
+        {BURST.map(({ name, size, to }) => (
+          <Part key={`${name}:${to.join(",")}`} name="burst" spot="hidden lg:block lg:top-[420px] lg:left-[800px]">
             <Art className={size} name={name} />
           </Part>
         ))}
