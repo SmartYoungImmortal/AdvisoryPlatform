@@ -17,6 +17,9 @@ export type OmiseCard = {
   readonly expiration_month: number;
   readonly expiration_year: number;
   readonly security_code: string;
+  /** The billing address's postcode, and its country as ISO 3166 alpha-2. */
+  readonly postal_code?: string;
+  readonly country?: string;
 };
 
 type OmiseTokenResponse = {

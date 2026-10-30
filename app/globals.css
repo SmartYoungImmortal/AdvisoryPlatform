@@ -455,6 +455,27 @@ html:not(.dark) .neutral-greys {
   --border: #e5e5e5;
 }
 
+/* The checkout's surface: a white ground, and a payment page's two
+   hairlines — #dddddd round its cards and between their rows, #8c8c8c round
+   every field the card is typed into, dark enough that each box reads as a
+   place to type. Scoped like `.neutral-greys`: on the page's frame and on
+   <body> while it is mounted, so the country list, which portals out, takes
+   it too. Light theme only. */
+html:not(.dark) .checkout-surface {
+  --background: #ffffff;
+  --border: #dddddd;
+  --input: #8c8c8c;
+}
+
+/* And its type: Latin in Geist, Thai still in Noto Sans Thai. Noto's own
+   Latin is wide and loosely spaced, which a service's English name and the
+   page's English set too far apart; Geist is the site's Latin face already
+   (`--font-latin`). Both themes. */
+.checkout-surface {
+  --font-sans: 'Geist Variable', 'Noto Sans Thai Variable', sans-serif;
+  font-family: var(--font-sans);
+}
+
 /* Admin console — the site's own family rather than a theme of its own: the
    service page's neutral greys (a grey ground round one white panel), ink for
    every solid action as the home hero's button has it, and the site's radius
