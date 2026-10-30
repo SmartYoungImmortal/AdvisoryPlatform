@@ -124,6 +124,7 @@ function FixtureProfile({
     title: entry.title,
     description: "",
     category: "",
+    categoryId: "",
     price: entry.price,
     minutes: 30,
     advisorId: advisor.id,
