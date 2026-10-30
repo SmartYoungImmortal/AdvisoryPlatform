@@ -7,7 +7,6 @@ import {
   BadgeCheck,
   BriefcaseBusiness,
   CalendarPlus,
-  FileCheck,
   MapPin,
   MessageCircle,
   MessageSquare,
@@ -18,11 +17,13 @@ import {
 import { useFormatter, useTranslations } from "next-intl";
 import { useCallback, useState, type MouseEvent, type ReactNode } from "react";
 
+import { initialsOf } from "@/components/advisor-public/headline";
 import { MobileScreen, ScreenBody, ScreenTopBar } from "@/components/mobile/screen";
 import { ResultCard } from "@/components/search/search-screen";
 import { ApiErrorCard } from "@/components/service/parts";
 import { TopBar } from "@/components/topbar";
 import { Button } from "@/components/ui/button";
+import type { ApiAdvisorBackground } from "@/lib/api/types";
 import type { LiveService } from "@/lib/catalogue/live";
 import type { ProfileTab } from "@/lib/catalogue/profiles";
 import { cn } from "@/lib/utils";
@@ -1095,61 +1096,188 @@ export function PendingProfile({
 
 /**
  * An About section, after the profile pages of a large freelance
- * marketplace: the head 19/500, the body under it, a hairline between one
+ * marketplace: the head 20/500, the body under it, a hairline between one
  * section and the next and none above the first.
  */
 function AboutSection({ title, children }: { readonly title: string; readonly children: ReactNode }) {
   return (
     <section className="border-t border-border py-7 first:border-t-0 first:pt-0 lg:py-9.5 lg:first:pt-0">
-      <h2 className="mb-4 text-lg font-medium text-foreground lg:mb-[23.75px] lg:text-frame-heading">{title}</h2>
+      <h2 className="mb-5 text-lg font-medium text-foreground lg:mb-[23.75px] lg:text-frame-heading">{title}</h2>
       {children}
     </section>
   );
 }
 
+/** The head of a row: 17/500 in ink, and what goes beside it (the current job's pill). */
+const ROW_HEAD = "text-base font-medium text-foreground lg:text-frame-body";
+/** A row's lines: 15/22 in grey. */
+const ROW_LINE = "text-sm leading-[1.47] text-muted-foreground lg:text-frame-meta lg:leading-[1.47]";
+
 /**
- * A row of the same pages' experience list: a 64 grey tile, here holding a
- * glyph where theirs holds initials, beside the head 17/500 and a line 15 in
- * grey under it.
+ * A row of the lists with a place to it, a job or a course: the place's
+ * initials on a 64 grey tile, 14 round, 20 from the head 17/500 and the
+ * lines 15 in grey under it.
  */
-function AboutItem({ icon: Icon, title, line }: { readonly icon: LucideIcon; readonly title: string; readonly line: string }) {
+function PlaceRow({
+  place,
+  head,
+  aside,
+  children,
+}: {
+  readonly place: string;
+  readonly head: string;
+  readonly aside?: ReactNode;
+  readonly children?: ReactNode;
+}) {
   return (
-    <li className="flex items-start gap-4 lg:gap-[23.75px]">
-      <span className="flex size-14 shrink-0 items-center justify-center rounded-[12px] bg-muted lg:size-[76px] lg:rounded-[16.625px]">
-        <Icon aria-hidden className="size-6 text-foreground lg:size-[28.5px]" strokeWidth={1.5} />
+    <li className="flex items-start gap-5 lg:gap-[23.75px]">
+      <span
+        aria-hidden
+        className="flex size-14 shrink-0 items-center justify-center rounded-[12px] bg-muted text-base font-semibold text-muted-foreground lg:size-[76px] lg:rounded-[16.625px] lg:text-frame-figure"
+      >
+        {initialsOf(place)}
       </span>
-      <span className="flex min-w-0 flex-col gap-0.5 pt-1 lg:gap-[2.375px] lg:pt-[2.375px]">
-        <span className="text-base font-medium text-foreground lg:text-frame-body">{title}</span>
-        <span className="text-sm leading-[1.47] text-muted-foreground lg:text-frame-meta lg:leading-[1.47]">{line}</span>
-      </span>
+      <div className="flex min-w-0 flex-1 flex-col gap-1 pt-0.5 lg:gap-[4.75px] lg:pt-[2.375px]">
+        <p className="flex flex-wrap items-center gap-x-2 gap-y-1 lg:gap-x-[9.5px]">
+          <span className={ROW_HEAD}>{head}</span>
+          {aside}
+        </p>
+        {children}
+      </div>
     </li>
   );
 }
 
+/** A plain row, with nothing to put on a tile: the head, and its line under it. */
+function TextRow({ head, line }: { readonly head: string; readonly line: string | null }) {
+  return (
+    <li className="flex flex-col gap-0.5 lg:gap-[2.375px]">
+      <span className={ROW_HEAD}>{head}</span>
+      {line ? <span className={ROW_LINE}>{line}</span> : null}
+    </li>
+  );
+}
+
+/** A month and year ("มิ.ย. 2562"), or the year alone when the month is not given. */
+function useMonthYear() {
+  const format = useFormatter();
+  return useCallback(
+    (year: number, month: number | null) =>
+      format.dateTime(new Date(year, (month ?? 1) - 1, 1), month ? { month: "short", year: "numeric" } : { year: "numeric" }),
+    [format],
+  );
+}
+
+/** What the About tab shows below the introduction; undefined while it loads, null where there is none. */
+export type AboutBackground = ApiAdvisorBackground | null | undefined;
+
 /**
  * The About tab, drawn after the same pages' own: the full column inset 38
- * at 1440, one section per subject. Theirs also lists work experience,
- * education, languages and licences; the API keeps none of those for an
- * advisor, so this holds what it does keep: the introduction, the skills an
- * admin approved proof for, and the checks behind the verified mark.
+ * at 1440, one section per subject, each only when there is something in it:
+ * the introduction, work experience (the current job marked), education,
+ * the skills an admin approved proof for, languages, and licences and
+ * awards. The background is the advisor's own words
+ * (`GET /advisors/:id/background`).
  */
 export function AboutView({
   bio,
   skills,
-  verified,
+  background,
 }: {
-  readonly bio: string;
+  readonly bio: string | null;
   readonly skills: readonly string[];
-  readonly verified: boolean;
+  readonly background: AboutBackground;
 }) {
   const t = useTranslations("advisorProfile");
-  const s = useTranslations("service");
+  const format = useFormatter();
+  const monthYear = useMonthYear();
+  const experiences = background?.experiences ?? [];
+  const educations = background?.educations ?? [];
+  const languages = background?.languages ?? [];
+  const credentials = background?.credentials ?? [];
 
   return (
     <div className="flex w-full flex-col pb-12 lg:px-[45.125px] lg:pb-[57px]">
-      <AboutSection title={t("introTitle")}>
-        <p className="text-base leading-7 whitespace-pre-line text-foreground lg:text-frame-body lg:leading-[1.6]">{bio}</p>
-      </AboutSection>
+      {bio ? (
+        <AboutSection title={t("introTitle")}>
+          <p className="text-base leading-7 whitespace-pre-line text-foreground lg:text-frame-body lg:leading-[1.6]">{bio}</p>
+        </AboutSection>
+      ) : null}
+
+      {background === undefined ? (
+        <AboutSection title={t("experienceTitle")}>
+          <div aria-hidden className="flex items-start gap-5 lg:gap-[23.75px]">
+            <span className="block size-14 shrink-0 rounded-[12px] bg-muted lg:size-[76px] lg:rounded-[16.625px]" />
+            <span className="flex flex-1 flex-col gap-2 pt-1 lg:gap-[9.5px]">
+              <Pending className="h-4 w-2/3 lg:h-[19px]" />
+              <Pending className="h-3 w-1/3 lg:h-[16.6px]" />
+            </span>
+          </div>
+        </AboutSection>
+      ) : null}
+
+      {experiences.length > 0 ? (
+        <AboutSection title={t("experienceTitle")}>
+          <ul className="flex flex-col gap-6 lg:gap-[28.5px]">
+            {experiences.map((job) => {
+              const current = job.endYear === null;
+              const from = monthYear(job.startYear, job.startMonth);
+              let period = `${from} – ${t("present")}`;
+              if (!current) {
+                period = job.startMonth && job.endMonth
+                  ? format.dateTimeRange(
+                      new Date(job.startYear, job.startMonth - 1, 1),
+                      new Date(job.endYear, job.endMonth - 1, 1),
+                      { month: "short", year: "numeric" },
+                    )
+                  : `${from} – ${monthYear(job.endYear, job.endMonth)}`;
+              }
+              return (
+                <PlaceRow
+                  aside={
+                    current ? (
+                      <span className="rounded-full bg-muted px-2.5 py-0.5 text-xs font-medium text-muted-foreground lg:px-[11.875px] lg:py-[3.5625px] lg:text-frame-label">
+                        {t("current")}
+                      </span>
+                    ) : null
+                  }
+                  head={`${job.title} · ${job.organization}`}
+                  key={`${job.title}-${job.organization}-${job.startYear}`}
+                  place={job.organization}
+                >
+                  <span className={ROW_LINE}>{period}</span>
+                  {job.description ? <span className={cn(ROW_LINE, "whitespace-pre-line")}>{job.description}</span> : null}
+                </PlaceRow>
+              );
+            })}
+          </ul>
+        </AboutSection>
+      ) : null}
+
+      {educations.length > 0 ? (
+        <AboutSection title={t("educationTitle")}>
+          <ul className="flex flex-col gap-6 lg:gap-[28.5px]">
+            {educations.map((course) => {
+              let years: string | null = null;
+              if (course.startYear && course.endYear) {
+                years = format.dateTimeRange(new Date(course.startYear, 0, 1), new Date(course.endYear, 0, 1), { year: "numeric" });
+              } else if (course.endYear ?? course.startYear) {
+                years = monthYear((course.endYear ?? course.startYear) as number, null);
+              }
+              return (
+                <PlaceRow
+                  head={course.degree ? `${course.institution} · ${course.degree}` : course.institution}
+                  key={`${course.institution}-${course.degree ?? ""}`}
+                  place={course.institution}
+                >
+                  {years ? <span className={ROW_LINE}>{years}</span> : null}
+                </PlaceRow>
+              );
+            })}
+          </ul>
+        </AboutSection>
+      ) : null}
+
       {skills.length > 0 ? (
         <AboutSection title={t("verifiedSkills")}>
           <ul className="flex flex-wrap gap-3 lg:gap-[14.25px]">
@@ -1164,17 +1292,24 @@ export function AboutView({
           </ul>
         </AboutSection>
       ) : null}
-      {verified ? (
-        <AboutSection title={t("verificationTitle")}>
-          <ul className="flex flex-col gap-5 lg:gap-[23.75px]">
-            <AboutItem icon={ShieldCheck} line={t("identityCheckedBody")} title={s("verifiedIdentity")} />
-            {skills.length > 0 ? (
-              <AboutItem
-                icon={FileCheck}
-                line={t("skillsCheckedBody", { count: skills.length })}
-                title={t("skillsCheckedTitle")}
-              />
-            ) : null}
+
+      {languages.length > 0 ? (
+        <AboutSection title={t("languagesTitle")}>
+          <ul className="flex flex-col gap-4 lg:gap-[19px]">
+            {languages.map((entry) => (
+              <TextRow head={entry.language} key={entry.language} line={t(`proficiency.${entry.proficiency}`)} />
+            ))}
+          </ul>
+        </AboutSection>
+      ) : null}
+
+      {credentials.length > 0 ? (
+        <AboutSection title={t("credentialsTitle")}>
+          <ul className="flex flex-col gap-4 lg:gap-[19px]">
+            {credentials.map((entry) => {
+              const line = [entry.issuer, entry.year ? monthYear(entry.year, null) : null].filter(Boolean).join(" · ");
+              return <TextRow head={entry.title} key={`${entry.title}-${entry.year ?? ""}`} line={line || null} />;
+            })}
           </ul>
         </AboutSection>
       ) : null}

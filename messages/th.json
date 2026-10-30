@@ -3121,7 +3121,6 @@
     "tabsLabel": "หัวข้อในโปรไฟล์",
     "featuredLabel": "บริการแนะนำ: {title}",
     "introTitle": "แนะนำตัว",
-    "verificationTitle": "การยืนยันตัวตน",
     "noServicesTitle": "ยังไม่มีบริการ",
     "noServicesBody": "{name} ยังไม่ได้เปิดบริการให้จองในตอนนี้",
     "noReviewsTitle": "ยังไม่มีรีวิว",
@@ -3135,9 +3134,18 @@
     "advisorReply": "คำตอบจากที่ปรึกษา",
     "reviewStars": "{stars} ดาว",
     "averageOutOf": "คะแนนเฉลี่ย {average} จาก 5",
-    "identityCheckedBody": "ทีมงานตรวจบัตรประชาชนแล้ว ก่อนเปิดให้รับจองได้",
-    "skillsCheckedTitle": "ตรวจหลักฐานทักษะแล้ว",
-    "skillsCheckedBody": "{count} ทักษะ ส่งหลักฐานให้ทีมงานตรวจและอนุมัติแล้ว"
+    "experienceTitle": "ประสบการณ์ทำงาน",
+    "educationTitle": "การศึกษา",
+    "languagesTitle": "ภาษา",
+    "credentialsTitle": "ใบอนุญาตและรางวัล",
+    "current": "ปัจจุบัน",
+    "present": "ปัจจุบัน",
+    "proficiency": {
+      "NATIVE": "ภาษาแม่",
+      "FLUENT": "คล่องแคล่ว",
+      "PROFESSIONAL": "ใช้ในการทำงานได้",
+      "BASIC": "พื้นฐาน"
+    }
   },
   "changeEmail": {
     "title": "เปลี่ยนอีเมล",

@@ -1,4 +1,5 @@
 import { ApiError, api } from "@/lib/api/client";
+import type { ApiAdvisorBackground } from "@/lib/api/types";
 
 /**
  * Becoming an advisor, against `AdvisoryPlatformAPI` (docs/api-spec.md,
@@ -59,6 +60,16 @@ export function updateAdvisorProfile(body: {
   readonly bio?: string;
 }): Promise<ApiOwnAdvisorProfile> {
   return api.patch<ApiOwnAdvisorProfile>("advisors/me", { body });
+}
+
+/** The caller's background: work, education, languages, licences and awards. */
+export function getOwnAdvisorBackground(signal?: AbortSignal): Promise<ApiAdvisorBackground> {
+  return api.get<ApiAdvisorBackground>("advisors/me/background", { signal });
+}
+
+/** Replaces every list of the caller's background at once, and answers what was stored. */
+export function replaceOwnAdvisorBackground(body: ApiAdvisorBackground): Promise<ApiAdvisorBackground> {
+  return api.put<ApiAdvisorBackground>("advisors/me/background", { body });
 }
 
 /** The ID card's review, or `null` before one has been sent. */

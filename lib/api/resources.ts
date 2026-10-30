@@ -22,6 +22,7 @@
 import { api, type Paginated } from "@/lib/api/client";
 import type {
   ApiAdviseeInvoice,
+  ApiAdvisorBackground,
   ApiAvatarUrl,
   ApiBooking,
   ApiBookingInput,
@@ -117,6 +118,14 @@ export function getAdvisor(
   signal?: AbortSignal,
 ): Promise<ApiPublicAdvisor> {
   return api.get(`advisors/${advisorId}`, { signal });
+}
+
+/** `GET /advisors/:id/background` — work, education, languages, licences and awards. */
+export function getAdvisorBackground(
+  advisorId: string,
+  signal?: AbortSignal,
+): Promise<ApiAdvisorBackground> {
+  return api.get(`advisors/${advisorId}/background`, { signal });
 }
 
 /* ------------------------------------------------------------------ reviews */

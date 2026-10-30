@@ -36,11 +36,13 @@ import { chatWithHref } from "@/components/chat/chat-data";
 import { ApiError, type Paginated } from "@/lib/api/client";
 import {
   getAdvisor,
+  getAdvisorBackground,
   getAdvisorRatingSummary,
   listAdvisorReviews,
   listServices,
 } from "@/lib/api/resources";
 import type {
+  ApiAdvisorBackground,
   ApiPublicAdvisor,
   ApiPublicService,
   ApiRatingSummary,
@@ -278,6 +280,10 @@ export function LiveAdvisorProfileScreen({
       [advisorId],
     ),
   );
+  const background = useResource<ApiAdvisorBackground>(
+    `advisors/${advisorId}/background`,
+    useCallback((signal: AbortSignal) => getAdvisorBackground(advisorId, signal), [advisorId]),
+  );
   const catalogue = useLiveCatalogue();
 
   const own = useMemo(() => services.data?.items ?? [], [services.data]);
@@ -419,7 +425,11 @@ export function LiveAdvisorProfileScreen({
         {tab === "about" ? (
           // `bio` is nullable on the DTO; the headline says something rather
           // than opening the tab on an empty section.
-          <AboutView bio={live.bio ?? live.headline} skills={live.skills} verified />
+          <AboutView
+            background={background.data ?? (background.loading ? undefined : null)}
+            bio={live.bio ?? live.headline}
+            skills={live.skills}
+          />
         ) : null}
       </TabPanel>
     </ProfilePage>

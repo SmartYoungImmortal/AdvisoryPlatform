@@ -96,6 +96,50 @@ export interface ApiPublicAdvisorQuery {
   readonly skillId?: string;
 }
 
+/** How well an advisor speaks a language, strongest first. */
+export type ApiLanguageProficiency = "NATIVE" | "FLUENT" | "PROFESSIONAL" | "BASIC";
+
+/** A job; no end while it is the advisor's current work. */
+export interface ApiAdvisorExperience {
+  readonly title: string;
+  readonly organization: string;
+  readonly startYear: number;
+  readonly startMonth: number | null;
+  readonly endYear: number | null;
+  readonly endMonth: number | null;
+  readonly description: string | null;
+}
+
+export interface ApiAdvisorEducation {
+  readonly institution: string;
+  readonly degree: string | null;
+  readonly startYear: number | null;
+  readonly endYear: number | null;
+}
+
+export interface ApiAdvisorLanguage {
+  readonly language: string;
+  readonly proficiency: ApiLanguageProficiency;
+}
+
+/** A licence, certificate or award. */
+export interface ApiAdvisorCredential {
+  readonly title: string;
+  readonly issuer: string | null;
+  readonly year: number | null;
+}
+
+/**
+ * `AdvisorBackgroundResponseDto` — `GET /advisors/:id/background`, and the
+ * advisor's own at `advisors/me/background`. Each list in the advisor's order.
+ */
+export interface ApiAdvisorBackground {
+  readonly experiences: readonly ApiAdvisorExperience[];
+  readonly educations: readonly ApiAdvisorEducation[];
+  readonly languages: readonly ApiAdvisorLanguage[];
+  readonly credentials: readonly ApiAdvisorCredential[];
+}
+
 /** `AvailabilitySlotResponseDto` — availability/dtos/availability.dto.ts:134 */
 export interface ApiSlot {
   readonly startTime: string;

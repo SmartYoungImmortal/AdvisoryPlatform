@@ -186,7 +186,7 @@ function FixtureProfile({
           />
         ) : null}
         {tab === "about" ? (
-          <AboutView bio={profile.about} skills={profile.skills} verified={advisor.verified} />
+          <AboutView background={null} bio={profile.about} skills={profile.skills} />
         ) : null}
       </TabPanel>
     </ProfilePage>
