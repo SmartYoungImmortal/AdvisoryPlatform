@@ -14,6 +14,9 @@ importers:
       '@fontsource/kanit':
         specifier: ^5.3.0
         version: 5.3.0
+      '@fontsource/prompt':
+        specifier: ^5.3.0
+        version: 5.3.0
       '@fontsource/sriracha':
         specifier: ^5.3.0
         version: 5.3.0
@@ -615,6 +618,9 @@ packages:
 
   '@fontsource/kanit@5.3.0':
     resolution: {integrity: sha512-XrVxf5NWb8QLAEbQS2GYir3AY0WbOLr5Q80fWurnoFWXyc7CWvioGNPC2dxRGZKocMUXbwGhuK+sJqWkRLAWNA==}
+
+  '@fontsource/prompt@5.3.0':
+    resolution: {integrity: sha512-cU4VVn7G0wSI3pu3a7tynpTQ5hk3Lm9nEjTOBLhVYsqbOlvVIj6Tc1f3450BOGSpDiPOxmYGj/D7rE/z/TYPJg==}
 
   '@fontsource/sriracha@5.3.0':
     resolution: {integrity: sha512-0JjwrC1/BXsSXMEcmmtyoQut1/gy/+wGBP1wiSPaPXvHr1yBmmU2Kl8drBSpRtvRD4Rm9Bb2/FdDK3x4yQ364g==}
@@ -4945,6 +4951,8 @@ snapshots:
   '@fontsource-variable/noto-sans-thai@5.3.0': {}
 
   '@fontsource/kanit@5.3.0': {}
+
+  '@fontsource/prompt@5.3.0': {}
 
   '@fontsource/sriracha@5.3.0': {}
 
