@@ -192,7 +192,7 @@ function CheckoutFooter() {
   const link = "underline-offset-2 hover:underline";
   return (
     <footer className="mt-auto w-full shrink-0 border-t border-border bg-footer-ground">
-      <div className="mx-auto w-full max-w-[1920px] px-6 py-6 text-center text-sm text-foreground min-[59.375rem]:px-8 min-[59.375rem]:text-left min-[90rem]:px-12">
+      <div className="mx-auto w-full max-w-[1920px] px-6 py-5 text-center text-sm text-foreground min-[59.375rem]:px-8 min-[59.375rem]:text-left min-[90rem]:px-12">
         <Link className={link} href="/privacy-policy">
           {t("footerPrivacy")}
         </Link>
