@@ -1,6 +1,5 @@
 "use client";
 
-import Image from "next/image";
 import Link from "next/link";
 import {
   BadgeCheck,
@@ -28,7 +27,6 @@ import { useTranslations } from "next-intl";
 import { advisor } from "@/lib/assets/r2";
 import { advisorLevel } from "@/lib/catalogue/profiles";
 import { getAdvisor } from "@/lib/catalogue/services";
-import { cn } from "@/lib/utils";
 import { LevelBadge } from "@/components/advisor-public/level-badge";
 import {
   AccountAvatar,
@@ -36,7 +34,6 @@ import {
   AccountName,
 } from "@/components/session/account-bits";
 import { Badge } from "@/components/ui/badge";
-import { Textarea } from "@/components/ui/textarea";
 import { NeutralButton, PrimaryButton } from "@/components/mobile/buttons";
 import { Field } from "@/components/mobile/field";
 import {
@@ -55,7 +52,7 @@ import {
   SettingsSection,
 } from "@/components/mobile/settings-list";
 import { StatusPill, type StatusTone } from "@/components/mobile/status-pill";
-import { Surface, SurfaceList, surfaceClass } from "@/components/mobile/surface";
+import { Surface, SurfaceList } from "@/components/mobile/surface";
 import { QuickActions } from "@/components/profile/quick-actions";
 import { WorkEarningsScreen } from "@/components/work/work-screens";
 import { BottomBar } from "@/components/bottombar";
@@ -201,82 +198,6 @@ export function AdvisorProfileScreen() {
         </SettingsSection>
       </ScreenBody>
       <BottomBar className="lg:hidden" role="advisor" selected="user" />
-    </MobileScreen>
-  );
-}
-
-/** Figma "Advisor profile - Edit (Light)" — 995:8722. */
-export function AdvisorProfileEditScreen() {
-  const t = useTranslations("advisor");
-  const c = useTranslations("common");
-
-  return (
-    <MobileScreen wide>
-      <ScreenTopBar href="/advisor/profile" label={c("back")} />
-      <ScreenBody className="lg:[&>*:not(.sticky)]:mx-auto lg:[&>*:not(.sticky)]:w-full lg:[&>*:not(.sticky)]:max-w-[880px]">
-        <ScreenHeading
-          className="gap-2 pt-4"
-          subtitle={t("editSubtitle")}
-          title={t("editTitle")}
-        />
-
-        <div className="flex w-full shrink-0 flex-col items-center gap-3 px-6 pt-2">
-          <Image
-            alt=""
-            className="size-24 shrink-0 rounded-full object-cover"
-            height={96}
-            src={advisor}
-            width={96}
-          />
-          <NeutralButton className="w-auto">{t("changePhoto")}</NeutralButton>
-        </div>
-
-        <div className="flex w-full shrink-0 flex-col items-start gap-4 px-6 pt-5">
-          <Field
-            defaultValue={t("name")}
-            id="advisor-name"
-            label={t("displayNameLabel")}
-            latin
-          />
-          <div className="flex w-full shrink-0 flex-col items-start gap-1.5">
-            <label
-              className="w-full text-sm font-medium text-foreground"
-              htmlFor="advisor-bio"
-            >
-              {t("bioLabel")}
-            </label>
-            <Textarea
-              className="h-22 resize-none bg-muted px-3 text-sm shadow-none field-sizing-fixed"
-              defaultValue={t("bioValue")}
-              id="advisor-bio"
-            />
-          </div>
-          <Link
-            className={cn(
-              surfaceClass({ tier: "raised", interactive: true }),
-              "flex w-full items-center gap-3 p-3.5",
-            )}
-            href="/advisor/skills"
-          >
-            <FileText className="size-4 shrink-0 text-muted-foreground" />
-            <div className="flex min-w-px flex-1 flex-col items-start gap-0.5 overflow-clip text-left">
-              <p className="w-full text-xs font-normal text-muted-foreground">
-                {t("skillsLabel")}
-              </p>
-              <p className="w-full text-sm font-normal text-foreground">
-                {t("skillsValue")}
-              </p>
-            </div>
-            <ChevronRight className="size-4 shrink-0 text-muted-foreground" />
-          </Link>
-        </div>
-
-        <ScreenSpacer />
-        <ScreenActions>
-          <PrimaryButton href="/advisor/profile">{t("save")}</PrimaryButton>
-          <NeutralButton href="/advisor/profile">{t("cancel")}</NeutralButton>
-        </ScreenActions>
-      </ScreenBody>
     </MobileScreen>
   );
 }
