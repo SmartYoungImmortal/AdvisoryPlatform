@@ -4,8 +4,8 @@ import { getTranslations } from "next-intl/server";
 import { AboutScreen } from "@/components/about/about-screen";
 
 /**
- * The route group is `(marketing)`, beside `/landing`: both are public pages a
- * guest lands on, and that group's layout is the bare `MobileViewport` with no
+ * The route group is `(marketing)`: a public page a guest lands on, and that
+ * group's layout is the bare `MobileViewport` with no
  * `AccessGate` in front of it. `/terms` and `/privacy-policy` sit in `(auth)` for
  * historical reasons and pass the gate for nothing; this one does not repeat it.
  *

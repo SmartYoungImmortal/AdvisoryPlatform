@@ -29,7 +29,7 @@ const SECTIONS: ReadonlyArray<{
   {
     title: "Marketing",
     node: "1090:16061",
-    screens: [{ href: "/landing", label: "Landing – About & FAQ" }],
+    screens: [{ href: "/about", label: "About" }],
   },
   {
     title: "Auth",

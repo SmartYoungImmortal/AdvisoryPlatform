@@ -32,7 +32,7 @@ const PROSE = "text-sm leading-relaxed text-foreground md:text-base";
  * The language follows the app's own switch (`useAppLocale`), and the
  * document is data in `lib/legal`.
  *
- * `login` on the bar for the reason `/landing` passes it: these are public
+ * `login` on the bar for the reason the public marketing pages pass it: these are public
  * pages linked from every footer, and the signed-in bell would bounce a guest
  * to the sign-in screen.
  */

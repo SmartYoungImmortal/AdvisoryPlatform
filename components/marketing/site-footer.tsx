@@ -74,12 +74,12 @@ export function SiteFooter({ className }: { readonly className?: string }) {
   const services: readonly FooterItem[] = [
     { label: t("footerLinkSearch"), href: "/search" },
     { label: t("footerLinkCategories"), href: "/search" },
-    { label: t("footerLinkPricing"), href: "/landing#good-to-know" },
-    { label: t("footerLinkHelp"), href: "/landing#faq" },
+    { label: t("footerLinkPricing"), href: "/#pricing" },
+    { label: t("footerLinkHelp"), href: "/#faq" },
   ];
   const advisors: readonly FooterItem[] = [
     { label: t("footerLinkBecomeAdvisor"), href: "/advisor/apply" },
-    { label: t("footerLinkHowItWorks"), href: "/landing#how-it-works" },
+    { label: t("footerLinkHowItWorks"), href: "/about" },
   ];
   const company: readonly FooterItem[] = [
     { label: t("footerLinkHome"), href: "/" },
