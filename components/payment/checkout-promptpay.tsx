@@ -108,8 +108,8 @@ function useSecondsLeft(expiresAt: string | undefined, running: boolean): number
 }
 
 /**
- * The code on screen, in a popup like the checkout's others: its title over a
- * hairline with the way out at the right; then the code itself, PromptPay's
+ * The code on screen, in a popup: its title at the top with the way out at the
+ * right, no rule under it; then the code itself, PromptPay's
  * own card as the provider draws it, the amount under it, and how long it has
  * left. While it waits, a line says so; once it has run out, the code goes and
  * a button makes a new one.
@@ -132,7 +132,7 @@ export function PromptPayDialog({ promptPay }: { readonly promptPay: PromptPayme
   return (
     <Dialog onOpenChange={setOpen} open={open}>
       <DialogContent className="gap-0 rounded-[24px] p-0 sm:max-w-[420px]" overlayClassName={POPUP_OVERLAY} showCloseButton={false}>
-        <div className="relative flex h-16 items-center justify-center border-b border-border">
+        <div className="relative flex h-16 items-center justify-center">
           <DialogTitle className="text-base leading-5 font-semibold text-foreground">{t("promptPayTitle")}</DialogTitle>
           <DialogClose
             aria-label={c("close")}
