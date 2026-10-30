@@ -374,7 +374,7 @@ function AnswerScene() {
           <Art className="lg:h-11.5" name="coffee_cup" />
         </Part>
         {/* The chair is pulled up in front of the desk, a step nearer. */}
-        <Part name="piece" spot="hidden lg:block lg:bottom-[84px] lg:left-[290px] lg:z-10">
+        <Part name="piece" spot="hidden lg:block lg:bottom-[40px] lg:left-[200px] lg:z-10">
           <Art className="lg:h-[330px]" name="desk_chair" />
         </Part>
         <Part kind="right" name="answer" spot="right-4 bottom-0 lg:right-auto lg:bottom-[100px] lg:left-[800px]">
