@@ -328,6 +328,21 @@ export function OpeningScene() {
 
 /* ── 1: and this is Answer ───────────────────────────────────────────────── */
 
+/**
+ * The answers, against Ask's questions: the same note in the same marker,
+ * blue where Ask's are yellow, with a light bulb drawn where Ask's has a
+ * question mark, popping out round Answer's head as she gets it. Two sit between the window (its right edge
+ * 658) and her raised hand, three fan out to the right above the bookshelf
+ * (its top 430); all under the title.
+ */
+const ANSWERS = [
+  { spot: "top-0 left-4 lg:top-[295px] lg:left-[1020px]", tilt: "-rotate-6", size: "h-16 lg:h-[110px]" },
+  { spot: "hidden lg:block lg:top-[250px] lg:left-[680px]", tilt: "rotate-12", size: "lg:h-[90px]" },
+  { spot: "hidden lg:block lg:top-[255px] lg:left-[1170px]", tilt: "rotate-3", size: "lg:h-[95px]" },
+  { spot: "hidden lg:block lg:top-[420px] lg:left-[1050px]", tilt: "rotate-6", size: "lg:h-[80px]" },
+  { spot: "hidden lg:block lg:top-[400px] lg:left-[690px]", tilt: "-rotate-3", size: "lg:h-[75px]" },
+] as const;
+
 function AnswerScene() {
   const t = useTranslations("about");
   return (
@@ -349,18 +364,18 @@ function AnswerScene() {
         </Part>
         {/* On the desk, left to right: the lamp at the back corner, the books,
             the coffee at the front. */}
-        <Part name="piece" spot="bottom-[100px] left-[16px] lg:bottom-[372px] lg:left-[380px]">
-          <Art className="h-14 lg:h-[140px]" name="table_lamp" />
+        <Part name="piece" spot="bottom-[100px] left-[16px] lg:bottom-[372px] lg:left-[362px]">
+          <Art className="h-12 lg:h-25" name="table_lamp" />
         </Part>
-        <Part name="piece" spot="hidden lg:block lg:bottom-[368px] lg:left-[480px]">
-          <Art className="lg:h-11.5" name="books_stack" />
+        <Part name="piece" spot="hidden lg:block lg:bottom-[368px] lg:left-[426px]">
+          <Art className="lg:h-7.5" name="books_stack" />
         </Part>
         <Part name="piece" spot="hidden lg:block lg:bottom-[366px] lg:left-[600px]">
-          <Art className="lg:h-10" name="coffee_cup" />
+          <Art className="lg:h-11.5" name="coffee_cup" />
         </Part>
-        {/* The chair faces left in its picture; turned to face the desk. */}
-        <Part name="piece" spot="hidden lg:block lg:bottom-[100px] lg:left-[120px]">
-          <Art className="-scale-x-100 lg:h-[310px]" name="cane_chair" />
+        {/* The chair is pulled up in front of the desk, a step nearer. */}
+        <Part name="piece" spot="hidden lg:block lg:bottom-[84px] lg:left-[290px] lg:z-10">
+          <Art className="lg:h-[330px]" name="desk_chair" />
         </Part>
         <Part kind="right" name="answer" spot="right-4 bottom-0 lg:right-auto lg:bottom-[100px] lg:left-[800px]">
           <Bob>
@@ -373,6 +388,11 @@ function AnswerScene() {
         <Part name="piece" spot="hidden lg:block lg:bottom-[90px] lg:left-[1390px]">
           <Art className="lg:h-[360px]" name="snake_plant" />
         </Part>
+        {ANSWERS.map(({ spot, tilt, size }) => (
+          <Part key={spot} name="note" spot={spot}>
+            <Cut name="bulb_note" size={size} tilt={tilt} />
+          </Part>
+        ))}
       </Stage>
     </Scene>
   );
