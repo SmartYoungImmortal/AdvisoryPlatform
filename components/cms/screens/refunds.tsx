@@ -122,7 +122,7 @@ export function RefundsScreen() {
         <CmsApiError error={refunds.error} onRetry={refunds.reload} />
       ) : (
         <CmsTable
-          bulkActions={(ids) => {
+          renderBulkActions={(ids) => {
             const open = ids.filter((id) => items.find((r) => r.id === id)?.status === "OPEN");
             if (open.length === 0) return null;
             return (

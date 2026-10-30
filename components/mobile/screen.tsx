@@ -37,6 +37,12 @@ export function MobileScreen({
    */
   readonly wide?: boolean | "md" | "tablet";
 }) {
+  // What `MobileViewport` reads to lift its cap: the step a screen asks for, or
+  // an empty mark for the `lg` every other wide screen wants.
+  let wideMark: string | undefined;
+  if (typeof wide === "string") wideMark = wide;
+  else if (wide) wideMark = "";
+
   return (
     <div
       className={cn(
@@ -48,7 +54,7 @@ export function MobileScreen({
         wide === true && "lg:pb-0",
         className,
       )}
-      data-wide={typeof wide === "string" ? wide : wide ? "" : undefined}
+      data-wide={wideMark}
     >
       {children}
     </div>

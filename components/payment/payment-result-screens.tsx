@@ -517,73 +517,50 @@ export function PaymentResultScreen({ state }: { readonly state: Result }) {
   );
 }
 
-function ResultScreen({ state }: { readonly state: Result }) {
+/**
+ * `slot-taken` is the one outcome in this file the app actually reaches:
+ * `POST /bookings` answers 409 when another advisee took the time first, and
+ * the slot chips on `/service/…` send the reader here with the time they tried
+ * for and the service they tried it on.
+ *
+ * So those two facts stop being fixtures. The masked-card row goes with them —
+ * nothing was charged and no card was involved, which is what
+ * "เรียกเก็บ ฿0" already says — and both actions point back at the slot rail
+ * that can still be picked from, instead of at `/matching/results`. Any other
+ * outcome, or a slot-taken page reached without either fact, keeps `fixture`.
+ */
+function useAttemptCopy(state: Result, fixture: ResultCopy) {
   const t = useTranslations("payment");
   const format = useFormatter();
+  const attempted = useQueryValue("startTime");
+  const attemptedService = asUuid(useQueryValue("serviceId"));
+  const attemptedAt = attempted && !Number.isNaN(Date.parse(attempted)) ? new Date(attempted) : undefined;
+
+  if (state !== "slot-taken" || (!attemptedAt && !attemptedService)) return fixture;
+
+  const slot = attemptedAt
+    ? format.dateTime(attemptedAt, { weekday: "short", day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })
+    : t("slotValue");
+  const serviceHref = attemptedService ? liveServiceHref(attemptedService) : null;
+  return {
+    ...fixture,
+    rows: [
+      { icon: CalendarDays, label: t("slotLabel"), value: slot, latin: true },
+      { icon: CreditCard, label: t("chargedLabel"), value: t("chargedValue"), latin: true },
+    ] as const,
+    primary: { label: fixture.primary.label, href: serviceHref ? `${serviceHref}#slots` : fixture.primary.href },
+    secondary: { label: fixture.secondary.label, href: serviceHref ?? fixture.secondary.href },
+  };
+}
+
+function ResultScreen({ state }: { readonly state: Result }) {
+  const t = useTranslations("payment");
   const fixture = useResultCopy(state);
   const success = state === "success";
   const slotTaken = state === "slot-taken";
 
-  /**
-   * `slot-taken` is the one outcome in this file the app actually reaches:
-   * `POST /bookings` answers 409 when another advisee took the time first, and
-   * the slot chips on `/service/…` send the reader here with the time they tried
-   * for and the service they tried it on.
-   *
-   * So those two facts stop being fixtures. The masked-card row goes with them —
-   * nothing was charged and no card was involved, which is what
-   * "เรียกเก็บ ฿0" already says — and both actions point back at the slot rail
-   * that can still be picked from, instead of at `/matching/results`.
-   */
-  const attempted = useQueryValue("startTime");
-  const attemptedService = asUuid(useQueryValue("serviceId"));
-  const attemptedAt =
-    attempted && !Number.isNaN(Date.parse(attempted))
-      ? new Date(attempted)
-      : undefined;
-
   const live = useLiveResult(state, fixture);
-
-  const attemptCopy =
-    slotTaken && (attemptedAt || attemptedService)
-      ? {
-          ...fixture,
-          rows: [
-            {
-              icon: CalendarDays,
-              label: t("slotLabel"),
-              value: attemptedAt
-                ? format.dateTime(attemptedAt, {
-                    weekday: "short",
-                    day: "numeric",
-                    month: "short",
-                    hour: "2-digit",
-                    minute: "2-digit",
-                  })
-                : t("slotValue"),
-              latin: true,
-            },
-            {
-              icon: CreditCard,
-              label: t("chargedLabel"),
-              value: t("chargedValue"),
-              latin: true,
-            },
-          ] as const,
-          primary: {
-            label: fixture.primary.label,
-            href: attemptedService
-              ? `${liveServiceHref(attemptedService)}#slots`
-              : fixture.primary.href,
-          },
-          secondary: {
-            label: fixture.secondary.label,
-            href: attemptedService
-              ? liveServiceHref(attemptedService)
-              : fixture.secondary.href,
-          },
-        }
-      : fixture;
+  const attemptCopy = useAttemptCopy(state, fixture);
   const copy = live ? live.copy : attemptCopy;
 
   return (

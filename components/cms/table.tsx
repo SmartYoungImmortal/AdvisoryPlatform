@@ -135,7 +135,7 @@ export function CmsTable<Row extends { readonly id: string }>({
   searchPlaceholder,
   chips,
   filters,
-  bulkActions,
+  renderBulkActions,
   rowHref,
   empty,
 }: {
@@ -146,15 +146,19 @@ export function CmsTable<Row extends { readonly id: string }>({
   readonly chips?: ReactNode;
   /** Further filters, after the search box. */
   readonly filters?: ReactNode;
-  /** The selection strip's actions; with none the table has no checkboxes. */
-  readonly bulkActions?: (ids: readonly string[]) => ReactNode;
+  /**
+   * The selection strip's actions, drawn for the rows ticked; with none the
+   * table has no checkboxes. A render prop (`render…`), not a component: it is
+   * called with the selection each time the strip draws.
+   */
+  readonly renderBulkActions?: (ids: readonly string[]) => ReactNode;
   /** Where a row leads. The whole row is the pointer's target. */
   readonly rowHref?: (row: Row) => string;
   readonly empty?: CmsTableEmpty;
 }) {
   const t = useTranslations("cms.table");
   const router = useRouter();
-  const selectable = bulkActions !== undefined;
+  const selectable = renderBulkActions !== undefined;
   const { rows, selected } = list;
   const pageIds = rows.map((row) => row.id);
   const selectedOnPage = pageIds.filter((id) => selected.has(id)).length;
@@ -214,7 +218,7 @@ export function CmsTable<Row extends { readonly id: string }>({
           <span className="text-sm font-medium text-foreground">
             {t("selected", { count: selected.size })}
           </span>
-          <div className="flex flex-wrap items-center gap-2">{bulkActions([...selected])}</div>
+          <div className="flex flex-wrap items-center gap-2">{renderBulkActions([...selected])}</div>
           <CmsButton
             className="ms-auto text-muted-foreground"
             onClick={list.clearSelection}

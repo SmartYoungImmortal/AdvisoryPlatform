@@ -136,44 +136,53 @@ export function ServicesScreen() {
     dateColumn("updatedAt", t("col.updatedAt"), (s) => s.modifiedAt),
   ];
 
+  if (services.loading) {
+    return (
+      <CmsPage title={t("title")}>
+        <CmsTableSkeleton columns={columns.length} />
+      </CmsPage>
+    );
+  }
+  if (services.error) {
+    return (
+      <CmsPage title={t("title")}>
+        <CmsApiError error={services.error} onRetry={services.reload} />
+      </CmsPage>
+    );
+  }
+
   return (
     <CmsPage title={t("title")}>
-      {services.loading ? (
-        <CmsTableSkeleton columns={columns.length} />
-      ) : services.error ? (
-        <CmsApiError error={services.error} onRetry={services.reload} />
-      ) : (
-        <CmsTable
-          chips={
-            <CmsChips
-              label={t("col.status")}
-              onChange={(value) => list.setFilter("status", value ? [value] : [])}
-              options={[
-                { value: "", label: tTable("all"), count: count("") },
-                ...(["published", "hidden"] as const).map((value) => ({
-                  value,
-                  label: statusLabel("publish", value),
-                  count: count(value),
-                })),
-              ]}
-              value={list.filterValues.status?.[0] ?? ""}
-            />
-          }
-          columns={columns}
-          empty={{ icon: Store, title: t("empty") }}
-          filters={
-            <CmsFilterMenu
-              label={t("allCategories")}
-              onChange={(values) => list.setFilter("category", values)}
-              options={categoryItems.map((c) => ({ value: c.id, label: c.name }))}
-              values={list.filterValues.category ?? []}
-            />
-          }
-          list={list}
-          rowHref={(s) => `/admin/services/edit?id=${s.id}`}
-          searchPlaceholder={t("search")}
-        />
-      )}
+      <CmsTable
+        chips={
+          <CmsChips
+            label={t("col.status")}
+            onChange={(value) => list.setFilter("status", value ? [value] : [])}
+            options={[
+              { value: "", label: tTable("all"), count: count("") },
+              ...(["published", "hidden"] as const).map((value) => ({
+                value,
+                label: statusLabel("publish", value),
+                count: count(value),
+              })),
+            ]}
+            value={list.filterValues.status?.[0] ?? ""}
+          />
+        }
+        columns={columns}
+        empty={{ icon: Store, title: t("empty") }}
+        filters={
+          <CmsFilterMenu
+            label={t("allCategories")}
+            onChange={(values) => list.setFilter("category", values)}
+            options={categoryItems.map((c) => ({ value: c.id, label: c.name }))}
+            values={list.filterValues.category ?? []}
+          />
+        }
+        list={list}
+        rowHref={(s) => `/admin/services/edit?id=${s.id}`}
+        searchPlaceholder={t("search")}
+      />
     </CmsPage>
   );
 }

@@ -49,16 +49,14 @@ export function DashboardScreen() {
   const waiting = queues.some((queue) => queue.value === undefined)
     ? undefined
     : queues.reduce((sum, queue) => sum + (queue.value ?? 0), 0);
+  // No line until every queue has answered; then all clear, or how many wait.
+  let summary: string | undefined;
+  if (waiting === 0) summary = t("allClear");
+  else if (waiting !== undefined) summary = t("waitingSummary", { count: waiting });
 
   return (
     <CmsPage
-      description={
-        waiting === undefined
-          ? undefined
-          : waiting === 0
-            ? t("allClear")
-            : t("waitingSummary", { count: waiting })
-      }
+      description={summary}
       title={t("title")}
     >
       <CmsSection title={t("queuesTitle")}>

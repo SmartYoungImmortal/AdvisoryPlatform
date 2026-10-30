@@ -279,14 +279,15 @@ export function CheckoutSteps({
 
       {/* The bar at the foot of every step, held to the bottom of the screen. */}
       <div className="sticky bottom-0 z-10 mt-auto w-full bg-card">
-        <div
+        {/* The steps as the screen reader hears them, a native progress; the
+            segments are what the eye reads, and say nothing more. */}
+        <progress
           aria-label={t("stepOf", { step: step + 1, total: STEP_COUNT })}
-          aria-valuemax={STEP_COUNT}
-          aria-valuemin={1}
-          aria-valuenow={step + 1}
-          className="flex gap-1"
-          role="progressbar"
-        >
+          className="sr-only"
+          max={STEP_COUNT}
+          value={step + 1}
+        />
+        <div aria-hidden className="flex gap-1">
           {titles.map((title, i) => (
             <span className={cn("h-1 flex-1 transition-colors duration-300", i <= step ? "bg-foreground" : "bg-border")} key={title} />
           ))}

@@ -2,7 +2,7 @@
 
 import { BadgeCheck, Banknote } from "lucide-react";
 import { useTranslations } from "next-intl";
-import { useCallback, useMemo } from "react";
+import { useCallback, useMemo, type ReactNode } from "react";
 
 import { CmsApiError, CmsTableSkeleton, useRuling } from "@/components/cms/api";
 import { CmsButton } from "@/components/cms/button";
@@ -165,46 +165,51 @@ export function PayoutsScreen() {
     },
   ];
 
+  let body: ReactNode;
+  if (payouts.loading) {
+    body = <CmsTableSkeleton columns={columns.length} />;
+  } else if (payouts.error) {
+    body = <CmsApiError error={payouts.error} onRetry={payouts.reload} />;
+  } else {
+    body = (
+      <CmsTable
+        chips={
+          <CmsChips
+            label={t("col.status")}
+            onChange={(value) => list.setFilter("status", value ? [value] : [])}
+            options={[
+              { value: "", label: tTable("all"), count: count("") },
+              ...(["PENDING", "FAILED", "PAID"] as const).map((value) => ({
+                value,
+                label: statusLabel("payout", value),
+                count: count(value),
+              })),
+            ]}
+            value={list.filterValues.status?.[0] ?? ""}
+          />
+        }
+        columns={columns}
+        empty={{ icon: Banknote, title: t("empty"), body: t("emptyBody") }}
+        list={list}
+        renderBulkActions={(ids) => {
+          const payable = ids.filter((id) => items.find((p) => p.id === id)?.status !== "PAID");
+          return payable.length > 0 ? (
+            <CmsButton icon={BadgeCheck} onClick={() => pay(payable)} size="sm">
+              {t("markPaidSelected", { count: payable.length })}
+            </CmsButton>
+          ) : null;
+        }}
+        searchPlaceholder={t("search")}
+      />
+    );
+  }
+
   return (
     <CmsPage
       description={due > 0 ? t("due", { amount: formatBaht(due) }) : undefined}
       title={t("title")}
     >
-      {payouts.loading ? (
-        <CmsTableSkeleton columns={columns.length} />
-      ) : payouts.error ? (
-        <CmsApiError error={payouts.error} onRetry={payouts.reload} />
-      ) : (
-        <CmsTable
-          bulkActions={(ids) => {
-            const payable = ids.filter((id) => items.find((p) => p.id === id)?.status !== "PAID");
-            return payable.length > 0 ? (
-              <CmsButton icon={BadgeCheck} onClick={() => pay(payable)} size="sm">
-                {t("markPaidSelected", { count: payable.length })}
-              </CmsButton>
-            ) : null;
-          }}
-          chips={
-            <CmsChips
-              label={t("col.status")}
-              onChange={(value) => list.setFilter("status", value ? [value] : [])}
-              options={[
-                { value: "", label: tTable("all"), count: count("") },
-                ...(["PENDING", "FAILED", "PAID"] as const).map((value) => ({
-                  value,
-                  label: statusLabel("payout", value),
-                  count: count(value),
-                })),
-              ]}
-              value={list.filterValues.status?.[0] ?? ""}
-            />
-          }
-          columns={columns}
-          empty={{ icon: Banknote, title: t("empty"), body: t("emptyBody") }}
-          list={list}
-          searchPlaceholder={t("search")}
-        />
-      )}
+      {body}
     </CmsPage>
   );
 }

@@ -222,7 +222,7 @@ function CategoryTable({
 
   return (
     <CmsTable
-      bulkActions={(ids) => (
+      renderBulkActions={(ids) => (
         <CmsButton icon={Trash2} onClick={() => remove(ids)} size="sm" variant="danger-soft">
           {t("deleteSelected", { count: ids.length })}
         </CmsButton>
@@ -262,7 +262,7 @@ function SkillTable({ skills }: { readonly skills: readonly TaxonomyRecord[] }) 
 
   return (
     <CmsTable
-      bulkActions={(ids) => (
+      renderBulkActions={(ids) => (
         <CmsButton
           icon={Trash2}
           onClick={async () => {

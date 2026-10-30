@@ -40,8 +40,8 @@ import { cn } from "@/lib/utils";
  * can't make the number invalid.
  */
 function cardLength(digits: string): number {
-  if (/^3[47]/.test(digits)) return 15;
-  if (/^62/.test(digits)) return 19;
+  if (digits.startsWith("34") || digits.startsWith("37")) return 15;
+  if (digits.startsWith("62")) return 19;
   return 16;
 }
 

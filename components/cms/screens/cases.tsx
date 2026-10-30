@@ -189,7 +189,7 @@ function ReportQueue() {
 
   return (
     <CmsTable
-      bulkActions={(ids) => {
+      renderBulkActions={(ids) => {
         const open = openIds(ids);
         return open.length === 0 ? null : (
           <CaseBulkActions
@@ -314,7 +314,7 @@ function FlagQueue() {
 
   return (
     <CmsTable
-      bulkActions={(ids) => {
+      renderBulkActions={(ids) => {
         const open = openIds(ids);
         return open.length === 0 ? null : (
           <CaseBulkActions

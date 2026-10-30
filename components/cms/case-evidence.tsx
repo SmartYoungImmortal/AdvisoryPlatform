@@ -37,6 +37,7 @@ export function CaseEvidence({
   if (!context) return null;
 
   const { appointment, conversation, flaggedMessageId } = context;
+  const invoiceWord = appointment?.invoiceStatus ? t(`invoice.${appointment.invoiceStatus}`) : null;
 
   return (
     <>
@@ -61,7 +62,7 @@ export function CaseEvidence({
               ) : (
                 <>
                   <span className="font-latin">{formatBaht(appointment.invoiceAmountSatang)}</span>
-                  {appointment.invoiceStatus ? ` · ${t(`invoice.${appointment.invoiceStatus}`)}` : ""}
+                  {invoiceWord ? ` · ${invoiceWord}` : ""}
                 </>
               )}
             </CmsDataRow>

@@ -139,7 +139,7 @@ export function UsersScreen() {
         <CmsApiError error={accounts.error} onRetry={accounts.reload} />
       ) : (
         <CmsTable
-          bulkActions={(ids) => {
+          renderBulkActions={(ids) => {
             // The API refuses suspending your own account with a 400 of its own;
             // leaving it out of the selection is kinder than letting the batch
             // stop halfway through on it.

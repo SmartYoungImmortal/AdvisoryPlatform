@@ -212,7 +212,7 @@ function IdentityTable({ requests }: { readonly requests: readonly IdentityVerif
 
   return (
     <CmsTable
-      bulkActions={(ids) => {
+      renderBulkActions={(ids) => {
         const open = waiting(ids);
         return open.length === 0 ? null : (
           <CmsButton icon={Check} onClick={() => approve(open)} size="sm">
@@ -318,7 +318,7 @@ function ProofTable({ proofs }: { readonly proofs: readonly SkillProof[] }) {
 
   return (
     <CmsTable
-      bulkActions={(ids) => {
+      renderBulkActions={(ids) => {
         const open = pendingIds(ids);
         return open.length === 0 ? null : (
           <CmsButton icon={Check} onClick={() => approve(open)} size="sm">
