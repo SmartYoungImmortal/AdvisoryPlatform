@@ -1,6 +1,5 @@
 "use client";
 
-import { useTranslations } from "next-intl";
 import { useCallback, useMemo } from "react";
 
 import {
@@ -39,10 +38,4 @@ export function useAccountName(): (id: string | null | undefined) => string | nu
     [accounts.data],
   );
   return useCallback((id) => (id ? (names.get(id) ?? null) : null), [names]);
-}
-
-/** The two audit headers plus the scanner's name, from `cms.table`. */
-export function useAuditHeaders() {
-  const t = useTranslations("cms.table");
-  return { createdBy: t("createdBy"), updatedBy: t("updatedBy"), system: t("system") };
 }

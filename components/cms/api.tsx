@@ -1,10 +1,11 @@
 "use client";
 
-import { useCallback } from "react";
+import { CircleAlert, RotateCw } from "lucide-react";
 import { useTranslations } from "next-intl";
+import { useCallback, useSyncExternalStore } from "react";
 
 import { CmsButton } from "@/components/cms/button";
-import { CmsCard } from "@/components/cms/card";
+import { CmsEmpty } from "@/components/cms/card";
 import { useCmsFeedback } from "@/components/cms/feedback";
 import { invalidate } from "@/lib/api/use-resource";
 import { cn } from "@/lib/utils";
@@ -16,7 +17,7 @@ import { cn } from "@/lib/utils";
  * loading, failed, and the rows — and one thing to do after a write: drop the
  * cached read so the queue does not keep showing the row it just ruled on.
  *
- * ## Why the failure card shows the API's own sentence
+ * ## Why the failure shows the API's own sentence
  *
  * The admin API answers a refused ruling with the reason: "This refund case has
  * already been resolved", "Account is not suspended", "Ruling requires an admin
@@ -25,13 +26,9 @@ import { cn } from "@/lib/utils";
  * account is not set up" — and an admin can act on each one differently. A
  * translated "something went wrong" would throw all of that away, so `ApiError`'s
  * message is printed verbatim, as `ApiErrorCard` in `components/service/parts.tsx` does.
- *
- * Copy is borrowed from `errorStates.*` rather than invented: the console has no
- * load-failure copy of its own, and `errorStates` is the shared namespace for
- * exactly this. See the report for the `cms.api.*` keys this would rather have.
  */
 
-/** A failed read: the API's own sentence, and a way to ask again. */
+/** A failed read: the site's empty-state shape, the API's own sentence, and a way to ask again. */
 export function CmsApiError({
   error,
   onRetry,
@@ -43,52 +40,56 @@ export function CmsApiError({
 }) {
   const t = useTranslations("errorStates");
   return (
-    <CmsCard className={className}>
-      <div className="flex flex-col items-start gap-3">
-        <p className="text-base font-semibold text-highlighted">{t("serverTitle")}</p>
-        {/* Verbatim. It is the only part of this card that says what happened. */}
-        <p className="text-sm text-muted-foreground">{error.message}</p>
-        {onRetry ? (
-          <CmsButton color="neutral" onClick={onRetry} variant="outline">
+    <CmsEmpty
+      action={
+        onRetry ? (
+          <CmsButton icon={RotateCw} onClick={onRetry} variant="secondary">
             {t("retry")}
           </CmsButton>
-        ) : null}
-      </div>
-    </CmsCard>
+        ) : undefined
+      }
+      // Verbatim. It is the only part of this block that says what happened.
+      body={error.message}
+      className={className}
+      icon={CircleAlert}
+      title={t("serverTitle")}
+    />
   );
 }
 
+/** A grey bone, the placeholder shape the site's skeletons are built from. */
+const BONE = "block rounded-full bg-muted";
+
 /**
- * A table-shaped placeholder, so the page does not reflow when the rows land.
- *
- * Mirrors `CmsTable`'s frame — toolbar band, header row, body rows, footer band —
- * at the same heights, rather than a spinner in the middle of an empty card.
+ * A table-shaped placeholder at the table's own heights — the capsules and the
+ * search, the head, the rows — so the page does not reflow when the rows land.
  */
 export function CmsTableSkeleton({
   columns,
-  rows = 5,
+  rows = 6,
 }: {
   readonly columns: number;
   readonly rows?: number;
 }) {
   return (
-    <div
-      aria-hidden
-      className="overflow-hidden rounded-lg border border-border bg-card"
-    >
-      <div className="flex items-center justify-between gap-4 border-b border-border p-4">
-        <span className="h-8 w-full max-w-xs rounded-md bg-muted" />
-        <span className="h-8 w-40 shrink-0 rounded-md bg-muted" />
+    <div aria-hidden className="flex flex-col">
+      <div className="flex items-center justify-between gap-4">
+        <span className="flex gap-2">
+          <span className={cn(BONE, "h-9 w-20")} />
+          <span className={cn(BONE, "h-9 w-24")} />
+          <span className={cn(BONE, "h-9 w-24")} />
+        </span>
+        <span className={cn(BONE, "hidden h-9 w-64 md:block")} />
       </div>
-      <div className="divide-y divide-border">
+      <div className="mt-4 divide-y divide-border border-b border-border">
         {Array.from({ length: rows + 1 }, (_, row) => (
-          <div className="flex items-center gap-4 px-4 py-5" key={row}>
-            {Array.from({ length: columns }, (_, column) => (
+          <div className={cn("flex items-center gap-6", row === 0 ? "h-11" : "h-13")} key={row}>
+            {Array.from({ length: Math.min(columns, 6) }, (_, column) => (
               <span
                 className={cn(
-                  "h-4 rounded-md bg-muted",
+                  BONE,
+                  row === 0 ? "h-2.5 opacity-60" : "h-3",
                   column === 0 ? "w-1/4" : "flex-1",
-                  row === 0 && "h-3.5 opacity-60",
                 )}
                 key={column}
               />
@@ -96,27 +97,55 @@ export function CmsTableSkeleton({
           </div>
         ))}
       </div>
-      <div className="flex items-center justify-between gap-4 border-t border-border p-4">
-        <span className="h-4 w-48 rounded-md bg-muted" />
-        <span className="h-8 w-32 rounded-md bg-muted" />
+    </div>
+  );
+}
+
+/** A record page's placeholder: label and value rows on hairlines. */
+export function CmsDetailSkeleton({ rows = 4 }: { readonly rows?: number }) {
+  return (
+    <div aria-hidden className="flex flex-col">
+      <span className={cn(BONE, "mb-4 h-4 w-32")} />
+      <div className="divide-y divide-border border-y border-border">
+        {Array.from({ length: rows }, (_, row) => (
+          <div className="grid gap-2 py-4 sm:grid-cols-[12rem_1fr] sm:gap-6" key={row}>
+            <span className={cn(BONE, "h-3 w-24")} />
+            <span className={cn(BONE, "h-3 w-2/3")} />
+          </div>
+        ))}
       </div>
     </div>
   );
 }
 
-/** A card-shaped placeholder, for a detail page rather than a list. */
-export function CmsCardSkeleton({ rows = 4 }: { readonly rows?: number }) {
-  return (
-    <CmsCard>
-      <div aria-hidden className="flex flex-col gap-3">
-        {Array.from({ length: rows }, (_, row) => (
-          <div className="grid gap-1 sm:grid-cols-[10rem_1fr] sm:gap-4" key={row}>
-            <span className="h-4 w-24 rounded-md bg-muted" />
-            <span className="h-4 w-2/3 rounded-md bg-muted" />
-          </div>
-        ))}
-      </div>
-    </CmsCard>
+/* --------------------------------------------------------- after a ruling */
+
+/**
+ * Bumped after every write that landed. `useResource` re-reads a key only when
+ * a reader mounts, so a queue that stays on screen after a bulk ruling — and
+ * the sidebar's waiting counts beside it — would otherwise sit on a dropped
+ * cache entry. The shell keys the page and the counts by this, so they mount
+ * again and read what changed; keys that were not dropped cost nothing.
+ */
+let rulingVersion = 0;
+const rulingListeners = new Set<() => void>();
+
+function bumpRulingVersion(): void {
+  rulingVersion += 1;
+  for (const listener of rulingListeners) listener();
+}
+
+function subscribeRuling(listener: () => void): () => void {
+  rulingListeners.add(listener);
+  return () => rulingListeners.delete(listener);
+}
+
+/** The number of rulings that have landed in this tab. */
+export function useRulingVersion(): number {
+  return useSyncExternalStore(
+    subscribeRuling,
+    () => rulingVersion,
+    () => 0,
   );
 }
 
@@ -145,13 +174,12 @@ export function useRuling(): (options: {
   readonly keyPrefix: string;
   /** Shown when every write succeeded. */
   readonly success: string;
-  readonly successColor?: "success" | "warning";
   readonly onDone?: () => void;
 }) => Promise<RulingResult> {
   const { toast } = useCmsFeedback();
 
   return useCallback(
-    async ({ run, keyPrefix, success, successColor = "success", onDone }) => {
+    async ({ run, keyPrefix, success, onDone }) => {
       let failure: Error | null = null;
       let done = 0;
       for (const write of run) {
@@ -167,8 +195,12 @@ export function useRuling(): (options: {
         }
       }
 
-      // Whatever happened, anything that did land has changed the queue.
-      if (done > 0) invalidate(keyPrefix);
+      // Whatever happened, anything that did land has changed the queue, and
+      // the waiting counts are read under the same prefixes.
+      if (done > 0) {
+        invalidate(keyPrefix);
+        bumpRulingVersion();
+      }
       onDone?.();
 
       if (failure) {
@@ -179,7 +211,7 @@ export function useRuling(): (options: {
         return { ok: false };
       }
 
-      toast({ color: successColor, title: success });
+      toast({ color: "success", title: success });
       return { ok: true };
     },
     [toast],

@@ -1,26 +1,28 @@
 "use client";
 
-import { useRouter } from "next/navigation";
-import { CircleSlash, Gavel } from "lucide-react";
+import { CircleSlash, Flag, Gavel, Radar } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { useCallback, useMemo } from "react";
 
 import { CmsApiError, CmsTableSkeleton, useRuling } from "@/components/cms/api";
 import { CmsButton } from "@/components/cms/button";
+import { useDashboardCounts } from "@/components/cms/dashboard-data";
 import { useCmsFeedback } from "@/components/cms/feedback";
-import { CmsPage } from "@/components/cms/layout";
-import { CmsApiStatus, useApiStatusOptions } from "@/components/cms/status";
-import { useAccountName, useAuditHeaders } from "@/components/cms/people";
+import { usePageTab } from "@/components/cms/hooks";
+import { CmsPage, CmsPageTabs } from "@/components/cms/layout";
+import { useAccountName } from "@/components/cms/people";
+import { CmsStatus, useStatusLabel } from "@/components/cms/status";
 import {
-  auditColumns,
-  CmsFilterMenu,
+  CmsChips,
   CmsTable,
-  createdColumn,
+  countBy,
+  dateColumn,
   statusColumn,
   type CmsColumn,
 } from "@/components/cms/table";
 import { useCmsList } from "@/components/cms/use-cms-list";
 import {
+  ADMIN_KEYS,
   ADMIN_MAX_LIMIT,
   listOffPlatformFlags,
   listReports,
@@ -35,65 +37,78 @@ import type { Paginated } from "@/lib/api/client";
 import { useResource } from "@/lib/api/use-resource";
 import { timeValue } from "@/lib/mock-db/format";
 
-export const REPORTS_KEY = "admin/reports";
-export const FLAGS_KEY = "admin/off-platform-flags";
+const REPORTS_KEY = ADMIN_KEYS.reports;
+const FLAGS_KEY = ADMIN_KEYS.flags;
+const BASE = "/admin/reports";
+const TABS = ["reports", "flags"] as const;
 
-/**
- * The copy for the two outcomes both queues share.
- *
- * `cms.cases` has copy for dismiss, warn and suspend — the fixture's three
- * resolutions. The API's are `ACTIONED | DISMISSED` for a report and
- * `CONFIRMED | DISMISSED` for a flag: there is no warning outcome and no
- * suspend-the-account outcome on either route, so the warn and suspend buttons are
- * gone and the acted-on outcome borrows `cms.cases.tab.closed` ("ดำเนินการแล้ว"),
- * the console's own words for it. `cms.cases.action`, `cms.cases.actionTitle` and
- * `cms.cases.done.actioned` are the keys this wants; see the report.
- */
-function useOutcomeCopy() {
-  const t = useTranslations("cms.cases");
-  const acted = t("tab.closed");
-  return {
-    acted: { label: acted, title: acted, description: undefined, success: acted },
-    dismissed: {
-      label: t("dismiss"),
-      title: t("dismissTitle", { count: 1 }),
-      description: t("dismissBody"),
-      success: t("done.dismissed", { count: 1 }),
-    },
-  } as const;
+/** Waiting first, then newest. */
+function queueOrder<T extends { readonly createdAt: string }>(
+  rows: readonly T[],
+  waiting: (row: T) => boolean,
+): readonly T[] {
+  return [...rows].sort((a, b) => {
+    const rank = Number(waiting(b)) - Number(waiting(a));
+    return rank !== 0 ? rank : b.createdAt.localeCompare(a.createdAt);
+  });
 }
 
 /**
- * User reports, from `GET /api/v1/admin/reports`.
+ * Cases to rule on: one desk, two tabs. A user's report
+ * (`GET /api/v1/admin/reports`) and the scanner's off-platform flag
+ * (`GET /api/v1/admin/off-platform-flags`, CF-08) used to be two sidebar
+ * entries; both end in the same two outcomes — act on it or dismiss it — so
+ * they are the two tabs of one page, `?tab=flags` for the second, each with
+ * how many are still waiting.
  *
- * `user_reports` has no rows yet, so this queue is legitimately empty.
+ * ## The outcomes
  *
- * ## What a report carries
- *
- * `reason` is **free text**, not one of the six categories the fixture had — there
- * is no category column on `user_reports` — so the category badge and its filter are
- * gone. There is no message excerpt either, and `chatRoomId` is the only link to the
- * conversation. Both people are named by display name.
- *
- * ## Resolving
- *
- * `POST .../resolve` takes `outcome: "ACTIONED" | "DISMISSED"` and nothing else; the
- * body is whitelisted, so a note would be a 400. Suspending the reported account is
- * a separate ruling on `/admin/users`, which is where it now has to be done.
+ * `ACTIONED | DISMISSED` for a report and `CONFIRMED | DISMISSED` for a flag.
+ * There is no warning outcome, no suspend-the-account outcome and no note on
+ * either route — the body is whitelisted — so suspending the account behind a
+ * case is a separate ruling on its user page.
  *
  * 403 "Ruling requires an admin profile row for the signed-in admin" and 409
  * "Report has already been resolved" both surface as the API's own sentence.
  */
-export function ReportsScreen() {
+export function CasesScreen() {
+  const t = useTranslations("cms.cases");
+  const tab = usePageTab(TABS);
+  const counts = useDashboardCounts();
+
+  return (
+    <CmsPage
+      tabs={
+        <CmsPageTabs
+          current={tab}
+          label={t("title")}
+          tabs={[
+            { key: "reports", label: t("tab.reports"), href: BASE, count: counts.reports },
+            { key: "flags", label: t("tab.flags"), href: `${BASE}?tab=flags`, count: counts.flags },
+          ]}
+        />
+      }
+      title={t("title")}
+    >
+      {tab === "reports" ? <ReportQueue /> : <FlagQueue />}
+    </CmsPage>
+  );
+}
+
+/**
+ * User reports.
+ *
+ * `reason` is **free text** — there is no category column on `user_reports` — and
+ * `chatRoomId` is the only link to the conversation, which the record page
+ * reads through `…/context`. Both people are named by display name.
+ */
+function ReportQueue() {
   const t = useTranslations("cms.cases");
   const tTable = useTranslations("cms.table");
-  const audit = useAuditHeaders();
   const accountName = useAccountName();
-  const router = useRouter();
+  const statusLabel = useStatusLabel();
   const { confirm } = useCmsFeedback();
   const rule = useRuling();
-  const copy = useOutcomeCopy();
-  const statusOptions = useApiStatusOptions("report", ["OPEN", "ACTIONED", "DISMISSED"]);
 
   const fetcher = useCallback(
     (signal: AbortSignal) => listReports({ limit: ADMIN_MAX_LIMIT }, signal),
@@ -103,43 +118,55 @@ export function ReportsScreen() {
     `${REPORTS_KEY}?limit=${ADMIN_MAX_LIMIT}`,
     fetcher,
   );
-  const items = useMemo(() => reports.data?.items ?? [], [reports.data]);
+  const items = useMemo(
+    () => queueOrder(reports.data?.items ?? [], (r) => r.status === "OPEN"),
+    [reports.data],
+  );
+  const count = useMemo(() => countBy(items, (r) => r.status), [items]);
 
   const list = useCmsList(items, {
+    prefix: "r_",
     searchText: (r) => `${r.reason} ${r.reportedDisplayName} ${r.reporterDisplayName}`,
     sortValue: (r, id) => (id === "status" ? r.status : timeValue(r.createdAt)),
     filters: [{ key: "status", test: (r, values) => values.includes(r.status) }],
   });
 
-  async function resolve(ids: readonly string[], outcome: ReportOutcome) {
-    const which = outcome === "ACTIONED" ? copy.acted : copy.dismissed;
+  /** Only reports still open are ruled on — a resolved one would answer 409. */
+  const openIds = (ids: readonly string[]) =>
+    ids.filter((id) => items.find((r) => r.id === id)?.status === "OPEN");
+
+  async function resolve(open: readonly string[], outcome: ReportOutcome) {
+    const acted = outcome === "ACTIONED";
     const ok = await confirm({
-      type: outcome === "ACTIONED" ? "warning" : "info",
-      title: which.title,
-      description: which.description,
-      confirmLabel: which.label,
+      type: acted ? "warning" : "info",
+      title: acted
+        ? t("actionTitle", { count: open.length })
+        : t("dismissTitle", { count: open.length }),
+      description: acted ? t("actionBody") : t("dismissBody"),
+      confirmLabel: acted ? t("action") : t("dismiss"),
     });
     if (!ok) return;
     await rule({
       keyPrefix: REPORTS_KEY,
       onDone: list.clearSelection,
-      run: ids.map((id) => () => resolveReport(id, outcome)),
-      success: which.success,
-      successColor: outcome === "ACTIONED" ? "warning" : "success",
+      run: open.map((id) => () => resolveReport(id, outcome)),
+      success: acted
+        ? t("done.actioned", { count: open.length })
+        : t("done.dismissed", { count: open.length }),
     });
   }
 
   const columns: ReadonlyArray<CmsColumn<AdminReport>> = [
-    createdColumn(tTable("createdAt"), (r) => r.createdAt),
-    statusColumn(t("col.status"), (r) => <CmsApiStatus group="report" value={r.status} />),
     {
       id: "reported",
       header: t("col.reported"),
+      primary: true,
       render: (r) => accountName(r.reportedUserId) ?? r.reportedDisplayName,
     },
     {
       id: "detail",
       header: t("col.detail"),
+      className: "text-muted-foreground",
       render: (r) => <span className="block max-w-80 truncate">{r.reason}</span>,
     },
     {
@@ -147,102 +174,69 @@ export function ReportsScreen() {
       header: t("col.reporter"),
       render: (r) => accountName(r.reporterUserId) ?? r.reporterDisplayName,
     },
-    ...auditColumns<AdminReport>(
-      audit,
-      (r) => accountName(r.reporterUserId) ?? r.reporterDisplayName,
-      (r) => accountName(r.reviewedByAdminId),
-    ),
+    statusColumn(t("col.status"), (r) => <CmsStatus group="report" value={r.status} />),
+    dateColumn("createdAt", t("col.createdAt"), (r) => r.createdAt),
+    {
+      id: "reviewer",
+      header: t("col.reviewer"),
+      className: "text-muted-foreground",
+      render: (r) => accountName(r.reviewedByAdminId) ?? "-",
+    },
   ];
 
-  if (reports.loading) {
-    return (
-      <CmsPage title={t("reportsTitle")}>
-        <CmsTableSkeleton columns={columns.length} />
-      </CmsPage>
-    );
-  }
-
-  if (reports.error) {
-    return (
-      <CmsPage title={t("reportsTitle")}>
-        <CmsApiError error={reports.error} onRetry={reports.reload} />
-      </CmsPage>
-    );
-  }
+  if (reports.loading) return <CmsTableSkeleton columns={columns.length} />;
+  if (reports.error) return <CmsApiError error={reports.error} onRetry={reports.reload} />;
 
   return (
-    <CmsPage title={t("reportsTitle")}>
-      <CmsTable
-        bulkActions={(ids) => (
-          <>
-            <CmsButton
-              color="neutral"
-              icon={CircleSlash}
-              onClick={() => resolve(ids, "DISMISSED")}
-              variant="outline"
-            >
-              {t("dismissSelected", { count: ids.length })}
-            </CmsButton>
-            <CmsButton
-              color="warning"
-              icon={Gavel}
-              onClick={() => resolve(ids, "ACTIONED")}
-              variant="soft"
-            >
-              {copy.acted.label}
-            </CmsButton>
-          </>
-        )}
-        columns={columns}
-        filters={
-          <CmsFilterMenu
-            label={t("allStatuses")}
-            onChange={(values) => list.setFilter("status", values)}
-            options={statusOptions}
-            values={list.filterValues.status ?? []}
+    <CmsTable
+      bulkActions={(ids) => {
+        const open = openIds(ids);
+        return open.length === 0 ? null : (
+          <CaseBulkActions
+            count={open.length}
+            onResolve={(acted) => resolve(open, acted ? "ACTIONED" : "DISMISSED")}
           />
-        }
-        list={list}
-        onRowClick={(r) => router.push(`/admin/reports/review?id=${r.id}`)}
-        searchPlaceholder={t("searchReports")}
-      />
-    </CmsPage>
+        );
+      }}
+      chips={
+        <CmsChips
+          label={t("col.status")}
+          onChange={(value) => list.setFilter("status", value ? [value] : [])}
+          options={[
+            { value: "", label: tTable("all"), count: count("") },
+            ...(["OPEN", "ACTIONED", "DISMISSED"] as const).map((value) => ({
+              value,
+              label: statusLabel("report", value),
+              count: count(value),
+            })),
+          ]}
+          value={list.filterValues.status?.[0] ?? ""}
+        />
+      }
+      columns={columns}
+      empty={{ icon: Flag, title: t("emptyReports"), body: t("emptyReportsBody") }}
+      list={list}
+      rowHref={(r) => `${BASE}/review?id=${r.id}`}
+      searchPlaceholder={t("searchReports")}
+    />
   );
 }
 
 /**
- * Off-Platform Detection (CF-08), from `GET /api/v1/admin/off-platform-flags`.
- *
- * `off_platform_flags` has no rows yet, so this queue is legitimately empty.
- *
- * ## The screen is much smaller than it was, because the row is
+ * The scanner's flags.
  *
  * `OffPlatformFlagResponseDto` is `messageId`, `matchedPattern`, the status, the
- * reviewing admin and the penalty points. The flagged **message text is not on it**,
- * nor the sender, the recipient, the conversation or a risk level — so the
- * highlighted message, the sender column with its repeat count, the signal-type
- * badges, the risk column and filter, and the three risk summary cards are all gone.
- * There is nothing behind any of them. Showing them would need the message joined
- * onto the flag (for the text and the two people) and a severity on the row.
- *
- * `penaltyPointsApplied` can be sent with a confirmation, and is not: it needs a
- * number field, and `cms.cases` has no label for one, so a ruling applies the API's
- * default of zero. See the report.
+ * reviewing admin and the penalty points; the message, the sender and the
+ * conversation come from the record page's `…/context`. A ruling sends no
+ * penalty points, so the API's default of zero applies.
  */
-export function OffPlatformScreen() {
+function FlagQueue() {
   const t = useTranslations("cms.cases");
   const tTable = useTranslations("cms.table");
-  const audit = useAuditHeaders();
   const accountName = useAccountName();
-  const router = useRouter();
+  const statusLabel = useStatusLabel();
   const { confirm } = useCmsFeedback();
   const rule = useRuling();
-  const copy = useOutcomeCopy();
-  const statusOptions = useApiStatusOptions("flag", [
-    "PENDING_REVIEW",
-    "CONFIRMED",
-    "DISMISSED",
-  ]);
 
   const fetcher = useCallback(
     (signal: AbortSignal) => listOffPlatformFlags({ limit: ADMIN_MAX_LIMIT }, signal),
@@ -252,107 +246,133 @@ export function OffPlatformScreen() {
     `${FLAGS_KEY}?limit=${ADMIN_MAX_LIMIT}`,
     fetcher,
   );
-  const items = useMemo(() => flags.data?.items ?? [], [flags.data]);
+  const items = useMemo(
+    () => queueOrder(flags.data?.items ?? [], (f) => f.status === "PENDING_REVIEW"),
+    [flags.data],
+  );
+  const count = useMemo(() => countBy(items, (f) => f.status), [items]);
 
   const list = useCmsList(items, {
-    searchText: (f) => `${f.matchedPattern} ${f.messageId}`,
+    prefix: "f_",
+    searchText: (f) => f.matchedPattern,
     sortValue: (f, id) => (id === "status" ? f.status : timeValue(f.createdAt)),
     filters: [{ key: "status", test: (f, values) => values.includes(f.status) }],
   });
 
-  async function resolve(ids: readonly string[], outcome: OffPlatformFlagOutcome) {
-    const which = outcome === "CONFIRMED" ? copy.acted : copy.dismissed;
+  /** Only flags still waiting are ruled on — a resolved one would answer 409. */
+  const openIds = (ids: readonly string[]) =>
+    ids.filter((id) => items.find((f) => f.id === id)?.status === "PENDING_REVIEW");
+
+  async function resolve(open: readonly string[], outcome: OffPlatformFlagOutcome) {
+    const confirmed = outcome === "CONFIRMED";
     const ok = await confirm({
-      type: outcome === "CONFIRMED" ? "danger" : "info",
-      title: which.title,
-      description: which.description,
-      confirmLabel: which.label,
+      type: confirmed ? "danger" : "info",
+      title: confirmed
+        ? t("confirmFlagTitle", { count: open.length })
+        : t("dismissTitle", { count: open.length }),
+      description: confirmed ? t("confirmFlagBody") : t("dismissBody"),
+      confirmLabel: confirmed ? t("confirmFlag") : t("dismiss"),
     });
     if (!ok) return;
     await rule({
       keyPrefix: FLAGS_KEY,
       onDone: list.clearSelection,
-      run: ids.map((id) => () => resolveOffPlatformFlag(id, outcome)),
-      success: which.success,
-      successColor: outcome === "CONFIRMED" ? "warning" : "success",
+      run: open.map((id) => () => resolveOffPlatformFlag(id, outcome)),
+      success: confirmed
+        ? t("done.confirmed", { count: open.length })
+        : t("done.dismissed", { count: open.length }),
     });
   }
 
   const columns: ReadonlyArray<CmsColumn<OffPlatformFlag>> = [
-    createdColumn(tTable("createdAt"), (f) => f.createdAt),
-    statusColumn(t("col.status"), (f) => <CmsApiStatus group="flag" value={f.status} />),
     {
       id: "signals",
       header: t("col.signals"),
+      primary: true,
       className: "font-latin",
       render: (f) => f.matchedPattern,
     },
     {
       id: "penalty",
       header: t("col.penalty"),
-      align: "center",
+      align: "end",
       className: "font-latin",
       render: (f) => f.penaltyPointsApplied,
     },
-    // The scanner raises a flag; an admin rules on it.
-    ...auditColumns<OffPlatformFlag>(
-      audit,
-      () => audit.system,
-      (f) => accountName(f.reviewedByAdminId),
-    ),
+    statusColumn(t("col.status"), (f) => <CmsStatus group="flag" value={f.status} />),
+    dateColumn("createdAt", t("col.detectedAt"), (f) => f.createdAt),
+    {
+      id: "reviewer",
+      header: t("col.reviewer"),
+      className: "text-muted-foreground",
+      render: (f) => accountName(f.reviewedByAdminId) ?? "-",
+    },
   ];
 
-  if (flags.loading) {
-    return (
-      <CmsPage title={t("flagsTitle")}>
-        <CmsTableSkeleton columns={columns.length} />
-      </CmsPage>
-    );
-  }
-
-  if (flags.error) {
-    return (
-      <CmsPage title={t("flagsTitle")}>
-        <CmsApiError error={flags.error} onRetry={flags.reload} />
-      </CmsPage>
-    );
-  }
+  if (flags.loading) return <CmsTableSkeleton columns={columns.length} />;
+  if (flags.error) return <CmsApiError error={flags.error} onRetry={flags.reload} />;
 
   return (
-    <CmsPage title={t("flagsTitle")}>
-      <CmsTable
-        bulkActions={(ids) => (
-          <>
-            <CmsButton
-              color="neutral"
-              icon={CircleSlash}
-              onClick={() => resolve(ids, "DISMISSED")}
-              variant="outline"
-            >
-              {t("dismissSelected", { count: ids.length })}
-            </CmsButton>
-            <CmsButton
-              color="error"
-              icon={Gavel}
-              onClick={() => resolve(ids, "CONFIRMED")}
-            >
-              {copy.acted.label}
-            </CmsButton>
-          </>
-        )}
-        columns={columns}
-        filters={
-          <CmsFilterMenu
-            label={t("allStatuses")}
-            onChange={(values) => list.setFilter("status", values)}
-            options={statusOptions}
-            values={list.filterValues.status ?? []}
+    <CmsTable
+      bulkActions={(ids) => {
+        const open = openIds(ids);
+        return open.length === 0 ? null : (
+          <CaseBulkActions
+            count={open.length}
+            flag
+            onResolve={(acted) => resolve(open, acted ? "CONFIRMED" : "DISMISSED")}
           />
-        }
-        list={list}
-        onRowClick={(f) => router.push(`/admin/off-platform/review?id=${f.id}`)}
-        searchPlaceholder={t("searchFlags")}
-      />
-    </CmsPage>
+        );
+      }}
+      chips={
+        <CmsChips
+          label={t("col.status")}
+          onChange={(value) => list.setFilter("status", value ? [value] : [])}
+          options={[
+            { value: "", label: tTable("all"), count: count("") },
+            ...(["PENDING_REVIEW", "CONFIRMED", "DISMISSED"] as const).map((value) => ({
+              value,
+              label: statusLabel("flag", value),
+              count: count(value),
+            })),
+          ]}
+          value={list.filterValues.status?.[0] ?? ""}
+        />
+      }
+      columns={columns}
+      empty={{ icon: Radar, title: t("emptyFlags"), body: t("emptyFlagsBody") }}
+      list={list}
+      rowHref={(f) => `${BASE}/flag?id=${f.id}`}
+      searchPlaceholder={t("searchFlags")}
+    />
+  );
+}
+
+/** The selection strip's two outcomes: dismiss, and act on it (confirm, for a flag). */
+function CaseBulkActions({
+  count,
+  flag = false,
+  onResolve,
+}: {
+  /** How many of the selected rows are still waiting. */
+  readonly count: number;
+  readonly flag?: boolean;
+  readonly onResolve: (acted: boolean) => void;
+}) {
+  const t = useTranslations("cms.cases");
+  return (
+    <>
+      <CmsButton icon={CircleSlash} onClick={() => onResolve(false)} size="sm" variant="secondary">
+        {t("dismissSelected", { count })}
+      </CmsButton>
+      <CmsButton
+        icon={Gavel}
+        onClick={() => onResolve(true)}
+        size="sm"
+        variant={flag ? "danger-soft" : "primary"}
+      >
+        {flag ? t("confirmFlagSelected", { count }) : t("actionSelected", { count })}
+      </CmsButton>
+    </>
   );
 }

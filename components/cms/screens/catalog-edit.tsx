@@ -3,11 +3,11 @@
 import { useRouter } from "next/navigation";
 import { Save, Trash2 } from "lucide-react";
 import { useTranslations } from "next-intl";
-import { useCallback, useId, useState } from "react";
+import { useCallback, useId, useState, type FormEvent } from "react";
 
-import { CmsApiError, CmsCardSkeleton, useRuling } from "@/components/cms/api";
+import { CmsApiError, CmsDetailSkeleton, useRuling } from "@/components/cms/api";
 import { CmsButton } from "@/components/cms/button";
-import { CmsCard } from "@/components/cms/card";
+import { CmsSection } from "@/components/cms/card";
 import { useCmsFeedback } from "@/components/cms/feedback";
 import { CmsFormField, CmsTextarea, CmsTextField } from "@/components/cms/fields";
 import { useRecordId } from "@/components/cms/hooks";
@@ -32,10 +32,10 @@ import { useResource } from "@/lib/api/use-resource";
 
 export type TaxonomyKind = "categories" | "skills";
 
-/** Everything that differs between the two collections, in one place. */
+/** Everything that differs between the two lists, in one place. */
 const KIND = {
   categories: {
-    base: "/admin/manage",
+    back: "/admin/manage",
     key: ADMIN_KEYS.categories,
     list: listCategories,
     create: createCategory,
@@ -43,7 +43,7 @@ const KIND = {
     remove: deleteCategory,
   },
   skills: {
-    base: "/admin/skills",
+    back: "/admin/manage?tab=skills",
     key: ADMIN_KEYS.skills,
     list: listAdminSkills,
     create: createSkill,
@@ -53,8 +53,9 @@ const KIND = {
 } as const;
 
 /**
- * Nexus's `[id].vue` for a one-field collection (its `blog-keywords/[id].vue`):
- * a page, never a dialog. `?id=new` creates, any other id edits.
+ * A category or a skill on a page of its own: `?id=new` creates, any other id
+ * edits. The two fields sit on the panel with the save and the delete in the
+ * column beside them.
  *
  * The record is found in the list the table already read — there is no
  * `GET /service-categories/:id` worth a second request, and the list is cached
@@ -68,6 +69,7 @@ export function TaxonomyEditScreen({ kind }: { readonly kind: TaxonomyKind }) {
   const title = isNew
     ? t(kind === "categories" ? "newCategory" : "newSkill")
     : t(kind === "categories" ? "editCategory" : "editSkill");
+  const backLabel = t(kind === "categories" ? "tab.categories" : "tab.skills");
 
   const fetcher = useCallback(
     (signal: AbortSignal) => spec.list({ limit: ADMIN_MAX_LIMIT }, signal),
@@ -78,37 +80,44 @@ export function TaxonomyEditScreen({ kind }: { readonly kind: TaxonomyKind }) {
     fetcher,
   );
   const record = records.data?.items.find((r) => r.id === id);
+  const frame = { backHref: spec.back, backLabel, title };
 
   if (id === "") {
     return (
-      <CmsPage backHref={spec.base} title={title}>
-        <CmsMissing backHref={spec.base} />
+      <CmsPage {...frame}>
+        <CmsMissing backHref={spec.back} />
       </CmsPage>
     );
   }
 
   if (!isNew && records.loading) {
     return (
-      <CmsPage backHref={spec.base} title={title}>
-        <CmsCardSkeleton rows={2} />
+      <CmsPage {...frame}>
+        <CmsDetailSkeleton rows={2} />
       </CmsPage>
     );
   }
 
   if (!isNew && (records.error || !record)) {
     return (
-      <CmsPage backHref={spec.base} title={title}>
+      <CmsPage {...frame}>
         {records.error ? (
           <CmsApiError error={records.error} onRetry={records.reload} />
         ) : (
-          <CmsMissing backHref={spec.base} />
+          <CmsMissing backHref={spec.back} />
         )}
       </CmsPage>
     );
   }
 
   return (
-    <TaxonomyForm key={record?.id ?? "new"} kind={kind} record={record ?? null} title={title} />
+    <TaxonomyForm
+      backLabel={backLabel}
+      key={record?.id ?? "new"}
+      kind={kind}
+      record={record ?? null}
+      title={title}
+    />
   );
 }
 
@@ -116,16 +125,19 @@ function TaxonomyForm({
   kind,
   record,
   title,
+  backLabel,
 }: {
   readonly kind: TaxonomyKind;
   readonly record: TaxonomyRecord | null;
   readonly title: string;
+  readonly backLabel: string;
 }) {
   const t = useTranslations("cms.catalog");
   const router = useRouter();
   const { confirm } = useCmsFeedback();
   const rule = useRuling();
   const accountName = useAccountName();
+  const formId = useId();
   const descriptionId = useId();
   const spec = KIND[kind];
   const [name, setName] = useState(record?.name ?? "");
@@ -133,7 +145,8 @@ function TaxonomyForm({
   const [nameError, setNameError] = useState<string | undefined>();
   const [busy, setBusy] = useState(false);
 
-  async function save() {
+  async function save(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
     const trimmed = name.trim();
     if (!trimmed) {
       setNameError(t("nameRequired"));
@@ -149,7 +162,7 @@ function TaxonomyForm({
         : t(kind === "categories" ? "createdCategory" : "createdSkill"),
     });
     setBusy(false);
-    if (result.ok) router.push(spec.base);
+    if (result.ok) router.push(spec.back);
   }
 
   async function remove() {
@@ -168,88 +181,92 @@ function TaxonomyForm({
       success: t("deleted", { count: 1 }),
     });
     setBusy(false);
-    if (result.ok) router.push(spec.base);
+    if (result.ok) router.push(spec.back);
   }
 
   return (
-    <CmsPage backHref={spec.base} title={title}>
-      {/* Nexus's page body: its own p-4, then a 4-column grid — the form card
-          takes three, the options panel one. */}
-      <section className="p-4">
-        <div className="grid grid-cols-1 gap-8 md:grid-cols-4">
-          <div className="md:col-span-3">
-            <CmsCard>
-              <div className="flex flex-col gap-4">
-                <CmsTextField
-                  disabled={busy}
-                  error={nameError}
-                  label={t("col.name")}
-                  onChange={(event) => {
-                    setName(event.target.value);
-                    setNameError(undefined);
-                  }}
-                  required
-                  value={name}
-                />
-                <CmsFormField htmlFor={descriptionId} label={t("description")}>
-                  <CmsTextarea
-                    disabled={busy}
-                    id={descriptionId}
-                    onChange={(event) => setDescription(event.target.value)}
-                    value={description}
-                  />
-                </CmsFormField>
-              </div>
-            </CmsCard>
-          </div>
-
-          <CmsSidebarOptions
-            actions={
-              <>
+    <CmsPage
+      aside={
+        <CmsSidebarOptions
+          actions={
+            <>
+              {/* The form's own submit, so Enter in the name saves too. */}
+              <CmsButton
+                block
+                disabled={busy}
+                form={formId}
+                icon={Save}
+                loading={busy}
+                size="lg"
+                type="submit"
+              >
+                {record ? t("save") : t("create")}
+              </CmsButton>
+              {record ? (
                 <CmsButton
                   block
-                  color="action"
                   disabled={busy}
-                  icon={Save}
-                  loading={busy}
-                  onClick={save}
+                  icon={Trash2}
+                  onClick={remove}
                   size="lg"
+                  variant="danger-soft"
                 >
-                  {record ? t("save") : t("create")}
+                  {t("delete")}
                 </CmsButton>
-                {record ? (
-                  <CmsButton
-                    block
-                    color="error"
-                    disabled={busy}
-                    icon={Trash2}
-                    onClick={remove}
-                    size="lg"
-                  >
-                    {t("delete")}
-                  </CmsButton>
-                ) : null}
-              </>
-            }
-            info={
-              record
-                ? [
-                    {
-                      label: t("createdAt"),
-                      by: accountName(record.createdByUserId) ?? undefined,
-                      at: record.createdAt,
-                    },
-                    {
-                      label: t("updatedAt"),
-                      by: accountName(record.updatedByUserId) ?? undefined,
-                      at: record.modifiedAt,
-                    },
-                  ]
-                : undefined
-            }
+              ) : null}
+            </>
+          }
+          info={
+            record
+              ? [
+                  {
+                    label: t("createdAt"),
+                    by: accountName(record.createdByUserId),
+                    at: record.createdAt,
+                  },
+                  {
+                    label: t("updatedAt"),
+                    by: accountName(record.updatedByUserId),
+                    at: record.modifiedAt,
+                  },
+                ]
+              : undefined
+          }
+        />
+      }
+      backHref={spec.back}
+      backLabel={backLabel}
+      title={title}
+    >
+      <CmsSection>
+        <form
+          className="flex max-w-2xl flex-col gap-5"
+          id={formId}
+          noValidate
+          onSubmit={(event) => void save(event)}
+        >
+          <CmsTextField
+            disabled={busy}
+            error={nameError}
+            label={t("col.name")}
+            onChange={(event) => {
+              setName(event.target.value);
+              setNameError(undefined);
+            }}
+            required
+            value={name}
           />
-        </div>
-      </section>
+          <CmsFormField htmlFor={descriptionId} label={t("description")}>
+            <CmsTextarea
+              disabled={busy}
+              id={descriptionId}
+              onChange={(event) => setDescription(event.target.value)}
+              rows={4}
+              value={description}
+            />
+          </CmsFormField>
+        </form>
+      </CmsSection>
     </CmsPage>
   );
 }

@@ -4,25 +4,25 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { CircleSlash, Gavel } from "lucide-react";
 import { useTranslations } from "next-intl";
-import { useCallback, useMemo, type ReactNode } from "react";
+import { useCallback, useMemo } from "react";
 
-import { CmsApiError, CmsCardSkeleton, useRuling } from "@/components/cms/api";
+import { CmsApiError, CmsDetailSkeleton, useRuling } from "@/components/cms/api";
 import { CmsButton } from "@/components/cms/button";
-import { CmsCard } from "@/components/cms/card";
+import { CmsSection } from "@/components/cms/card";
+import { CaseEvidence } from "@/components/cms/case-evidence";
 import { useCmsFeedback } from "@/components/cms/feedback";
-import { CmsFormField } from "@/components/cms/fields";
 import { useRecordId } from "@/components/cms/hooks";
 import { CmsPage } from "@/components/cms/layout";
 import { useAccountName } from "@/components/cms/people";
-import { FLAGS_KEY, REPORTS_KEY } from "@/components/cms/screens/cases";
 import {
+  CmsDataList,
   CmsDataRow,
   CmsMissing,
   CmsSidebarOptions,
 } from "@/components/cms/sidebar-options";
-import { CmsApiStatus } from "@/components/cms/status";
-import { CaseEvidence } from "@/components/cms/case-evidence";
+import { CmsStatus } from "@/components/cms/status";
 import {
+  ADMIN_KEYS,
   ADMIN_MAX_LIMIT,
   getFlagContext,
   getReport,
@@ -33,71 +33,47 @@ import {
   type AdminReport,
   type CaseContext,
   type OffPlatformFlag,
-  type OffPlatformFlagOutcome,
-  type ReportOutcome,
 } from "@/lib/api/admin";
 import type { Paginated } from "@/lib/api/client";
 import { useResource } from "@/lib/api/use-resource";
 
+const REPORTS_KEY = ADMIN_KEYS.reports;
+const FLAGS_KEY = ADMIN_KEYS.flags;
+const REPORTS_BACK = "/admin/reports";
+const FLAGS_BACK = "/admin/reports?tab=flags";
+
 /**
- * The decision column both case pages share.
- *
- * Two buttons, not three: the API's outcomes are `ACTIONED | DISMISSED` for a report
- * and `CONFIRMED | DISMISSED` for a flag, and neither route has a warning outcome, a
- * suspend-the-account outcome or a note field — the body is whitelisted, so a note
- * would be rejected. The note textarea is gone with them, and suspending the account
- * behind a case is now a separate ruling on `/admin/users`.
+ * The two outcomes both case pages offer, in the column beside the case: act
+ * on it (for a flag, confirm it) and dismiss it. Neither route takes a note —
+ * the body is whitelisted — and neither suspends anyone, so suspending the
+ * account behind a case is a ruling on its user page.
  */
-function CaseDecision({
-  open,
+function CaseActions({
   acted,
+  danger,
   onResolve,
-  info,
-  children,
 }: {
-  readonly open: boolean;
-  /** The confirm/label copy for the acted-on outcome, which differs per queue. */
-  readonly acted: { readonly label: string; readonly danger: boolean };
-  readonly onResolve: (outcome: "ACTED" | "DISMISSED") => void;
-  readonly info: ReadonlyArray<{
-    readonly label: string;
-    readonly by?: string;
-    readonly at: string | null;
-  }>;
-  readonly children?: ReactNode;
+  readonly acted: string;
+  readonly danger: boolean;
+  readonly onResolve: (acted: boolean) => void;
 }) {
   const t = useTranslations("cms.cases");
   return (
-    <CmsSidebarOptions
-      actions={
-        open ? (
-          <>
-            <CmsButton
-              block
-              color={acted.danger ? "error" : "warning"}
-              icon={Gavel}
-              onClick={() => onResolve("ACTED")}
-              size="lg"
-            >
-              {acted.label}
-            </CmsButton>
-            <CmsButton
-              block
-              color="neutral"
-              icon={CircleSlash}
-              onClick={() => onResolve("DISMISSED")}
-              size="lg"
-              variant="outline"
-            >
-              {t("dismiss")}
-            </CmsButton>
-          </>
-        ) : null
-      }
-      info={info}
-    >
-      {children}
-    </CmsSidebarOptions>
+    <>
+      <CmsButton
+        block
+        icon={Gavel}
+        onClick={() => onResolve(true)}
+        size="lg"
+        variant={danger ? "danger" : "primary"}
+      >
+        {acted}
+      </CmsButton>
+      <CmsButton block icon={CircleSlash} onClick={() => onResolve(false)} size="lg" variant="secondary">
+        {t("dismiss")}
+      </CmsButton>
+      <p className="text-xs text-muted-foreground">{t("suspendNote")}</p>
+    </>
   );
 }
 
@@ -105,9 +81,8 @@ function CaseDecision({
  * One report, from `GET /api/v1/admin/reports/:reportId`.
  *
  * `reason` is the whole of it: free text, no category, no message excerpt. The two
- * people are display names — there is no account status, role or prior-report count
- * on the row, and no route that counts a user's reports, so the two subject cards
- * that showed all of that are a name each now.
+ * people are display names that link through to their accounts, where a
+ * suspension is made.
  */
 export function ReportReviewScreen() {
   const t = useTranslations("cms.cases");
@@ -115,30 +90,31 @@ export function ReportReviewScreen() {
 
   const fetcher = useCallback((signal: AbortSignal) => getReport(id, signal), [id]);
   const report = useResource<AdminReport>(`${REPORTS_KEY}/${id}`, fetcher);
+  const frame = { backHref: REPORTS_BACK, backLabel: t("tab.reports"), title: t("reportTitle") };
 
   if (id === "") {
     return (
-      <CmsPage backHref="/admin/reports" title={t("reportTitle")}>
-        <CmsMissing backHref="/admin/reports" />
+      <CmsPage {...frame}>
+        <CmsMissing backHref={REPORTS_BACK} />
       </CmsPage>
     );
   }
 
   if (report.loading) {
     return (
-      <CmsPage backHref="/admin/reports" title={t("reportTitle")}>
-        <CmsCardSkeleton rows={3} />
+      <CmsPage {...frame}>
+        <CmsDetailSkeleton rows={3} />
       </CmsPage>
     );
   }
 
   if (report.error || !report.data) {
     return (
-      <CmsPage backHref="/admin/reports" title={t("reportTitle")}>
+      <CmsPage {...frame}>
         {report.error ? (
           <CmsApiError error={report.error} onRetry={report.reload} />
         ) : (
-          <CmsMissing backHref="/admin/reports" />
+          <CmsMissing backHref={REPORTS_BACK} />
         )}
       </CmsPage>
     );
@@ -158,92 +134,73 @@ function ReportRecord({ report }: { readonly report: AdminReport }) {
   const evidence = useResource<CaseContext>(`${REPORTS_KEY}/${report.id}/context`, evidenceFetcher);
   const { confirm } = useCmsFeedback();
   const rule = useRuling();
-  const acted = t("tab.closed");
+  const reported = accountName(report.reportedUserId) ?? report.reportedDisplayName;
+  const reporter = accountName(report.reporterUserId) ?? report.reporterDisplayName;
 
-  async function decide(choice: "ACTED" | "DISMISSED") {
-    const outcome: ReportOutcome = choice === "ACTED" ? "ACTIONED" : "DISMISSED";
+  async function decide(acted: boolean) {
     const ok = await confirm({
-      type: choice === "ACTED" ? "warning" : "info",
-      title: choice === "ACTED" ? acted : t("dismissTitle", { count: 1 }),
-      description: choice === "ACTED" ? undefined : t("dismissBody"),
-      confirmLabel: choice === "ACTED" ? acted : t("dismiss"),
+      type: acted ? "warning" : "info",
+      title: acted ? t("actionTitle", { count: 1 }) : t("dismissTitle", { count: 1 }),
+      description: acted ? t("actionBody") : t("dismissBody"),
+      confirmLabel: acted ? t("action") : t("dismiss"),
     });
     if (!ok) return;
     const result = await rule({
       keyPrefix: REPORTS_KEY,
-      run: [() => resolveReport(report.id, outcome)],
-      success: choice === "ACTED" ? acted : t("done.dismissed", { count: 1 }),
-      successColor: choice === "ACTED" ? "warning" : "success",
+      run: [() => resolveReport(report.id, acted ? "ACTIONED" : "DISMISSED")],
+      success: acted ? t("done.actioned", { count: 1 }) : t("done.dismissed", { count: 1 }),
     });
-    if (result.ok) router.push("/admin/reports");
+    if (result.ok) router.push(REPORTS_BACK);
   }
 
   return (
     <CmsPage
       aside={
-        <CaseDecision
-          acted={{ label: acted, danger: false }}
+        <CmsSidebarOptions
+          actions={
+            report.status === "OPEN" ? (
+              <CaseActions acted={t("action")} danger={false} onResolve={decide} />
+            ) : undefined
+          }
           info={[
-            {
-              label: t("reportedAt"),
-              by: accountName(report.reporterUserId) ?? report.reporterDisplayName,
-              at: report.createdAt,
-            },
+            { label: t("reportedAt"), by: reporter, at: report.createdAt },
             ...(report.resolvedAt
               ? [
                   {
                     label: t("decidedAt"),
-                    by: accountName(report.reviewedByAdminId) ?? undefined,
+                    by: accountName(report.reviewedByAdminId),
                     at: report.resolvedAt,
                   },
                 ]
               : []),
           ]}
-          onResolve={decide}
-          open={report.status === "OPEN"}
-        >
-          <CmsFormField label={t("col.status")}>
-            <div>
-              <CmsApiStatus group="report" value={report.status} />
-            </div>
-          </CmsFormField>
-        </CaseDecision>
+        />
       }
-      backHref="/admin/reports"
+      backHref={REPORTS_BACK}
+      backLabel={t("tab.reports")}
+      badge={<CmsStatus group="report" value={report.status} />}
+      description={t("reportLine", { reporter, reported })}
       title={t("reportTitle")}
     >
-      {/* One card, as Nexus's edit page has one form card: the two people link
-          through to their accounts, and no id is printed. */}
-      <CmsCard>
-        <dl className="space-y-4">
+      <CmsSection title={t("caseTitle")}>
+        <CmsDataList>
           <CmsDataRow label={t("col.reported")}>
-            <PersonLink
-              id={report.reportedUserId}
-              name={accountName(report.reportedUserId) ?? report.reportedDisplayName}
-            />
+            <PersonLink id={report.reportedUserId} name={reported} />
           </CmsDataRow>
           <CmsDataRow label={t("col.reporter")}>
-            <PersonLink
-              id={report.reporterUserId}
-              name={accountName(report.reporterUserId) ?? report.reporterDisplayName}
-            />
+            <PersonLink id={report.reporterUserId} name={reporter} />
           </CmsDataRow>
-          <CmsDataRow label={t("col.detail")}>
-            <span className="font-normal text-foreground">{report.reason}</span>
-          </CmsDataRow>
-        </dl>
-        <CaseEvidence context={evidence.data} loading={evidence.loading} />
-      </CmsCard>
+          <CmsDataRow label={t("col.detail")}>{report.reason}</CmsDataRow>
+        </CmsDataList>
+      </CmsSection>
+      <CaseEvidence context={evidence.data} loading={evidence.loading} />
     </CmsPage>
   );
 }
 
 function PersonLink({ id, name }: { readonly id: string; readonly name: string }) {
   return (
-    <Link
-      className="text-action transition-colors hover:text-action/75"
-      href={`/admin/users/edit?id=${id}`}
-    >
+    <Link className="font-medium underline-offset-4 hover:underline" href={`/admin/users/edit?id=${id}`}>
       {name}
     </Link>
   );
@@ -253,14 +210,9 @@ function PersonLink({ id, name }: { readonly id: string; readonly name: string }
  * One off-platform flag.
  *
  * **There is no `GET /admin/off-platform-flags/:flagId`** — the controller has the
- * list and the resolve route and nothing else — so this reads the list and finds its
- * row in it. One request either way, and the alternative was leaving the route on
- * fixture data while its queue read the API, which is the one outcome worth avoiding.
- *
- * What the row carries is the message's id and the pattern that matched. The message
- * itself, the sender, the recipient and the conversation are not on it, so the
- * flagged text cannot be shown, let alone highlighted, and the sender's other flags
- * cannot be counted.
+ * list, the resolve route and `…/context` — so this reads the list and finds its
+ * row in it. The flagged line, its sender and the conversation around it come
+ * from the context, which marks the line.
  */
 export function FlagReviewScreen() {
   const t = useTranslations("cms.cases");
@@ -274,34 +226,32 @@ export function FlagReviewScreen() {
     `${FLAGS_KEY}?limit=${ADMIN_MAX_LIMIT}`,
     fetcher,
   );
-  const flag = useMemo(
-    () => flags.data?.items.find((f) => f.id === id),
-    [flags.data, id],
-  );
+  const flag = useMemo(() => flags.data?.items.find((f) => f.id === id), [flags.data, id]);
+  const frame = { backHref: FLAGS_BACK, backLabel: t("tab.flags"), title: t("flagTitle") };
 
   if (id === "") {
     return (
-      <CmsPage backHref="/admin/off-platform" title={t("flagTitle")}>
-        <CmsMissing backHref="/admin/off-platform" />
+      <CmsPage {...frame}>
+        <CmsMissing backHref={FLAGS_BACK} />
       </CmsPage>
     );
   }
 
   if (flags.loading) {
     return (
-      <CmsPage backHref="/admin/off-platform" title={t("flagTitle")}>
-        <CmsCardSkeleton rows={3} />
+      <CmsPage {...frame}>
+        <CmsDetailSkeleton rows={3} />
       </CmsPage>
     );
   }
 
   if (flags.error || !flag) {
     return (
-      <CmsPage backHref="/admin/off-platform" title={t("flagTitle")}>
+      <CmsPage {...frame}>
         {flags.error ? (
           <CmsApiError error={flags.error} onRetry={flags.reload} />
         ) : (
-          <CmsMissing backHref="/admin/off-platform" />
+          <CmsMissing backHref={FLAGS_BACK} />
         )}
       </CmsPage>
     );
@@ -313,6 +263,7 @@ export function FlagReviewScreen() {
 function FlagRecord({ flag }: { readonly flag: OffPlatformFlag }) {
   const t = useTranslations("cms.cases");
   const router = useRouter();
+  const accountName = useAccountName();
   const evidenceFetcher = useCallback(
     (signal: AbortSignal) => getFlagContext(flag.id, signal),
     [flag.id],
@@ -320,64 +271,65 @@ function FlagRecord({ flag }: { readonly flag: OffPlatformFlag }) {
   const evidence = useResource<CaseContext>(`${FLAGS_KEY}/${flag.id}/context`, evidenceFetcher);
   const { confirm } = useCmsFeedback();
   const rule = useRuling();
-  const acted = t("tab.closed");
 
-  async function decide(choice: "ACTED" | "DISMISSED") {
-    const outcome: OffPlatformFlagOutcome =
-      choice === "ACTED" ? "CONFIRMED" : "DISMISSED";
+  async function decide(confirmed: boolean) {
     const ok = await confirm({
-      type: choice === "ACTED" ? "danger" : "info",
-      title: choice === "ACTED" ? acted : t("dismissTitle", { count: 1 }),
-      description: choice === "ACTED" ? undefined : t("dismissBody"),
-      confirmLabel: choice === "ACTED" ? acted : t("dismiss"),
+      type: confirmed ? "danger" : "info",
+      title: confirmed ? t("confirmFlagTitle", { count: 1 }) : t("dismissTitle", { count: 1 }),
+      description: confirmed ? t("confirmFlagBody") : t("dismissBody"),
+      confirmLabel: confirmed ? t("confirmFlag") : t("dismiss"),
     });
     if (!ok) return;
     const result = await rule({
       keyPrefix: FLAGS_KEY,
-      // No penalty points: the field needs a labelled number input and
-      // `cms.cases` has no copy for one, so the API's default of zero applies.
-      run: [() => resolveOffPlatformFlag(flag.id, outcome)],
-      success: choice === "ACTED" ? acted : t("done.dismissed", { count: 1 }),
-      successColor: choice === "ACTED" ? "warning" : "success",
+      // No penalty points: the API's default of zero applies.
+      run: [() => resolveOffPlatformFlag(flag.id, confirmed ? "CONFIRMED" : "DISMISSED")],
+      success: confirmed ? t("done.confirmed", { count: 1 }) : t("done.dismissed", { count: 1 }),
     });
-    if (result.ok) router.push("/admin/off-platform");
+    if (result.ok) router.push(FLAGS_BACK);
   }
 
   return (
     <CmsPage
       aside={
-        <CaseDecision
-          acted={{ label: acted, danger: true }}
+        <CmsSidebarOptions
+          actions={
+            flag.status === "PENDING_REVIEW" ? (
+              <CaseActions acted={t("confirmFlag")} danger onResolve={decide} />
+            ) : undefined
+          }
           info={[
-            { label: t("col.detectedAt"), at: flag.createdAt },
-            ...(flag.reviewedAt ? [{ label: t("decidedAt"), at: flag.reviewedAt }] : []),
+            { label: t("col.detectedAt"), by: t("system"), at: flag.createdAt },
+            ...(flag.reviewedAt
+              ? [
+                  {
+                    label: t("decidedAt"),
+                    by: accountName(flag.reviewedByAdminId),
+                    at: flag.reviewedAt,
+                  },
+                ]
+              : []),
           ]}
-          onResolve={decide}
-          open={flag.status === "PENDING_REVIEW"}
-        >
-          <CmsFormField label={t("col.status")}>
-            <div>
-              <CmsApiStatus group="flag" value={flag.status} />
-            </div>
-          </CmsFormField>
-        </CaseDecision>
+        />
       }
-      backHref="/admin/off-platform"
+      backHref={FLAGS_BACK}
+      backLabel={t("tab.flags")}
+      badge={<CmsStatus group="flag" value={flag.status} />}
       title={t("flagTitle")}
     >
-      <CmsCard>
-        <dl className="space-y-4">
+      <CmsSection title={t("caseTitle")}>
+        <CmsDataList>
           <CmsDataRow label={t("col.signals")}>
-            {/* The pattern the scanner matched. The message it matched in is not
-                on the flag, so there is nothing to highlight it inside. */}
+            {/* The pattern the scanner matched; the line it matched in is
+                marked in the conversation below. */}
             <span className="font-latin">{flag.matchedPattern}</span>
           </CmsDataRow>
           <CmsDataRow label={t("col.penalty")}>
             <span className="font-latin">{flag.penaltyPointsApplied}</span>
           </CmsDataRow>
-        </dl>
-        <CaseEvidence context={evidence.data} loading={evidence.loading} />
-      </CmsCard>
+        </CmsDataList>
+      </CmsSection>
+      <CaseEvidence context={evidence.data} loading={evidence.loading} />
     </CmsPage>
   );
 }

@@ -1,24 +1,9 @@
 "use client";
 
 import { useSearchParams } from "next/navigation";
-import { useCallback, useMemo } from "react";
 
 import { getSession, type AuthSession } from "@/lib/api/auth";
 import { useResource, type Resource } from "@/lib/api/use-resource";
-import { useDatabase } from "@/lib/mock-db/store";
-import type { Account } from "@/lib/mock-db/types";
-import { useSession } from "@/lib/session";
-
-/**
- * The signed-in admin's id, for the screens still writing to `lib/mock-db`.
- *
- * API-backed screens do not need this and must not pass it: the API records the
- * acting admin from the session cookie, so a ruling has no actor parameter.
- */
-export function useActorId(): string {
-  const session = useSession();
-  return session.status === "authenticated" ? session.account.id : "admin";
-}
 
 /**
  * The better-auth session, read once and cached for the tab.
@@ -42,9 +27,8 @@ export function useRecordId(): string {
   return useSearchParams().get("id") ?? "";
 }
 
-/** Accounts by id, for tables that name people. */
-export function useAccountLookup(): (id: string) => Account | undefined {
-  const accounts = useDatabase((db) => db.accounts);
-  const map = useMemo(() => new Map(accounts.map((a) => [a.id, a])), [accounts]);
-  return useCallback((id: string) => map.get(id), [map]);
+/** A page's tab, from `?tab=`; anything it does not know is the first one. */
+export function usePageTab<Tab extends string>(tabs: readonly [Tab, ...Tab[]]): Tab {
+  const raw = useSearchParams().get("tab");
+  return tabs.find((tab) => tab === raw) ?? tabs[0];
 }

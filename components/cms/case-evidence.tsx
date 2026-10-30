@@ -1,11 +1,13 @@
 "use client";
 
+import { MessagesSquare } from "lucide-react";
 import { useTranslations } from "next-intl";
 
-import { CmsCardSkeleton } from "@/components/cms/api";
-import { CmsDataRow } from "@/components/cms/sidebar-options";
+import { CmsDetailSkeleton } from "@/components/cms/api";
+import { CmsEmpty, CmsSection } from "@/components/cms/card";
+import { CmsDataList, CmsDataRow } from "@/components/cms/sidebar-options";
 import type { CaseContext, CaseMessage } from "@/lib/api/admin";
-import { formatBaht, formatStamp } from "@/lib/mock-db/format";
+import { formatBaht, formatDateTime } from "@/lib/mock-db/format";
 import { cn } from "@/lib/utils";
 
 /** `HH:mm` in Bangkok, for the end of a session printed after its start. */
@@ -17,10 +19,10 @@ const CLOCK = new Intl.DateTimeFormat("en-GB", {
 });
 
 /**
- * The evidence beside a report or a flag, from `…/context`: the consultation the
- * conversation belongs to, then the conversation itself, advisor on the left and
- * advisee on the right, the flagged line marked. Rendered inside the case's one
- * card, under its own facts, so the page stays Nexus's single form card.
+ * The evidence beside a report, a flag or a refund, from `…/context`: the
+ * consultation the conversation belongs to as label and value rows, then the
+ * conversation itself, advisor on the left and advisee on the right, the
+ * flagged line marked. Two parts of the record page, under its own facts.
  */
 export function CaseEvidence({
   context,
@@ -31,35 +33,24 @@ export function CaseEvidence({
 }) {
   const t = useTranslations("cms.cases.evidence");
 
-  if (loading) {
-    return (
-      <div className="mt-6 border-t border-border pt-6">
-        <CmsCardSkeleton rows={4} />
-      </div>
-    );
-  }
+  if (loading) return <CmsDetailSkeleton rows={4} />;
   if (!context) return null;
 
   const { appointment, conversation, flaggedMessageId } = context;
 
   return (
     <>
-      <section className="mt-6 border-t border-border pt-6">
-        <h2 className="mb-4 text-sm font-semibold text-highlighted">{t("consultation")}</h2>
+      <CmsSection title={t("consultation")}>
         {appointment ? (
-          <dl className="space-y-4">
+          <CmsDataList>
             <CmsDataRow label={t("service")}>{appointment.serviceName}</CmsDataRow>
             <CmsDataRow label={t("session")}>
-              <span className="font-latin">
-                {formatStamp(appointment.startTime)} - {CLOCK.format(new Date(appointment.endTime))}
-              </span>
+              {formatDateTime(appointment.startTime)} – {CLOCK.format(new Date(appointment.endTime))}
             </CmsDataRow>
             <CmsDataRow label={t("type")}>{t(`sessionType.${appointment.type}`)}</CmsDataRow>
             <CmsDataRow label={t("bookingStatus")}>{t(`state.${appointment.state}`)}</CmsDataRow>
             {appointment.cancelledAt ? (
-              <CmsDataRow label={t("cancelledAt")}>
-                <span className="font-latin">{formatStamp(appointment.cancelledAt)}</span>
-              </CmsDataRow>
+              <CmsDataRow label={t("cancelledAt")}>{formatDateTime(appointment.cancelledAt)}</CmsDataRow>
             ) : null}
             <CmsDataRow label={t("videoRoom")}>
               <span className="font-latin">{appointment.jitsiRoomName ?? "-"}</span>
@@ -68,28 +59,23 @@ export function CaseEvidence({
               {appointment.invoiceAmountSatang === null ? (
                 "-"
               ) : (
-                <span className="font-latin">
-                  {formatBaht(appointment.invoiceAmountSatang)}
-                  {appointment.invoiceStatus
-                    ? ` · ${t(`invoice.${appointment.invoiceStatus}`)}`
-                    : ""}
-                </span>
+                <>
+                  <span className="font-latin">{formatBaht(appointment.invoiceAmountSatang)}</span>
+                  {appointment.invoiceStatus ? ` · ${t(`invoice.${appointment.invoiceStatus}`)}` : ""}
+                </>
               )}
             </CmsDataRow>
-          </dl>
+          </CmsDataList>
         ) : (
           <p className="text-sm text-muted-foreground">{t("noConsultation")}</p>
         )}
-      </section>
+      </CmsSection>
 
-      <section className="mt-6 border-t border-border pt-6">
-        <h2 className="mb-4 text-sm font-semibold text-highlighted">
-          {t("conversation", { count: conversation.length })}
-        </h2>
+      <CmsSection title={t("conversation", { count: conversation.length })}>
         {conversation.length === 0 ? (
-          <p className="text-sm text-muted-foreground">{t("noConversation")}</p>
+          <CmsEmpty className="py-8" icon={MessagesSquare} title={t("noConversation")} />
         ) : (
-          <ol className="flex flex-col gap-3">
+          <ol className="flex flex-col gap-4 rounded-2xl border border-border p-4 md:p-5">
             {conversation.map((line) => (
               <Line
                 advisee={line.senderUserId === appointment?.adviseeId}
@@ -101,7 +87,7 @@ export function CaseEvidence({
             ))}
           </ol>
         )}
-      </section>
+      </CmsSection>
     </>
   );
 }
@@ -118,23 +104,21 @@ function Line({
   readonly flaggedLabel: string;
 }) {
   return (
-    <li className={cn("flex max-w-[80%] flex-col gap-1", advisee && "items-end self-end")}>
+    <li className={cn("flex max-w-[80%] flex-col gap-1", advisee ? "items-end self-end" : "items-start")}>
       <span className="flex items-center gap-2 text-xs text-muted-foreground">
         <span className="font-medium text-foreground">{line.senderFullName || line.senderDisplayName}</span>
-        <span className="font-latin">{formatStamp(line.createdAt)}</span>
+        <span>{formatDateTime(line.createdAt)}</span>
       </span>
       <span
         className={cn(
-          "rounded-lg px-3 py-2 text-sm text-highlighted",
+          "rounded-2xl px-3.5 py-2 text-sm text-foreground",
           advisee ? "bg-action/10" : "bg-muted",
           flagged && "bg-destructive/10 ring-1 ring-destructive",
         )}
       >
         {line.message}
       </span>
-      {flagged ? (
-        <span className="text-xs font-medium text-destructive">{flaggedLabel}</span>
-      ) : null}
+      {flagged ? <span className="text-xs font-medium text-destructive">{flaggedLabel}</span> : null}
     </li>
   );
 }
