@@ -131,14 +131,17 @@ export function ServiceIntro({
           screen, 4:3, the bar floating over it; the rest of the intro is a
           white sheet lapping its foot by 32, round at its top corners, the
           face centred on its edge. From the portrait tablet the sheet is
-          gone (`contents`) and the cover is the column's card. */}
+          gone (`contents`) and the cover is the column's card. The sheet is
+          lifted over the cover (`z-1`) and no higher: at the bar's own `z-10`
+          it came later in the page and was drawn over the bar while it
+          scrolled under it. */}
       <CoverPhoto
         className="-mx-6 -mt-2 aspect-[4/3] self-stretch rounded-none md:mx-0 md:mt-0 md:aspect-[493/241] md:rounded-2xl lg:rounded-[28.5px]"
         photos={photos}
         title={service.name}
       />
 
-      <div className="relative z-10 -mx-6 -mt-8 flex flex-col items-center self-stretch rounded-t-[32px] bg-card px-6 md:contents">
+      <div className="relative z-1 -mx-6 -mt-8 flex flex-col items-center self-stretch rounded-t-[32px] bg-card px-6 md:contents">
         {/* The name under the title is the same link and the one a keyboard
             reaches; the face is for the pointer. */}
         <Link aria-hidden className="relative -mt-8 block rounded-full md:-mt-9 lg:-mt-[51px]" href={profile} tabIndex={-1}>
