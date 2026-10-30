@@ -263,21 +263,16 @@ function CheckoutReady({ booking }: { readonly booking: ApiBooking }) {
         {/* The round way back hangs in the margin, centred on the title's
             line and 24 from it, so the title lines up with both columns under
             it and the cards start 24 under the title, not under the circle.
-            It rides a rail the column's height and sticks to the top of the
-            screen exactly where it starts, under the bar (80 high to 768, 88
-            from there, and 88 zoomed by `doc-scale` from 1024) plus the 28 to
-            the title's line, so scrolling never moves it. */}
-        <div className="pointer-events-none absolute top-7 bottom-20 -left-17">
-          <Link
-            aria-label={c("back")}
-            className="pointer-events-auto sticky top-27 flex size-11 items-center justify-center rounded-full bg-muted text-foreground transition-colors hover:bg-accent md:top-29 lg:top-[calc(88px*clamp(0.75,tan(atan2(100vw,1710px)),1)+28px)]"
-            href="/search"
-          >
-            {/* The arrow 13 across in a 2px line: lucide's spans 14 of its
-                24, so a 22 box, the line held at 2 whatever the box. */}
-            <ArrowLeft absoluteStrokeWidth aria-hidden className="size-5.5" strokeWidth={2} />
-          </Link>
-        </div>
+            It scrolls with the title. */}
+        <Link
+          aria-label={c("back")}
+          className="absolute top-7 -left-17 flex size-11 items-center justify-center rounded-full bg-muted text-foreground transition-colors hover:bg-accent"
+          href="/search"
+        >
+          {/* The arrow 13 across in a 2px line: lucide's spans 14 of its
+              24, so a 22 box, the line held at 2 whatever the box. */}
+          <ArrowLeft absoluteStrokeWidth aria-hidden className="size-5.5" strokeWidth={2} />
+        </Link>
         <h1 className="text-3xl leading-9 font-semibold tracking-tight text-foreground">{t("confirmTitle")}</h1>
 
         <div className={COLUMNS}>
