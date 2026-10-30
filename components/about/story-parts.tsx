@@ -281,7 +281,7 @@ const ART_SIZE: Partial<Record<ArtName, readonly [number, number]>> = {
   clock: [481, 480],
   book: [351, 320],
   question_mark: [266, 340],
-  street_block: [1329, 560],
+  street_block: [1155, 357],
   street_tree_a: [753, 1100],
   street_tree_b: [821, 1053],
   star: [265, 260],

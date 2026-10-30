@@ -405,38 +405,29 @@ function StreetScene() {
   return (
     <Scene id="s2" labelledBy="story-s2" staged>
       <Lines accent={1} id="story-s2" lines={[t("s2L1"), t("s2L2")]} />
-      {/* A street seen from the near pavement, back to front: the far
-          pavement and the road, run on to both edges of the screen; across
-          the road one joined block of shophouses with towers behind; the near
-          pavement the two walk along; a street tree at each side. The road
-          and both pavements are photographs repeated sideways (each strip
-          joined to its mirror, so the repeat has no seam), the road strip cut
-          from the block's own picture so the two meet. */}
+      {/* The street as cut-outs on the page's white, like the rooms before
+          it: one quiet joined row of buildings of different heights, the two
+          walking past each other in front of it, a street tree at each side,
+          all on the line 100 up. */}
       <Stage className="h-96">
-        <Part kind="rise" name="ground" spot="-inset-x-[50vw] bottom-12 h-10 lg:inset-x-[-1500px] lg:bottom-[140px] lg:h-[115px]">
-          <div className="size-full bg-[url(/about-story/street_floor.webp)] bg-size-[auto_100%] bg-repeat-x" />
+        <Part kind="rise" name="building" spot="inset-x-0 bottom-0 flex justify-center lg:inset-x-auto lg:bottom-[100px] lg:left-[208px]">
+          <Art className="h-24 lg:h-100" name="street_block" />
         </Part>
-        <Part kind="rise" name="building" spot="inset-x-0 bottom-21 flex justify-center lg:inset-x-auto lg:bottom-[254px] lg:left-[323px]">
-          <Art className="h-40 lg:h-[448px]" name="street_block" />
-        </Part>
-        <Part kind="rise" name="ground" spot="-inset-x-[50vw] bottom-0 h-14 lg:inset-x-[-1500px] lg:h-[150px]">
-          <div className="size-full bg-[url(/about-story/sidewalk.webp)] bg-size-[auto_100%] bg-repeat-x" />
-        </Part>
-        <Part kind="left" name="ask" spot="bottom-2 left-[16%] lg:bottom-[50px] lg:left-[650px]">
+        <Part kind="left" name="ask" spot="bottom-0 left-[16%] lg:bottom-[90px] lg:left-[650px]">
           <Bob>
             <Art className="h-48 lg:h-[520px]" name="ask_walk" />
           </Bob>
         </Part>
-        <Part kind="right" name="answer" spot="right-[16%] bottom-2 lg:right-auto lg:bottom-[50px] lg:left-[890px]">
+        <Part kind="right" name="answer" spot="right-[16%] bottom-0 lg:right-auto lg:bottom-[90px] lg:left-[890px]">
           <Bob>
             <Art className="h-48 lg:h-[540px]" name="answer_walk" />
           </Bob>
         </Part>
-        <Part kind="left" name="tree-left" spot="hidden lg:block lg:bottom-[20px] lg:left-[-90px]">
-          <Art className="lg:h-[640px]" name="street_tree_a" />
+        <Part kind="left" name="tree-left" spot="hidden lg:block lg:bottom-[80px] lg:left-[-90px]">
+          <Art className="lg:h-[600px]" name="street_tree_a" />
         </Part>
-        <Part kind="right" name="tree-right" spot="hidden lg:block lg:bottom-[24px] lg:left-[1390px]">
-          <Art className="lg:h-[580px]" name="street_tree_b" />
+        <Part kind="right" name="tree-right" spot="hidden lg:block lg:bottom-[84px] lg:left-[1400px]">
+          <Art className="lg:h-[540px]" name="street_tree_b" />
         </Part>
       </Stage>
     </Scene>
