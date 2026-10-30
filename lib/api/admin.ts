@@ -46,9 +46,10 @@
  * - **An off-platform flag carries `messageId` and `matchedPattern` only** — no
  *   message text, no sender, no risk level, no signal breakdown — and has **no
  *   detail route**, only the list.
- * - **Identity and skill documents are private.** Read short-lived URLs through
- *   their permission-checked document-url routes. Refund evidence retains its
- *   separate key-only contract.
+ * - **Documents are storage keys, not URLs.** `documentObjectKey`, a skill proof's
+ *   `objectKey` and refund evidence keys are SeaweedFS keys; there is no admin
+ *   presign route, so a real upload cannot be rendered. The demo seed's keys are
+ *   paths under `public/demo-docs/`, which `documentUrl` opens.
  *
  * ## Rulings, and the two failures that are not bugs
  *
@@ -232,6 +233,12 @@ export interface IdentityVerification {
   readonly displayName: string;
   readonly email: string;
   readonly verificationStatus: IdentityStatus;
+  /**
+   * No longer on the response: the API keeps the storage key to itself and
+   * hands an admin a short-lived URL instead (`getIdentityDocumentUrl`).
+   * Optional so an older API that still sends it keeps working.
+   */
+  readonly documentObjectKey?: string | null;
   readonly rejectionReason: string | null;
   readonly submittedAt: string | null;
   readonly verifiedAt: string | null;
@@ -256,21 +263,6 @@ export function getIdentityVerification(
   signal?: AbortSignal,
 ): Promise<IdentityVerification> {
   return api.get(`admin/identity-verifications/${advisorId}`, { signal });
-}
-
-export interface PrivateDocumentUrl {
-  readonly url: string;
-  readonly expiresInSeconds: number;
-}
-
-/** Permission-checked read; request a fresh URL when opening a review. */
-export function getIdentityDocumentUrl(advisorId: string, signal?: AbortSignal): Promise<PrivateDocumentUrl> {
-  return api.get(`admin/identity-verifications/${advisorId}/document-url`, { signal });
-}
-
-/** The proof response never exposes its storage key. */
-export function getSkillProofDocumentUrl(proofId: string, signal?: AbortSignal): Promise<PrivateDocumentUrl> {
-  return api.get(`admin/skill-proofs/${proofId}/document-url`, { signal });
 }
 
 /**
@@ -299,11 +291,30 @@ export function rejectIdentityVerification(
 }
 
 /**
- * Refund evidence can open a supplied URL or demo specimen. Opaque keys return
- * null; identity and skill reviews use dedicated private URL routes.
+ * A document key the console can open as it is: a URL, or a demo specimen the
+ * console serves itself from `public/demo-docs/`. Anything else returns `null`
+ * and the page asks for a short-lived URL instead, or names the file.
  */
 export function documentUrl(key: string | null | undefined): string | null {
   return key && (/^https?:\/\//.test(key) || key.startsWith("/demo-docs/")) ? key : null;
+}
+
+/** `DownloadUrlResponseDto` — a presigned URL for one stored document. */
+export interface DocumentDownloadUrl {
+  readonly url: string;
+  readonly expiresInSeconds: number;
+}
+
+/**
+ * `GET /admin/identity-verifications/:advisorId/document-url` — the applicant's
+ * ID card, signed for a few minutes. 503 "File storage is unavailable" when the
+ * object store cannot be reached.
+ */
+export function getIdentityDocumentUrl(
+  advisorId: string,
+  signal?: AbortSignal,
+): Promise<DocumentDownloadUrl> {
+  return api.get(`admin/identity-verifications/${advisorId}/document-url`, { signal });
 }
 
 /* ------------------------------------------------------------- skill proofs */
@@ -315,6 +326,11 @@ export interface SkillProof {
   readonly advisorDisplayName: string;
   readonly skillId: string;
   readonly skillName: string;
+  /**
+   * No longer on the response (see `getSkillProofDocumentUrl`); optional so an
+   * older API that still sends it keeps working.
+   */
+  readonly objectKey?: string;
   readonly originalFileName: string;
   readonly reviewStatus: SkillProofReviewStatus;
   readonly rejectionReason: string | null;
@@ -342,6 +358,14 @@ export function getSkillProof(
   signal?: AbortSignal,
 ): Promise<SkillProof> {
   return api.get(`admin/skill-proofs/${proofId}`, { signal });
+}
+
+/** `GET /admin/skill-proofs/:proofId/document-url` — the document, signed for a few minutes. */
+export function getSkillProofDocumentUrl(
+  proofId: string,
+  signal?: AbortSignal,
+): Promise<DocumentDownloadUrl> {
+  return api.get(`admin/skill-proofs/${proofId}/document-url`, { signal });
 }
 
 /** `POST .../:proofId/approve` — no body. 409 when already reviewed. */

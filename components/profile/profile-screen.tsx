@@ -908,7 +908,7 @@ function AboutPanel() {
         <LinkList
           label={t("moreTitle")}
           rows={[
-            { icon: CircleHelp, label: t("helpCentre"), href: "/landing#faq" },
+            { icon: CircleHelp, label: t("helpCentre"), href: "/#faq" },
             { icon: ShieldCheck, label: t("termsPrivacy"), href: "/terms" },
           ]}
         />

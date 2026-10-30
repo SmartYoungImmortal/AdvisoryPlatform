@@ -1,7 +1,6 @@
 "use client";
 
-import { ArrowRight, Plus } from "lucide-react";
-import Link from "next/link";
+import { Plus } from "lucide-react";
 import { useTranslations } from "next-intl";
 
 import { HandQuestion } from "@/components/home/hand-question";
@@ -13,8 +12,9 @@ import { cn } from "@/lib/utils";
 
 /**
  * Chapter five: "still not sure?", answered with the questions people ask
- * before their first booking: the same eight `landing.faq*` the marketing page
- * lists, home opening with the first six and linking to the rest.
+ * before their first booking: all eight `landing.faq*`. This is the FAQ every
+ * "help" and "FAQ" link lands on (`/#faq`) since the old `/landing` page was
+ * removed (30 Oct 2569).
  *
  * The question stays in view on the left on `lg` (`position: sticky`) while
  * the answers are read on the right, a plus that turns to a cross marking each.
@@ -29,25 +29,17 @@ export function HomeFaq() {
     { q: l("faq4Question"), a: l("faq4Answer") },
     { q: l("faq5Question"), a: l("faq5Answer") },
     { q: l("faq6Question"), a: l("faq6Answer") },
+    { q: l("faq7Question"), a: l("faq7Answer") },
+    { q: l("faq8Question"), a: l("faq8Answer") },
   ];
 
   return (
-    <section className="w-full shrink-0 py-16 lg:py-28" data-slot="home-faq">
+    <section className="w-full shrink-0 scroll-mt-24 py-16 lg:py-28" data-slot="home-faq" id="faq">
       <div className={cn(FRAME, "grid gap-8 lg:grid-cols-12 lg:gap-6")}>
         <div className="flex flex-col gap-3 lg:sticky lg:top-32 lg:col-span-5 lg:self-start lg:gap-5">
           <HandQuestion ask="askUnsure" className="text-4xl text-hero-ink lg:text-7xl" />
           <Rise className="flex flex-col items-start gap-2 lg:gap-4" delay={0.9}>
             <SectionTitle>{t("faqTitle")}</SectionTitle>
-            <Link
-              className="group/all flex h-11 items-center gap-1.5 text-base font-medium text-foreground lg:h-12 lg:text-lg"
-              href="/landing#faq"
-            >
-              <span className="underline underline-offset-4">{t("faqMore")}</span>
-              <ArrowRight
-                aria-hidden
-                className="size-4 transition-transform duration-300 group-hover/all:translate-x-1 motion-reduce:transition-none lg:size-5"
-              />
-            </Link>
           </Rise>
         </div>
         <Accordion className="border-t border-border lg:col-span-7 lg:col-start-6">

@@ -2,18 +2,12 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { usePathname, useRouter } from "next/navigation";
-import {
-  ArrowLeft,
-  ChevronDown,
-  ExternalLink,
-  LogOut,
-  Menu,
-  RotateCcw,
-} from "lucide-react";
+import { usePathname } from "next/navigation";
+import { ChevronLeft, ChevronsUpDown, ExternalLink, LogOut, Menu } from "lucide-react";
 import { useTranslations } from "next-intl";
 import {
   createContext,
+  Fragment,
   useContext,
   useEffect,
   useRef,
@@ -24,14 +18,10 @@ import {
   type ReactNode,
 } from "react";
 
-import { CmsButton } from "@/components/cms/button";
-import { useCmsFeedback } from "@/components/cms/feedback";
+import { useRulingVersion } from "@/components/cms/api";
 import { CmsAvatar } from "@/components/cms/avatar";
-import {
-  Collapsible,
-  CollapsibleContent,
-  CollapsibleTrigger,
-} from "@/components/ui/collapsible";
+import { CmsButton } from "@/components/cms/button";
+import { useDashboardCounts, type DashboardCounts } from "@/components/cms/dashboard-data";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -41,29 +31,30 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Separator } from "@/components/ui/separator";
 import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
 import { logo } from "@/lib/assets/r2";
-import { resetDatabase } from "@/lib/mock-db/store";
-import { cmsNav, isCmsNavActive, type CmsNavItem } from "@/lib/navigation/cms";
+import { cmsNav, isCmsNavActive, type CmsNavCount, type CmsNavItem } from "@/lib/navigation/cms";
 import { signOut, useSession } from "@/lib/session";
 import { cn } from "@/lib/utils";
 
 /**
- * Nexus's `cms-flex` layout on Nuxt UI's dashboard components: a fixed-height
- * group, a resizable sidebar (brand row, navigation, user menu) and a panel whose
- * navbar carries the page title. Below `lg` the sidebar moves into a sheet the
- * navbar's menu button opens, as `UDashboardSidebar` does.
+ * The console's frame, built the way the account pages' app frame is: from
+ * `lg`, a grey ground with the sidebar standing on it and the page in one
+ * white panel inset 6px from the top, right and bottom edges with 20px
+ * corners. Below `lg` the panel is the whole screen and the sidebar moves
+ * into a sheet that the phone bar's menu button opens.
+ *
+ * Sizes are written for a 1440 screen and drawn under `cms-scale` (see
+ * `app/globals.css`), so they render as written at 1440 and on any wider
+ * screen, and shrink with the width on a landscape tablet, as the site does.
  */
 
 /**
- * Nexus's `UDashboardSidebar` is `resizable`, 180–360px from a 220 default. 220
- * cuts "ตรวจจับนอกแพลตฟอร์ม" — a nested label that needs 138px where 220 leaves
- * 115 — and the console was asked for a roomier rail, so this one opens at 300
- * and stretches to 400. A double-click on the edge returns to 300, as Nuxt UI's
- * handle returns to its default.
+ * The sidebar: 256 by default (the width of a desk name plus its count), and
+ * draggable between 208 and 360. A double-click on the edge returns it to
+ * 256. The width is in the sidebar's own 1440 px, before its zoom.
  */
-const SIDEBAR = { min: 180, max: 400, initial: 300 } as const;
+const SIDEBAR = { min: 208, max: 360, initial: 256 } as const;
 const SIDEBAR_STORAGE_KEY = "cms-sidebar-width";
 
 function clampSidebar(width: number): number {
@@ -100,14 +91,15 @@ function useSidebarWidth() {
 
   return [width, commit] as const;
 }
+
 const SidebarContext = createContext<{
   readonly open: boolean;
   readonly setOpen: (open: boolean) => void;
 }>({ open: false, setOpen: () => undefined });
 
 /**
- * Nexus scopes its theme on <body> so dialogs that portal out still get it; the
- * wrapper class covers the static render, this covers the portals.
+ * The theme is scoped on <body> as well as on the wrapper, so dialogs and
+ * menus that portal out of the wrapper still get it.
  */
 function useBodyTheme() {
   useEffect(() => {
@@ -126,17 +118,24 @@ export function CmsDashboard({ children }: { readonly children: ReactNode }) {
   const [open, setOpen] = useState(false);
   const [width, setWidth] = useSidebarWidth();
   const [dragging, setDragging] = useState(false);
-  const drag = useRef<{ x: number; width: number } | null>(null);
+  const drag = useRef<{ x: number; width: number; zoom: number } | null>(null);
+  const aside = useRef<HTMLElement>(null);
+  const sheet = useRef<HTMLDivElement>(null);
+  // After a ruling lands, the page mounts again and reads what it dropped.
+  const version = useRulingVersion();
 
   function onPointerDown(event: PointerEvent<HTMLDivElement>) {
     event.currentTarget.setPointerCapture(event.pointerId);
-    drag.current = { x: event.clientX, width };
+    // The sidebar is zoomed, so a pointer's screen pixels are worth less (or
+    // more) than its own: measure the ratio once, at the start of the drag.
+    const drawn = aside.current?.getBoundingClientRect().width ?? width;
+    drag.current = { x: event.clientX, width, zoom: drawn / width || 1 };
     setDragging(true);
   }
 
   function onPointerMove(event: PointerEvent<HTMLDivElement>) {
     if (!drag.current) return;
-    setWidth(drag.current.width + event.clientX - drag.current.x);
+    setWidth(drag.current.width + (event.clientX - drag.current.x) / drag.current.zoom);
   }
 
   function onPointerUp() {
@@ -156,16 +155,22 @@ export function CmsDashboard({ children }: { readonly children: ReactNode }) {
 
   return (
     <SidebarContext.Provider value={{ open, setOpen }}>
-      <div className={cn("fixed inset-0 flex overflow-hidden", dragging && "cursor-ew-resize select-none")}>
+      <div
+        className={cn(
+          "fixed inset-0 flex overflow-hidden bg-card lg:bg-background",
+          dragging && "cursor-ew-resize select-none",
+        )}
+      >
         <aside
-          className="relative hidden min-h-svh w-(--width) min-w-16 shrink-0 flex-col border-e border-border lg:flex"
+          className="cms-scale relative hidden w-(--width) shrink-0 flex-col lg:flex"
           id="cms-sidebar"
+          ref={aside}
           style={{ "--width": `${width}px` } as CSSProperties}
         >
-          <SidebarBody />
+          <SidebarBody version={version} />
         </aside>
-        {/* `UDashboardResizeHandle`: no width of its own, a 12px grab area
-            straddling the sidebar's border. */}
+        {/* The resize handle: no width of its own, a 12px grab area over the
+            gap between the sidebar and the panel. */}
         <div
           aria-controls="cms-sidebar"
           aria-label={t("resize")}
@@ -173,7 +178,7 @@ export function CmsDashboard({ children }: { readonly children: ReactNode }) {
           aria-valuemax={SIDEBAR.max}
           aria-valuemin={SIDEBAR.min}
           aria-valuenow={width}
-          className="relative hidden cursor-ew-resize touch-none select-none before:absolute before:inset-y-0 before:-right-1.5 before:-left-1.5 before:z-1 focus-visible:outline-none focus-visible:before:bg-primary/25 lg:block"
+          className="relative z-10 hidden cursor-ew-resize touch-none select-none before:absolute before:inset-y-0 before:-right-1.5 before:-left-1.5 focus-visible:outline-none focus-visible:before:bg-ring/30 lg:block"
           data-cms-resize=""
           onDoubleClick={() => setWidth(SIDEBAR.initial)}
           onKeyDown={onKeyDown}
@@ -189,146 +194,147 @@ export function CmsDashboard({ children }: { readonly children: ReactNode }) {
         />
         <Sheet onOpenChange={setOpen} open={open}>
           <SheetContent
-            className="cms-admin w-[272px] gap-0 bg-background p-0 lg:hidden"
+            className="cms-admin gap-0 border-0 bg-background p-0 outline-none data-[side=left]:w-72 lg:hidden"
+            // Opened by a press, the sheet takes the focus itself, so the logo
+            // does not open showing its focus ring; from the keyboard it goes
+            // to the first link as usual.
+            initialFocus={(type) => (type === "keyboard" ? true : sheet.current)}
+            ref={sheet}
             showCloseButton={false}
             side="left"
           >
             <SheetTitle className="sr-only">{t("label")}</SheetTitle>
-            <SidebarBody />
+            <SidebarBody version={version} />
           </SheetContent>
         </Sheet>
-        {children}
+        <main
+          className="flex min-h-0 min-w-0 flex-1 flex-col bg-card lg:my-1.5 lg:me-1.5 lg:overflow-hidden lg:rounded-[20px]"
+          data-slot="cms-panel"
+        >
+          <Fragment key={version}>{children}</Fragment>
+        </main>
       </div>
     </SidebarContext.Provider>
   );
 }
 
-function SidebarBody() {
+function SidebarBody({ version }: { readonly version: number }) {
   const t = useTranslations("cms.nav");
-  const pathname = usePathname();
 
   return (
-    <>
-      <div className="flex h-16 shrink-0 items-center justify-center gap-1.5 px-4">
-        <Link aria-label={t("home")} href="/admin/dashboard">
+    <div className="flex h-full min-h-0 flex-col">
+      <div className="flex h-16 shrink-0 items-center gap-2.5 px-5">
+        <Link
+          aria-label={t("home")}
+          className="flex shrink-0 rounded-md outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
+          href="/admin/dashboard"
+        >
+          {/* The wordmark in ink, as the app frame's rail draws the mark. */}
           <Image
-            alt="Advisory Platform"
-            className="h-8 w-auto max-w-40 object-contain"
+            alt="Advisory"
+            className="h-6.5 w-auto brightness-0"
             priority
             src={logo}
           />
         </Link>
+        <span className="truncate text-sm font-medium text-muted-foreground">{t("brand")}</span>
       </div>
-      <nav
-        aria-label={t("label")}
-        className="flex flex-1 flex-col gap-4 overflow-y-auto px-4 py-2"
-      >
-        <ul className="isolate flex min-w-0 flex-col">
-          {cmsNav.map((item) => (
-            <NavEntry item={item} key={item.key} pathname={pathname} />
-          ))}
-        </ul>
-      </nav>
-      <div className="flex shrink-0 flex-col gap-2 px-4 py-2">
-        <Separator />
+      {/* Mounted again after every ruling, so its counts are read again. */}
+      <NavList key={version} />
+      <div className="shrink-0 px-3 pt-2 pb-3">
         <UserMenu />
       </div>
-    </>
+    </div>
   );
 }
 
-const linkBase =
-  "group relative flex w-full flex-row items-center gap-1.5 px-2.5 py-1.5 text-sm font-normal before:absolute before:inset-x-0 before:inset-y-px before:z-[-1] before:rounded-md focus:outline-none focus-visible:before:outline-3 focus-visible:before:outline-primary/25";
+function NavList() {
+  const t = useTranslations("cms.nav");
+  const pathname = usePathname();
+  const counts = useDashboardCounts();
 
-function linkState(active: boolean): string {
-  return active
-    ? "text-primary"
-    : "text-muted-foreground transition-colors before:transition-colors hover:text-highlighted hover:before:bg-muted/50";
+  return (
+    <nav aria-label={t("label")} className="flex min-h-0 flex-1 flex-col gap-6 overflow-y-auto px-3 py-2">
+      {cmsNav.map((group) => (
+        <div className="flex flex-col" key={group.key}>
+          {group.titled ? (
+            <p className="px-3 pb-1.5 text-xs font-medium text-muted-foreground">
+              {t(`group.${group.key}`)}
+            </p>
+          ) : null}
+          <ul className="flex flex-col gap-0.5">
+            {group.items.map((item) => (
+              <NavEntry
+                count={item.count ? waitingCount(counts, item.count) : undefined}
+                item={item}
+                key={item.key}
+                pathname={pathname}
+              />
+            ))}
+          </ul>
+        </div>
+      ))}
+    </nav>
+  );
 }
 
+function waitingCount(counts: DashboardCounts, which: CmsNavCount): number | undefined {
+  if (which === "verification") return counts.verification;
+  if (which === "cases") return counts.cases;
+  if (which === "refunds") return counts.refunds;
+  return counts.payoutsWaiting;
+}
+
+/**
+ * One desk: its line icon and name, the current one on the faint ink square
+ * the app frame's rail marks its current place with. How many items wait on
+ * it sits at the right edge, and only when there are any.
+ */
 function NavEntry({
   item,
   pathname,
-  nested = false,
+  count,
 }: {
   readonly item: CmsNavItem;
   readonly pathname: string;
-  readonly nested?: boolean;
+  readonly count: number | undefined;
 }) {
   const t = useTranslations("cms.nav");
   const { setOpen } = useContext(SidebarContext);
   const active = isCmsNavActive(item, pathname);
   const Icon = item.icon;
-  const icon = (
-    <Icon
-      aria-hidden
-      className={cn(
-        "size-5 shrink-0",
-        active ? "text-primary" : "text-dimmed transition-colors group-hover:text-foreground",
-      )}
-    />
-  );
-
-  if (item.children) {
-    return (
-      <li className="min-w-0">
-        <Collapsible defaultOpen={active || !nested}>
-          {/* Nexus hands every group its `cmsNavGroupHeaderClass`, which
-              defaults to `font-semibold` — the headers outweigh their links. */}
-          <CollapsibleTrigger className={cn(linkBase, linkState(active), "font-semibold")}>
-            {icon}
-            <span className="truncate">{t(item.key)}</span>
-            <ChevronDown
-              aria-hidden
-              className="ms-auto size-5 shrink-0 text-muted-foreground transition-transform duration-200 group-data-[panel-open]:rotate-180"
-            />
-          </CollapsibleTrigger>
-          <CollapsibleContent>
-            <ul className="isolate ms-5 border-s border-border">
-              {item.children.map((child) => (
-                <NavEntry item={child} key={child.key} nested pathname={pathname} />
-              ))}
-            </ul>
-          </CollapsibleContent>
-        </Collapsible>
-      </li>
-    );
-  }
 
   return (
-    <li className={cn("min-w-0", nested && "-ms-px ps-1.5")}>
+    <li className="min-w-0">
       <Link
         aria-current={active ? "page" : undefined}
         className={cn(
-          linkBase,
-          linkState(active),
-          // The highlight bar Nexus's `highlight` prop draws on nested links.
-          nested &&
-            "after:absolute after:inset-y-0.5 after:-start-1.5 after:block after:w-px after:rounded-full after:transition-colors",
-          nested && active && "after:bg-primary",
+          "flex h-11 items-center gap-3 rounded-xl px-3 text-sm font-medium outline-none transition-colors focus-visible:ring-3 focus-visible:ring-ring/50 md:h-10",
+          active
+            ? "bg-hero-ink/7 text-hero-ink"
+            : "text-hero-ink/80 hover:bg-hero-ink/4 hover:text-hero-ink",
         )}
-        href={item.href ?? "#"}
-        // On a phone the sidebar is a sheet; following a link should close it.
+        href={item.href}
+        // In the phone's sheet, following a link should close it.
         onClick={() => setOpen(false)}
       >
-        {icon}
-        <span className="truncate">{t(item.key)}</span>
-        {/* No waiting badge. `CmsNavItem.pending` counts rows of `lib/mock-db`,
-            and the queues it counted — verification, refunds, reports,
-            off-platform, payouts — now read the API, where all five are empty. A
-            red 3 beside a queue the API says is empty is a lie the sidebar tells
-            on every page. Restoring it means deriving the counts from the API in
-            `lib/navigation/cms`, which is not this change's to edit. */}
+        <Icon aria-hidden className="size-5 shrink-0" strokeWidth={1.75} />
+        <span className="min-w-0 flex-1 truncate">{t(item.key)}</span>
+        {count ? (
+          <span className="shrink-0 font-latin text-xs font-medium text-muted-foreground tabular-nums">
+            <span className="sr-only">{t("waiting", { count })}</span>
+            <span aria-hidden>{count > 99 ? "99+" : count}</span>
+          </span>
+        ) : null}
       </Link>
     </li>
   );
 }
 
-/** `CmsUserMenu`: a ghost "Menu" button opening upward with the account on top. */
+/** The signed-in admin at the sidebar's foot, opening upward: the site, and signing out. */
 function UserMenu() {
   const t = useTranslations("cms.userMenu");
   const session = useSession();
-  const { confirm, toast } = useCmsFeedback();
   const account = session.status === "authenticated" ? session.account : null;
 
   return (
@@ -336,65 +342,52 @@ function UserMenu() {
       <DropdownMenuTrigger
         render={
           <CmsButton
-            className="w-full px-2"
-            color="neutral"
-            trailingIcon={Menu}
+            className="h-auto w-full justify-start gap-3 rounded-xl px-2 py-2 text-start hover:bg-hero-ink/4 md:h-auto"
             variant="ghost"
           />
         }
       >
-        {t("menu")}
+        {account ? <CmsAvatar account={account} /> : null}
+        <span className="flex min-w-0 flex-1 flex-col">
+          <span className="truncate text-sm font-medium text-foreground">
+            {account?.name ?? t("menu")}
+          </span>
+          {account ? (
+            <span className="truncate font-latin text-xs font-normal text-muted-foreground">
+              {account.email}
+            </span>
+          ) : null}
+        </span>
+        <ChevronsUpDown aria-hidden className="size-4 text-muted-foreground" />
+        <span className="sr-only">{t("menu")}</span>
       </DropdownMenuTrigger>
       <DropdownMenuContent
         align="start"
-        className="min-w-56 rounded-md bg-card p-0 shadow-lg ring-1 ring-border"
+        className="min-w-60 rounded-xl bg-popover p-1 shadow-panel ring-1 ring-border"
         side="top"
         sideOffset={8}
       >
         {account ? (
-          <DropdownMenuGroup className="p-1">
-            <DropdownMenuLabel className="flex items-center gap-2 p-1.5 text-sm font-semibold text-highlighted">
-              <CmsAvatar account={account} size="lg" />
-              <span className="flex min-w-0 flex-col">
-                <span className="truncate">{account.name}</span>
-                <span className="truncate font-latin text-xs font-normal text-muted-foreground">
-                  {account.email}
-                </span>
+          <DropdownMenuGroup>
+            <DropdownMenuLabel className="flex flex-col px-2.5 py-2">
+              <span className="truncate text-sm font-medium text-foreground">{account.name}</span>
+              <span className="truncate font-latin text-xs font-normal text-muted-foreground">
+                {account.email}
               </span>
             </DropdownMenuLabel>
           </DropdownMenuGroup>
         ) : null}
-        <DropdownMenuSeparator className="mx-0 my-0" />
-        <DropdownMenuGroup className="p-1">
+        <DropdownMenuSeparator />
+        <DropdownMenuGroup>
           <DropdownMenuItem
-            className="rounded-md p-1.5 text-foreground"
+            className="h-9 gap-2.5 rounded-lg px-2.5 text-sm text-foreground"
             onClick={() => window.open("/", "_blank", "noopener")}
           >
-            <ExternalLink className="size-5 text-dimmed" />
+            <ExternalLink aria-hidden className="size-4 text-muted-foreground" />
             {t("openSite")}
           </DropdownMenuItem>
           <DropdownMenuItem
-            className="rounded-md p-1.5 text-foreground"
-            onClick={async () => {
-              const ok = await confirm({
-                type: "warning",
-                title: t("resetTitle"),
-                description: t("resetBody"),
-                confirmLabel: t("resetConfirm"),
-              });
-              if (!ok) return;
-              resetDatabase();
-              toast({ title: t("resetDone") });
-            }}
-          >
-            <RotateCcw className="size-5 text-dimmed" />
-            {t("reset")}
-          </DropdownMenuItem>
-        </DropdownMenuGroup>
-        <DropdownMenuSeparator className="mx-0 my-0" />
-        <DropdownMenuGroup className="p-1">
-          <DropdownMenuItem
-            className="rounded-md p-1.5"
+            className="h-9 gap-2.5 rounded-lg px-2.5 text-sm"
             onClick={() => {
               // A full load: the console gate reacts to the sign-out as well, and
               // its soft redirect would carry a `?next=` back into the console.
@@ -403,7 +396,7 @@ function UserMenu() {
             }}
             variant="destructive"
           >
-            <LogOut className="size-5" />
+            <LogOut aria-hidden className="size-4" />
             {t("signOut")}
           </DropdownMenuItem>
         </DropdownMenuGroup>
@@ -413,60 +406,148 @@ function UserMenu() {
 }
 
 /**
- * The panel: `UDashboardNavbar` (64px, bottom hairline, title at `xl:text-2xl`,
- * a back arrow on edit pages, actions on the right) over a scrolling body with
- * `p-4 sm:p-6`. `aside` is Nexus's right panel, 280/320px wide.
+ * A page's tabs, as the profile page draws its own: names in a row on a
+ * hairline, the current one in full ink on a 2px rule. Links, so a tab is in
+ * the address and survives a reload. A count beside a name says how many wait
+ * there (on a queue) or how many it holds (on a list); none when it is zero.
+ */
+export function CmsPageTabs({
+  label,
+  tabs,
+  current,
+}: {
+  readonly label: string;
+  readonly tabs: ReadonlyArray<{
+    readonly key: string;
+    readonly label: string;
+    readonly href: string;
+    readonly count?: number;
+  }>;
+  readonly current: string;
+}) {
+  return (
+    <nav
+      aria-label={label}
+      className="mt-6 flex gap-6 overflow-x-auto border-b border-border md:gap-8"
+    >
+      {tabs.map((tab) => {
+        const active = tab.key === current;
+        return (
+          <Link
+            aria-current={active ? "page" : undefined}
+            className={cn(
+              "relative flex h-11 shrink-0 items-center gap-2 text-sm outline-none focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:ring-inset",
+              "after:absolute after:inset-x-0 after:bottom-0 after:h-0.5 after:rounded-full",
+              active
+                ? "font-semibold text-foreground after:bg-foreground"
+                : "font-medium text-muted-foreground hover:text-foreground",
+            )}
+            href={tab.href}
+            key={tab.key}
+            replace
+            scroll={false}
+          >
+            {tab.label}
+            {tab.count ? (
+              <span className="rounded-full bg-muted px-2 font-latin text-xs leading-5 font-medium text-foreground tabular-nums">
+                {tab.count}
+              </span>
+            ) : null}
+          </Link>
+        );
+      })}
+    </nav>
+  );
+}
+
+/**
+ * A page inside the panel: the phone's bar (below `lg`), then the page column
+ * — at most 1280 wide, 36 in from the panel's edges and 40 down, as the
+ * account pages' column is — holding the head (the way back to the list, the
+ * title in the site's heading face with its status beside it, a muted line,
+ * the page's own actions at the right, its tabs) and the body.
+ *
+ * `aside` is the column beside a record: 288 or 320 wide from `lg`, ruled off
+ * by a hairline and held in view while the record scrolls; under the record
+ * on a phone.
  */
 export function CmsPage({
   title,
   badge,
+  description,
   backHref,
+  backLabel,
   actions,
+  tabs,
   aside,
   children,
 }: {
   readonly title: ReactNode;
   readonly badge?: ReactNode;
+  readonly description?: ReactNode;
   readonly backHref?: string;
+  /** The list the way back leads to; "back" when it is left out. */
+  readonly backLabel?: string;
   readonly actions?: ReactNode;
+  /** `CmsPageTabs`, under the title. */
+  readonly tabs?: ReactNode;
   readonly aside?: ReactNode;
   readonly children: ReactNode;
 }) {
   const t = useTranslations("cms.nav");
   const { setOpen } = useContext(SidebarContext);
-  const router = useRouter();
 
   return (
-    <div className="relative flex min-h-svh min-w-0 flex-1 flex-col">
-      <header className="flex h-16 shrink-0 items-center justify-between gap-1.5 border-b border-border px-4 sm:px-6">
-        <div className="flex min-w-0 items-center gap-1.5">
-          <CmsButton
-            aria-label={t("openMenu")}
-            className="lg:hidden"
-            color="neutral"
-            icon={Menu}
-            onClick={() => setOpen(true)}
-            variant="ghost"
-          />
-          {backHref ? (
-            <CmsButton
-              aria-label={t("back")}
-              color="neutral"
-              icon={ArrowLeft}
-              onClick={() => router.push(backHref)}
-              variant="ghost"
-            />
-          ) : null}
-          <h1 className="truncate font-semibold text-highlighted xl:text-2xl xl:leading-8">{title}</h1>
-          {badge}
-        </div>
-        {actions ? <div className="flex shrink-0 items-center gap-1.5">{actions}</div> : null}
-      </header>
-      <div className="flex flex-1 flex-col gap-4 overflow-y-auto p-4 sm:gap-6 sm:p-6">
-        {/* Nexus stacks the options panel under the form on narrow screens. */}
-        <div className="flex w-full flex-col items-start gap-4 sm:gap-6 md:flex-row md:gap-8">
-          <div className="flex w-full min-w-0 flex-1 flex-col gap-4 sm:gap-6">{children}</div>
-          {aside ? <div className="w-full shrink-0 md:w-70 xl:w-80">{aside}</div> : null}
+    <div className="flex min-h-0 min-w-0 flex-1 flex-col">
+      <div className="flex h-14 shrink-0 items-center gap-1 border-b border-border px-2 lg:hidden">
+        <CmsButton
+          aria-label={t("openMenu")}
+          icon={Menu}
+          onClick={() => setOpen(true)}
+          variant="ghost"
+        />
+        <Image alt="Advisory" className="h-5.5 w-auto brightness-0" src={logo} />
+      </div>
+      <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain" data-slot="cms-scroll">
+        <div className="cms-scale mx-auto flex w-full max-w-7xl flex-col px-5 pt-6 pb-16 md:px-10 md:pt-8 lg:px-9 lg:pt-10">
+          <header className="flex flex-col">
+            {backHref ? (
+              <Link
+                className="mb-3 inline-flex h-8 items-center gap-1 self-start rounded-full pe-2 text-sm text-muted-foreground outline-none transition-colors hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/50"
+                href={backHref}
+              >
+                <ChevronLeft aria-hidden className="size-4" />
+                {backLabel ?? t("back")}
+              </Link>
+            ) : null}
+            <div className="flex flex-wrap items-start justify-between gap-x-6 gap-y-3">
+              <div className="flex min-w-0 flex-col gap-1">
+                <div className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1.5">
+                  <h1 className="min-w-0 font-hero text-title-compact font-normal tracking-tight break-words text-hero-ink md:text-2xl">
+                    {title}
+                  </h1>
+                  {badge}
+                </div>
+                {description ? <p className="text-sm text-muted-foreground">{description}</p> : null}
+              </div>
+              {actions ? <div className="flex flex-wrap items-center gap-2">{actions}</div> : null}
+            </div>
+            {tabs}
+          </header>
+          <div
+            className={cn(
+              "mt-6 md:mt-8",
+              aside &&
+                "lg:grid lg:grid-cols-[minmax(0,1fr)_18rem] lg:items-start lg:gap-10 xl:grid-cols-[minmax(0,1fr)_20rem] xl:gap-12",
+            )}
+          >
+            <div className="flex min-w-0 flex-col gap-10">{children}</div>
+            {aside ? (
+              <aside className="mt-10 border-t border-border pt-6 lg:sticky lg:top-10 lg:mt-0 lg:border-t-0 lg:border-s lg:ps-8 lg:pt-0">
+                {aside}
+              </aside>
+            ) : null}
+          </div>
         </div>
       </div>
     </div>

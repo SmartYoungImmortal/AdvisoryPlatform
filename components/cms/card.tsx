@@ -1,41 +1,34 @@
+import type { LucideIcon } from "lucide-react";
 import type { ReactNode } from "react";
 
 import { cn } from "@/lib/utils";
 
 /**
- * Nuxt UI's `UCard`: white, a 1px ring, 8px radius, hairlines between header,
- * body and footer, `p-4 sm:p-6` in the body.
+ * One titled part of a page, flat on the white panel the way the settings
+ * page's categories are: a 16px semibold heading with an optional muted line
+ * under it, then the content. No box of its own: parts are told apart by the
+ * space between them and by the hairlines of the rows inside.
  */
-export function CmsCard({
+export function CmsSection({
   title,
   description,
   actions,
-  footer,
   children,
   className,
-  bodyClassName,
 }: {
   readonly title?: ReactNode;
   readonly description?: ReactNode;
   readonly actions?: ReactNode;
-  readonly footer?: ReactNode;
   readonly children?: ReactNode;
   readonly className?: string;
-  readonly bodyClassName?: string;
 }) {
-  const hasHeader = title !== undefined || actions !== undefined;
   return (
-    <section
-      className={cn(
-        "flex min-w-0 flex-col divide-y divide-border overflow-hidden rounded-lg bg-card ring-1 ring-border",
-        className,
-      )}
-    >
-      {hasHeader ? (
-        <header className="flex items-center justify-between gap-3 px-4 py-3 sm:px-6">
+    <section className={cn("flex min-w-0 flex-col", className)}>
+      {title !== undefined || actions !== undefined ? (
+        <header className="mb-3 flex items-end justify-between gap-3">
           <div className="min-w-0">
             {title !== undefined ? (
-              <h2 className="truncate text-base font-semibold text-highlighted">{title}</h2>
+              <h2 className="text-base font-semibold text-foreground">{title}</h2>
             ) : null}
             {description !== undefined ? (
               <p className="mt-0.5 text-sm text-muted-foreground">{description}</p>
@@ -44,30 +37,40 @@ export function CmsCard({
           {actions}
         </header>
       ) : null}
-      {children !== undefined ? (
-        <div className={cn("p-4 sm:p-6", bodyClassName)}>{children}</div>
-      ) : null}
-      {footer !== undefined ? <footer className="px-4 py-3 sm:px-6">{footer}</footer> : null}
+      {children}
     </section>
   );
 }
 
 /**
- * phonerefun's total card (`cntCustStatsCard`): 330 x 112, label over one bold
- * figure, both centred — the single summary a list page may carry above its
- * table.
+ * Nothing to show, said the way the site's own empty states say it (`Notice`
+ * on the service page, an empty transaction history): the subject's glyph in
+ * a soft grey disc, one semibold line, a muted one under it, and the way on
+ * when there is one. Centred, and no frame of its own.
  */
-export function CmsTotalCard({
-  label,
-  value,
+export function CmsEmpty({
+  icon: Icon,
+  title,
+  body,
+  action,
+  className,
 }: {
-  readonly label: string;
-  readonly value: ReactNode;
+  readonly icon: LucideIcon;
+  readonly title: ReactNode;
+  readonly body?: ReactNode;
+  readonly action?: ReactNode;
+  readonly className?: string;
 }) {
   return (
-    <div className="flex h-28 w-[330px] max-w-full shrink-0 flex-col items-center justify-center gap-3 rounded-lg border border-border bg-card px-6 py-4.5">
-      <span className="text-sm font-medium text-highlighted">{label}</span>
-      <span className="text-2xl font-bold text-primary tabular-nums">{value}</span>
+    <div className={cn("flex flex-col items-center gap-3 px-6 py-14 text-center", className)}>
+      <span className="flex size-12 items-center justify-center rounded-full bg-muted text-hero-ink/75">
+        <Icon aria-hidden className="size-6" strokeWidth={1.5} />
+      </span>
+      <div className="flex max-w-sm flex-col items-center gap-1">
+        <p className="text-base font-semibold text-foreground">{title}</p>
+        {body ? <p className="text-sm text-balance text-muted-foreground">{body}</p> : null}
+      </div>
+      {action}
     </div>
   );
 }

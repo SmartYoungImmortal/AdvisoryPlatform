@@ -1,13 +1,14 @@
 "use client";
 
-import { ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight } from "lucide-react";
+import { ChevronLeft, ChevronRight } from "lucide-react";
 import { useTranslations } from "next-intl";
 
 import { CmsButton } from "@/components/cms/button";
+import { cn } from "@/lib/utils";
 
 type Token = number | "gap-start" | "gap-end";
 
-/** Reka's pagination window with `sibling-count` 1 and edges shown. */
+/** The page numbers to draw: the first, the last, and one either side of the current one. */
 function pageTokens(page: number, pageCount: number): Token[] {
   if (pageCount <= 7) return Array.from({ length: pageCount }, (_, i) => i + 1);
   const start = Math.max(2, page - 1);
@@ -21,9 +22,9 @@ function pageTokens(page: number, pageCount: number): Token[] {
 }
 
 /**
- * Nuxt UI's `UPagination` as Nexus sets it (`show-edges`, `sibling-count` 1):
- * outline neutral squares, the current page solid primary, first/prev/next/last
- * at the ends.
+ * The pages of a list as round buttons, the current one filled in ink as the
+ * site's chosen filter capsule is, the previous and next arrows at the ends.
+ * Nothing at all when everything fits on one page.
  */
 export function CmsPagination({
   page,
@@ -38,45 +39,45 @@ export function CmsPagination({
 }) {
   const t = useTranslations("cms.table");
   const pageCount = Math.max(1, Math.ceil(total / perPage));
-  const edge = (label: string, target: number, icon: typeof ChevronLeft, disabled: boolean) => (
-    <CmsButton
-      aria-label={label}
-      color="neutral"
-      disabled={disabled}
-      icon={icon}
-      onClick={() => onPageChange(target)}
-      variant="outline"
-    />
-  );
+  if (pageCount <= 1) return null;
 
   return (
     <nav aria-label={t("pagination")} className="flex items-center gap-1">
-      {edge(t("first"), 1, ChevronsLeft, page <= 1)}
-      {edge(t("previous"), page - 1, ChevronLeft, page <= 1)}
+      <CmsButton
+        aria-label={t("previous")}
+        disabled={page <= 1}
+        icon={ChevronLeft}
+        onClick={() => onPageChange(page - 1)}
+        variant="ghost"
+      />
       {pageTokens(page, pageCount).map((token) =>
         typeof token === "number" ? (
           <CmsButton
             aria-current={token === page ? "page" : undefined}
-            className="min-w-8 justify-center px-1.5 font-latin"
-            color={token === page ? "primary" : "neutral"}
+            className={cn("min-w-11 px-2 font-latin md:min-w-9", token !== page && "text-muted-foreground")}
             key={token}
             onClick={() => onPageChange(token)}
-            variant={token === page ? "solid" : "outline"}
+            variant={token === page ? "primary" : "ghost"}
           >
             {token}
           </CmsButton>
         ) : (
           <span
             aria-hidden
-            className="flex min-w-8 items-center justify-center text-sm text-muted-foreground"
+            className="flex min-w-6 items-center justify-center text-sm text-muted-foreground"
             key={token}
           >
             …
           </span>
         ),
       )}
-      {edge(t("next"), page + 1, ChevronRight, page >= pageCount)}
-      {edge(t("last"), pageCount, ChevronsRight, page >= pageCount)}
+      <CmsButton
+        aria-label={t("next")}
+        disabled={page >= pageCount}
+        icon={ChevronRight}
+        onClick={() => onPageChange(page + 1)}
+        variant="ghost"
+      />
     </nav>
   );
 }

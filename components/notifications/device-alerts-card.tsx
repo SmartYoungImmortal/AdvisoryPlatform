@@ -49,7 +49,7 @@ export function DeviceAlertsCard() {
   }, [state]);
   // Everything the card has to say is a toast for a moment: the change that
   // worked, or why it could not happen (blocked, unsupported, a failure).
-  const { toast, leaving, show, clear } = useStatusToast();
+  const { toast, leaving, paused, show, clear, dismiss, setPaused } = useStatusToast();
 
   const on = state === "on";
   const problem = (s: PushState | null) => (s && s in NOTE_KEY ? t(NOTE_KEY[s as keyof typeof NOTE_KEY]) : null);
@@ -126,7 +126,7 @@ export function DeviceAlertsCard() {
       >
         {on ? t("pushTurnOff") : t("primerEnable")}
       </Button>
-      <StatusToast leaving={leaving} toast={toast} />
+      <StatusToast dismiss={dismiss} leaving={leaving} paused={paused} setPaused={setPaused} toast={toast} />
     </div>
   );
 }

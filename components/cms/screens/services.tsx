@@ -1,20 +1,20 @@
 "use client";
 
-import { useRouter } from "next/navigation";
+import { Store } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { useCallback, useMemo } from "react";
 
 import { CmsApiError, CmsTableSkeleton } from "@/components/cms/api";
 import { CmsPage } from "@/components/cms/layout";
-import { CmsStatus, useStatusOptions } from "@/components/cms/status";
-import { useAccountName, useAuditHeaders } from "@/components/cms/people";
+import { useAccountName } from "@/components/cms/people";
+import { CmsStatus, useStatusLabel } from "@/components/cms/status";
 import {
-  auditColumns,
+  CmsChips,
   CmsFilterMenu,
   CmsTable,
-  createdColumn,
+  countBy,
+  dateColumn,
   statusColumn,
-  updatedColumn,
   type CmsColumn,
 } from "@/components/cms/table";
 import { useCmsList } from "@/components/cms/use-cms-list";
@@ -32,6 +32,11 @@ import { formatBaht, timeValue } from "@/lib/mock-db/format";
 
 const SERVICES_KEY = ADMIN_KEYS.services;
 
+/** A service's `isPublished`, in the console's two words for it. */
+function publishState(service: AdminService): "published" | "hidden" {
+  return service.isPublished ? "published" : "hidden";
+}
+
 /**
  * The marketplace catalogue, from `GET /api/v1/admin/services`.
  *
@@ -41,31 +46,20 @@ const SERVICES_KEY = ADMIN_KEYS.services;
  * ## Read-only, because the controller has one route
  *
  * `AdminServicesController` is a single `GET`. There is no publish, no hide and no
- * edit, so the bulk actions and the row link into `/admin/services/edit` are gone:
- * a row that opens an editor which cannot save, or a Hide button which cannot
- * hide, is worse than a table that states plainly what it is. Hiding a listing
- * needs `PATCH /api/v1/admin/services/:serviceId` (or a `publish`/`hide` pair) on
- * the API.
+ * edit, so there are no bulk actions and a row opens a read-only record. Hiding a
+ * listing needs `PATCH /api/v1/admin/services/:serviceId` (or a `publish`/`hide`
+ * pair) on the API.
  *
- * ## The two columns that are not here
- *
- * `AdvisorServiceResponseDto` has no rating and no booking count — nothing on the
- * API does, for a service — and it names the advisor only by `advisorId`. There is
- * no admin route that resolves an advisor id to a person, so the row shows the
- * listing and its category and does not guess at the rest. `isPublished` is a
- * boolean here, not a status enum, and maps onto the console's published/hidden
- * badge exactly.
- *
- * The category name comes from `GET /service-categories`, fetched once and joined
- * by id, the way `components/bookings/my-bookings-screen.tsx` joins services and
- * advisors: one request for the page instead of one per row.
+ * `AdvisorServiceResponseDto` has no rating and no booking count, and names the
+ * advisor only by `advisorId`, which the accounts list the console already reads
+ * resolves to a name. The category name comes from `GET /service-categories`,
+ * fetched once and joined by id: one request for the page instead of one per row.
  */
 export function ServicesScreen() {
   const t = useTranslations("cms.services");
   const tTable = useTranslations("cms.table");
-  const router = useRouter();
-  const audit = useAuditHeaders();
   const accountName = useAccountName();
+  const statusLabel = useStatusLabel();
 
   const servicesFetcher = useCallback(
     (signal: AbortSignal) => listAdminServices({ limit: ADMIN_MAX_LIMIT }, signal),
@@ -85,67 +79,61 @@ export function ServicesScreen() {
   );
 
   const items = useMemo(() => services.data?.items ?? [], [services.data]);
-  const categoryItems = useMemo(
-    () => categories.data?.items ?? [],
-    [categories.data],
-  );
+  const categoryItems = useMemo(() => categories.data?.items ?? [], [categories.data]);
   const categoryName = useMemo(
     () => new Map(categoryItems.map((c) => [c.id, c.name])),
     [categoryItems],
   );
-
-  const statusOptions = useStatusOptions("publish");
+  const count = useMemo(() => countBy(items, publishState), [items]);
 
   const list = useCmsList(items, {
-    searchText: (s) => `${s.name} ${categoryName.get(s.categoryId) ?? ""}`,
+    searchText: (s) =>
+      `${s.name} ${categoryName.get(s.categoryId) ?? ""} ${accountName(s.advisorId) ?? ""}`,
     sortValue: (s, id) => {
       if (id === "price") return s.priceSatang;
       if (id === "title") return s.name;
       if (id === "status") return s.isPublished ? 1 : 0;
-      if (id === "createdAt") return timeValue(s.createdAt);
       return timeValue(s.modifiedAt);
     },
     filters: [
-      {
-        key: "status",
-        test: (s, values) => values.includes(s.isPublished ? "published" : "hidden"),
-      },
+      { key: "status", test: (s, values) => values.includes(publishState(s)) },
       { key: "category", test: (s, values) => values.includes(s.categoryId) },
     ],
   });
 
   const columns: ReadonlyArray<CmsColumn<AdminService>> = [
-    createdColumn(tTable("createdAt"), (s) => s.createdAt),
-    statusColumn(t("col.status"), (s) => (
-      <CmsStatus group="publish" value={s.isPublished ? "published" : "hidden"} />
-    )),
     {
       id: "title",
       header: t("col.title"),
       sortable: true,
-      render: (s) => <span className="block max-w-80 truncate">{s.name}</span>,
+      primary: true,
+      render: (s) => <span className="inline-block max-w-80 truncate align-bottom">{s.name}</span>,
+    },
+    {
+      id: "advisor",
+      header: t("col.advisor"),
+      render: (s) => accountName(s.advisorId) ?? "-",
     },
     {
       id: "category",
       header: t("col.category"),
+      className: "text-muted-foreground",
       render: (s) => categoryName.get(s.categoryId) ?? "-",
     },
     {
       id: "price",
       header: t("col.price"),
       sortable: true,
-      className: "font-latin",
-      render: (s) =>
-        `${formatBaht(s.priceSatang)} / ${t("minutes", { count: s.durationMinutes })}`,
+      align: "end",
+      render: (s) => (
+        <>
+          <span className="font-latin">{formatBaht(s.priceSatang)}</span>
+          <span className="text-muted-foreground"> / {t("minutes", { count: s.durationMinutes })}</span>
+        </>
+      ),
     },
-    updatedColumn(t("col.updatedAt"), (s) => s.modifiedAt),
-    // Only the owning advisor can create or edit a service; the admin API has
-    // no write route for one.
-    ...auditColumns<AdminService>(
-      audit,
-      (s) => accountName(s.advisorId),
-      (s) => accountName(s.advisorId),
-    ),
+    statusColumn(t("col.status"), (s) => <CmsStatus group="publish" value={publishState(s)} />),
+    dateColumn("updatedAt", t("col.updatedAt"), (s) => s.modifiedAt),
   ];
 
   if (services.loading) {
@@ -155,7 +143,6 @@ export function ServicesScreen() {
       </CmsPage>
     );
   }
-
   if (services.error) {
     return (
       <CmsPage title={t("title")}>
@@ -167,29 +154,34 @@ export function ServicesScreen() {
   return (
     <CmsPage title={t("title")}>
       <CmsTable
+        chips={
+          <CmsChips
+            label={t("col.status")}
+            onChange={(value) => list.setFilter("status", value ? [value] : [])}
+            options={[
+              { value: "", label: tTable("all"), count: count("") },
+              ...(["published", "hidden"] as const).map((value) => ({
+                value,
+                label: statusLabel("publish", value),
+                count: count(value),
+              })),
+            ]}
+            value={list.filterValues.status?.[0] ?? ""}
+          />
+        }
         columns={columns}
+        empty={{ icon: Store, title: t("empty") }}
         filters={
-          <>
-            <CmsFilterMenu
-              label={t("allStatuses")}
-              onChange={(values) => list.setFilter("status", values)}
-              options={statusOptions}
-              values={list.filterValues.status ?? []}
-            />
-            {/* Nexus's blog list gives its category filter `w-56`. */}
-            <CmsFilterMenu
-              className="w-56"
-              label={t("allCategories")}
-              onChange={(values) => list.setFilter("category", values)}
-              options={categoryItems.map((c) => ({ value: c.id, label: c.name }))}
-              values={list.filterValues.category ?? []}
-            />
-          </>
+          <CmsFilterMenu
+            label={t("allCategories")}
+            onChange={(values) => list.setFilter("category", values)}
+            options={categoryItems.map((c) => ({ value: c.id, label: c.name }))}
+            values={list.filterValues.category ?? []}
+          />
         }
         list={list}
-        onRowClick={(s) => router.push(`/admin/services/edit?id=${s.id}`)}
+        rowHref={(s) => `/admin/services/edit?id=${s.id}`}
         searchPlaceholder={t("search")}
-        selectable={false}
       />
     </CmsPage>
   );

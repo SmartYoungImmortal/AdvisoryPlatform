@@ -1,28 +1,28 @@
 "use client";
 
+import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Check, X } from "lucide-react";
 import { useTranslations } from "next-intl";
-import { useCallback, useId, useState } from "react";
+import { useCallback } from "react";
 
-import { CmsApiError, CmsCardSkeleton, useRuling } from "@/components/cms/api";
-import { CmsButton } from "@/components/cms/button";
-import { CmsCard } from "@/components/cms/card";
+import { CmsApiError, CmsDetailSkeleton, useRuling } from "@/components/cms/api";
+import { CmsSection } from "@/components/cms/card";
+import { CaseEvidence } from "@/components/cms/case-evidence";
 import { CmsDocumentGrid } from "@/components/cms/document";
 import { useCmsFeedback } from "@/components/cms/feedback";
-import { CmsFormField, CmsTextarea } from "@/components/cms/fields";
 import { useRecordId } from "@/components/cms/hooks";
 import { CmsPage } from "@/components/cms/layout";
 import { useAccountName } from "@/components/cms/people";
-import { REFUNDS_KEY } from "@/components/cms/screens/refunds";
+import { RulingDecision } from "@/components/cms/ruling";
 import {
+  CmsDataList,
   CmsDataRow,
   CmsMissing,
   CmsSidebarOptions,
 } from "@/components/cms/sidebar-options";
-import { CmsApiStatus } from "@/components/cms/status";
-import { CaseEvidence } from "@/components/cms/case-evidence";
+import { CmsStatus } from "@/components/cms/status";
 import {
+  ADMIN_KEYS,
   approveRefundCase,
   documentUrl,
   getRefundCase,
@@ -34,15 +34,17 @@ import {
 import { useResource } from "@/lib/api/use-resource";
 import { formatBaht } from "@/lib/mock-db/format";
 
+const REFUNDS_KEY = ADMIN_KEYS.refunds;
+const BACK = "/admin/refunds";
+
 /**
  * One refund case, from `GET /api/v1/admin/refunds/:refundCaseId`.
  *
  * ## The partial refund is gone
  *
  * `POST .../approve` takes **no body**. There is no amount on the route, so a
- * refund is the whole invoice or nothing: the full/partial choice and the baht
- * field it revealed cannot be sent anywhere. Restoring them needs an amount on the
- * approve DTO and a column to hold it.
+ * refund is the whole invoice or nothing. Restoring a partial refund needs an
+ * amount on the approve DTO and a column to hold it.
  *
  * ## Evidence
  *
@@ -58,30 +60,31 @@ export function RefundReviewScreen() {
 
   const fetcher = useCallback((signal: AbortSignal) => getRefundCase(id, signal), [id]);
   const refund = useResource<AdminRefundCaseDetail>(`${REFUNDS_KEY}/${id}`, fetcher);
+  const frame = { backHref: BACK, backLabel: t("title"), title: t("reviewTitle") };
 
   if (id === "") {
     return (
-      <CmsPage backHref="/admin/refunds" title={t("reviewTitle")}>
-        <CmsMissing backHref="/admin/refunds" />
+      <CmsPage {...frame}>
+        <CmsMissing backHref={BACK} />
       </CmsPage>
     );
   }
 
   if (refund.loading) {
     return (
-      <CmsPage backHref="/admin/refunds" title={t("reviewTitle")}>
-        <CmsCardSkeleton rows={4} />
+      <CmsPage {...frame}>
+        <CmsDetailSkeleton rows={4} />
       </CmsPage>
     );
   }
 
   if (refund.error || !refund.data) {
     return (
-      <CmsPage backHref="/admin/refunds" title={t("reviewTitle")}>
+      <CmsPage {...frame}>
         {refund.error ? (
           <CmsApiError error={refund.error} onRetry={refund.reload} />
         ) : (
-          <CmsMissing backHref="/admin/refunds" />
+          <CmsMissing backHref={BACK} />
         )}
       </CmsPage>
     );
@@ -91,9 +94,9 @@ export function RefundReviewScreen() {
 }
 
 /**
- * Nexus's edit-page shape: one form card on the left, `CmsSidebarOptions` on the
- * right. No record id is printed anywhere — a UUID means nothing to the person
- * reading this — and the rejection reason is a field on the card, not a prompt.
+ * The case's facts and its evidence in the page; the timeline and the ruling
+ * beside them, the rejection's reason right above its button. No record id is
+ * printed anywhere — a UUID means nothing to the person reading this.
  */
 function Review({ refund }: { readonly refund: AdminRefundCaseDetail }) {
   const t = useTranslations("cms.refunds");
@@ -101,7 +104,6 @@ function Review({ refund }: { readonly refund: AdminRefundCaseDetail }) {
   const { confirm } = useCmsFeedback();
   const rule = useRuling();
   const accountName = useAccountName();
-  const reasonId = useId();
   // The consultation this refund claims against, and its conversation.
   const evidenceFetcher = useCallback(
     (signal: AbortSignal) => getRefundContext(refund.id, signal),
@@ -110,14 +112,13 @@ function Review({ refund }: { readonly refund: AdminRefundCaseDetail }) {
   const evidence = useResource<CaseContext>(`${REFUNDS_KEY}/${refund.id}/context`, evidenceFetcher);
   const open = refund.status === "OPEN";
   const amount = formatBaht(refund.invoiceAmountSatang);
-  const [rejection, setRejection] = useState("");
-  const [rejectionError, setRejectionError] = useState<string | undefined>();
+  const requester = accountName(refund.requestedByUserId) ?? refund.requesterDisplayName;
 
   async function approve() {
     const ok = await confirm({
       type: "success",
       title: t("approveTitle", { amount }),
-      description: t("approveBody", { name: refund.requesterDisplayName }),
+      description: t("approveBody", { name: requester }),
       confirmLabel: t("approve"),
     });
     if (!ok) return;
@@ -126,119 +127,88 @@ function Review({ refund }: { readonly refund: AdminRefundCaseDetail }) {
       run: [() => approveRefundCase(refund.id)],
       success: t("approved", { amount }),
     });
-    if (result.ok) router.push("/admin/refunds");
+    if (result.ok) router.push(BACK);
   }
 
-  async function reject() {
-    const reason = rejection.trim();
-    if (!reason) {
-      setRejectionError(t("reasonRequired"));
-      return;
-    }
+  async function reject(reason: string) {
     const result = await rule({
       keyPrefix: REFUNDS_KEY,
       run: [() => rejectRefundCase(refund.id, reason)],
       success: t("rejected", { count: 1 }),
-      successColor: "warning",
     });
-    if (result.ok) router.push("/admin/refunds");
+    if (result.ok) router.push(BACK);
   }
 
   return (
     <CmsPage
       aside={
         <CmsSidebarOptions
-          actions={
-            open ? (
-              <>
-                <CmsButton block color="action" icon={Check} onClick={approve} size="lg">
-                  {t("approve")}
-                </CmsButton>
-                <CmsButton block color="error" icon={X} onClick={reject} size="lg">
-                  {t("reject")}
-                </CmsButton>
-              </>
-            ) : null
-          }
           info={[
-            {
-              label: t("requestedAt"),
-              by: accountName(refund.requestedByUserId) ?? refund.requesterDisplayName,
-              at: refund.createdAt,
-            },
+            { label: t("requestedAt"), by: requester, at: refund.createdAt },
             ...(refund.resolvedAt
               ? [
                   {
                     label: t("decidedAt"),
-                    by: accountName(refund.reviewedByAdminId) ?? undefined,
+                    by: accountName(refund.reviewedByAdminId),
                     at: refund.resolvedAt,
                   },
                 ]
               : []),
           ]}
         >
-          <CmsFormField label={t("col.status")}>
-            <div>
-              <CmsApiStatus group="refund" value={refund.status} />
-            </div>
-          </CmsFormField>
+          {open ? (
+            <RulingDecision
+              approveLabel={t("approve")}
+              onApprove={approve}
+              onReject={reject}
+              reasonLabel={t("reason")}
+              reasonPlaceholder={t("rejectPlaceholder")}
+              reasonRequired={t("reasonRequired")}
+              rejectLabel={t("reject")}
+            />
+          ) : undefined}
         </CmsSidebarOptions>
       }
-      backHref="/admin/refunds"
+      backHref={BACK}
+      backLabel={t("title")}
+      badge={<CmsStatus group="refund" value={refund.status} />}
+      description={t("reviewLine", { amount, name: requester })}
       title={t("reviewTitle")}
     >
-      <CmsCard>
-        <dl className="space-y-4">
+      <CmsSection title={t("caseTitle")}>
+        <CmsDataList>
           <CmsDataRow label={t("col.requester")}>
-            {accountName(refund.requestedByUserId) ?? refund.requesterDisplayName}
+            <Link
+              className="font-medium underline-offset-4 hover:underline"
+              href={`/admin/users/edit?id=${refund.requestedByUserId}`}
+            >
+              {requester}
+            </Link>
           </CmsDataRow>
           {/* The whole invoice: the approve route takes no amount. */}
           <CmsDataRow label={t("col.amount")}>
             <span className="font-latin">{amount}</span>
           </CmsDataRow>
-          <CmsDataRow label={t("col.reason")}>
-            <span className="font-normal text-foreground">{refund.reason}</span>
-          </CmsDataRow>
-        </dl>
-        <section className="mt-6 border-t border-border pt-6">
-          <h2 className="mb-4 text-sm font-semibold text-highlighted">
-            {t("evidence", { count: refund.evidence.length })}
-          </h2>
-          {refund.evidence.length === 0 ? (
-            <p className="text-sm text-muted-foreground">-</p>
-          ) : (
-            <CmsDocumentGrid
-              files={refund.evidence.map((file) => ({
-                key: file.objectKey,
-                url: documentUrl(file.objectKey),
-                name: file.originalFileName,
-                mimeType: file.mimeType,
-              }))}
-            />
-          )}
-        </section>
-        <CaseEvidence context={evidence.data} loading={evidence.loading} />
-        {open ? (
-          <div className="mt-6 border-t border-border pt-6">
-            <CmsFormField
-              error={rejectionError}
-              htmlFor={reasonId}
-              label={t("reason")}
-            >
-              <CmsTextarea
-                id={reasonId}
-                invalid={Boolean(rejectionError)}
-                onChange={(event) => {
-                  setRejection(event.target.value);
-                  setRejectionError(undefined);
-                }}
-                placeholder={t("rejectPlaceholder")}
-                value={rejection}
-              />
-            </CmsFormField>
-          </div>
-        ) : null}
-      </CmsCard>
+          <CmsDataRow label={t("col.reason")}>{refund.reason}</CmsDataRow>
+        </CmsDataList>
+      </CmsSection>
+
+      <CmsSection title={t("evidence", { count: refund.evidence.length })}>
+        {refund.evidence.length === 0 ? (
+          <p className="text-sm text-muted-foreground">{t("noEvidence")}</p>
+        ) : (
+          <CmsDocumentGrid
+            files={refund.evidence.map((file) => ({
+              key: file.objectKey,
+              url: documentUrl(file.objectKey),
+              name: file.originalFileName,
+              mimeType: file.mimeType,
+            }))}
+          />
+        )}
+      </CmsSection>
+
+      <CaseEvidence context={evidence.data} loading={evidence.loading} />
     </CmsPage>
   );
 }

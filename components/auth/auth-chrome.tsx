@@ -19,9 +19,9 @@ export function AuthTopNav({ className }: { readonly className?: string }) {
   const t = useTranslations("common");
 
   const links = [
-    { label: t("howToUse"), href: "/landing#how-it-works" },
-    { label: t("goodToKnow"), href: "/landing#good-to-know" },
-    { label: t("faq"), href: "/landing#faq" },
+    { label: t("howToUse"), href: "/about" },
+    { label: t("goodToKnow"), href: "/#pricing" },
+    { label: t("faq"), href: "/#faq" },
   ];
 
   return (
@@ -66,7 +66,7 @@ export function AuthFooter({ className }: { readonly className?: string }) {
   const links = [
     { label: t("termsOfService"), href: "/terms" },
     { label: t("privacy"), href: "/privacy-policy" },
-    { label: t("help"), href: "/landing#faq" },
+    { label: t("help"), href: "/#faq" },
   ];
 
   return (

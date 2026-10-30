@@ -27,6 +27,8 @@ const nextConfig: NextConfig = {
       { protocol: "https", hostname: "picsum.photos" },
       // Stock portraits the API seed writes to demo accounts' `image`.
       { protocol: "https", hostname: "randomuser.me" },
+      // The service page's mock photographs (`components/service/service-photo-sets.ts`).
+      { protocol: "https", hostname: "images.unsplash.com" },
     ],
   },
 };

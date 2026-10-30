@@ -1,162 +1,235 @@
 "use client";
 
-import { useRouter } from "next/navigation";
-import { CalendarDays, Clock, Lock, UserRound } from "lucide-react";
-import { useCallback, useState } from "react";
-import { useFormatter, useTranslations } from "next-intl";
+import { ArrowLeft } from "lucide-react";
+import Link from "next/link";
+import { useCallback, useEffect, useState, useSyncExternalStore, type FormEvent } from "react";
+import { useTranslations } from "next-intl";
 
-import {
-  cancelBooking,
-  getAdvisor,
-  getBooking,
-  getService,
-} from "@/lib/api/resources";
-import type {
-  ApiBooking,
-  ApiPublicAdvisor,
-  ApiPublicService,
-} from "@/lib/api/types";
+import { getBooking } from "@/lib/api/resources";
+import type { ApiBooking, ApiCouponPreview } from "@/lib/api/types";
 import { useResource } from "@/lib/api/use-resource";
-import { baht, isCancellable } from "@/components/bookings/booking-flow";
-import { NeutralButton } from "@/components/mobile/buttons";
-import {
-  MobileScreen,
-  ScreenActions,
-  ScreenBody,
-  ScreenHeading,
-  ScreenSpacer,
-  ScreenTopBar,
-} from "@/components/mobile/screen";
-import { StatusPill } from "@/components/mobile/status-pill";
-import { Surface } from "@/components/mobile/surface";
-import { ThaiText } from "@/components/mobile/thai-text";
-import { SiteFooter } from "@/components/marketing/site-footer";
-import { BODY_GRID, PAGE_HEAD_BAND } from "@/components/payment/invoice-screens";
-import { DetailRow, FootNote } from "@/components/screening/parts";
+import { NeutralButton, PrimaryButton } from "@/components/mobile/buttons";
+import { MobileScreen, ScreenBody, ScreenTopBar } from "@/components/mobile/screen";
 import { ApiErrorCard } from "@/components/service/parts";
 import { TopBar } from "@/components/topbar";
-import { PAGE } from "@/lib/layout";
 import { cn } from "@/lib/utils";
 
+import {
+  BookingWhen,
+  CardFields,
+  MethodList,
+  OrderHead,
+  PriceBreakdown,
+  TermsNote,
+  useCardPayment,
+  useOrder,
+  type CardPayment,
+} from "./checkout-parts";
+import { CheckoutSteps } from "./checkout-steps";
+
 /**
- * `/checkout/card?bookingId=<uuid>` — the slot that is held, and what it costs.
+ * `/checkout/card?bookingId=<uuid>` — confirm and pay for a held slot.
  *
- * ## Why there is no card form here
+ * Laid out the way a booking ends on the best of the booking sites, and at
+ * their widths, not ours:
  *
- * The slot chips on `/service/…` call `POST /bookings`, which answers
- * `PENDING_PAYMENT`: the range is blocked and nothing is charged. The next step
- * in the design is `POST /payment/checkout`, and this app cannot call it — see
- * `startCheckout` in `lib/api/resources.ts` for the three reasons, of which the
- * shortest is that it answers a 303 redirect to a 3-D Secure page and `fetch`
- * would chase that into a CORS wall.
+ * - below 744, the phone's three steps (`checkout-steps.tsx`);
+ * - from 744, one page: the title with a round way back beside it, the order
+ *   as a card, the ways to pay as one card of rows with the card's fields
+ *   under its row, and the button that pays. One column 440 across, the order
+ *   on top, to 950; from there two, the ways to pay at the left and the order
+ *   at the right — 386 + 64 + 332, then 440 + 80 + 368 from 1128, then
+ *   524 + 80 + 372 from 1440. At the sizes the screen draws them (this page is
+ *   not zoomed by `app-scale`).
  *
- * So the fixture screen's card fields do not appear in this mode. A form that
- * cannot charge, asking for a card number, is not a lesser version of checkout —
- * it is a place to type a card number into nothing. The screen states what is
- * true instead: the booking exists, it is unsettled, here is the amount, and here
- * are the two things that do work — look at it, or give the time back.
+ * Which of the two is drawn is decided in the browser (`useWideCheckout`), not
+ * by CSS alone: the two ask for the card differently, and drawing both would
+ * put every field in the page twice.
  *
- * Restoring the pay button needs one copy key (`payment.payAmount`, taking the
- * real total, because `payment.pay` has ฿1,260 baked into the string) and the API
- * change. Nothing else here would move.
+ * ## How it pays
  *
- * ## Where the amount comes from
+ * `POST /bookings` has already held the time (`PENDING_PAYMENT`). Paying is
+ * four steps, all on the press of the button (`useCardPayment`):
  *
- * `priceSatang` on the joined service, which is the price **now** rather than the
- * price this booking was taken at — the appointment records no amount and
- * `service_invoices` has no advisee-facing route. There is also no platform fee
- * to show: `platformFeeSatang` exists only on an invoice row, so the summary is
- * one line and its total, not the fixture's session + 5% + total.
+ * 1. the card becomes a token in Omise's own script (`lib/payment/omise.ts`),
+ *    against the API's public key, so its number never reaches our servers;
+ * 2. `POST /payment/invoice/for-booking/:id` makes (or finds) the invoice for
+ *    this booking, priced as booked, less the coupon if one is added;
+ * 3. `POST /payment/checkout` charges the invoice to the token and answers the
+ *    card's 3-D Secure page;
+ * 4. the browser goes there. The bank returns it to the API, which confirms the
+ *    booking and sends it on to `/checkout/success`, `/failed` or `/unconfirmed`
+ *    with the invoice's id.
+ *
+ * When the API has no public key, card payments are not set up and the button
+ * stays off. PromptPay and Google Pay are listed and not yet choosable: the API
+ * charges cards only.
  */
 
-/** The advisor's name, once the booking has named them. Its own component so the
- *  request never fires with an undefined id. */
-function AdvisorRow({ advisorId }: { readonly advisorId: string }) {
-  const t = useTranslations("payment");
+/** The width the page stops being the phone's steps: 744 (46.5rem). */
+const WIDE = "(min-width: 46.5rem)";
 
-  const fetcher = useCallback(
-    (signal: AbortSignal) => getAdvisor(advisorId, signal),
-    [advisorId],
-  );
-  const advisor = useResource<ApiPublicAdvisor>(
-    `advisors/${advisorId}`,
-    fetcher,
-  );
+function subscribeWide(onChange: () => void) {
+  const query = window.matchMedia(WIDE);
+  query.addEventListener("change", onChange);
+  return () => query.removeEventListener("change", onChange);
+}
 
-  if (!advisor.data) return null;
-
-  return (
-    <DetailRow
-      icon={UserRound}
-      label={t("advisorLabel")}
-      value={advisor.data.displayName}
-    />
+/** Whether the screen is 744 or wider; the server draws the wide page, which hydrates and then answers. */
+function useWideCheckout(): boolean {
+  return useSyncExternalStore(
+    subscribeWide,
+    () => window.matchMedia(WIDE).matches,
+    () => true,
   );
 }
 
-/** The service line, once the booking has named it. */
-function ServiceSummary({ serviceId }: { readonly serviceId: string }) {
-  const t = useTranslations("payment");
-  const format = useFormatter();
-
-  const fetcher = useCallback(
-    (signal: AbortSignal) => getService(serviceId, signal),
-    [serviceId],
-  );
-  const service = useResource<ApiPublicService>(
-    `services/${serviceId}`,
-    fetcher,
-  );
-
-  if (service.loading) {
-    return <div className="h-24 w-full rounded-card bg-muted" />;
-  }
-  if (!service.data) return null;
-
-  const total = format.number(baht(service.data.priceSatang), "baht");
-
-  return (
-    <Surface className="w-full divide-y divide-border overflow-hidden">
-      <div className="flex w-full items-center justify-between gap-3 p-3.5">
-        <span className="text-base font-semibold text-foreground lg:text-lg">
-          {t("orderSummary")}
-        </span>
-      </div>
-      <div className="flex w-full shrink-0 items-center justify-between gap-3 px-3.5 py-2.5">
-        <span className="min-w-px flex-1 text-sm font-normal text-muted-foreground">
-          <ThaiText>{service.data.name}</ThaiText>
-        </span>
-        <span className="font-latin shrink-0 text-sm font-normal whitespace-nowrap tabular-nums text-foreground">
-          {total}
-        </span>
-      </div>
-      {/* One line and its total. The fixture screen adds a 5% platform fee; that
-          figure lives on `service_invoices.platform_fee_satang` and no route this
-          app can call returns it, so it is not shown rather than assumed. */}
-      <div className="flex w-full items-center justify-between gap-3 bg-muted px-3.5 py-3">
-        <span className="min-w-px flex-1 text-sm font-medium text-foreground">
-          {t("total")}
-        </span>
-        <span className="font-latin shrink-0 text-2xl font-semibold whitespace-nowrap tabular-nums text-foreground">
-          {total}
-        </span>
-      </div>
-    </Surface>
-  );
-}
-
-export function LiveCheckoutScreen({
-  bookingId,
+/** The order on the right: what is bought, when, and for how much, less a coupon if one is added. */
+function OrderCard({
+  booking,
+  coupon,
+  onCoupon,
+  className,
 }: {
-  readonly bookingId: string;
+  readonly booking: ApiBooking;
+  readonly coupon: ApiCouponPreview | null;
+  readonly onCoupon: (coupon: ApiCouponPreview | null) => void;
+  readonly className?: string;
 }) {
+  const t = useTranslations("payment");
+  const order = useOrder(booking);
+  return (
+    <aside aria-label={t("orderSummary")} className={cn("w-full rounded-[24px] border border-border p-6", className)}>
+      <OrderHead order={order} />
+      <BookingWhen booking={booking} />
+      <PriceBreakdown bookingId={booking.id} coupon={coupon} onCoupon={onCoupon} order={order} />
+    </aside>
+  );
+}
+
+/** The ways to pay, the card's fields under its row, and the button that pays. */
+function PayForm({ payment, className }: { readonly payment: CardPayment; readonly className?: string }) {
+  const t = useTranslations("payment");
+  const onSubmit = (event: FormEvent) => {
+    event.preventDefault();
+    payment.pay();
+  };
+
+  return (
+    <form className={cn("flex w-full flex-col", className)} noValidate onSubmit={onSubmit}>
+      <MethodList
+        className="w-full rounded-[24px] border border-border pb-1"
+        fields={<CardFields className="pb-4" payment={payment} />}
+        heading={t("methodTitle")}
+      />
+
+      <TermsNote className="mt-3.5" />
+
+      <PrimaryButton
+        block
+        className="mt-3 h-12 rounded-[12px] text-base font-medium lg:h-12"
+        disabled={!payment.configured || payment.paying || !payment.ready}
+        type="submit"
+      >
+        {payment.paying ? t("payWorking") : t("confirmTitle")}
+      </PrimaryButton>
+      {payment.problem ? (
+        <p className="mt-2 text-sm text-destructive" role="alert">
+          {payment.problem}
+        </p>
+      ) : null}
+    </form>
+  );
+}
+
+/** The checkout's white ground and hairlines, scoped in `app/globals.css`. */
+const SURFACE = "checkout-surface";
+
+/**
+ * The page's column from 744: 440 across, then 782 from 950, 888 from 1128
+ * and 976 from 1440. Its breakpoints are in rem, all four, so Tailwind sorts
+ * them by width and each wins over the one before it.
+ */
+const COLUMN =
+  "w-full px-6 pt-8 pb-20 min-[46.5rem]:mx-auto min-[46.5rem]:w-110 min-[46.5rem]:px-0 min-[59.375rem]:w-[782px] min-[70.5rem]:w-[888px] min-[90rem]:w-[976px]";
+
+/** And its two columns: stacked to 950, the order first; then side by side at the widths above. */
+const COLUMNS =
+  "mt-6 flex flex-col gap-8 min-[59.375rem]:grid min-[59.375rem]:grid-cols-[386px_332px] min-[59.375rem]:items-start min-[59.375rem]:gap-x-16 min-[70.5rem]:grid-cols-[440px_368px] min-[70.5rem]:gap-x-20 min-[90rem]:grid-cols-[524px_372px]";
+
+/**
+ * The checkout's floor: one line, the privacy and terms pages and nothing
+ * else, so a page about to take a payment has no column of links leading
+ * away from it. Pushed to the bottom of a short page (`mt-auto`). Centred to
+ * 950; from there at the left, 32 in, and 48 in from 1440.
+ */
+function CheckoutFooter() {
+  const t = useTranslations("payment");
+  const link = "underline-offset-2 hover:underline";
+  return (
+    <footer className="mt-auto w-full shrink-0 border-t border-border bg-footer-ground">
+      <div className="mx-auto w-full max-w-[1920px] px-6 py-6 text-center text-sm text-foreground min-[59.375rem]:px-8 min-[59.375rem]:text-left min-[90rem]:px-12">
+        <Link className={link} href="/privacy-policy">
+          {t("footerPrivacy")}
+        </Link>
+        <span aria-hidden className="mx-2">
+          ·
+        </span>
+        <Link className={link} href="/terms">
+          {t("footerTerms")}
+        </Link>
+      </div>
+    </footer>
+  );
+}
+
+/** The page once the booking is in: the phone's steps, or the one page from 744. */
+function CheckoutReady({ booking }: { readonly booking: ApiBooking }) {
+  const t = useTranslations("payment");
+  const c = useTranslations("common");
+  const wide = useWideCheckout();
+  const [coupon, setCoupon] = useState<ApiCouponPreview | null>(null);
+  const payment = useCardPayment(booking.id, coupon?.code);
+
+  if (!wide) {
+    return <CheckoutSteps booking={booking} coupon={coupon} onCoupon={setCoupon} payment={payment} />;
+  }
+
+  return (
+    <>
+      <TopBar />
+      <div className={COLUMN}>
+        {/* The round way back hangs in the margin, centred on the title's
+            line and 24 from it, so the title lines up with both columns under
+            it and the cards start 24 under the title, not under the circle. */}
+        <div className="relative">
+          <Link
+            aria-label={c("back")}
+            className="absolute -top-1 -left-17 flex size-11 items-center justify-center rounded-full bg-muted text-foreground transition-colors hover:bg-accent"
+            href="/search"
+          >
+            {/* The arrow 13 across in a 2px line: lucide's spans 14 of its
+                24, so a 22 box, the line held at 2 whatever the box. */}
+            <ArrowLeft absoluteStrokeWidth aria-hidden className="size-5.5" strokeWidth={2} />
+          </Link>
+          <h1 className="text-3xl leading-9 font-semibold tracking-tight text-foreground">{t("confirmTitle")}</h1>
+        </div>
+
+        <div className={COLUMNS}>
+          <OrderCard booking={booking} className="min-[59.375rem]:col-start-2 min-[59.375rem]:row-start-1" coupon={coupon} onCoupon={setCoupon} />
+          <PayForm className="min-[59.375rem]:col-start-1 min-[59.375rem]:row-start-1" payment={payment} />
+        </div>
+      </div>
+      <CheckoutFooter />
+    </>
+  );
+}
+
+export function LiveCheckoutScreen({ bookingId }: { readonly bookingId: string }) {
   const t = useTranslations("payment");
   const c = useTranslations("common");
   const s = useTranslations("search");
-  const format = useFormatter();
-  const router = useRouter();
-  const [releasing, setReleasing] = useState(false);
-  const [failure, setFailure] = useState<string | null>(null);
+  const wide = useWideCheckout();
 
   const fetcher = useCallback(
     (signal: AbortSignal) => getBooking(bookingId, signal),
@@ -164,158 +237,57 @@ export function LiveCheckoutScreen({
   );
   const booking = useResource<ApiBooking>(`bookings/${bookingId}`, fetcher);
 
-  const onRelease = useCallback(() => {
-    setReleasing(true);
-    setFailure(null);
-    void cancelBooking(bookingId)
-      .then(() => router.push("/bookings"))
-      .catch((cause: unknown) => {
-        setFailure(cause instanceof Error ? cause.message : String(cause));
-        setReleasing(false);
-      });
-  }, [bookingId, router]);
+  // The checkout's own white and hairlines (`.checkout-surface`): on the
+  // frame for what it draws, on <body> while it is mounted for the popups,
+  // which portal out of it.
+  useEffect(() => {
+    document.body.classList.add(SURFACE);
+    return () => document.body.classList.remove(SURFACE);
+  }, []);
 
-  const head = (
-    <>
-      <ScreenTopBar className="lg:hidden" href="/search" label={c("back")} />
-      <div className="hidden w-full lg:block">
-        <TopBar backHref="/search" />
-      </div>
-    </>
-  );
+  // While the booking loads, or if it cannot: the site's bar from 744, the
+  // phone's bar with its way back below it.
+  const head = wide ? <TopBar /> : <ScreenTopBar href="/search" label={c("back")} />;
 
+  let body;
   if (booking.loading) {
-    return (
-      <MobileScreen wide>
-        <ScreenBody>
-          {head}
-          <div className={cn("flex w-full flex-col gap-4 px-6 pt-4", PAGE)}>
-            <div className="h-7 w-2/5 rounded-md bg-muted" />
-            <div className="h-32 w-full rounded-card bg-muted" />
-            <div className="h-24 w-full rounded-card bg-muted" />
-          </div>
-        </ScreenBody>
-      </MobileScreen>
-    );
-  }
-
-  if (booking.error || !booking.data) {
-    return (
-      <MobileScreen wide>
-        <ScreenBody>
-          {head}
-          <div className={cn("w-full px-6 pt-4", PAGE)}>
-            <ApiErrorCard
-              error={booking.error ?? new Error(t("orderSummary"))}
-              extra={
-                <NeutralButton className="w-auto shrink-0" href="/bookings" size="sm">
-                  {t("viewBooking")}
-                </NeutralButton>
-              }
-              onRetry={booking.reload}
-              title={s("loadFailedTitle")}
-            />
-          </div>
-        </ScreenBody>
-      </MobileScreen>
-    );
-  }
-
-  const live = booking.data;
-  const start = new Date(live.startTime);
-  const end = new Date(live.endTime);
-
-  return (
-    <MobileScreen wide>
-      <ScreenBody>
+    body = (
+      <>
         {head}
-
-        <div className={PAGE_HEAD_BAND}>
-          <ScreenHeading
-            className={cn("pt-4 lg:pt-5 lg:pb-9", PAGE)}
-            title={t("orderSummary")}
+        <div className={cn(COLUMN, "flex flex-col gap-6")}>
+          <div className="h-9 w-2/5 rounded-md bg-muted" />
+          <div className="flex flex-col gap-8 min-[59.375rem]:grid min-[59.375rem]:grid-cols-[386px_332px] min-[59.375rem]:gap-x-16 min-[70.5rem]:grid-cols-[440px_368px] min-[70.5rem]:gap-x-20 min-[90rem]:grid-cols-[524px_372px]">
+            <div className="h-60 rounded-[24px] bg-muted" />
+            <div className="h-96 rounded-[24px] bg-muted" />
+          </div>
+        </div>
+      </>
+    );
+  } else if (booking.error || !booking.data) {
+    body = (
+      <>
+        {head}
+        <div className={COLUMN}>
+          <ApiErrorCard
+            error={booking.error ?? new Error(t("orderSummary"))}
+            extra={
+              <NeutralButton className="w-auto shrink-0" href="/bookings" size="sm">
+                {t("viewBooking")}
+              </NeutralButton>
+            }
+            onRetry={booking.reload}
+            title={s("loadFailedTitle")}
           />
         </div>
+      </>
+    );
+  } else {
+    body = <CheckoutReady booking={booking.data} />;
+  }
 
-        <div className={BODY_GRID}>
-          {/* The 380 aside at 1440, above the phone's fields — the same grid the
-              fixture checkout and the invoice both lay out on. */}
-          <div className="flex w-full shrink-0 flex-col items-start px-6 pt-2 lg:col-start-2 lg:row-start-1 lg:px-0 lg:pt-0">
-            <ServiceSummary serviceId={live.serviceId} />
-          </div>
-
-          {/* What is actually held, and its state. This is the column the card
-              fields used to run down. */}
-          <div className="flex w-full flex-col lg:col-start-1 lg:row-span-3 lg:row-start-1 lg:*:px-0">
-            <div className="flex w-full shrink-0 flex-col items-start px-6 pt-4 lg:pt-0">
-              <Surface className="flex w-full flex-col items-start gap-3 p-3.5">
-                <AdvisorRow advisorId={live.advisorId} />
-                <DetailRow
-                  icon={CalendarDays}
-                  label={t("bookingDateLabel")}
-                  value={format.dateTime(start, {
-                    weekday: "short",
-                    day: "numeric",
-                    month: "short",
-                    year: "numeric",
-                  })}
-                />
-                <DetailRow
-                  icon={Clock}
-                  label={t("timeLabel")}
-                  value={`${format.dateTime(start, { hour: "2-digit", minute: "2-digit" })} – ${format.dateTime(end, { hour: "2-digit", minute: "2-digit" })}`}
-                  valueClassName="font-latin tabular-nums"
-                />
-                <DetailRow
-                  icon={Lock}
-                  label={t("bookingLabel")}
-                  value={
-                    <StatusPill tone="warning">
-                      {t("bookingUnconfirmed")}
-                    </StatusPill>
-                  }
-                />
-              </Surface>
-            </div>
-
-            {/* The note the fixture screen puts under its card fields. It is the
-                literal truth of where this flow stops: Omise tokenises the card
-                and the charge happens on confirmation, and neither has been
-                built yet. */}
-            <FootNote icon={Lock}>{t("secureNote")}</FootNote>
-
-            {failure ? (
-              <p className="w-full px-6 pt-2 text-sm font-normal text-destructive lg:px-0">
-                {failure}
-              </p>
-            ) : null}
-          </div>
-
-          <ScreenSpacer className="lg:hidden" />
-          <ScreenActions
-            className="lg:col-start-2 lg:row-start-2 lg:px-0 lg:pt-5 lg:pb-0"
-            stacked
-          >
-            <NeutralButton block className="lg:h-11" href="/bookings">
-              {t("viewBooking")}
-            </NeutralButton>
-            {/* Giving the time back is the other thing that genuinely works, and
-                the API allows it in exactly the two states it allows it in. */}
-            {isCancellable(live.state) ? (
-              <NeutralButton
-                block
-                className="lg:h-11"
-                disabled={releasing}
-                onClick={onRelease}
-              >
-                {c("cancel")}
-              </NeutralButton>
-            ) : null}
-          </ScreenActions>
-        </div>
-
-        <SiteFooter className="hidden lg:flex" />
-      </ScreenBody>
+  return (
+    <MobileScreen className={cn(SURFACE, "pb-0")} wide="tablet">
+      <ScreenBody>{body}</ScreenBody>
     </MobileScreen>
   );
 }

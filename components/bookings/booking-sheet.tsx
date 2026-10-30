@@ -7,13 +7,14 @@ import {
   CircleX,
   Clock3,
   MessageSquare,
+  Video,
   X,
   type LucideIcon,
 } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 import { useFormatter, useTranslations } from "next-intl";
-import { useCallback, useId, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useId, useState, type ReactNode } from "react";
 
 import { DESKTOP_TYPE_LIFT } from "@/components/account/account-shell";
 import { AUTH_LINK } from "@/components/auth/auth-split";
@@ -35,7 +36,7 @@ import { SHEET_W, SHEET_X } from "@/components/payment/invoice-screens";
 import { invoiceHref } from "@/components/payment/transactions-data";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogClose, DialogContent } from "@/components/ui/dialog";
-import { getMyBookingInvoice } from "@/lib/api/resources";
+import { getMyBookingInvoice, openBookingMeeting } from "@/lib/api/resources";
 import type { ApiAdviseeInvoice, ApiBooking, ApiPublicAdvisor, ApiPublicService } from "@/lib/api/types";
 import { useResource } from "@/lib/api/use-resource";
 import { cn } from "@/lib/utils";
@@ -159,7 +160,72 @@ export function useWaysOn(entry: BookingEntry, now: number): { readonly main: Wa
   return { main: rebook, more: [chat] };
 }
 
-/** Read the stored booking/invoice relation, including multi-session invoices. */
+/** How early a booked session's call opens, as the API holds it (`MEETING.opensMinutesBefore`). */
+const CALL_OPENS_MS = 10 * 60_000;
+
+/**
+ * Whether the session's video call can be joined now, and if not yet, when it
+ * can. The API's own rule: a booking in progress always; a booked one from 10
+ * minutes before it starts until it ends; nothing else ever.
+ */
+function callWindow(booking: ApiBooking, at: number): { readonly open: boolean; readonly opensAt: Date | null } {
+  if (booking.state === "IN_PROGRESS") return { open: true, opensAt: null };
+  if (booking.state !== "BOOKED" || at >= Date.parse(booking.endTime)) return { open: false, opensAt: null };
+  const opens = Date.parse(booking.startTime) - CALL_OPENS_MS;
+  return at >= opens ? { open: true, opensAt: null } : { open: false, opensAt: new Date(opens) };
+}
+
+/**
+ * The time now, moved on every 30 seconds while the card is open: the page's
+ * own clock stops when it mounts, and the way into the call has to appear
+ * when its room opens without the reader reloading.
+ */
+function useTicking(from: number): number {
+  const [tick, setTick] = useState(from);
+  useEffect(() => {
+    const id = window.setInterval(() => setTick(Date.now()), 30_000);
+    return () => window.clearInterval(id);
+  }, []);
+  return Math.max(tick, from);
+}
+
+/**
+ * Joining the session's call: the room's address from the API, opened in a
+ * tab of its own. The tab is opened inside the press, blank, and sent to the
+ * room once the API answers; one opened after the answer would be a popup the
+ * browser blocks. It is cut from this page (`opener`) before it goes there.
+ */
+function useJoinCall(bookingId: string) {
+  const t = useTranslations("bookings");
+  const [joining, setJoining] = useState(false);
+  const [problem, setProblem] = useState<string | null>(null);
+  const join = () => {
+    const tab = window.open("", "_blank");
+    setJoining(true);
+    setProblem(null);
+    openBookingMeeting(bookingId)
+      .then(({ url }) => {
+        if (tab) {
+          tab.opener = null;
+          tab.location.href = url;
+        } else {
+          window.location.assign(url);
+        }
+      })
+      .catch(() => {
+        tab?.close();
+        setProblem(t("joinFailed"));
+      })
+      .finally(() => setJoining(false));
+  };
+  return { join, joining, problem };
+}
+
+/**
+ * The invoice that paid for a booking, read by the booking's own id: the API
+ * keeps which invoice covers which booking, so a rescheduled booking and one
+ * of several sessions on a single invoice each find theirs.
+ */
 function useBookingInvoice(booking: ApiBooking): ApiAdviseeInvoice | undefined {
   const fetcher = useCallback(
     (signal: AbortSignal) => getMyBookingInvoice(booking.id, signal),
@@ -340,6 +406,12 @@ export function BookingSheet({
   const clock = useClock();
   const ways = useWaysOn(entry, now);
   const MainIcon = ways.main.icon;
+  const tick = useTicking(now);
+  const call = callWindow(entry.booking, tick);
+  const joinCall = useJoinCall(entry.booking.id);
+  // While the call can be joined, joining it is the way on; what was the way
+  // on (the chat) moves in with the rest.
+  const more = call.open ? [ways.main, ...ways.more.filter((way) => way.href !== ways.main.href)] : ways.more;
   const [panel, setPanel] = useState<"none" | "reschedule" | "cancel">("none");
   // One cancellation at a time; after an answer that may hide a committed
   // cancellation, none again until the booking itself has been read.
@@ -371,11 +443,28 @@ export function BookingSheet({
     >
       <SheetHeader booking={booking} heading={inDialog ? "h2" : "h1"} now={now} service={service} titleId={titleId} />
 
-      <div className={UNDER_TEXT}>
-        <Button className={MAIN_PILL} nativeButton={false} render={<Link href={ways.main.href} />}>
-          {MainIcon ? <MainIcon aria-hidden className="size-4 lg:size-5" /> : null}
-          {ways.main.label}
-        </Button>
+      <div className={cn("flex flex-col items-start gap-2", UNDER_TEXT)}>
+        {call.open ? (
+          <Button className={MAIN_PILL} disabled={joinCall.joining} onClick={joinCall.join} type="button">
+            <Video aria-hidden className="size-4 lg:size-5" />
+            {joinCall.joining ? t("joinOpening") : t("join")}
+          </Button>
+        ) : (
+          <Button className={MAIN_PILL} nativeButton={false} render={<Link href={ways.main.href} />}>
+            {MainIcon ? <MainIcon aria-hidden className="size-4 lg:size-5" /> : null}
+            {ways.main.label}
+          </Button>
+        )}
+        {call.opensAt ? (
+          <p className="text-xs text-muted-foreground lg:text-frame-label">
+            {t("joinOpensAt", { time: clock(call.opensAt) })}
+          </p>
+        ) : null}
+        {joinCall.problem ? (
+          <p className="text-xs text-destructive lg:text-frame-label" role="alert">
+            {joinCall.problem}
+          </p>
+        ) : null}
       </div>
 
       <div className="flex flex-col gap-4 lg:gap-5">
@@ -407,9 +496,9 @@ export function BookingSheet({
         ) : null}
       </div>
 
-      {ways.more.length > 0 || keepable || changeable ? (
+      {more.length > 0 || keepable || changeable ? (
         <div className={cn("flex flex-wrap gap-2 lg:gap-3", UNDER_TEXT)}>
-          {ways.more.map((way) => (
+          {more.map((way) => (
             <Button className={MORE_PILL} key={way.href} nativeButton={false} render={<Link href={way.href} />} variant="ghost">
               {way.label}
             </Button>

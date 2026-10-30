@@ -41,6 +41,21 @@ export interface ApiPublicService {
    * field existed does not send it; read it as empty then.
    */
   readonly images?: readonly string[];
+  /**
+   * The packages the service is sold in, in the order offered, on the detail
+   * route only. Empty (or absent, from an API built before them) means it is
+   * sold as itself, at `priceSatang` for `durationMinutes`.
+   */
+  readonly packages?: readonly ApiServicePackage[];
+}
+
+/** `ServicePackageResponseDto` — advisor-services/dtos/service-package.dto.ts */
+export interface ApiServicePackage {
+  readonly id: string;
+  readonly name: string;
+  readonly description: string | null;
+  readonly durationMinutes: number;
+  readonly priceSatang: number;
 }
 
 /** `PublicServiceQueryDto` — the filters `GET /services` accepts. */
@@ -93,6 +108,8 @@ export interface ApiSlotQuery {
   readonly from: string;
   /** `YYYY-MM-DD` */
   readonly to: string;
+  /** Cuts the slots to this package's length; the service's own without it. */
+  readonly packageId?: string;
 }
 
 /** `ReviewResponseDto` — reviews/dtos */
@@ -190,6 +207,8 @@ export type ApiBookingState =
 export interface ApiBooking {
   readonly id: string;
   readonly serviceId: string;
+  /** The package booked; null (or absent, from an older API) for a service sold as itself. */
+  readonly packageId?: string | null;
   readonly advisorId: string;
   readonly adviseeId: string;
   readonly startTime: string;
@@ -200,6 +219,11 @@ export interface ApiBooking {
   readonly cancelledAt: string | null;
   readonly cancelledByUserId: string | null;
   readonly createdAt: string;
+}
+
+/** `MeetingResponseDto` — bookings/dtos/meeting-response.dto.ts: the session's video call. */
+export interface ApiMeeting {
+  readonly url: string;
 }
 
 /** `OffsetPaginationDto` — the page/limit pair every paginated route accepts. */
@@ -214,6 +238,8 @@ export interface ApiBookingInput {
   readonly serviceId: string;
   /** ISO 8601, and the exact `startTime` of a slot the slots route returned. */
   readonly startTime: string;
+  /** The package to book, when the service is sold in packages; its length sets the end. */
+  readonly packageId?: string;
 }
 
 /* ------------------------------------------------------------- own reviews */
@@ -288,16 +314,35 @@ export interface ApiAdviseeInvoice {
   readonly card: { readonly brand: string; readonly lastDigits: string } | null;
 }
 
+/** `InvoiceDto` — payment/dto/invoice.dto.ts: what a booking's payment charges. */
+export interface ApiInvoice {
+  readonly id: string;
+  readonly createdAt: string;
+  readonly status: ApiInvoiceStatus;
+  readonly amountSatang: number;
+  readonly platformFeeSatang: number;
+}
+
 /**
  * `CheckoutDto` — payment/dto/checkout.dto.ts
  *
  * `cardToken` is an Omise token (`tokn_…`), minted in the browser by Omise's own
- * script against the publishable key. Nothing in this app loads that script, so
- * there is no way to produce this value here yet — see `startCheckout`.
+ * script against the public key (`lib/payment/omise.ts`).
  */
 export interface ApiCheckoutInput {
-  readonly serviceId: string;
-  /** One or more slot starts, ISO 8601. */
-  readonly startTimes: readonly string[];
+  readonly invoiceId: string;
   readonly cardToken: string;
+}
+
+/** `CouponPreviewResponse` — payment/dto/coupon.dto.ts, in satang. */
+export interface ApiCouponPreview {
+  readonly code: string;
+  readonly priceSatang: number;
+  readonly discountSatang: number;
+  readonly amountSatang: number;
+}
+
+/** `CheckoutResponse`: the card's 3-D Secure page, which the browser goes to. */
+export interface ApiCheckoutResult {
+  readonly url: string;
 }
