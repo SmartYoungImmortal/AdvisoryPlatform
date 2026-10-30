@@ -297,7 +297,7 @@ const ART_SIZE: Partial<Record<ArtName, readonly [number, number]>> = {
   office_chair: [482, 760],
   sticky_note: [234, 240],
   bulb_note: [240, 240],
-  answer_idea: [362, 1180],
+  answer_idea: [347, 1136],
   window_linen: [666, 1000],
   white_desk: [756, 600],
   desk_chair: [371, 700],
