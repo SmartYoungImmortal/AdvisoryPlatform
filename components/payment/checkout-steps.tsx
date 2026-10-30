@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { useTranslations } from "next-intl";
 
-import type { ApiBooking, ApiCouponPreview } from "@/lib/api/types";
+import type { ApiBooking, ApiCouponPreview, ApiMobileBank } from "@/lib/api/types";
 import { PrimaryButton } from "@/components/mobile/buttons";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogClose, DialogContent, DialogTitle } from "@/components/ui/dialog";
@@ -28,8 +28,9 @@ import {
   type CardPayment,
   type PayMethod,
 } from "./checkout-parts";
-import { GooglePayButton, type GooglePayment } from "./checkout-googlepay";
-import type { PromptPayment } from "./checkout-promptpay";
+import { GooglePayButton } from "./checkout-googlepay";
+import { methodState, payWith, type Payments } from "./checkout-methods";
+import { BankList, BankMark } from "./checkout-mobile-banking";
 
 /**
  * The checkout on a phone, below 744: not one long page but three steps, one
@@ -183,8 +184,11 @@ function CardSheet({
   );
 }
 
-/** The way to pay as the last step names it: the card's last four, or the method's mark and name. */
-function ChosenMethod({ method, last4 }: { readonly method: PayMethod; readonly last4: string }) {
+/**
+ * The way to pay as the last step names it: the card's last four, the bank
+ * and its app, or the method's mark and name.
+ */
+function ChosenMethod({ method, last4, bank }: { readonly method: PayMethod; readonly last4: string; readonly bank: ApiMobileBank | null }) {
   const t = useTranslations("payment");
   if (method === "card") {
     return (
@@ -195,6 +199,14 @@ function ChosenMethod({ method, last4 }: { readonly method: PayMethod; readonly 
         </p>
         <CardBrands className="pt-0" />
       </>
+    );
+  }
+  if (method === "mobilebanking" && bank) {
+    return (
+      <p className="flex items-center gap-2">
+        <BankMark bank={bank} className="size-6" />
+        <span>{t(`bank.${bank}`)}</span>
+      </p>
     );
   }
   return (
@@ -211,47 +223,43 @@ export function CheckoutSteps({
   onCoupon,
   method,
   onMethodChange,
-  payment,
-  promptPay,
-  googlePay,
+  payments,
+  mobileBankingOffered,
 }: {
   readonly booking: ApiBooking;
   readonly coupon: ApiCouponPreview | null;
   readonly onCoupon: (coupon: ApiCouponPreview | null) => void;
   readonly method: PayMethod;
   readonly onMethodChange: (method: PayMethod) => void;
-  readonly payment: CardPayment;
-  readonly promptPay: PromptPayment;
-  readonly googlePay: GooglePayment;
+  readonly payments: Payments;
+  /** Whether a bank's app is a way to pay here: on a phone or tablet. */
+  readonly mobileBankingOffered: boolean;
 }) {
   const t = useTranslations("payment");
   const c = useTranslations("common");
+  const { payment, googlePay, mobileBanking } = payments;
   const [step, setStep] = useState(0);
   const [cardOpen, setCardOpen] = useState(false);
+  /** Next was pressed on a bank's app with no bank picked. */
+  const [bankMissing, setBankMissing] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
   const titles = [t("reviewTitle"), t("addMethodTitle"), t("confirmTitle")];
   const last4 = payment.card.number.replace(/\D/g, "").slice(-4);
   const byCard = method === "card";
-  let working = promptPay.starting;
-  let problem = promptPay.problem;
-  if (byCard) {
-    working = payment.paying;
-    problem = payment.problem;
-  } else if (method === "googlepay") {
-    working = googlePay.paying;
-    problem = googlePay.problem;
-  }
+  const { working, problem, workingLabel, ready } = methodState(method, payments);
 
   // Each step starts at its top, as a new screen would.
   useEffect(() => {
     rootRef.current?.closest('[data-slot="screen-body"]')?.scrollTo({ top: 0 });
   }, [step]);
 
-  // The card asks for its fields in a sheet before the last step; PromptPay
-  // and Google Pay need nothing more, they ask when they are paid.
+  // The card asks for its fields in a sheet before the last step, and a
+  // bank's app for the bank (listed under its row); PromptPay and Google Pay
+  // need nothing more, they ask when they are paid.
   const onNext = () => {
     if (step === 0) setStep(1);
     else if (byCard) setCardOpen(true);
+    else if (method === "mobilebanking" && !mobileBanking.bank) setBankMissing(true);
     else setStep(2);
   };
 
@@ -286,13 +294,21 @@ export function CheckoutSteps({
         <div className="mt-6">
           {step === 0 ? <OrderSummary booking={booking} coupon={coupon} onCoupon={onCoupon} /> : null}
           {step === 1 ? (
-            <MethodList
-              className="rounded-[12px] border border-border"
-              googlePay={googlePay.available}
-              method={method}
-              onMethodChange={onMethodChange}
-              tall
-            />
+            <>
+              <MethodList
+                className="rounded-[12px] border border-border"
+                googlePay={googlePay.available}
+                method={method}
+                mobileBanking={mobileBankingOffered ? <BankList mobileBanking={mobileBanking} /> : null}
+                onMethodChange={onMethodChange}
+                tall
+              />
+              {bankMissing && method === "mobilebanking" && !mobileBanking.bank ? (
+                <p className="mt-3 text-sm text-destructive" role="alert">
+                  {t("bankRequired")}
+                </p>
+              ) : null}
+            </>
           ) : null}
           {step === 2 ? (
             <>
@@ -313,7 +329,7 @@ export function CheckoutSteps({
                     }
                     label={t("methodTitle")}
                   >
-                    <ChosenMethod last4={last4} method={method} />
+                    <ChosenMethod bank={mobileBanking.bank} last4={last4} method={method} />
                   </OrderSection>
                 }
                 onCoupon={onCoupon}
@@ -355,11 +371,11 @@ export function CheckoutSteps({
             <PrimaryButton
               block
               className="h-10 rounded-[12px] text-sm font-medium lg:h-10"
-              disabled={!payment.configured || working || (byCard && !payment.ready)}
-              onClick={byCard ? payment.pay : promptPay.start}
+              disabled={!payment.configured || working || !ready}
+              onClick={payWith(method, payments)}
               type="button"
             >
-              {working ? t("payWorking") : t("confirmTitle")}
+              {working ? t(workingLabel) : t("confirmTitle")}
             </PrimaryButton>
           )}
         </div>

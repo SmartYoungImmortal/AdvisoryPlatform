@@ -23,11 +23,12 @@ import {
   TermsNote,
   useCardPayment,
   useOrder,
-  type CardPayment,
   type PayMethod,
 } from "./checkout-parts";
-import { GooglePayButton, useGooglePay, type GooglePayment } from "./checkout-googlepay";
-import { PromptPayDialog, usePromptPay, type PromptPayment } from "./checkout-promptpay";
+import { GooglePayButton, useGooglePay } from "./checkout-googlepay";
+import { methodState, payWith, type Payments } from "./checkout-methods";
+import { BankList, useMobileBanking, useOnPhone } from "./checkout-mobile-banking";
+import { PromptPayDialog, usePromptPay } from "./checkout-promptpay";
 import { CheckoutSteps } from "./checkout-steps";
 
 /**
@@ -65,9 +66,9 @@ import { CheckoutSteps } from "./checkout-steps";
  *    with the invoice's id.
  *
  * When the API has no public key, card payments are not set up and the button
- * stays off. PromptPay pays by a QR code (`checkout-promptpay.tsx`); Google
- * Pay is a card chosen in Google's sheet, charged as above
- * (`checkout-googlepay.tsx`).
+ * stays off. PromptPay pays by a QR code (`checkout-promptpay.tsx`); a bank's
+ * app by the page that opens it (`checkout-mobile-banking.tsx`); Google Pay is
+ * a card chosen in Google's sheet, charged as above (`checkout-googlepay.tsx`).
  */
 
 /** The width the page stops being the phone's steps: 744 (46.5rem). */
@@ -111,41 +112,33 @@ function OrderCard({
   );
 }
 
-/** What the chosen way to pay is doing and what went wrong with it, whichever it is. */
-function methodState(method: PayMethod, payment: CardPayment, promptPay: PromptPayment, googlePay: GooglePayment) {
-  if (method === "card") return { working: payment.paying, problem: payment.problem };
-  if (method === "googlepay") return { working: googlePay.paying, problem: googlePay.problem };
-  return { working: promptPay.starting, problem: promptPay.problem };
-}
-
 /**
- * The ways to pay, the card's fields under its row while the card is chosen,
- * and the button that pays: the card through 3-D Secure, PromptPay by the QR
- * code it opens, or Google's own button for Google Pay.
+ * The ways to pay, the card's fields or the banks under their row while it
+ * is chosen, and the button that pays: the card through 3-D Secure, PromptPay
+ * by the QR code it opens, the bank's app, or Google's own button for Google
+ * Pay.
  */
 function PayForm({
   method,
   onMethodChange,
-  payment,
-  promptPay,
-  googlePay,
+  payments,
+  mobileBankingOffered,
   className,
 }: {
   readonly method: PayMethod;
   readonly onMethodChange: (method: PayMethod) => void;
-  readonly payment: CardPayment;
-  readonly promptPay: PromptPayment;
-  readonly googlePay: GooglePayment;
+  readonly payments: Payments;
+  /** Whether a bank's app is a way to pay here: on a phone or tablet. */
+  readonly mobileBankingOffered: boolean;
   readonly className?: string;
 }) {
   const t = useTranslations("payment");
-  const byCard = method === "card";
+  const { payment, googlePay, mobileBanking } = payments;
   const onSubmit = (event: FormEvent) => {
     event.preventDefault();
-    if (byCard) payment.pay();
-    else if (method === "promptpay") promptPay.start();
+    if (method !== "googlepay") payWith(method, payments)();
   };
-  const { working, problem } = methodState(method, payment, promptPay, googlePay);
+  const { working, problem, workingLabel, ready } = methodState(method, payments);
 
   return (
     <form className={cn("flex w-full flex-col", className)} noValidate onSubmit={onSubmit}>
@@ -155,6 +148,7 @@ function PayForm({
         googlePay={googlePay.available}
         heading={t("methodTitle")}
         method={method}
+        mobileBanking={mobileBankingOffered ? <BankList mobileBanking={mobileBanking} /> : null}
         onMethodChange={onMethodChange}
       />
 
@@ -166,10 +160,10 @@ function PayForm({
         <PrimaryButton
           block
           className="mt-3 h-12 rounded-[12px] text-base font-medium lg:h-12"
-          disabled={!payment.configured || working || (byCard && !payment.ready)}
+          disabled={!payment.configured || working || !ready}
           type="submit"
         >
-          {working ? t("payWorking") : t("confirmTitle")}
+          {working ? t(workingLabel) : t("confirmTitle")}
         </PrimaryButton>
       )}
       {problem ? (
@@ -236,6 +230,10 @@ function CheckoutReady({ booking }: { readonly booking: ApiBooking }) {
   // coupon's, or the price as booked.
   const order = useOrder(booking);
   const googlePay = useGooglePay(booking.id, coupon?.code, coupon ? coupon.amountSatang : order.priceSatang);
+  const mobileBanking = useMobileBanking(booking.id, coupon?.code);
+  const payments: Payments = { payment, promptPay, googlePay, mobileBanking };
+  // A bank's app is on a phone or tablet, so only there is it a way to pay.
+  const onPhone = useOnPhone();
 
   if (!wide) {
     return (
@@ -243,12 +241,11 @@ function CheckoutReady({ booking }: { readonly booking: ApiBooking }) {
         <CheckoutSteps
           booking={booking}
           coupon={coupon}
-          googlePay={googlePay}
           method={method}
+          mobileBankingOffered={onPhone}
           onCoupon={setCoupon}
           onMethodChange={setMethod}
-          payment={payment}
-          promptPay={promptPay}
+          payments={payments}
         />
         <PromptPayDialog promptPay={promptPay} />
       </>
@@ -279,11 +276,10 @@ function CheckoutReady({ booking }: { readonly booking: ApiBooking }) {
           <OrderCard booking={booking} className="min-[59.375rem]:col-start-2 min-[59.375rem]:row-start-1" coupon={coupon} onCoupon={setCoupon} />
           <PayForm
             className="min-[59.375rem]:col-start-1 min-[59.375rem]:row-start-1"
-            googlePay={googlePay}
             method={method}
+            mobileBankingOffered={onPhone}
             onMethodChange={setMethod}
-            payment={payment}
-            promptPay={promptPay}
+            payments={payments}
           />
         </div>
       </div>

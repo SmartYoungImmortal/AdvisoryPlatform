@@ -362,3 +362,14 @@ export interface ApiPromptPayStatus {
   readonly status: "pending" | "success" | "failed";
   readonly url: string | null;
 }
+
+/** The Thai banks whose app pays an invoice (`MOBILE_BANKS` in the API's payment providers). */
+export type ApiMobileBank = "scb" | "kbank" | "ktb" | "bbl" | "bay";
+
+/** `MobileBankingDto` — `POST /payment/mobile-banking` */
+export interface ApiMobileBankingInput {
+  readonly invoiceId: string;
+  readonly bank: ApiMobileBank;
+  /** The phone the app is on, when the browser can tell. */
+  readonly platform?: "IOS" | "ANDROID";
+}

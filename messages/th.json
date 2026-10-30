@@ -2152,6 +2152,17 @@
     "methodGooglePay": "Google Pay",
     "methodSoon": "เร็วๆ นี้",
     "googlePayUnavailable": "ใช้ไม่ได้ในเบราว์เซอร์นี้",
+    "methodMobileBanking": "แอปธนาคาร",
+    "mobileBankingWorking": "กำลังเปิดแอปธนาคาร…",
+    "bankTitle": "เลือกธนาคาร",
+    "bankRequired": "เลือกธนาคารที่จะจ่ายก่อน",
+    "bank": {
+      "kbank": "กสิกรไทย",
+      "scb": "ไทยพาณิชย์",
+      "ktb": "กรุงไทย",
+      "bbl": "กรุงเทพ",
+      "bay": "กรุงศรีอยุธยา"
+    },
     "promptPayTitle": "สแกนเพื่อชำระเงิน",
     "promptPayQrAlt": "QR พร้อมเพย์สำหรับชำระเงิน",
     "promptPayExpiresIn": "QR หมดอายุใน",

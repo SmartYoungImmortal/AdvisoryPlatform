@@ -1446,6 +1446,17 @@
     "methodGooglePay": "Google Pay",
     "methodSoon": "Coming soon",
     "googlePayUnavailable": "Not available in this browser",
+    "methodMobileBanking": "Banking app",
+    "mobileBankingWorking": "Opening your bank's app…",
+    "bankTitle": "Choose your bank",
+    "bankRequired": "Choose the bank you will pay with first",
+    "bank": {
+      "kbank": "Kasikornbank",
+      "scb": "Siam Commercial Bank",
+      "ktb": "Krungthai Bank",
+      "bbl": "Bangkok Bank",
+      "bay": "Krungsri"
+    },
     "promptPayTitle": "Scan to pay",
     "promptPayQrAlt": "PromptPay QR code for this payment",
     "promptPayExpiresIn": "This QR code expires in",
