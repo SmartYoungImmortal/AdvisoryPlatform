@@ -346,3 +346,16 @@ export interface ApiCouponPreview {
 export interface ApiCheckoutResult {
   readonly url: string;
 }
+
+/** `PromptPayResponse`: the QR code to scan, what it charges, and when it expires. */
+export interface ApiPromptPay {
+  readonly qrImageUrl: string;
+  readonly amountSatang: number;
+  readonly expiresAt: string;
+}
+
+/** `PromptPayStatusResponse`: `url` is null until the code's outcome is known. */
+export interface ApiPromptPayStatus {
+  readonly status: "pending" | "success" | "failed";
+  readonly url: string | null;
+}

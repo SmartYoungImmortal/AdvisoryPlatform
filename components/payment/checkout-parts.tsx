@@ -364,18 +364,30 @@ function MethodRow({
   );
 }
 
+/** The two ways to pay the API takes. */
+export type PayMethod = "promptpay" | "card";
+
+/** PromptPay's mark, the company's own, in a 32 slot. */
+export function PromptPayMark() {
+  return <BrandMark className="w-8" height={216} src="/icons/promptpay.png" width={643} />;
+}
+
 /**
- * The ways to pay as one card of rows: PromptPay, the card, Google Pay, the
- * card the one open now (the API charges cards only). `fields` go under the
- * card's row, as the desktop draws them; the phone asks for them in a sheet
- * of their own and passes none.
+ * The ways to pay as one card of rows: PromptPay, the card, Google Pay; the
+ * first two open, Google Pay still to come. `fields` go under the card's row
+ * while the card is chosen, as the desktop draws them; the phone asks for them
+ * in a sheet of their own and passes none.
  */
 export function MethodList({
+  method,
+  onMethodChange,
   fields,
   heading,
   tall = false,
   className,
 }: {
+  readonly method: PayMethod;
+  readonly onMethodChange: (method: PayMethod) => void;
   readonly fields?: ReactNode;
   /** The card's own heading, over its rows; the phone's page title says it instead. */
   readonly heading?: string;
@@ -390,16 +402,13 @@ export function MethodList({
           {heading}
         </h2>
       ) : null}
-      <RadioGroup aria-label={t("methodTitle")} className={cn("flex flex-col", tall ? "px-4" : "px-6")} defaultValue="card">
-        <MethodRow
-          disabled
-          first
-          label={t("methodPromptPay")}
-          mark={<BrandMark className="w-8" height={216} src="/icons/promptpay.png" width={643} />}
-          note={t("methodSoon")}
-          tall={tall}
-          value="promptpay"
-        />
+      <RadioGroup
+        aria-label={t("methodTitle")}
+        className={cn("flex flex-col", tall ? "px-4" : "px-6")}
+        onValueChange={(value) => onMethodChange(value as PayMethod)}
+        value={method}
+      >
+        <MethodRow first label={t("methodPromptPay")} mark={<PromptPayMark />} tall={tall} value="promptpay" />
         <MethodRow
           detail={<CardBrands />}
           label={t("methodCard")}
@@ -407,7 +416,7 @@ export function MethodList({
           tall={tall}
           value="card"
         >
-          {fields}
+          {method === "card" ? fields : null}
         </MethodRow>
         <MethodRow
           disabled

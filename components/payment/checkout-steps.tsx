@@ -20,11 +20,14 @@ import {
   OrderSection,
   POPUP_OVERLAY,
   PriceBreakdown,
+  PromptPayMark,
   TermsNote,
   useOrder,
   useTotal,
   type CardPayment,
+  type PayMethod,
 } from "./checkout-parts";
+import type { PromptPayment } from "./checkout-promptpay";
 
 /**
  * The checkout on a phone, below 744: not one long page but three steps, one
@@ -182,12 +185,18 @@ export function CheckoutSteps({
   booking,
   coupon,
   onCoupon,
+  method,
+  onMethodChange,
   payment,
+  promptPay,
 }: {
   readonly booking: ApiBooking;
   readonly coupon: ApiCouponPreview | null;
   readonly onCoupon: (coupon: ApiCouponPreview | null) => void;
+  readonly method: PayMethod;
+  readonly onMethodChange: (method: PayMethod) => void;
   readonly payment: CardPayment;
+  readonly promptPay: PromptPayment;
 }) {
   const t = useTranslations("payment");
   const c = useTranslations("common");
@@ -196,15 +205,21 @@ export function CheckoutSteps({
   const rootRef = useRef<HTMLDivElement>(null);
   const titles = [t("reviewTitle"), t("addMethodTitle"), t("confirmTitle")];
   const last4 = payment.card.number.replace(/\D/g, "").slice(-4);
+  const byCard = method === "card";
+  const working = byCard ? payment.paying : promptPay.starting;
+  const problem = byCard ? payment.problem : promptPay.problem;
 
   // Each step starts at its top, as a new screen would.
   useEffect(() => {
     rootRef.current?.closest('[data-slot="screen-body"]')?.scrollTo({ top: 0 });
   }, [step]);
 
+  // The card asks for its fields in a sheet before the last step; PromptPay
+  // needs nothing more, its code comes when it is paid.
   const onNext = () => {
     if (step === 0) setStep(1);
-    else if (step === 1) setCardOpen(true);
+    else if (byCard) setCardOpen(true);
+    else setStep(2);
   };
 
   return (
@@ -237,7 +252,9 @@ export function CheckoutSteps({
 
         <div className="mt-6">
           {step === 0 ? <OrderSummary booking={booking} coupon={coupon} onCoupon={onCoupon} /> : null}
-          {step === 1 ? <MethodList className="rounded-[12px] border border-border" tall /> : null}
+          {step === 1 ? (
+            <MethodList className="rounded-[12px] border border-border" method={method} onMethodChange={onMethodChange} tall />
+          ) : null}
           {step === 2 ? (
             <>
               <OrderSummary
@@ -248,7 +265,7 @@ export function CheckoutSteps({
                     aside={
                       <Button
                         className="h-8 rounded-lg bg-muted px-4 text-xs font-medium text-foreground hover:bg-accent"
-                        onClick={() => setCardOpen(true)}
+                        onClick={() => (byCard ? setCardOpen(true) : setStep(1))}
                         type="button"
                         variant="ghost"
                       >
@@ -257,19 +274,28 @@ export function CheckoutSteps({
                     }
                     label={t("methodTitle")}
                   >
-                    <p className="flex items-center gap-2">
-                      <CreditCard aria-hidden className="size-5 shrink-0" strokeWidth={1.5} />
-                      <span>{t("cardEnding", { last4 })}</span>
-                    </p>
-                    <CardBrands className="pt-0" />
+                    {byCard ? (
+                      <>
+                        <p className="flex items-center gap-2">
+                          <CreditCard aria-hidden className="size-5 shrink-0" strokeWidth={1.5} />
+                          <span>{t("cardEnding", { last4 })}</span>
+                        </p>
+                        <CardBrands className="pt-0" />
+                      </>
+                    ) : (
+                      <p className="flex items-center gap-2">
+                        <PromptPayMark />
+                        <span>{t("methodPromptPay")}</span>
+                      </p>
+                    )}
                   </OrderSection>
                 }
                 onCoupon={onCoupon}
               />
               <TermsNote className="mt-4" />
-              {payment.problem ? (
+              {problem ? (
                 <p className="mt-3 text-sm text-destructive" role="alert">
-                  {payment.problem}
+                  {problem}
                 </p>
               ) : null}
             </>
@@ -301,11 +327,11 @@ export function CheckoutSteps({
             <PrimaryButton
               block
               className="h-10 rounded-[12px] text-sm font-medium lg:h-10"
-              disabled={!payment.configured || payment.paying || !payment.ready}
-              onClick={payment.pay}
+              disabled={!payment.configured || working || (byCard && !payment.ready)}
+              onClick={byCard ? payment.pay : promptPay.start}
               type="button"
             >
-              {payment.paying ? t("payWorking") : t("confirmTitle")}
+              {working ? t("payWorking") : t("confirmTitle")}
             </PrimaryButton>
           )}
         </div>

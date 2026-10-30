@@ -28,6 +28,8 @@ import type {
   ApiCheckoutInput,
   ApiCheckoutResult,
   ApiCouponPreview,
+  ApiPromptPay,
+  ApiPromptPayStatus,
   ApiInvoice,
   ApiMeeting,
   ApiNamedRecord,
@@ -449,6 +451,25 @@ export function startCheckout(
   signal?: AbortSignal,
 ): Promise<ApiCheckoutResult> {
   return api.post("payment/checkout", { body: input, signal });
+}
+
+/**
+ * `POST /payment/promptpay` — charge the invoice by a PromptPay QR code. The
+ * answer is the code's image (an SVG the provider serves to anyone), the
+ * amount it charges and when it expires (15 minutes on). Asking again makes a
+ * new code; an invoice no longer waiting for payment answers 400.
+ */
+export function payByPromptPay(invoiceId: string, signal?: AbortSignal): Promise<ApiPromptPay> {
+  return api.post("payment/promptpay", { body: { invoiceId }, signal });
+}
+
+/**
+ * `GET /payment/invoice/:id/promptpay-status` — whether the code was paid.
+ * The first answer that is not `pending` records the outcome and books the
+ * bookings, and `url` is the page checkout goes to.
+ */
+export function getPromptPayStatus(invoiceId: string, signal?: AbortSignal): Promise<ApiPromptPayStatus> {
+  return api.get(`payment/invoice/${invoiceId}/promptpay-status`, { signal });
 }
 
 /** `GET /health` — unprefixed by nothing: it is `/api/v1/health` like the rest. */

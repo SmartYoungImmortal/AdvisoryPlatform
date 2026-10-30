@@ -24,7 +24,9 @@ import {
   useCardPayment,
   useOrder,
   type CardPayment,
+  type PayMethod,
 } from "./checkout-parts";
+import { PromptPayDialog, usePromptPay, type PromptPayment } from "./checkout-promptpay";
 import { CheckoutSteps } from "./checkout-steps";
 
 /**
@@ -107,13 +109,33 @@ function OrderCard({
   );
 }
 
-/** The ways to pay, the card's fields under its row, and the button that pays. */
-function PayForm({ payment, className }: { readonly payment: CardPayment; readonly className?: string }) {
+/**
+ * The ways to pay, the card's fields under its row while the card is chosen,
+ * and the button that pays: the card through 3-D Secure, or PromptPay by the
+ * QR code it opens.
+ */
+function PayForm({
+  method,
+  onMethodChange,
+  payment,
+  promptPay,
+  className,
+}: {
+  readonly method: PayMethod;
+  readonly onMethodChange: (method: PayMethod) => void;
+  readonly payment: CardPayment;
+  readonly promptPay: PromptPayment;
+  readonly className?: string;
+}) {
   const t = useTranslations("payment");
+  const byCard = method === "card";
   const onSubmit = (event: FormEvent) => {
     event.preventDefault();
-    payment.pay();
+    if (byCard) payment.pay();
+    else promptPay.start();
   };
+  const working = byCard ? payment.paying : promptPay.starting;
+  const problem = byCard ? payment.problem : promptPay.problem;
 
   return (
     <form className={cn("flex w-full flex-col", className)} noValidate onSubmit={onSubmit}>
@@ -121,6 +143,8 @@ function PayForm({ payment, className }: { readonly payment: CardPayment; readon
         className="w-full rounded-[24px] border border-border pb-1"
         fields={<CardFields className="pb-4" payment={payment} />}
         heading={t("methodTitle")}
+        method={method}
+        onMethodChange={onMethodChange}
       />
 
       <TermsNote className="mt-3.5" />
@@ -128,14 +152,14 @@ function PayForm({ payment, className }: { readonly payment: CardPayment; readon
       <PrimaryButton
         block
         className="mt-3 h-12 rounded-[12px] text-base font-medium lg:h-12"
-        disabled={!payment.configured || payment.paying || !payment.ready}
+        disabled={!payment.configured || working || (byCard && !payment.ready)}
         type="submit"
       >
-        {payment.paying ? t("payWorking") : t("confirmTitle")}
+        {working ? t("payWorking") : t("confirmTitle")}
       </PrimaryButton>
-      {payment.problem ? (
+      {problem ? (
         <p className="mt-2 text-sm text-destructive" role="alert">
-          {payment.problem}
+          {problem}
         </p>
       ) : null}
     </form>
@@ -189,35 +213,62 @@ function CheckoutReady({ booking }: { readonly booking: ApiBooking }) {
   const c = useTranslations("common");
   const wide = useWideCheckout();
   const [coupon, setCoupon] = useState<ApiCouponPreview | null>(null);
+  // PromptPay first, as it is the way most here pay.
+  const [method, setMethod] = useState<PayMethod>("promptpay");
   const payment = useCardPayment(booking.id, coupon?.code);
+  const promptPay = usePromptPay(booking.id, coupon?.code);
 
   if (!wide) {
-    return <CheckoutSteps booking={booking} coupon={coupon} onCoupon={setCoupon} payment={payment} />;
+    return (
+      <>
+        <CheckoutSteps
+          booking={booking}
+          coupon={coupon}
+          method={method}
+          onCoupon={setCoupon}
+          onMethodChange={setMethod}
+          payment={payment}
+          promptPay={promptPay}
+        />
+        <PromptPayDialog promptPay={promptPay} />
+      </>
+    );
   }
 
   return (
     <>
+      <PromptPayDialog promptPay={promptPay} />
       <TopBar />
-      <div className={COLUMN}>
+      <div className={cn(COLUMN, "relative")}>
         {/* The round way back hangs in the margin, centred on the title's
             line and 24 from it, so the title lines up with both columns under
-            it and the cards start 24 under the title, not under the circle. */}
-        <div className="relative">
+            it and the cards start 24 under the title, not under the circle.
+            It rides a rail the column's height and sticks to the top of the
+            screen exactly where it starts, under the bar (80 high to 768, 88
+            from there, and 88 zoomed by `doc-scale` from 1024) plus the 28 to
+            the title's line, so scrolling never moves it. */}
+        <div className="pointer-events-none absolute top-7 bottom-20 -left-17">
           <Link
             aria-label={c("back")}
-            className="absolute -top-1 -left-17 flex size-11 items-center justify-center rounded-full bg-muted text-foreground transition-colors hover:bg-accent"
+            className="pointer-events-auto sticky top-27 flex size-11 items-center justify-center rounded-full bg-muted text-foreground transition-colors hover:bg-accent md:top-29 lg:top-[calc(88px*clamp(0.75,tan(atan2(100vw,1710px)),1)+28px)]"
             href="/search"
           >
             {/* The arrow 13 across in a 2px line: lucide's spans 14 of its
                 24, so a 22 box, the line held at 2 whatever the box. */}
             <ArrowLeft absoluteStrokeWidth aria-hidden className="size-5.5" strokeWidth={2} />
           </Link>
-          <h1 className="text-3xl leading-9 font-semibold tracking-tight text-foreground">{t("confirmTitle")}</h1>
         </div>
+        <h1 className="text-3xl leading-9 font-semibold tracking-tight text-foreground">{t("confirmTitle")}</h1>
 
         <div className={COLUMNS}>
           <OrderCard booking={booking} className="min-[59.375rem]:col-start-2 min-[59.375rem]:row-start-1" coupon={coupon} onCoupon={setCoupon} />
-          <PayForm className="min-[59.375rem]:col-start-1 min-[59.375rem]:row-start-1" payment={payment} />
+          <PayForm
+            className="min-[59.375rem]:col-start-1 min-[59.375rem]:row-start-1"
+            method={method}
+            onMethodChange={setMethod}
+            payment={payment}
+            promptPay={promptPay}
+          />
         </div>
       </div>
       <CheckoutFooter />
