@@ -377,21 +377,21 @@ function StreetScene() {
     <Scene id="s2" labelledBy="story-s2" staged>
       <Lines accent={1} id="story-s2" lines={[t("s2L1"), t("s2L2")]} />
       <Stage className="h-96">
-        <Part kind="rise" name="building" spot="bottom-0 left-0 lg:bottom-[100px] lg:left-[200px]">
+        <Part kind="rise" name="building" spot="bottom-0 left-0 lg:bottom-[100px] lg:left-[190px]">
           <Art className="h-56 opacity-90 lg:h-[600px]" name="building_office" />
         </Part>
-        <Part kind="rise" name="building" spot="right-0 bottom-0 lg:right-auto lg:bottom-[100px] lg:left-[1210px]">
+        <Part kind="rise" name="building" spot="right-0 bottom-0 lg:right-auto lg:bottom-[100px] lg:left-[1225px]">
           <Art className="h-48 opacity-90 lg:h-[520px]" name="building_condo" />
         </Part>
-        <Part kind="rise" name="building" spot="inset-x-0 bottom-0 flex justify-center lg:inset-x-auto lg:bottom-[100px] lg:left-[600px]">
-          <Art className="h-28 opacity-90 lg:h-[320px]" name="building_shophouse" />
+        <Part kind="rise" name="building" spot="inset-x-0 bottom-0 flex justify-center lg:inset-x-auto lg:bottom-[100px] lg:left-[518px]">
+          <Art className="h-28 opacity-90 lg:h-[300px]" name="building_shophouse" />
         </Part>
-        <Part kind="left" name="ask" spot="bottom-0 left-[16%] lg:bottom-[90px] lg:left-[700px]">
+        <Part kind="left" name="ask" spot="bottom-0 left-[16%] lg:bottom-[90px] lg:left-[650px]">
           <Bob>
             <Art className="h-48 lg:h-[520px]" name="ask_walk" />
           </Bob>
         </Part>
-        <Part kind="right" name="answer" spot="right-[16%] bottom-0 lg:right-auto lg:bottom-[90px] lg:left-[860px]">
+        <Part kind="right" name="answer" spot="right-[16%] bottom-0 lg:right-auto lg:bottom-[90px] lg:left-[890px]">
           <Bob>
             <Art className="h-48 lg:h-[540px]" name="answer_walk" />
           </Bob>
