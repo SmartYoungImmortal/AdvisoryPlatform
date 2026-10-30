@@ -60,7 +60,7 @@ export function ChapterCost({
   }
 
   return (
-    <section className="w-full shrink-0 py-16 lg:pt-28 lg:pb-24" data-slot="home-cost">
+    <section className="w-full shrink-0 scroll-mt-24 py-16 lg:pt-28 lg:pb-24" data-slot="home-cost" id="pricing">
       <div className="flex flex-col gap-14 lg:gap-24">
         <div className={cn(FRAME, "grid gap-10 lg:grid-cols-12 lg:items-start lg:gap-6")}>
           <div className="flex flex-col gap-4 lg:col-span-5 lg:gap-6">

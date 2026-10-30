@@ -233,8 +233,12 @@ export interface IdentityVerification {
   readonly displayName: string;
   readonly email: string;
   readonly verificationStatus: IdentityStatus;
-  /** SeaweedFS object key. Not a URL, and nothing presigns it for an admin. */
-  readonly documentObjectKey: string | null;
+  /**
+   * No longer on the response: the API keeps the storage key to itself and
+   * hands an admin a short-lived URL instead (`getIdentityDocumentUrl`).
+   * Optional so an older API that still sends it keeps working.
+   */
+  readonly documentObjectKey?: string | null;
   readonly rejectionReason: string | null;
   readonly submittedAt: string | null;
   readonly verifiedAt: string | null;
@@ -288,12 +292,29 @@ export function rejectIdentityVerification(
 
 /**
  * A document key the console can open as it is: a URL, or a demo specimen the
- * console serves itself from `public/demo-docs/`. Real uploads store a SeaweedFS
- * key no admin route presigns, so those return `null` and the page names the
- * file instead.
+ * console serves itself from `public/demo-docs/`. Anything else returns `null`
+ * and the page asks for a short-lived URL instead, or names the file.
  */
 export function documentUrl(key: string | null | undefined): string | null {
   return key && (/^https?:\/\//.test(key) || key.startsWith("/demo-docs/")) ? key : null;
+}
+
+/** `DownloadUrlResponseDto` — a presigned URL for one stored document. */
+export interface DocumentDownloadUrl {
+  readonly url: string;
+  readonly expiresInSeconds: number;
+}
+
+/**
+ * `GET /admin/identity-verifications/:advisorId/document-url` — the applicant's
+ * ID card, signed for a few minutes. 503 "File storage is unavailable" when the
+ * object store cannot be reached.
+ */
+export function getIdentityDocumentUrl(
+  advisorId: string,
+  signal?: AbortSignal,
+): Promise<DocumentDownloadUrl> {
+  return api.get(`admin/identity-verifications/${advisorId}/document-url`, { signal });
 }
 
 /* ------------------------------------------------------------- skill proofs */
@@ -305,8 +326,11 @@ export interface SkillProof {
   readonly advisorDisplayName: string;
   readonly skillId: string;
   readonly skillName: string;
-  /** SeaweedFS object key, never null — and never a URL. */
-  readonly objectKey: string;
+  /**
+   * No longer on the response (see `getSkillProofDocumentUrl`); optional so an
+   * older API that still sends it keeps working.
+   */
+  readonly objectKey?: string;
   readonly originalFileName: string;
   readonly reviewStatus: SkillProofReviewStatus;
   readonly rejectionReason: string | null;
@@ -334,6 +358,14 @@ export function getSkillProof(
   signal?: AbortSignal,
 ): Promise<SkillProof> {
   return api.get(`admin/skill-proofs/${proofId}`, { signal });
+}
+
+/** `GET /admin/skill-proofs/:proofId/document-url` — the document, signed for a few minutes. */
+export function getSkillProofDocumentUrl(
+  proofId: string,
+  signal?: AbortSignal,
+): Promise<DocumentDownloadUrl> {
+  return api.get(`admin/skill-proofs/${proofId}/document-url`, { signal });
 }
 
 /** `POST .../:proofId/approve` — no body. 409 when already reviewed. */

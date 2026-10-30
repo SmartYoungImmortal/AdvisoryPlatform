@@ -17,15 +17,15 @@ import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
 
 /**
- * Nexus's form atoms (`CmsShortText`, `CmsLongText`, `CmsSelect`) on the shadcn
- * primitives. The look is Nuxt UI's md input: 6px radius, an inset `accented`
- * ring that thickens to the primary on focus, `px-2.5 py-1.5`, dimmed
- * placeholder and leading icon.
+ * The console's form controls on the shadcn primitives, drawn as the site's
+ * sign-in field is (`Field outline`): a white box on a grey hairline with 14px
+ * corners, the focus ring the rest of the site shows, 40 tall at 1440 and 44
+ * on a phone, where the type is 16px so iOS does not zoom into the field.
  */
 const controlClass =
-  "h-8 rounded-md border-0 bg-card px-2.5 py-1.5 text-sm text-highlighted shadow-none ring-1 ring-accented ring-inset placeholder:text-dimmed focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-inset aria-invalid:ring-destructive disabled:cursor-not-allowed disabled:opacity-75";
+  "h-11 rounded-xl border border-accented bg-card px-3.5 py-2 text-base text-foreground shadow-none placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 aria-invalid:border-destructive aria-invalid:ring-3 aria-invalid:ring-destructive/20 disabled:cursor-not-allowed disabled:opacity-60 md:h-10 md:text-sm";
 
-/** Nuxt UI's `UFormField`: label row, 4px gap, control, then error or help. */
+/** A field: its label (a muted 14px line, as on the sign-in page), the control, then the error or a help line. */
 export function CmsFormField({
   label,
   htmlFor,
@@ -48,13 +48,13 @@ export function CmsFormField({
   readonly children: ReactNode;
 }) {
   return (
-    <div className={cn("text-sm", className)}>
+    <div className={cn("flex flex-col gap-1.5 text-sm", className)}>
       {label !== undefined || hint !== undefined ? (
         <div className="flex items-center justify-between gap-2">
           {label !== undefined ? (
             <label
               className={cn(
-                "block font-medium text-foreground",
+                "block font-medium text-muted-foreground",
                 required && "after:ms-0.5 after:text-destructive after:content-['*']",
               )}
               htmlFor={htmlFor}
@@ -62,21 +62,17 @@ export function CmsFormField({
               {label}
             </label>
           ) : null}
-          {hint !== undefined ? <span className="text-dimmed">{hint}</span> : null}
+          {hint !== undefined ? <span className="text-muted-foreground">{hint}</span> : null}
         </div>
       ) : null}
-      {description !== undefined ? (
-        <p className="text-muted-foreground">{description}</p>
-      ) : null}
-      <div className={cn("relative", (label !== undefined || description !== undefined) && "mt-1")}>
-        {children}
-      </div>
+      {description !== undefined ? <p className="text-muted-foreground">{description}</p> : null}
+      <div className="relative">{children}</div>
       {error ? (
-        <p className="mt-2 text-destructive" role="alert">
+        <p className="text-destructive" role="alert">
           {error}
         </p>
       ) : help !== undefined ? (
-        <p className="mt-2 text-muted-foreground">{help}</p>
+        <p className="text-muted-foreground">{help}</p>
       ) : null}
     </div>
   );
@@ -87,26 +83,29 @@ export function CmsInput({
   trailing,
   invalid = false,
   className,
+  inputClassName,
   ...props
 }: ComponentProps<"input"> & {
   readonly icon?: LucideIcon;
   readonly trailing?: ReactNode;
   readonly invalid?: boolean;
+  /** Classes for the input itself; `className` styles the wrapper. */
+  readonly inputClassName?: string;
 }) {
   return (
     <div className={cn("relative inline-flex w-full items-center", className)}>
       {Icon ? (
-        <span className="pointer-events-none absolute inset-y-0 start-0 flex items-center ps-2.5">
-          <Icon aria-hidden className="size-5 shrink-0 text-dimmed" />
+        <span className="pointer-events-none absolute inset-y-0 start-0 flex items-center ps-3.5">
+          <Icon aria-hidden className="size-4 shrink-0 text-muted-foreground" />
         </span>
       ) : null}
       <Input
         aria-invalid={invalid || undefined}
-        className={cn(controlClass, Icon && "ps-9", trailing !== undefined && "pe-9")}
+        className={cn(controlClass, Icon && "ps-10", trailing !== undefined && "pe-10", inputClassName)}
         {...props}
       />
       {trailing !== undefined ? (
-        <span className="absolute inset-y-0 end-0 flex items-center pe-2.5">{trailing}</span>
+        <span className="absolute inset-y-0 end-0 flex items-center pe-2">{trailing}</span>
       ) : null}
     </div>
   );
@@ -120,7 +119,7 @@ export function CmsTextarea({
   return (
     <Textarea
       aria-invalid={invalid || undefined}
-      className={cn(controlClass, "h-auto min-h-20 field-sizing-content", className)}
+      className={cn(controlClass, "h-auto min-h-24 py-2.5 md:h-auto", className)}
       {...props}
     />
   );
@@ -132,7 +131,7 @@ export type CmsOption<Value extends string> = {
   readonly icon?: LucideIcon;
 };
 
-/** `USelect` with an items array — the shape every Nexus select takes. */
+/** A select over an items array, in the same box as the text fields. */
 export function CmsSelect<Value extends string>({
   id,
   value,
@@ -142,6 +141,7 @@ export function CmsSelect<Value extends string>({
   disabled,
   invalid = false,
   className,
+  "aria-label": ariaLabel,
 }: {
   readonly id?: string;
   readonly value: Value | null;
@@ -151,6 +151,7 @@ export function CmsSelect<Value extends string>({
   readonly disabled?: boolean;
   readonly invalid?: boolean;
   readonly className?: string;
+  readonly "aria-label"?: string;
 }) {
   const selected = items.find((item) => item.value === value);
   const SelectedIcon = selected?.icon;
@@ -164,30 +165,28 @@ export function CmsSelect<Value extends string>({
     >
       <SelectTrigger
         aria-invalid={invalid || undefined}
+        aria-label={ariaLabel}
         className={cn(
           controlClass,
-          "w-full justify-start gap-1.5 [&>svg:last-child]:ms-auto [&>svg:last-child]:size-5 [&>svg:last-child]:text-dimmed",
+          "w-full justify-start gap-2 data-[size=default]:h-11 md:data-[size=default]:h-10 [&>svg:last-child]:ms-auto [&>svg:last-child]:size-4",
           className,
         )}
         id={id}
-        // `sm` is the primitive's 32px — `USelect` at md. The default size pins
-        // 36px through a data attribute that outranks `controlClass`'s `h-8`.
-        size="sm"
       >
-        {SelectedIcon ? <SelectedIcon aria-hidden className="size-4 text-dimmed" /> : null}
+        {SelectedIcon ? <SelectedIcon aria-hidden className="size-4 text-muted-foreground" /> : null}
         <SelectValue placeholder={placeholder}>{selected?.label ?? placeholder}</SelectValue>
       </SelectTrigger>
       <SelectContent
         alignItemWithTrigger={false}
-        className="rounded-md bg-card p-1 shadow-lg ring-1 ring-border"
+        className="rounded-xl bg-popover p-1 shadow-panel ring-1 ring-border"
       >
         {items.map((item) => (
           <SelectItem
-            className="rounded-md p-1.5 pe-8 text-sm text-foreground focus:bg-muted/50 focus:text-highlighted"
+            className="h-9 rounded-lg px-2.5 pe-8 text-sm text-foreground focus:bg-muted focus:text-foreground"
             key={item.value}
             value={item.value}
           >
-            {item.icon ? <item.icon aria-hidden className="size-4 text-dimmed" /> : null}
+            {item.icon ? <item.icon aria-hidden className="size-4 text-muted-foreground" /> : null}
             {item.label}
           </SelectItem>
         ))}

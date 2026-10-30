@@ -23,6 +23,9 @@
   /* The handwritten accent word in a heading: Sriracha carries Thai and Latin
      in one face, so the word reads the same in either language. */
   --font-hand: 'Sriracha', var(--font-hero);
+  /* The `/about` story's headlines: Prompt, the Thai geometric closest to the
+     logo's wordmark in weight and round bowls. Loaded by that page alone. */
+  --font-story: 'Prompt', var(--font-sans);
 
   /* Thai type scale. Thai stacks vowels/tone marks above and below the baseline, so
      the design gives 12px and 24px copy more leading than Tailwind's Latin defaults.
@@ -110,6 +113,16 @@
   --text-frame-meta--line-height: 1.5385;
   --text-frame-label: 0.890625rem;
   --text-frame-label--line-height: 1.3;
+  /* The booking panel's title, 26/30 on the screen at 1440, in the same
+     1710 space. */
+  --text-frame-headline: 1.9296875rem;
+  --text-frame-headline--line-height: 1.1538;
+  /* The phone's sheet titles, unzoomed: 22/33 a package's name, 26/39 the
+     booking panel's. */
+  --text-display-xs: 1.375rem;
+  --text-display-xs--line-height: 1.5;
+  --text-display-sm: 1.625rem;
+  --text-display-sm--line-height: 1.5;
 
   --color-success: var(--success);
   --color-success-foreground: var(--success-foreground);
@@ -149,6 +162,7 @@
   --color-rule: var(--rule);
   --color-hero-ground: var(--hero-ground);
   --color-hero-ink: var(--hero-ink);
+  --color-hero-warm: var(--hero-warm);
   --color-hero-action: var(--hero-action);
   --color-hero-action-foreground: var(--hero-action-foreground);
   /* A `background-image` like `--hero-wash`: the photograph the home hero's
@@ -181,8 +195,20 @@
     0 8px 16px -4px color-mix(in srgb, var(--scrim) 10%, transparent);
   --shadow-panel: 0 8px 24px -4px color-mix(in srgb, var(--scrim) 10%, transparent),
     0 1px 2px color-mix(in srgb, var(--scrim) 4%, transparent);
+  /* A popup lifted off a blurred page: the booking dialogs. */
+  --shadow-dialog: 0 8px 28px color-mix(in srgb, var(--scrim) 28%, transparent);
+  /* A bar floating over the page's foot: a hairline, a near shadow and a far one. */
+  --shadow-float: 0 0 0 1px color-mix(in srgb, var(--scrim) 2%, transparent),
+    0 6px 8px color-mix(in srgb, var(--scrim) 8%, transparent),
+    0 12px 30px color-mix(in srgb, var(--scrim) 18%, transparent);
+  /* A toast over whatever is under it: a near shadow to seat it and a wide,
+     soft one to lift it. */
+  --shadow-toast: 0 2px 6px color-mix(in srgb, var(--scrim) 6%, transparent),
+    0 18px 44px -12px color-mix(in srgb, var(--scrim) 26%, transparent);
   --color-footer-surface: var(--footer-surface);
   --color-footer-surface-deep: var(--footer-surface-deep);
+  --color-footer-ground: var(--footer-ground);
+  --background-image-logo-gradient: var(--logo-gradient);
   --color-scrim: var(--scrim);
   --color-sidebar-ring: var(--sidebar-ring);
   --color-sidebar-border: var(--sidebar-border);
@@ -333,6 +359,14 @@
      sheet of card rather than as depth. Dark in both themes, like the ground it
      belongs to. */
   --footer-surface-deep: #0d1526;
+  /* The site footer's ground: a neutral near-white a step under the page, so
+     the footer reads as the page's floor rather than another band. Neutral,
+     not the app's cool `--background`: the footer's ink is plain grey-black. */
+  --footer-ground: #f7f7f7;
+  /* The logo mark's fill, light to deep blue left to right, sampled from the
+     lockup (`lib/assets/r2.ts` `logo`). The `/about` story sets its key words
+     in it, so they read as part of the brand rather than as a highlighter. */
+  --logo-gradient: linear-gradient(90deg, #78aaff, #1d5bf0);
 
   /* ── Editorial ───────────────────────────────────────────────────────────
      A separate, deliberately narrow palette for the magazine-shaped pages.
@@ -405,71 +439,104 @@
   --sidebar-ring: oklch(0.705 0.015 286.067);
 }
 
-/* Admin console — Nexus's black/white CMS theme (`.cms-admin` in Nexus's
-   main.css), mapped onto this project's token names. Scoped to the console's
-   wrapper and to <body> while the console is mounted, so dialogs and menus that
-   portal out of the wrapper still pick it up, and consumer pages never do.
-   Values are Nexus's overrides plus the Nuxt UI defaults it leaves alone
-   (slate neutrals, green/yellow/blue status colours, a 0.25rem base radius that
-   makes 6px controls and 8px cards — this scale's `md` and `lg` at 0.5rem). */
+/* The service page's greys: neutral, not cooled toward blue. A blue-grey
+   ground and blue-grey secondary text read as a dashboard; a neutral grey
+   reads warmer on the page that sells someone's time. Same lightness as the
+   cool steps they replace, so contrast is where it was (the text 5.4:1 on
+   white). Scoped like `.cms-admin`: on the page's frame and on <body> while
+   the page is mounted, so its dialogs and sheets, which portal out, take it
+   too. Light theme only. */
+html:not(.dark) .neutral-greys {
+  --background: #f5f5f5;
+  --secondary: #f0f0f0;
+  --muted: #f0f0f0;
+  --muted-foreground: #6a6a6a;
+  --accent: #f0f0f0;
+  --border: #e5e5e5;
+}
+
+/* The checkout's surface: a white ground, and a payment page's two
+   hairlines — #dddddd round its cards and between their rows, #8c8c8c round
+   every field the card is typed into, dark enough that each box reads as a
+   place to type. Scoped like `.neutral-greys`: on the page's frame and on
+   <body> while it is mounted, so the country list, which portals out, takes
+   it too. Light theme only. */
+html:not(.dark) .checkout-surface {
+  --background: #ffffff;
+  --border: #dddddd;
+  --input: #8c8c8c;
+}
+
+/* And its type: Latin in Geist, Thai still in Noto Sans Thai. Noto's own
+   Latin is wide and loosely spaced, which a service's English name and the
+   page's English set too far apart; Geist is the site's Latin face already
+   (`--font-latin`). Both themes. */
+.checkout-surface {
+  --font-sans: 'Geist Variable', 'Noto Sans Thai Variable', sans-serif;
+  font-family: var(--font-sans);
+}
+
+/* Admin console — the site's own family rather than a theme of its own: the
+   service page's neutral greys (a grey ground round one white panel), ink for
+   every solid action as the home hero's button has it, and the site's radius
+   scale. Scoped to the console's wrapper and to <body> while the console is
+   mounted, so dialogs and menus that portal out of the wrapper still pick it
+   up, and consumer pages never do. Light only, like `.neutral-greys`. */
 .cms-admin {
   /* Tabular figures console-wide: counts, baht and timestamps sit in columns
      and stat tiles, and proportional digits made them drift between rows. */
   font-variant-numeric: tabular-nums;
-  --background: #ffffff;
-  --foreground: #334155;
-  --highlighted: #0f172a;
-  --muted: #f1f5f9;
-  --muted-foreground: #64748b;
-  --dimmed: #94a3b8;
-  --accented: #cbd5e1;
+  --background: #f5f5f5;
+  --foreground: #18181b;
+  --highlighted: #18181b;
+  --muted: #f0f0f0;
+  --muted-foreground: #6a6a6a;
+  --dimmed: #a3a3a3;
+  --accented: #d4d4d4;
   --card: #ffffff;
-  --card-foreground: #334155;
+  --card-foreground: #18181b;
   --popover: #ffffff;
-  --popover-foreground: #334155;
-  --primary: #000000;
+  --popover-foreground: #18181b;
+  /* The home hero's button ink, written out: `.dark` points `--hero-action`
+     back at `--primary`, so naming it here would be a loop. */
+  --primary: #131922;
   --primary-foreground: #ffffff;
-  --secondary: #f1f5f9;
-  --secondary-foreground: #0f172a;
-  --accent: #f1f5f9;
-  --accent-foreground: #0f172a;
-  --border: #e2e8f0;
-  --input: #cbd5e1;
-  --ring: #000000;
-  --destructive: #ef4444;
+  --secondary: #f0f0f0;
+  --secondary-foreground: #18181b;
+  --accent: #f0f0f0;
+  --accent-foreground: #18181b;
+  --border: #e5e5e5;
+  --input: #d4d4d4;
+  --ring: #a1a1aa;
+  --destructive: #dc2626;
   --destructive-foreground: #ffffff;
-  /* Nuxt UI's own green / yellow / blue at 500, which Nexus leaves alone — the
-     Tailwind v4 values, a shade apart from the v3 hex they replaced. Only
-     `--ui-error` and `--ui-secondary` are pinned to v3 hex by Nexus itself. */
-  --success: oklch(72.3% 0.219 149.579);
+  /* A step darker than the site's status colours: here they are the text of
+     a tinted status pill, and the lighter green and amber did not reach 4.5:1
+     on their own tint. */
+  --success: #067647;
   --success-foreground: #ffffff;
-  --warning: oklch(79.5% 0.184 86.047);
-  --info: oklch(62.3% 0.214 259.815);
-  --action: #3b82f6;
+  --warning: #b54708;
+  --info: #2563eb;
+  --action: #2563eb;
   --action-foreground: #ffffff;
-  /* Tailwind v4's gray-200 / gray-900 / gray-500, as Nexus's CmsTable names them. */
-  --table-rule: oklch(92.8% 0.006 264.531);
-  --table-head: oklch(21% 0.034 264.665);
-  --table-cell: oklch(55.1% 0.027 264.364);
-  --radius: 0.5rem;
+  --radius: 0.625rem;
 }
 
-/* Nexus sets its console in Tailwind's Latin line heights — 12/16, 20/28, 24/32
-   — where the consumer app gives Thai copy more leading. The scale is `@theme
-   inline`, so the value is baked into each utility; restating it under the
-   scope is the only way to reach it. `--tw-leading` first, so an explicit
-   `leading-*` still wins. */
-.cms-admin .text-xs {
-  line-height: var(--tw-leading, 1rem);
-}
-.cms-admin .text-xl {
-  line-height: var(--tw-leading, 1.75rem);
-}
-.cms-admin .text-2xl {
-  line-height: var(--tw-leading, 2rem);
+/* The console's zoom. The same result as `.app-scale` at every width (the
+   page drawn for a 1440 screen, held there on a wider one, made smaller with
+   the width on a landscape tablet), but written in 1440 px rather than the
+   1710 space, so the phone layout below `lg` shares its classes instead of
+   restating every one of them at x1.1875. On the sidebar and on the page
+   inside the white panel; the panel's inset and corners, the toasts and the
+   dialogs' frame stay on the screen's own scale. */
+@media (min-width: 1024px) {
+  .cms-admin .cms-scale {
+    zoom: tan(atan2(min(100vw, 1440px), 1440px));
+  }
 }
 
 .dark {
+  --footer-ground: oklch(0.21 0.006 285.885);
   --brand-image: oklch(0.623 0.214 259.815);
   --hero-photo: none;
   --hero-ink: var(--foreground);

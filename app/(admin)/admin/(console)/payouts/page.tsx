@@ -1,4 +1,4 @@
-import { PayoutsScreen } from "@/components/cms/screens/finance";
+import { PayoutsScreen } from "@/components/cms/screens/payouts";
 
 export default function AdminPayoutsPage() {
   return <PayoutsScreen />;

@@ -234,9 +234,10 @@ export function TopBar({
   /**
    * Floats the bar over what follows instead of sitting above it, for frames
    * that open on a photo or video. The capsule carries its own light surface,
-   * so its ink stays dark over the photo.
+   * so its ink stays dark over the photo. `"phone"` floats it below `md` only,
+   * for a page whose photo runs edge to edge on the phone alone.
    */
-  readonly overlay?: boolean;
+  readonly overlay?: boolean | "phone";
   readonly className?: string;
 }) {
   const t = useTranslations("common");
@@ -288,7 +289,7 @@ export function TopBar({
       <div aria-hidden className="-mb-px h-px w-full shrink-0" ref={sentinelRef} />
       {/* `h-0` lets an overlay bar hang over the content below it, so a full-bleed
           hero still starts at the very top of the frame. */}
-      <div className={cn("sticky top-0 z-10 w-full shrink-0", overlay && "h-0")}>
+      <div className={cn("sticky top-0 z-10 w-full shrink-0", overlay === true && "h-0", overlay === "phone" && "h-0 md:h-auto")}>
         <div
           className={cn(
             // The row is only the gutter the capsule floats in: 12px on the

@@ -407,7 +407,13 @@ export function AccountSettingsScreen({
       </AppFrame>
       {overlay}
       <DeleteAccountDialog onOpenChange={setDeleting} open={deleting} />
-      <StatusToast leaving={updated.leaving} toast={updated.toast} />
+      <StatusToast
+        dismiss={updated.dismiss}
+        leaving={updated.leaving}
+        paused={updated.paused}
+        setPaused={updated.setPaused}
+        toast={updated.toast}
+      />
     </MobileScreen>
   );
 }

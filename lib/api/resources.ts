@@ -26,6 +26,10 @@ import type {
   ApiBooking,
   ApiBookingInput,
   ApiCheckoutInput,
+  ApiCheckoutResult,
+  ApiCouponPreview,
+  ApiInvoice,
+  ApiMeeting,
   ApiNamedRecord,
   ApiOwnProfile,
   ApiPageQuery,
@@ -284,6 +288,21 @@ export function rescheduleBooking(
   });
 }
 
+/**
+ * `POST /bookings/:bookingId/meeting` — where the session's video call is.
+ *
+ * The room is named the first time anyone opens it. Only the booking's two
+ * people get it (404 otherwise), only while it is `BOOKED` or `IN_PROGRESS`
+ * (409 otherwise), and a `BOOKED` one only from 10 minutes before it starts to
+ * its end (400 outside that, with the API's own sentence).
+ */
+export function openBookingMeeting(
+  bookingId: string,
+  signal?: AbortSignal,
+): Promise<ApiMeeting> {
+  return api.post(`bookings/${bookingId}/meeting`, { signal });
+}
+
 /* ------------------------------------------------------------- own reviews */
 
 /**
@@ -378,32 +397,49 @@ export function getMyInvoice(
   return api.get(`payment/invoices/${encodeURIComponent(invoiceId)}`, { signal });
 }
 
+/** `GET /payment/public-key` — public: the Omise key a card is tokenised with. Empty when the API has none. */
+export function getPaymentPublicKey(signal?: AbortSignal): Promise<{ readonly publicKey: string }> {
+  return api.get("payment/public-key", { signal });
+}
+
 /**
- * `POST /payment/checkout` — recorded here, callable by nothing.
- *
- * Three separate reasons, all on the API's side, and all worth writing down so
- * the next person does not rediscover them one at a time:
- *
- * 1. It answers **303 with a `Location`** to the provider's 3-D Secure page
- *    (`res.redirect(HttpStatus.SEE_OTHER, …)`). `lib/api/client.ts` uses fetch's
- *    default `redirect: "follow"`, so the browser would chase that hop into an
- *    origin with no CORS headers and the call would surface as
- *    `ApiUnreachableError`. A redirect is a browser navigation, not a fetch.
- * 2. `cardToken` must be an Omise token minted client-side by Omise's own
- *    script. Nothing in this app loads it, so the value cannot be produced.
- * 3. `PaymentService.checkout` still reads `@/mock/services` and
- *    `@/mock/invoices` and charges the mock price. It writes no appointment and
- *    no `service_invoices` row, so nothing downstream — the invoice screens, a
- *    refund case — would have anything to read afterwards.
- *
- * Until (1) becomes a JSON body carrying the redirect URL and (3) writes a real
- * invoice, the booking flow stops at `PENDING_PAYMENT`, which is what
- * `POST /bookings` honestly leaves behind.
+ * `POST /payment/invoice/for-booking/:bookingId` — the invoice for a booking
+ * `POST /bookings` holds, priced as booked. The same one again while it is
+ * unpaid, so a second try pays the same invoice.
+ */
+export function createBookingInvoice(
+  bookingId: string,
+  couponCode?: string,
+  signal?: AbortSignal,
+): Promise<ApiInvoice> {
+  return api.post(`payment/invoice/for-booking/${encodeURIComponent(bookingId)}`, {
+    body: couponCode ? { couponCode } : {},
+    signal,
+  });
+}
+
+/**
+ * `POST /payment/coupons/preview` — what a coupon would take off a booking,
+ * before anything is charged. 400 for any code that cannot be used.
+ */
+export function previewCoupon(
+  bookingId: string,
+  code: string,
+  signal?: AbortSignal,
+): Promise<ApiCouponPreview> {
+  return api.post("payment/coupons/preview", { body: { bookingId, code }, signal });
+}
+
+/**
+ * `POST /payment/checkout` — charge the invoice to a tokenised card. The answer
+ * is the card's 3-D Secure page; the browser goes there, and the bank returns it
+ * to the API's callback, which confirms the booking and sends it on to
+ * `/checkout/success`, `/checkout/failed` or `/checkout/unconfirmed`.
  */
 export function startCheckout(
   input: ApiCheckoutInput,
   signal?: AbortSignal,
-): Promise<never> {
+): Promise<ApiCheckoutResult> {
   return api.post("payment/checkout", { body: input, signal });
 }
 

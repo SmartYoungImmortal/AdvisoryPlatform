@@ -1,8 +1,12 @@
 "use client";
 
-import { ExternalLink, FileText } from "lucide-react";
+import { ExternalLink, FileText, type LucideIcon } from "lucide-react";
 import { useTranslations } from "next-intl";
+import { useEffect } from "react";
 
+import { CmsEmpty } from "@/components/cms/card";
+import type { DocumentDownloadUrl } from "@/lib/api/admin";
+import { invalidate, useResource } from "@/lib/api/use-resource";
 import { cn } from "@/lib/utils";
 
 /** Whether a document is a PDF, by its MIME type when there is one, else its name. */
@@ -15,7 +19,7 @@ function OpenLink({ url }: { readonly url: string }) {
   const t = useTranslations("cms.document");
   return (
     <a
-      className="inline-flex items-center gap-1 text-sm font-medium text-action transition-colors hover:text-action/75"
+      className="inline-flex items-center gap-1.5 rounded-sm text-sm font-medium text-foreground underline-offset-4 outline-none hover:underline focus-visible:ring-3 focus-visible:ring-ring/50"
       href={url}
       rel="noreferrer"
       target="_blank"
@@ -28,10 +32,9 @@ function OpenLink({ url }: { readonly url: string }) {
 
 /**
  * One uploaded document, shown where it is reviewed. A PDF opens in the
- * browser's own viewer inside the card, in a 9:16 frame — zoom, page and
- * download come with it — and an image is drawn at the card's width. Either way the file also opens in
- * a tab of its own: there is no overlay, as there is no popup anywhere in the
- * console.
+ * browser's own viewer inside the page, in a 9:16 frame 520 tall — zoom, page
+ * and download come with it — and an image is drawn at the column's width.
+ * Either way the file also opens in a tab of its own.
  */
 export function CmsDocument({
   url,
@@ -45,18 +48,17 @@ export function CmsDocument({
   readonly className?: string;
 }) {
   return (
-    <figure className={cn("flex w-full flex-col gap-2", className)}>
+    <figure className={cn("flex w-full flex-col gap-3", className)}>
       {isPdf(url, mimeType) ? (
-        // A 9:16 viewer at a fixed 520px height — the width follows the height.
         <iframe
-          className="aspect-9/16 h-130 w-auto max-w-full self-start rounded-md bg-muted ring-1 ring-border"
+          className="aspect-9/16 h-130 w-auto max-w-full self-start rounded-2xl border border-border bg-muted"
           // No thumbnail pane: on a one-page certificate it only halves the zoom.
           src={`${url}#navpanes=0&view=FitH`}
           title={name}
         />
       ) : (
         <a
-          className="block overflow-hidden rounded-md ring-1 ring-border transition-opacity hover:opacity-90"
+          className="block overflow-hidden rounded-2xl border border-border transition-opacity outline-none hover:opacity-90 focus-visible:ring-3 focus-visible:ring-ring/50"
           href={url}
           rel="noreferrer"
           target="_blank"
@@ -70,6 +72,55 @@ export function CmsDocument({
       </figcaption>
     </figure>
   );
+}
+
+/**
+ * A stored document the API keeps behind a short-lived URL (an ID card, a
+ * skill document): asked for when the page opens, shown as `CmsDocument`
+ * once it lands. When it cannot be had — nothing on file, or the object store
+ * down — the place says so with the API's own sentence, in the shape of the
+ * site's empty states.
+ *
+ * The URL expires in minutes, so it is dropped from the cache when the page
+ * leaves rather than kept for the life of the tab.
+ */
+export function CmsStoredDocument({
+  requestKey,
+  read,
+  name,
+  icon,
+  emptyTitle,
+  className,
+}: {
+  readonly requestKey: string;
+  readonly read: (signal: AbortSignal) => Promise<DocumentDownloadUrl>;
+  readonly name: string;
+  readonly icon: LucideIcon;
+  readonly emptyTitle: string;
+  readonly className?: string;
+}) {
+  const signed = useResource<DocumentDownloadUrl>(requestKey, read);
+  useEffect(() => () => invalidate(requestKey), [requestKey]);
+
+  if (signed.loading) {
+    return (
+      <span
+        aria-hidden
+        className={cn("block aspect-9/16 h-130 max-w-full rounded-2xl bg-muted", className)}
+      />
+    );
+  }
+  if (!signed.data) {
+    return (
+      <CmsEmpty
+        body={signed.error?.message}
+        className="rounded-2xl border border-border py-10"
+        icon={icon}
+        title={emptyTitle}
+      />
+    );
+  }
+  return <CmsDocument className={className} name={name} url={signed.data.url} />;
 }
 
 /**
@@ -97,7 +148,7 @@ export function CmsDocumentGrid({
                 // eslint-disable-next-line @next/next/no-img-element -- an uploaded document, drawn as-is.
                 <img alt="" className="size-full object-cover object-top" loading="lazy" src={file.url} />
               ) : (
-                <FileText aria-hidden className="size-8 text-dimmed" />
+                <FileText aria-hidden className="size-8 text-muted-foreground" strokeWidth={1.5} />
               )}
             </span>
             <span className="truncate border-t border-border px-3 py-2 font-latin text-xs text-foreground">
@@ -109,7 +160,7 @@ export function CmsDocumentGrid({
           <li className="min-w-0" key={file.key}>
             {file.url ? (
               <a
-                className="flex flex-col overflow-hidden rounded-md ring-1 ring-border transition-opacity hover:opacity-90"
+                className="flex flex-col overflow-hidden rounded-xl border border-border transition-opacity outline-none hover:opacity-90 focus-visible:ring-3 focus-visible:ring-ring/50"
                 href={file.url}
                 rel="noreferrer"
                 target="_blank"
@@ -118,7 +169,7 @@ export function CmsDocumentGrid({
                 {tile}
               </a>
             ) : (
-              <span className="flex flex-col overflow-hidden rounded-md ring-1 ring-border" title={file.name}>
+              <span className="flex flex-col overflow-hidden rounded-xl border border-border" title={file.name}>
                 {tile}
               </span>
             )}

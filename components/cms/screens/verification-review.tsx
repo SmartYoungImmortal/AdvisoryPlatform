@@ -2,30 +2,31 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { FileText } from "lucide-react";
+import { ChevronRight, FileText, IdCard } from "lucide-react";
 import { useTranslations } from "next-intl";
-import { useCallback, useId, useMemo, useState } from "react";
+import { useCallback, useMemo } from "react";
 
-import { CmsApiError, CmsCardSkeleton, useRuling } from "@/components/cms/api";
-import { CmsCard } from "@/components/cms/card";
-import { CmsDocument } from "@/components/cms/document";
+import { CmsApiError, CmsDetailSkeleton, useRuling } from "@/components/cms/api";
+import { CmsEmpty, CmsSection } from "@/components/cms/card";
+import { CmsDocument, CmsStoredDocument } from "@/components/cms/document";
 import { useCmsFeedback } from "@/components/cms/feedback";
-import { CmsFormField } from "@/components/cms/fields";
-import { RejectReasonField, RulingActions } from "@/components/cms/ruling";
 import { useRecordId } from "@/components/cms/hooks";
 import { CmsPage } from "@/components/cms/layout";
 import { useAccountName } from "@/components/cms/people";
+import { RulingDecision } from "@/components/cms/ruling";
 import {
+  CmsDataList,
   CmsDataRow,
   CmsMissing,
   CmsSidebarOptions,
 } from "@/components/cms/sidebar-options";
-import { CmsApiStatus } from "@/components/cms/status";
+import { CmsStatus } from "@/components/cms/status";
 import {
   ADMIN_KEYS,
   ADMIN_MAX_LIMIT,
   approveIdentityVerification,
   documentUrl,
+  getIdentityDocumentUrl,
   getIdentityVerification,
   listIdentityVerifications,
   listSkillProofs,
@@ -38,6 +39,7 @@ import { useResource } from "@/lib/api/use-resource";
 
 /** The cache prefix both this detail view and its queue read under. */
 const IDENTITY_KEY = ADMIN_KEYS.identity;
+const BACK = "/admin/verification";
 
 /**
  * One identity request, from `GET /api/v1/admin/identity-verifications/:advisorId`.
@@ -45,16 +47,17 @@ const IDENTITY_KEY = ADMIN_KEYS.identity;
  * ## The level picker is gone
  *
  * `POST .../approve` takes **no body**. There is no advisor level on the route, no
- * level column behind it and no other route that sets one, so the three-way level
- * choice from Figma 1952:36339 cannot be honoured: approving verifies the identity
- * and nothing else. Restoring it needs the level on the approve DTO.
+ * level column behind it and no other route that sets one, so approving verifies
+ * the identity and nothing else. Restoring a level needs it on the approve DTO.
  *
  * ## The document
  *
- * `documentObjectKey` is a SeaweedFS object key for a real upload, and no admin
- * route presigns it, so that card says no document can be shown rather than
- * drawing a stock picture that is not this applicant's. The demo seed's keys are
- * specimen cards under `public/demo-docs/`, which `documentUrl` opens.
+ * The response no longer carries the storage key: the card is asked for from
+ * `…/document-url`, which signs it for a few minutes (`CmsStoredDocument`).
+ * When that fails — the object store down, nothing on file — the part says so
+ * with the API's sentence rather than drawing a stock picture that is not this
+ * applicant's. A key that does arrive and is a demo specimen under
+ * `public/demo-docs/` is opened as it is (`documentUrl`).
  *
  * Also absent from the DTO, so absent here: full name, birth date, national id,
  * credential and field. The applicant is a display name and an email.
@@ -68,30 +71,31 @@ export function VerificationReviewScreen() {
     [id],
   );
   const request = useResource<IdentityVerification>(`${IDENTITY_KEY}/${id}`, fetcher);
+  const frame = { backHref: BACK, backLabel: t("title"), title: t("reviewTitle") };
 
   if (id === "") {
     return (
-      <CmsPage backHref="/admin/verification" title={t("reviewTitle")}>
-        <CmsMissing backHref="/admin/verification" />
+      <CmsPage {...frame}>
+        <CmsMissing backHref={BACK} />
       </CmsPage>
     );
   }
 
   if (request.loading) {
     return (
-      <CmsPage backHref="/admin/verification" title={t("reviewTitle")}>
-        <CmsCardSkeleton rows={4} />
+      <CmsPage {...frame}>
+        <CmsDetailSkeleton rows={3} />
       </CmsPage>
     );
   }
 
   if (request.error || !request.data) {
     return (
-      <CmsPage backHref="/admin/verification" title={t("reviewTitle")}>
+      <CmsPage {...frame}>
         {request.error ? (
           <CmsApiError error={request.error} onRetry={request.reload} />
         ) : (
-          <CmsMissing backHref="/admin/verification" />
+          <CmsMissing backHref={BACK} />
         )}
       </CmsPage>
     );
@@ -102,15 +106,11 @@ export function VerificationReviewScreen() {
 
 function Review({ request }: { readonly request: IdentityVerification }) {
   const t = useTranslations("cms.verification");
-  const tUsers = useTranslations("cms.users");
   const tStatus = useTranslations("cms.status");
   const router = useRouter();
   const { confirm } = useCmsFeedback();
   const rule = useRuling();
   const accountName = useAccountName();
-  const reasonId = useId();
-  const [reason, setReason] = useState("");
-  const [reasonError, setReasonError] = useState<string | undefined>();
   const name = accountName(request.advisorId) ?? request.displayName;
   const document = documentUrl(request.documentObjectKey);
 
@@ -129,7 +129,7 @@ function Review({ request }: { readonly request: IdentityVerification }) {
     queueFetcher,
   );
   const proofs = useResource<Paginated<SkillProof>>(
-    `admin/skill-proofs?advisorId=${request.advisorId}&limit=${ADMIN_MAX_LIMIT}`,
+    `${ADMIN_KEYS.skillProofs}?advisorId=${request.advisorId}&limit=${ADMIN_MAX_LIMIT}`,
     proofsFetcher,
   );
 
@@ -140,151 +140,135 @@ function Review({ request }: { readonly request: IdentityVerification }) {
   /** After a decision, move on to the next request still waiting. */
   function advance() {
     const next = waiting.find((r) => r.advisorId !== request.advisorId);
-    router.push(
-      next
-        ? `/admin/verification/review?id=${next.advisorId}`
-        : "/admin/verification",
-    );
+    router.push(next ? `${BACK}/review?id=${next.advisorId}` : BACK);
   }
 
   async function approve() {
-    // `cms.verification.approveTitle` and `approveBody` both name an advisor
-    // level, which this route cannot set, so neither is usable here. The plain
-    // verb and the resulting status are the honest copy until
-    // `cms.verification.approveIdentityTitle` exists — see the report.
     const ok = await confirm({
       type: "success",
-      title: t("approve"),
+      title: t("approveIdentityTitle", { count: 1 }),
+      description: t("approveIdentityBody", { name }),
       confirmLabel: t("approve"),
     });
     if (!ok) return;
     const result = await rule({
       keyPrefix: IDENTITY_KEY,
       run: [() => approveIdentityVerification(request.advisorId)],
-      success: tStatus("identity.verified"),
+      success: tStatus("identity.VERIFIED"),
     });
     if (result.ok) advance();
   }
 
-  async function reject() {
-    const note = reason.trim();
-    if (!note) {
-      setReasonError(t("reasonRequired"));
-      return;
-    }
+  async function reject(note: string) {
     const result = await rule({
       keyPrefix: IDENTITY_KEY,
       run: [() => rejectIdentityVerification(request.advisorId, note)],
       success: t("rejected", { name }),
-      successColor: "warning",
     });
     if (result.ok) advance();
   }
 
-  // Nexus's record page: one card of facts and evidence, the status, audit and
-  // ruling in the options panel. The rejection reason is a field on the card.
   return (
     <CmsPage
       aside={
         <CmsSidebarOptions
-          actions={
-            pending ? <RulingActions onApprove={approve} onReject={reject} /> : null
-          }
           info={[
             { label: t("submittedAt"), by: name, at: request.submittedAt },
             ...(request.verifiedAt
               ? [
                   {
                     label: t("decidedAt"),
-                    by: accountName(request.verifiedByAdminId) ?? undefined,
+                    by: accountName(request.verifiedByAdminId),
                     at: request.verifiedAt,
                   },
                 ]
               : []),
           ]}
         >
-          <CmsFormField label={t("col.status")}>
-            <div>
-              <CmsApiStatus group="identity" value={request.verificationStatus} />
-            </div>
-          </CmsFormField>
+          {pending ? (
+            <RulingDecision
+              approveLabel={t("approve")}
+              onApprove={approve}
+              onReject={reject}
+              reasonHelp={t("reasonHelp")}
+              reasonLabel={t("reason")}
+              reasonPlaceholder={t("rejectPlaceholder")}
+              reasonRequired={t("reasonRequired")}
+              rejectLabel={t("reject")}
+            />
+          ) : undefined}
         </CmsSidebarOptions>
       }
-      backHref="/admin/verification"
-      title={t("reviewTitle")}
+      backHref={BACK}
+      backLabel={t("title")}
+      badge={<CmsStatus group="identity" value={request.verificationStatus} />}
+      title={name}
     >
-      <CmsCard>
-        <dl className="space-y-4">
+      <CmsSection title={t("details")}>
+        <CmsDataList>
           <CmsDataRow label={t("col.applicant")}>
             <Link
-              className="text-action transition-colors hover:text-action/75"
+              className="font-medium underline-offset-4 hover:underline"
               href={`/admin/users/edit?id=${request.advisorId}`}
             >
               {name}
             </Link>
           </CmsDataRow>
-          <CmsDataRow label={tUsers("col.email")}>
+          <CmsDataRow label={t("col.email")}>
             <span className="font-latin">{request.email}</span>
           </CmsDataRow>
           {request.rejectionReason ? (
-            <CmsDataRow label={t("reason")}>
-              <span className="font-normal text-foreground">{request.rejectionReason}</span>
-            </CmsDataRow>
+            <CmsDataRow label={t("reason")}>{request.rejectionReason}</CmsDataRow>
           ) : null}
-        </dl>
+        </CmsDataList>
+      </CmsSection>
 
-        <section className="mt-6 border-t border-border pt-6">
-          <h2 className="mb-4 text-sm font-semibold text-highlighted">{t("idCard")}</h2>
-          {document ? (
-            <CmsDocument className="max-w-lg" name={t("idCard")} url={document} />
-          ) : (
-            <p className="text-sm text-muted-foreground">{t("noDocument")}</p>
-          )}
-        </section>
-
-        <section className="mt-6 border-t border-border pt-6">
-          <h2 className="mb-4 text-sm font-semibold text-highlighted">
-            {t("skillCount", { count: proofItems.length })}
-          </h2>
-          {proofItems.length === 0 ? (
-            <p className="text-sm text-muted-foreground">{t("noSkills")}</p>
-          ) : (
-            <ul className="divide-y divide-border rounded-md ring-1 ring-border">
-              {proofItems.map((proof) => (
-                <li key={proof.id}>
-                  <Link
-                    className="flex items-center gap-3 px-4 py-3 transition-colors hover:bg-muted/50"
-                    href={`/admin/skill-proofs/review?id=${proof.id}`}
-                  >
-                    <FileText aria-hidden className="size-5 shrink-0 text-dimmed" />
-                    <span className="flex min-w-0 flex-1 flex-col">
-                      <span className="truncate text-sm font-medium text-highlighted">
-                        {proof.skillName}
-                      </span>
-                      <span className="truncate font-latin text-xs text-muted-foreground">
-                        {proof.originalFileName}
-                      </span>
-                    </span>
-                    <CmsApiStatus group="proof" value={proof.reviewStatus} />
-                  </Link>
-                </li>
-              ))}
-            </ul>
-          )}
-        </section>
-
-        {pending ? (
-          <RejectReasonField
-            error={reasonError}
-            id={reasonId}
-            onChange={(value) => {
-              setReason(value);
-              setReasonError(undefined);
-            }}
-            value={reason}
+      <CmsSection title={t("idCard")}>
+        {document ? (
+          <CmsDocument className="max-w-lg" name={t("idCard")} url={document} />
+        ) : request.verificationStatus === "NONE" ? (
+          <CmsEmpty className="rounded-2xl border border-border py-10" icon={IdCard} title={t("noDocument")} />
+        ) : (
+          // The key stays with the API, which signs the card for a few minutes.
+          <CmsStoredDocument
+            className="max-w-lg"
+            emptyTitle={t("noDocument")}
+            icon={IdCard}
+            name={t("idCard")}
+            read={(signal) => getIdentityDocumentUrl(request.advisorId, signal)}
+            requestKey={`${IDENTITY_KEY}/${request.advisorId}/document-url`}
           />
-        ) : null}
-      </CmsCard>
+        )}
+      </CmsSection>
+
+      <CmsSection title={t("skillCount", { count: proofItems.length })}>
+        {proofItems.length === 0 ? (
+          <p className="text-sm text-muted-foreground">{t("noSkills")}</p>
+        ) : (
+          <ul className="border-b border-border">
+            {proofItems.map((proof) => (
+              <li className="border-t border-border" key={proof.id}>
+                <Link
+                  className="-mx-3 flex items-center gap-3 rounded-xl px-3 py-3 outline-none transition-colors hover:bg-muted/50 focus-visible:ring-3 focus-visible:ring-ring/50"
+                  href={`${BACK}/proof?id=${proof.id}`}
+                >
+                  <span className="flex size-9 shrink-0 items-center justify-center rounded-full bg-muted text-foreground">
+                    <FileText aria-hidden className="size-4" strokeWidth={1.75} />
+                  </span>
+                  <span className="flex min-w-0 flex-1 flex-col">
+                    <span className="truncate text-sm font-medium text-foreground">{proof.skillName}</span>
+                    <span className="truncate font-latin text-xs text-muted-foreground">
+                      {proof.originalFileName}
+                    </span>
+                  </span>
+                  <CmsStatus group="proof" value={proof.reviewStatus} />
+                  <ChevronRight aria-hidden className="size-4 shrink-0 text-muted-foreground" />
+                </Link>
+              </li>
+            ))}
+          </ul>
+        )}
+      </CmsSection>
     </CmsPage>
   );
 }

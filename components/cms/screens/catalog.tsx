@@ -1,22 +1,17 @@
 "use client";
 
-import { useRouter } from "next/navigation";
-import { Trash2 } from "lucide-react";
+import { Plus, Sparkles, Tags, Trash2 } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { useCallback, useMemo } from "react";
 
 import { CmsApiError, CmsTableSkeleton, useRuling } from "@/components/cms/api";
 import { CmsButton } from "@/components/cms/button";
 import { useCmsFeedback } from "@/components/cms/feedback";
-import { CmsPage } from "@/components/cms/layout";
-import { useAccountName, useAuditHeaders } from "@/components/cms/people";
-import {
-  auditColumns,
-  CmsTable,
-  createdColumn,
-  updatedColumn,
-  type CmsColumn,
-} from "@/components/cms/table";
+import { CmsLinkButton } from "@/components/cms/fields";
+import { usePageTab } from "@/components/cms/hooks";
+import { CmsPage, CmsPageTabs } from "@/components/cms/layout";
+import { useAccountName } from "@/components/cms/people";
+import { CmsTable, dateColumn, type CmsColumn } from "@/components/cms/table";
 import { useCmsList } from "@/components/cms/use-cms-list";
 import {
   ADMIN_KEYS,
@@ -33,46 +28,40 @@ import type { Paginated } from "@/lib/api/client";
 import { useResource } from "@/lib/api/use-resource";
 import { timeValue } from "@/lib/mock-db/format";
 
-type Tab = "categories" | "skills";
-
 const CATEGORIES_KEY = ADMIN_KEYS.categories;
 const SKILLS_KEY = ADMIN_KEYS.skills;
+const BASE = "/admin/manage";
+const TABS = ["categories", "skills"] as const;
+
+/** Where a record of either list is created and edited. */
+export function taxonomyEditHref(kind: (typeof TABS)[number], id: string): string {
+  return `${BASE}/${kind === "categories" ? "edit" : "skill"}?id=${id}`;
+}
 
 /**
- * "จัดการระบบ" — the taxonomy, against `/service-categories` and `/skills`.
+ * The taxonomy, against `/service-categories` and `/skills`: one desk, two tabs
+ * (`?tab=skills` for the second). They were two sidebar entries; both are a
+ * list of names with a line of description, edited the same way, so they are
+ * the two tabs of one page now.
  *
- * Two collections, two pages: `/admin/manage` for categories and `/admin/skills`
- * for skills, each its own sidebar entry, as Nexus lists one collection per page.
+ * Both resources have `GET`, `POST`, `PATCH` and `DELETE`, and the console uses
+ * all four. A category has `name` and `description` and **no slug** and **no
+ * published status**; a skill has `name` and `description` and **no category**,
+ * so there is nothing else to show or filter by.
  *
- * The one part of the admin surface that is genuinely complete: both resources have
- * `GET`, `POST`, `PATCH` and `DELETE`, and the console uses all four.
- *
- * ## Three fields that used to be here and are not on the API
- *
- * A category has `name` and `description` and **no slug** and **no published
- * status**; a skill has `name` and `description` and **no category**. The dialogs
- * edited all three against `lib/mock-db`, and there is nowhere to send them: the
- * slug field, the Published/Hidden select and the skill's category select are gone,
- * along with the category column and category filter on the skills table. A slug
- * would need a column on `service_categories`; a skill's category would need a
- * foreign key on `skills`.
- *
- * Creating and editing happen on `…/edit?id=`, in `catalog-edit.tsx` — a page with
- * the name and description fields, the way Nexus edits a record — never a dialog.
+ * Creating and editing happen on a page of their own (`catalog-edit.tsx`),
+ * never a dialog.
  *
  * ## The service count is real
  *
- * "จำนวนบริการ" counts rows of `GET /admin/services` by `categoryId`, so it is the
- * live number of listings filed under a category rather than a fixture's. It is
- * also what the delete confirmation warns on: the API does not guarantee a refusal,
- * and a category with listings behind it should not be deleted by accident.
+ * "บริการ" counts rows of `GET /admin/services` by `categoryId`, so it is the
+ * live number of listings filed under a category. It is also what the delete
+ * confirmation warns on: the API does not guarantee a refusal, and a category
+ * with listings behind it should not be deleted by accident.
  */
-export function CatalogScreen({ kind: tab = "categories" }: { readonly kind?: Tab }) {
+export function CatalogScreen() {
   const t = useTranslations("cms.catalog");
-  const router = useRouter();
-  // Creating and editing are pages, as they are in Nexus — never a dialog.
-  const editHref = (id: string) =>
-    `${tab === "categories" ? "/admin/manage" : "/admin/skills"}/edit?id=${id}`;
+  const tab = usePageTab(TABS);
 
   const categoriesFetcher = useCallback(
     (signal: AbortSignal) => listCategories({ limit: ADMIN_MAX_LIMIT }, signal),
@@ -96,7 +85,7 @@ export function CatalogScreen({ kind: tab = "categories" }: { readonly kind?: Ta
     skillsFetcher,
   );
   const services = useResource<Paginated<AdminService>>(
-    // The same key the services queue reads under, so the two share one request.
+    // The same key the services list reads under, so the two share one request.
     `${ADMIN_KEYS.services}?limit=${ADMIN_MAX_LIMIT}`,
     servicesFetcher,
   );
@@ -116,45 +105,63 @@ export function CatalogScreen({ kind: tab = "categories" }: { readonly kind?: Ta
   return (
     <CmsPage
       actions={
-        <CmsButton
-          className="h-9 px-4"
-          color="action"
-          onClick={() => router.push(editHref("new"))}
-        >
+        <CmsLinkButton href={taxonomyEditHref(tab, "new")} icon={Plus}>
           {tab === "categories" ? t("newCategory") : t("newSkill")}
-        </CmsButton>
+        </CmsLinkButton>
       }
-      title={t(`tab.${tab}`)}
+      tabs={
+        <CmsPageTabs
+          current={tab}
+          label={t("title")}
+          tabs={[
+            {
+              key: "categories",
+              label: t("tab.categories"),
+              href: BASE,
+              count: categories.data?.total,
+            },
+            {
+              key: "skills",
+              label: t("tab.skills"),
+              href: `${BASE}?tab=skills`,
+              count: skills.data?.total,
+            },
+          ]}
+        />
+      }
+      title={t("title")}
     >
       {active.loading ? (
-        <CmsTableSkeleton columns={tab === "categories" ? 4 : 3} />
+        <CmsTableSkeleton columns={tab === "categories" ? 5 : 4} />
       ) : active.error ? (
         <CmsApiError error={active.error} onRetry={active.reload} />
       ) : tab === "categories" ? (
-        <CategoryTable
-          categories={categoryItems}
-          onEdit={(c) => router.push(editHref(c.id))}
-          usage={usage}
-        />
+        <CategoryTable categories={categoryItems} usage={usage} />
       ) : (
-        <SkillTable onEdit={(s) => router.push(editHref(s.id))} skills={skillItems} />
+        <SkillTable skills={skillItems} />
       )}
     </CmsPage>
   );
 }
 
+/** The record's description, held to one line in the table. */
+function descriptionColumn(header: string): CmsColumn<TaxonomyRecord> {
+  return {
+    id: "description",
+    header,
+    className: "text-muted-foreground",
+    render: (r) => <span className="block max-w-96 truncate">{r.description || "-"}</span>,
+  };
+}
+
 function CategoryTable({
   categories,
   usage,
-  onEdit,
 }: {
   readonly categories: readonly TaxonomyRecord[];
   readonly usage: ReadonlyMap<string, number>;
-  readonly onEdit: (category: TaxonomyRecord) => void;
 }) {
   const t = useTranslations("cms.catalog");
-  const tTable = useTranslations("cms.table");
-  const audit = useAuditHeaders();
   const accountName = useAccountName();
   const { confirm } = useCmsFeedback();
   const rule = useRuling();
@@ -165,7 +172,6 @@ function CategoryTable({
     sortValue: (c, id) => {
       if (id === "services") return usage.get(c.id) ?? 0;
       if (id === "updatedAt") return timeValue(c.modifiedAt);
-      if (id === "createdAt") return timeValue(c.createdAt);
       return c.name;
     },
   });
@@ -195,48 +201,43 @@ function CategoryTable({
   }
 
   const columns: ReadonlyArray<CmsColumn<TaxonomyRecord>> = [
-    createdColumn(tTable("createdAt"), (c) => c.createdAt),
-    { id: "name", header: t("col.name"), sortable: true, render: (c) => c.name },
+    { id: "name", header: t("col.name"), sortable: true, primary: true, render: (c) => c.name },
+    descriptionColumn(t("description")),
     {
       id: "services",
       header: t("col.services"),
       sortable: true,
+      align: "end",
       className: "font-latin",
       render: (c) => usage.get(c.id) ?? 0,
     },
-    updatedColumn(t("col.updatedAt"), (c) => c.modifiedAt),
-    ...auditColumns<TaxonomyRecord>(
-      audit,
-      (c) => accountName(c.createdByUserId),
-      (c) => accountName(c.updatedByUserId),
-    ),
+    dateColumn("updatedAt", t("col.updatedAt"), (c) => c.modifiedAt),
+    {
+      id: "updatedBy",
+      header: t("col.updatedBy"),
+      className: "text-muted-foreground",
+      render: (c) => accountName(c.updatedByUserId) ?? "-",
+    },
   ];
 
   return (
     <CmsTable
-      bulkActions={(ids) => (
-        <CmsButton color="error" icon={Trash2} onClick={() => remove(ids)}>
+      renderBulkActions={(ids) => (
+        <CmsButton icon={Trash2} onClick={() => remove(ids)} size="sm" variant="danger-soft">
           {t("deleteSelected", { count: ids.length })}
         </CmsButton>
       )}
       columns={columns}
+      empty={{ icon: Tags, title: t("emptyCategories") }}
       list={list}
-      onRowClick={onEdit}
+      rowHref={(c) => taxonomyEditHref("categories", c.id)}
       searchPlaceholder={t("searchCategories")}
     />
   );
 }
 
-function SkillTable({
-  skills,
-  onEdit,
-}: {
-  readonly skills: readonly TaxonomyRecord[];
-  readonly onEdit: (skill: TaxonomyRecord) => void;
-}) {
+function SkillTable({ skills }: { readonly skills: readonly TaxonomyRecord[] }) {
   const t = useTranslations("cms.catalog");
-  const tTable = useTranslations("cms.table");
-  const audit = useAuditHeaders();
   const accountName = useAccountName();
   const { confirm } = useCmsFeedback();
   const rule = useRuling();
@@ -244,29 +245,25 @@ function SkillTable({
   const list = useCmsList(skills, {
     prefix: "k_",
     searchText: (s) => `${s.name} ${s.description ?? ""}`,
-    sortValue: (s, id) => {
-      if (id === "updatedAt") return timeValue(s.modifiedAt);
-      if (id === "createdAt") return timeValue(s.createdAt);
-      return s.name;
-    },
+    sortValue: (s, id) => (id === "updatedAt" ? timeValue(s.modifiedAt) : s.name),
   });
 
   const columns: ReadonlyArray<CmsColumn<TaxonomyRecord>> = [
-    createdColumn(tTable("createdAt"), (s) => s.createdAt),
-    { id: "name", header: t("col.name"), sortable: true, render: (s) => s.name },
-    updatedColumn(t("col.updatedAt"), (s) => s.modifiedAt),
-    ...auditColumns<TaxonomyRecord>(
-      audit,
-      (s) => accountName(s.createdByUserId),
-      (s) => accountName(s.updatedByUserId),
-    ),
+    { id: "name", header: t("col.name"), sortable: true, primary: true, render: (s) => s.name },
+    descriptionColumn(t("description")),
+    dateColumn("updatedAt", t("col.updatedAt"), (s) => s.modifiedAt),
+    {
+      id: "updatedBy",
+      header: t("col.updatedBy"),
+      className: "text-muted-foreground",
+      render: (s) => accountName(s.updatedByUserId) ?? "-",
+    },
   ];
 
   return (
     <CmsTable
-      bulkActions={(ids) => (
+      renderBulkActions={(ids) => (
         <CmsButton
-          color="error"
           icon={Trash2}
           onClick={async () => {
             const ok = await confirm({
@@ -283,15 +280,17 @@ function SkillTable({
               success: t("deleted", { count: ids.length }),
             });
           }}
+          size="sm"
+          variant="danger-soft"
         >
           {t("deleteSelected", { count: ids.length })}
         </CmsButton>
       )}
       columns={columns}
+      empty={{ icon: Sparkles, title: t("emptySkills") }}
       list={list}
-      onRowClick={onEdit}
+      rowHref={(s) => taxonomyEditHref("skills", s.id)}
       searchPlaceholder={t("searchSkills")}
     />
   );
 }
-

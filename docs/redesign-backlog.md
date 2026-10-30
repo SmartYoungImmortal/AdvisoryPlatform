@@ -113,20 +113,24 @@
 
 ### RD-14 · หน้าการตลาด
 - [ ] `/about`
-- [ ] `/landing`
+
+`/landing` ลบแล้ว (30 ต.ค.): พี่บอกว่าหน้านี้ไม่ใช่แล้ว ลิงก์ "คำถามที่พบบ่อย" / "ศูนย์ช่วยเหลือ" ไปที่ `/#faq` (home แสดงครบ 8 ข้อ), "ราคาและค่าบริการ" ไปที่ `/#pricing`, "วิธีใช้งาน" ไปที่ `/about`
 
 ### RD-15 · สถานะระบบ
 - [ ] `/status/no-connection`, `/status/not-found`, `/status/server-error`
 
 ### RD-16 · Admin console
-- [ ] `/admin`, `/admin/login`, `/admin/login/error`, `/admin/dashboard`
-- [ ] `/admin/users`, `/admin/users/edit`, `/admin/manage`, `/admin/manage/edit`
-- [ ] `/admin/verification`, `/admin/verification/review`, `/admin/skill-proofs`, `/admin/skill-proofs/review`
-- [ ] `/admin/services`, `/admin/services/edit`, `/admin/skills`, `/admin/skills/edit`
-- [ ] `/admin/transactions`, `/admin/payouts`, `/admin/refunds`, `/admin/refunds/review`
-- [ ] `/admin/reports`, `/admin/reports/review`, `/admin/off-platform`, `/admin/off-platform/review`
+- [ ] `/admin`, `/admin/login`, `/admin/dashboard`
+- [ ] `/admin/users`, `/admin/users/edit`
+- [ ] `/admin/verification` (แท็บ ตัวตน / เอกสารทักษะ `?tab=skills`), `/admin/verification/review`, `/admin/verification/proof`
+- [ ] `/admin/reports` (แท็บ จากผู้ใช้ / ระบบตรวจพบ `?tab=flags`), `/admin/reports/review`, `/admin/reports/flag`
+- [ ] `/admin/services`, `/admin/services/edit`
+- [ ] `/admin/manage` (แท็บ หมวดหมู่ / ทักษะ `?tab=skills`), `/admin/manage/edit`, `/admin/manage/skill`
+- [ ] `/admin/refunds`, `/admin/refunds/review`, `/admin/payouts`
 
-รอบก่อนแก้เฉพาะจุด (sidebar, PDF viewer, ปุ่มหน้า verification, ข้อความหน้า login) ยังไม่ใช่ redesign
+redesign แล้ว (28 ต.ค.) รอพี่ดู: กรอบเดียวกับหน้าบัญชี (แถบเมนูบนพื้นเทา หน้าอยู่ในแผ่นขาวมุมโค้ง) เมนูเหลือ 7
+ลบแล้ว: `/admin/login/error` (หน้า login แสดง error เอง), `/admin/transactions` (ไม่มี API ข้อมูลเป็นตัวอย่างล้วน),
+`/admin/skill-proofs`, `/admin/skills`, `/admin/off-platform` (รวมเป็นแท็บของหน้าที่ใกล้กัน)
 
 ## ไม่ต้องทำ
 

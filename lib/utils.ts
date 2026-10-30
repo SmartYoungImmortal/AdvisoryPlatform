@@ -2,11 +2,13 @@ import { clsx, type ClassValue } from "clsx"
 import { extendTailwindMerge } from "tailwind-merge"
 
 /**
- * `text-fine` is a size step of the theme's own (`app/globals.css`); told so,
- * the merge drops a `text-sm` it overrides instead of taking it for a colour
- * and dropping the colour beside it.
+ * `text-fine` and the sheet titles' steps are size steps of the theme's own
+ * (`app/globals.css`); told so, the merge drops a `text-sm` they override
+ * instead of taking them for a colour and dropping the colour beside them.
  */
-const twMerge = extendTailwindMerge({ extend: { theme: { text: ["fine"] } } })
+const twMerge = extendTailwindMerge({
+  extend: { theme: { text: ["fine", "frame-headline", "display-xs", "display-sm"] } },
+})
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))

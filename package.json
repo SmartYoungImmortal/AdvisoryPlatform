@@ -39,6 +39,7 @@
   "dependencies": {
     "@base-ui/react": "^1.7.0",
     "@fontsource/kanit": "^5.3.0",
+    "@fontsource/prompt": "^5.3.0",
     "@fontsource/sriracha": "^5.3.0",
     "@gsap/react": "^2.1.2",
     "@hookform/resolvers": "^5.9.1",
