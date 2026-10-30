@@ -15,6 +15,7 @@ import {
   BookingWhen,
   CardBrands,
   CardFields,
+  GooglePayMark,
   MethodList,
   OrderHead,
   OrderSection,
@@ -27,6 +28,7 @@ import {
   type CardPayment,
   type PayMethod,
 } from "./checkout-parts";
+import { GooglePayButton, type GooglePayment } from "./checkout-googlepay";
 import type { PromptPayment } from "./checkout-promptpay";
 
 /**
@@ -181,6 +183,28 @@ function CardSheet({
   );
 }
 
+/** The way to pay as the last step names it: the card's last four, or the method's mark and name. */
+function ChosenMethod({ method, last4 }: { readonly method: PayMethod; readonly last4: string }) {
+  const t = useTranslations("payment");
+  if (method === "card") {
+    return (
+      <>
+        <p className="flex items-center gap-2">
+          <CreditCard aria-hidden className="size-5 shrink-0" strokeWidth={1.5} />
+          <span>{t("cardEnding", { last4 })}</span>
+        </p>
+        <CardBrands className="pt-0" />
+      </>
+    );
+  }
+  return (
+    <p className="flex items-center gap-2">
+      {method === "googlepay" ? <GooglePayMark /> : <PromptPayMark />}
+      <span>{method === "googlepay" ? t("methodGooglePay") : t("methodPromptPay")}</span>
+    </p>
+  );
+}
+
 export function CheckoutSteps({
   booking,
   coupon,
@@ -189,6 +213,7 @@ export function CheckoutSteps({
   onMethodChange,
   payment,
   promptPay,
+  googlePay,
 }: {
   readonly booking: ApiBooking;
   readonly coupon: ApiCouponPreview | null;
@@ -197,6 +222,7 @@ export function CheckoutSteps({
   readonly onMethodChange: (method: PayMethod) => void;
   readonly payment: CardPayment;
   readonly promptPay: PromptPayment;
+  readonly googlePay: GooglePayment;
 }) {
   const t = useTranslations("payment");
   const c = useTranslations("common");
@@ -206,8 +232,15 @@ export function CheckoutSteps({
   const titles = [t("reviewTitle"), t("addMethodTitle"), t("confirmTitle")];
   const last4 = payment.card.number.replace(/\D/g, "").slice(-4);
   const byCard = method === "card";
-  const working = byCard ? payment.paying : promptPay.starting;
-  const problem = byCard ? payment.problem : promptPay.problem;
+  let working = promptPay.starting;
+  let problem = promptPay.problem;
+  if (byCard) {
+    working = payment.paying;
+    problem = payment.problem;
+  } else if (method === "googlepay") {
+    working = googlePay.paying;
+    problem = googlePay.problem;
+  }
 
   // Each step starts at its top, as a new screen would.
   useEffect(() => {
@@ -215,7 +248,7 @@ export function CheckoutSteps({
   }, [step]);
 
   // The card asks for its fields in a sheet before the last step; PromptPay
-  // needs nothing more, its code comes when it is paid.
+  // and Google Pay need nothing more, they ask when they are paid.
   const onNext = () => {
     if (step === 0) setStep(1);
     else if (byCard) setCardOpen(true);
@@ -253,7 +286,13 @@ export function CheckoutSteps({
         <div className="mt-6">
           {step === 0 ? <OrderSummary booking={booking} coupon={coupon} onCoupon={onCoupon} /> : null}
           {step === 1 ? (
-            <MethodList className="rounded-[12px] border border-border" method={method} onMethodChange={onMethodChange} tall />
+            <MethodList
+              className="rounded-[12px] border border-border"
+              googlePay={googlePay.available}
+              method={method}
+              onMethodChange={onMethodChange}
+              tall
+            />
           ) : null}
           {step === 2 ? (
             <>
@@ -274,20 +313,7 @@ export function CheckoutSteps({
                     }
                     label={t("methodTitle")}
                   >
-                    {byCard ? (
-                      <>
-                        <p className="flex items-center gap-2">
-                          <CreditCard aria-hidden className="size-5 shrink-0" strokeWidth={1.5} />
-                          <span>{t("cardEnding", { last4 })}</span>
-                        </p>
-                        <CardBrands className="pt-0" />
-                      </>
-                    ) : (
-                      <p className="flex items-center gap-2">
-                        <PromptPayMark />
-                        <span>{t("methodPromptPay")}</span>
-                      </p>
-                    )}
+                    <ChosenMethod last4={last4} method={method} />
                   </OrderSection>
                 }
                 onCoupon={onCoupon}
@@ -323,6 +349,8 @@ export function CheckoutSteps({
             <Button className={cn(INK_BUTTON, "w-full")} onClick={onNext} type="button">
               {t("next")}
             </Button>
+          ) : method === "googlepay" ? (
+            <GooglePayButton googlePay={googlePay} />
           ) : (
             <PrimaryButton
               block

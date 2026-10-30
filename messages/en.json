@@ -1445,6 +1445,7 @@
     "termsNote": "By selecting the button below, you agree to our <terms>booking terms</terms> and acknowledge our <privacy>Privacy Policy</privacy>.",
     "methodGooglePay": "Google Pay",
     "methodSoon": "Coming soon",
+    "googlePayUnavailable": "Not available in this browser",
     "promptPayTitle": "Scan to pay",
     "promptPayQrAlt": "PromptPay QR code for this payment",
     "promptPayExpiresIn": "This QR code expires in",

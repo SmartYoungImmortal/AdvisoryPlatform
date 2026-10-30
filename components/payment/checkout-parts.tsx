@@ -364,23 +364,30 @@ function MethodRow({
   );
 }
 
-/** The two ways to pay the API takes. */
-export type PayMethod = "promptpay" | "card";
+/** The ways to pay: PromptPay's code, a typed card, or a card from Google Pay. */
+export type PayMethod = "promptpay" | "card" | "googlepay";
 
 /** PromptPay's mark, the company's own, in a 32 slot. */
 export function PromptPayMark() {
   return <BrandMark className="w-8" height={216} src="/icons/promptpay.png" width={643} />;
 }
 
+/** Google Pay's mark, the company's own, in a 32 slot. */
+export function GooglePayMark() {
+  return <BrandMark className="w-8" height={400} src="/icons/google-pay.svg" width={752} />;
+}
+
 /**
- * The ways to pay as one card of rows: PromptPay, the card, Google Pay; the
- * first two open, Google Pay still to come. `fields` go under the card's row
- * while the card is chosen, as the desktop draws them; the phone asks for them
- * in a sheet of their own and passes none.
+ * The ways to pay as one card of rows: PromptPay, the card, Google Pay.
+ * `fields` go under the card's row while the card is chosen, as the desktop
+ * draws them; the phone asks for them in a sheet of their own and passes
+ * none. Google Pay can be chosen once the browser has said it can pay with
+ * it (`googlePay`: null while it is asked), and says so where it cannot.
  */
 export function MethodList({
   method,
   onMethodChange,
+  googlePay,
   fields,
   heading,
   tall = false,
@@ -388,6 +395,7 @@ export function MethodList({
 }: {
   readonly method: PayMethod;
   readonly onMethodChange: (method: PayMethod) => void;
+  readonly googlePay: boolean | null;
   readonly fields?: ReactNode;
   /** The card's own heading, over its rows; the phone's page title says it instead. */
   readonly heading?: string;
@@ -419,10 +427,10 @@ export function MethodList({
           {method === "card" ? fields : null}
         </MethodRow>
         <MethodRow
-          disabled
+          disabled={googlePay !== true}
           label={t("methodGooglePay")}
-          mark={<BrandMark className="w-8" height={400} src="/icons/google-pay.svg" width={752} />}
-          note={t("methodSoon")}
+          mark={<GooglePayMark />}
+          note={googlePay === false ? t("googlePayUnavailable") : undefined}
           tall={tall}
           value="googlepay"
         />

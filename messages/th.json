@@ -2151,6 +2151,7 @@
     "termsNote": "การกดปุ่มด้านล่างถือว่าคุณยอมรับ<terms>เงื่อนไขการจอง</terms> และรับทราบ<privacy>นโยบายความเป็นส่วนตัว</privacy>ของเรา",
     "methodGooglePay": "Google Pay",
     "methodSoon": "เร็วๆ นี้",
+    "googlePayUnavailable": "ใช้ไม่ได้ในเบราว์เซอร์นี้",
     "promptPayTitle": "สแกนเพื่อชำระเงิน",
     "promptPayQrAlt": "QR พร้อมเพย์สำหรับชำระเงิน",
     "promptPayExpiresIn": "QR หมดอายุใน",
