@@ -29,6 +29,7 @@ import type {
   ApiCheckoutResult,
   ApiCouponPreview,
   ApiInvoice,
+  ApiMeeting,
   ApiNamedRecord,
   ApiOwnProfile,
   ApiPageQuery,
@@ -285,6 +286,21 @@ export function rescheduleBooking(
     body: { startTime },
     signal,
   });
+}
+
+/**
+ * `POST /bookings/:bookingId/meeting` — where the session's video call is.
+ *
+ * The room is named the first time anyone opens it. Only the booking's two
+ * people get it (404 otherwise), only while it is `BOOKED` or `IN_PROGRESS`
+ * (409 otherwise), and a `BOOKED` one only from 10 minutes before it starts to
+ * its end (400 outside that, with the API's own sentence).
+ */
+export function openBookingMeeting(
+  bookingId: string,
+  signal?: AbortSignal,
+): Promise<ApiMeeting> {
+  return api.post(`bookings/${bookingId}/meeting`, { signal });
 }
 
 /* ------------------------------------------------------------- own reviews */

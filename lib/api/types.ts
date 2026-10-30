@@ -221,6 +221,11 @@ export interface ApiBooking {
   readonly createdAt: string;
 }
 
+/** `MeetingResponseDto` — bookings/dtos/meeting-response.dto.ts: the session's video call. */
+export interface ApiMeeting {
+  readonly url: string;
+}
+
 /** `OffsetPaginationDto` — the page/limit pair every paginated route accepts. */
 export interface ApiPageQuery {
   readonly page?: number;
