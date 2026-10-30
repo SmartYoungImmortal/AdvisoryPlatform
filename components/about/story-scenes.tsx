@@ -370,7 +370,7 @@ function AnswerScene() {
         <Part name="piece" spot="hidden lg:block lg:bottom-[100px] lg:left-[1140px]">
           <Art className="lg:h-[470px]" name="bookshelf" />
         </Part>
-        <Part name="piece" spot="hidden lg:block lg:bottom-[90px] lg:left-[1440px]">
+        <Part name="piece" spot="hidden lg:block lg:bottom-[90px] lg:left-[1390px]">
           <Art className="lg:h-[360px]" name="snake_plant" />
         </Part>
       </Stage>
