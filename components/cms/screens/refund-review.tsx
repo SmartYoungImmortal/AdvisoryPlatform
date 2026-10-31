@@ -3,11 +3,12 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
-import { useCallback } from "react";
+import { useCallback, useEffect } from "react";
 
 import { CmsApiError, CmsDetailSkeleton, useRuling } from "@/components/cms/api";
 import { CmsSection } from "@/components/cms/card";
 import { CaseEvidence } from "@/components/cms/case-evidence";
+import { Button } from "@/components/ui/button";
 import { CmsDocumentGrid } from "@/components/cms/document";
 import { useCmsFeedback } from "@/components/cms/feedback";
 import { useRecordId } from "@/components/cms/hooks";
@@ -26,12 +27,13 @@ import {
   approveRefundCase,
   documentUrl,
   getRefundCase,
+  getAdminRefundEvidenceUrl,
   getRefundContext,
   rejectRefundCase,
   type AdminRefundCaseDetail,
   type CaseContext,
 } from "@/lib/api/admin";
-import { useResource } from "@/lib/api/use-resource";
+import { invalidate, useResource } from "@/lib/api/use-resource";
 import { formatBaht } from "@/lib/mock-db/format";
 
 const REFUNDS_KEY = ADMIN_KEYS.refunds;
@@ -54,6 +56,24 @@ const BACK = "/admin/refunds";
  * key has no admin route that presigns it, so that tile names the file and shows
  * no picture: a stock thumbnail would claim to be this requester's evidence.
  */
+function RefundEvidenceGrid({ refund }: { readonly refund: AdminRefundCaseDetail }) {
+  const t = useTranslations("bookingRefund");
+  const key = `${REFUNDS_KEY}/${refund.id}/evidence-urls`;
+  const fetcher = useCallback(async (signal: AbortSignal) => Promise.all(refund.evidence.map(async file => ({
+    key: file.objectKey, name: file.originalFileName, mimeType: file.mimeType,
+    url: documentUrl(file.objectKey) ?? (await getAdminRefundEvidenceUrl(refund.id, file.objectKey, signal)).url,
+  }))), [refund]);
+  const links = useResource(key, fetcher);
+  useEffect(() => () => invalidate(key), [key]);
+  useEffect(() => {
+    if (!links.data) return;
+    const timer = window.setTimeout(links.reload, 270000);
+    return () => window.clearTimeout(timer);
+  }, [links.data, links.reload]);
+  if (links.error) return <div role="alert"><p>{t("evidenceFailed")}</p><Button type="button" variant="link" onClick={links.reload}>{t("retry")}</Button></div>;
+  return <CmsDocumentGrid files={links.data ?? refund.evidence.map(file => ({ key: file.objectKey, name: file.originalFileName, mimeType: file.mimeType, url: null }))} />;
+}
+
 export function RefundReviewScreen() {
   const t = useTranslations("cms.refunds");
   const id = useRecordId();
@@ -197,14 +217,7 @@ function Review({ refund }: { readonly refund: AdminRefundCaseDetail }) {
         {refund.evidence.length === 0 ? (
           <p className="text-sm text-muted-foreground">{t("noEvidence")}</p>
         ) : (
-          <CmsDocumentGrid
-            files={refund.evidence.map((file) => ({
-              key: file.objectKey,
-              url: documentUrl(file.objectKey),
-              name: file.originalFileName,
-              mimeType: file.mimeType,
-            }))}
-          />
+          <RefundEvidenceGrid refund={refund} />
         )}
       </CmsSection>
 

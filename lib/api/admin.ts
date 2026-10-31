@@ -865,3 +865,8 @@ export function deleteSkill(
 ): Promise<TaxonomyRecord> {
   return api.delete(`skills/${id}`, { signal });
 }
+
+/** Permission-checked, short-lived link to a refund attachment. */
+export function getAdminRefundEvidenceUrl(id: string, objectKey: string, signal?: AbortSignal): Promise<DocumentDownloadUrl> {
+  return api.get(`admin/refunds/${encodeURIComponent(id)}/evidence-url`, { query: { objectKey }, signal });
+}

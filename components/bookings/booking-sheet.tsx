@@ -347,6 +347,7 @@ function PaymentLine({
   readonly booking: ApiBooking;
   readonly service: ApiPublicService | undefined;
 }) {
+  const r = useTranslations("bookingRefund");
   const t = useTranslations("bookings");
   const tr = useTranslations("transactions");
   const format = useFormatter();
@@ -361,6 +362,7 @@ function PaymentLine({
         <Link className="font-medium text-primary underline-offset-4 hover:underline" href={invoiceHref(invoice.id)}>
           {t("viewReceipt")}
         </Link>
+        {invoice.status === "paid" || invoice.status === "refunded" ? <><span>{" · "}</span><Link className="font-medium text-primary underline-offset-4 hover:underline" href={`/bookings/refund?bookingId=${booking.id}`}>{r("requestLink")}</Link></> : null}
       </Line>
     );
   }

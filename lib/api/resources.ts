@@ -352,8 +352,7 @@ export function putBookingReview(
  * resolved through its appointment rather than trusted from the body.
  *
  * The id it needs belongs to `service_invoices`, which is what
- * `listMyInvoices` returns. Nothing in the app opens a case yet: there is no
- * refund button on a receipt.
+ * `listMyInvoices` and `getMyBookingInvoice` return.
  */
 export function openRefundCase(
   input: ApiRefundCaseInput,
@@ -364,7 +363,7 @@ export function openRefundCase(
 
 /** `GET /refunds/me` — the cases this advisee opened. `refund:readSelf`. */
 export function listMyRefundCases(
-  query: ApiPageQuery = {},
+  query: ApiPageQuery & { readonly invoiceId?: string } = {},
   signal?: AbortSignal,
 ): Promise<Paginated<ApiRefundCase>> {
   return api.get("refunds/me", { query: { ...query }, signal });
@@ -458,4 +457,24 @@ export function getHealth(signal?: AbortSignal): Promise<{
   readonly databaseLatencyMs: number;
 }> {
   return api.get("health", { signal });
+}
+
+export interface RefundEvidence {
+  readonly objectKey: string;
+  readonly originalFileName: string;
+  readonly mimeType: string;
+  readonly createdAt: string;
+}
+
+export function listRefundEvidence(id: string, signal?: AbortSignal): Promise<RefundEvidence[]> {
+  return api.get(`refunds/${encodeURIComponent(id)}/evidence`, { signal });
+}
+
+export function uploadRefundEvidence(id: string, file: File): Promise<RefundEvidence> {
+  const body = new FormData(); body.append("file", file);
+  return api.post(`refunds/${encodeURIComponent(id)}/evidence`, { body });
+}
+
+export function getRefundEvidenceUrl(id: string, objectKey: string): Promise<{ url: string; expiresInSeconds: number }> {
+  return api.get(`refunds/${encodeURIComponent(id)}/evidence-url`, { query: { objectKey } });
 }
