@@ -29,9 +29,7 @@ test(`a stale slot is rejected, refreshed, and replaced by a real booking at ${v
   try {
     const slotsResponse = page.waitForResponse((response) => response.url().includes(`/services/${serviceId}/slots?`));
     await page.goto(`/service/tax-freelance?serviceId=${serviceId}`);
-    if (viewport.width < 1024) {
-      await page.getByRole("button", { name: "เลือกเวลาที่สะดวก", exact: true }).click();
-    }
+    await page.getByRole("button", { name: "เลือกเวลาที่สะดวก", exact: true }).filter({ visible: true }).click();
     const slots = z.object({ data: z.array(z.object({ startTime: z.iso.datetime() })) }).parse(await (await slotsResponse).json()).data;
     const first = slots.find((slot) => isoDay(new Date(slot.startTime)) < isoDay(addDays(new Date(), 7)));
     if (!first) throw new Error("Disposable proof service needs an available slot in the next seven days");
@@ -44,16 +42,16 @@ test(`a stale slot is rejected, refreshed, and replaced by a real booking at ${v
     createdIds.push(bookingSchema.parse(await competitor.json()).data.id);
     const rejected = page.waitForResponse((response) => response.url() === `${api}/bookings` && response.request().method() === "POST");
     const refreshed = page.waitForResponse((response) => response.url().includes(`/services/${serviceId}/slots?`));
-    await page.getByRole("button", { name: /^จอง / }).click();
+    await page.getByRole("dialog").getByRole("button", { name: "ถัดไป", exact: true }).click();
     expect((await rejected).status()).toBe(400);
     expect((await refreshed).status()).toBe(200);
     await expect(page.getByRole("alert").filter({ hasText: "จองเวลานี้ไม่ได้" })).toBeVisible();
-    await expect(page.getByRole("button", { name: "เลือกเวลาก่อน", exact: true }).filter({ visible: true })).toBeDisabled();
+    await expect(page.getByRole("dialog").getByRole("button", { name: "ถัดไป", exact: true })).toHaveCount(0);
     await page.screenshot({ path: `test-results/booking-selection-refreshed-${viewport.width}.png`, fullPage: true });
 
     await page.getByRole("button", { name: /^\d{2}:\d{2}$/ }).filter({ visible: true }).first().click();
     const booked = page.waitForResponse((response) => response.url() === `${api}/bookings` && response.request().method() === "POST");
-    await page.getByRole("button", { name: /^จอง / }).click();
+    await page.getByRole("dialog").getByRole("button", { name: "ถัดไป", exact: true }).click();
     const response = await booked;
     expect(response.status()).toBe(201);
     const booking = bookingSchema.parse(await response.json()).data;
