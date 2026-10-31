@@ -101,6 +101,18 @@ export function LoginScreen({
   /** The API's own words, when it gave any. Shown as the banner's body. */
   const [detail, setDetail] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [retryAfterSeconds, setRetryAfterSeconds] = useState<number | null>(null);
+  const [lockedEmail, setLockedEmail] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (retryAfterSeconds === null) return;
+    const timer = window.setTimeout(() => {
+      setRetryAfterSeconds(null);
+      setLockedEmail(null);
+      setFailure(current => current === "locked" ? null : current);
+    }, retryAfterSeconds * 1000);
+    return () => window.clearTimeout(timer);
+  }, [retryAfterSeconds, lockedEmail]);
 
   function clearFailure() {
     setFailure(null);
@@ -130,6 +142,10 @@ export function LoginScreen({
     // A role mismatch cannot happen here — this door takes every role — so
     // `forbidden` falls back to the credentials banner rather than inventing copy.
     setFailure(result.reason === "forbidden" ? "invalid" : result.reason);
+    if (result.reason === "locked") {
+      setLockedEmail(withEmail.trim().toLowerCase());
+      setRetryAfterSeconds(result.retryAfterSeconds ?? 15 * 60);
+    }
     setDetail(result.message ?? null);
   }
 
@@ -171,7 +187,7 @@ export function LoginScreen({
     void attempt(email, password);
   }
 
-  const locked = failure === "locked";
+  const locked = failure === "locked" || (retryAfterSeconds !== null && lockedEmail === email.trim().toLowerCase());
 
   // `px-0 pt-0`: the banner's own inset is the phone page's 24px gutter, and
   // inside the column it left the banner narrower than the field.

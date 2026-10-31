@@ -60,7 +60,7 @@ test("real onboarding uploads appear in private admin identity and skill reviews
     expect(login.status()).toBe(200);
     const cases = [
       { name: "identity", bytes: identityImage, path: `/admin/verification/review?id=${userId}`, route: `/api/v1/admin/identity-verifications/${userId}/document-url` },
-      { name: "skill", bytes: skillImage, path: `/admin/skill-proofs/review?id=${proofId}`, route: `/api/v1/admin/skill-proofs/${proofId}/document-url` },
+      { name: "skill", bytes: skillImage, path: `/admin/verification/proof?id=${proofId}`, route: `/api/v1/admin/skill-proofs/${proofId}/document-url` },
     ];
     const errors: string[] = [];
     page.on("pageerror", (error) => errors.push(error.message));
