@@ -237,7 +237,6 @@ function SidebarBody({ version }: { readonly version: number }) {
             src={logo}
           />
         </Link>
-        <span className="truncate text-sm font-medium text-muted-foreground">{t("brand")}</span>
       </div>
       {/* Mounted again after every ruling, so its counts are read again. */}
       <NavList key={version} />

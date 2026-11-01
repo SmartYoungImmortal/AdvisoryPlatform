@@ -1903,7 +1903,6 @@
     },
     "nav": {
       "label": "Admin menu",
-      "brand": "Admin",
       "home": "Go to the overview",
       "openMenu": "Open menu",
       "resize": "Resize the menu",
