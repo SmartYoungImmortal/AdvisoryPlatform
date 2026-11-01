@@ -3,7 +3,7 @@
 รายการหน้าที่ยังต้อง redesign เรียงตามลำดับที่ควรทำ แต่ละข้อเป็นหนึ่ง ticket
 ติ๊ก `[x]` เมื่อพี่ดูแล้ว **ผ่าน** ไม่ใช่แค่เขียนโค้ดเสร็จ
 
-อัปเดตล่าสุด: 28 ตุลาคม 2569
+อัปเดตล่าสุด: 1 พฤศจิกายน 2569
 
 ## หลักที่ใช้กับทุกหน้า
 
@@ -30,6 +30,10 @@
 - [x] `/notifications` ผ่าน 25 ต.ค.; `/notifications/view` (ทุกแถวเปิดหน้านี้ มีปุ่มไปต่อ: แชท, การจองเปิด popup บน `/bookings`, ใบเสร็จเปิด popup บน `/transactions`) และ `/notifications/advisor` ผ่าน 28 ต.ค.
 - [x] `/settings` และ popup ของมัน: เปลี่ยนอีเมล (`/settings/email`, `/settings/email/verify`), เปลี่ยนรหัสผ่าน (`/settings/password` + ตั้งรหัสใหม่ทางอีเมลใน popup ถัดไป), ออกจากระบบ (`/settings/logout`), ลบบัญชี (popup ในหน้า), `/settings/updated` ผ่าน 28 ต.ค.
 - [x] `/transactions` (+ popup ใบเสร็จ, "ดูการจองของฉัน" เปิด popup การจองนั้นบน `/bookings`), `/transactions/detail`, `/transactions/detail/failed`, `/transactions/detail/refunded` ผ่าน 28 ต.ค.
+- [x] RD-11 แชต: `/chat`, `/chat/empty`, `/chat/session-banner`, `/chat/[id]` (+ `/message-failed`, `/report`, `/report/submitted`) ผ่าน 1 พ.ย.
+- [x] RD-03 หน้าบริการ: `/service/[id]` (หัว showcase, แพ็กเกจ, กล่องจองสองขั้น, รีวิว) ผ่าน 1 พ.ย.
+- [x] RD-13 หน้า auth ที่เหลือ: `/reset-password`, `/verification-sent`, `/email-verified` ผ่าน 1 พ.ย.
+- [x] RD-18 Toast: `components/mobile/toast.tsx` และ `components/notifications/notification-toaster.tsx` เป็นแบบเดียวกันแล้ว ผ่าน 1 พ.ย.
 
 ## ทำแล้วแต่ยังไม่ผ่าน
 
@@ -45,40 +49,34 @@
 - [ ] `/bookings`: ใส่กรอบและปรับขนาดตัวหนังสือ ข้างในยังไม่ redesign
 
 ### RD-02 · โปรไฟล์สาธารณะของผู้ให้คำปรึกษา
-- [ ] `/advisors/[advisorId]`, `/about`, `/services`, `/reviews`: หน้าโปรไฟล์สาธารณะ อยู่ใน `AppFrame`
+- [ ] `/advisors/[advisorId]`, `/about`, `/services`, `/reviews`: ทำใหม่ 30 ต.ค. navbar ของเว็บ + ปุ่มย้อนกลับ การ์ดแบบหน้าค้นหา รีวิวแบบหน้าบริการ แท็บ About
 
-### RD-03 · หน้าบริการ
-- [ ] `/service/[id]`: หัว showcase + แกลเลอรี (ปก + 2 รูปจาก `service_images`) + กล่องจองติดขวา + รีวิว/ผู้เชี่ยวชาญ/บริการอื่น
+### RD-04 · จองและชำระเงิน
+- [ ] `/checkout/card`, `/checkout/card/saved`: ทำแล้ว 30 ต.ค. (บัตรผ่าน Omise, PromptPay, Google Pay, mobile banking, คูปอง)
+- [ ] `/checkout/processing`, `/checkout/success`, `/checkout/failed`, `/checkout/slot-taken`, `/checkout/unconfirmed`: success อ่านใบเสร็จจริง ที่เหลือใช้ component เดียวกัน
+
+### RD-09 · รีวิวหลังคุย
+- [ ] `/reviews/session`, `/reviews/session/submitted`: ต้องมี `?booking=<id>` ของนัดที่จบแล้วของบัญชีที่ล็อกอิน เปิดเปล่าๆ จะขึ้นว่าไม่มีนัดให้รีวิว
+
+### RD-17 · Footer (ทุกหน้า)
+- [ ] `components/marketing/site-footer.tsx`: ทำแล้ว 30 ต.ค. (สามคอลัมน์บนพื้นสว่าง + แถวล่าง) พี่ดูแล้ว 1 พ.ย. ยังไม่ผ่าน
+
+### RD-16 · Admin console
+- [ ] ทั้ง 18 หน้า redesign แล้ว 28–30 ต.ค. รายการหน้าอยู่ใน RD-16 ด้านล่าง
 
 ### RD-10 · สมัครเป็นผู้ให้คำปรึกษา
 - [ ] `/advisor/apply`
 - [ ] `/advisor-onboarding/stage-1`, `/stage-2`, `/stage-3`: กรอบเดียวกับ login ขนาดตัวอักษรเท่าหน้า login
 - [ ] `/advisor-onboarding/thank-you`, `/pending`, `/failed`
 
-### RD-11 · แชตและการแจ้งเตือน
-- [ ] `/chat`, `/chat/empty`, `/chat/session-banner`; ห้องแชตย้ายไป `/chat/room?id=…` (+ `/message-failed`, `/report`, `/report/submitted`)
-
 ## ยังไม่ได้ทำ
-
-### RD-17 · Footer (ทุกหน้า)
-- [ ] `components/marketing/site-footer.tsx`
-
-ใช้ร่วมกันทุกหน้า แก้ครั้งเดียวได้ทุกหน้า ตอนนี้ยังเป็นแบบที่ลอก Systronic มา ต้อง redesign ให้เข้าชุดกับ home / login / terms (ปุ่มแคปซูล, Kanit, พื้นขาวหรือแสงฟ้า-ม่วงจางๆ) พร้อมสองภาษา และ scale จาก 1710 บน iPad แนวนอน
-
-### RD-18 · Toast (ทุกหน้า)
-- [ ] `components/mobile/toast.tsx` (`StatusToast`): การ์ดขาว ไอคอนติ๊ก แถบนับถอยหลัง มุมขวาล่างบน desktop ใช้กับเปิด/ปิดแจ้งเตือนบนอุปกรณ์ (การ์ดข้าง `/notifications`) และ "อัปเดตรหัสผ่านแล้ว" (`/settings/updated`)
-- [ ] `components/notifications/notification-toaster.tsx`: แจ้งเตือนใหม่ที่เด้งทุกหน้า ยังเป็นแถบดำแบบ Figma "In-app toast" คนละหน้าตากับตัวบน
-
-ตอนนี้มี toast สองแบบที่ไม่เข้าชุดกัน ต้อง redesign ให้เป็นแบบเดียว (ตำแหน่ง ขนาด สี ไอคอน ปุ่ม "ดู" ของแจ้งเตือนใหม่) แล้วค่อยใช้แทน banner ที่ยังเหลือในหน้าอื่น ฝั่ง admin มีของตัวเองใน `components/cms/feedback.tsx` อยู่ใน RD-16
 
 ### RD-03 · จับคู่ผู้เชี่ยวชาญ
 - [ ] `/matching`, `/matching/searching`, `/matching/results`
 
-### RD-04 · จองและชำระเงิน
-- [ ] `/checkout/card`, `/checkout/card/saved`
-- [ ] `/checkout/processing`, `/checkout/success`, `/checkout/failed`
-- [ ] `/checkout/slot-taken`, `/checkout/unconfirmed`
+### RD-04 · จองและชำระเงิน (ที่เหลือ)
 - [ ] ข้างในของ `/bookings` (กรอบทำแล้ว ดู RD-01)
+- [ ] `/bookings/refund`: หน้าใหม่ที่ Taj ทำใน #91 (ขอยกเลิก/คืนเงินพร้อมหลักฐาน) อยู่บน `dev` ยังไม่ได้ redesign
 
 ### RD-05 · โปรไฟล์และหน้าทำงานของผู้ให้คำปรึกษา ⭐
 - [ ] `/advisor/profile` (ควรเป็น dashboard: สวิตช์รับงาน นัดวันนี้ คำขอที่รอตอบ รายได้ สถานะยืนยันตัวตน)
@@ -102,14 +100,8 @@
 - [ ] `/screening/setup`, `/screening/questions`, `/screening/requests`, `/screening/review`, `/screening/review/decline`
 - [ ] `/screening/submitted`, `/screening/accepted`, `/screening/declined`, `/screening/trial`
 
-### RD-09 · รีวิว
+### RD-09 · รีวิวของผู้ให้คำปรึกษา
 - [ ] `/reviews`, `/reviews/empty`, `/reviews/replying`, `/reviews/reply-failed`
-- [ ] `/reviews/session`, `/reviews/session/submitted`
-
-### RD-13 · หน้า auth ที่เหลือ (เร็ว ใช้ `AuthSplit` ได้เลย)
-- [ ] `/reset-password`: ทำแล้วบน `AuthSplit` (ฟอร์ม, เปลี่ยนแล้ว, ลิงก์ใช้ไม่ได้) รอพี่ดู
-- [ ] `/verification-sent`: ทำแล้วบน `AuthSplit` จัดกึ่งกลางใต้ `lg` รอพี่ดู (อีเมลยังไม่ถูกส่งจริง เพราะ API ยังไม่มีบริการส่งเมล)
-- [ ] `/email-verified`: ทำแล้วบน `AuthSplit` จัดกึ่งกลางใต้ `lg` รอพี่ดู
 
 ### RD-14 · หน้าการตลาด
 - [ ] `/about`
