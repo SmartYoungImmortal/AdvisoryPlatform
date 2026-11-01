@@ -101,7 +101,7 @@ function BookingRow({
           }).format(new Date(booking.startTime))}
         </p>
       </div>
-      <StatusPill tone={upcoming ? "accent" : "success"}>
+      <StatusPill tone={upcoming ? "accent" : booking.state === "COMPLETED" ? "success" : "neutral"}>
         {standing.label}
       </StatusPill>
       <ChevronRight className="size-4 shrink-0 text-muted-foreground" />
