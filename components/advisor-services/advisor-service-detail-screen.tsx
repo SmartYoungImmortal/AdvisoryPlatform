@@ -83,6 +83,7 @@ function BookingRow({
     booking.state === "IN_PROGRESS" ||
     booking.state === "PENDING_PAYMENT";
   const standing = useStanding()(booking, useMountTime());
+  const settledTone = booking.state === "COMPLETED" ? "success" : "neutral";
 
   return (
     <Link
@@ -101,7 +102,7 @@ function BookingRow({
           }).format(new Date(booking.startTime))}
         </p>
       </div>
-      <StatusPill tone={upcoming ? "accent" : booking.state === "COMPLETED" ? "success" : "neutral"}>
+      <StatusPill tone={upcoming ? "accent" : settledTone}>
         {standing.label}
       </StatusPill>
       <ChevronRight className="size-4 shrink-0 text-muted-foreground" />

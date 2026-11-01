@@ -41,7 +41,7 @@ function PublishedSlots({ data }: { readonly data: ServiceDetail }) {
       <p className="text-xs text-muted-foreground">
         {t("timezone", { zone: data.owner.timezone })}
       </p>
-      {slots.loading ? <p role="status">{t("loading")}</p> : null}
+      {slots.loading ? <output>{t("loading")}</output> : null}
       {slots.error ? (
         <div role="alert">
           <p>{slots.error.message}</p>

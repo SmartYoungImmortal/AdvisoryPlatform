@@ -48,8 +48,8 @@ export function LiveServiceRoute({
 function RouteLoading() {
   const t = useTranslations("serviceForm");
   return (
-    <p className="p-6" role="status">
+    <output className="block p-6">
       {t("loading")}
-    </p>
+    </output>
   );
 }

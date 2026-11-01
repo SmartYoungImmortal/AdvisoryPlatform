@@ -5,6 +5,8 @@ import { z } from "zod";
 import { expect, test } from "./support/coverage";
 import { bookingDay } from "@/lib/work/booking-calendar";
 
+// These real-service tests run only when the disposable API, database and storage are provisioned.
+// Set BOOKING_LIVE_PROOF=1 to run them; ordinary CI does not provision those fixtures.
 test.skip(
   process.env.BOOKING_LIVE_PROOF !== "1",
   "Requires the disposable local proof services",

@@ -148,11 +148,10 @@ function Schedule({ data }: { readonly data: ServiceDetail }) {
   const [shownMonth, setShownMonth] = useState<string | null>(null);
   const [picked, setPicked] = useState<string | null>(null);
   const month = shownMonth ?? today.slice(0, 7);
-  const day = picked?.startsWith(month)
-    ? picked
-    : month === today.slice(0, 7)
-      ? today
-      : `${month}-01`;
+  let day = `${month}-01`;
+  if (picked?.startsWith(month)) day = picked;
+  else if (month === today.slice(0, 7)) day = today;
+
   const [year, monthNumber] = month.split("-").map(Number);
   const monthEnd = new Date(Date.UTC(year, monthNumber, 0))
     .toISOString()
@@ -499,7 +498,7 @@ function PublishedMonthSlots({
   });
   return (
     <div className="flex w-full flex-col gap-2">
-      {resource.loading ? <p role="status">{t("loading")}</p> : null}
+      {resource.loading ? <output>{t("loading")}</output> : null}
       {resource.error ? (
         <div role="alert">
           <p>{resource.error.message}</p>
