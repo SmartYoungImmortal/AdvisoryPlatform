@@ -223,7 +223,9 @@ function SidebarBody({ version }: { readonly version: number }) {
 
   return (
     <div className="flex h-full min-h-0 flex-col">
-      <div className="flex h-16 shrink-0 items-center justify-center px-5">
+      {/* Centred a touch left of the panel's middle: the wordmark's weight
+          sits in its mark, so the exact middle reads as too far right. */}
+      <div className="flex h-16 shrink-0 items-center justify-center ps-4 pe-6">
         <Link
           aria-label={t("home")}
           className="flex shrink-0 rounded-md outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
