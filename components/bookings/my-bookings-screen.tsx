@@ -5,9 +5,8 @@ import Link from "next/link";
 import { useFormatter, useTranslations } from "next-intl";
 import { useCallback, useState, type ReactNode } from "react";
 
-import type { Paginated } from "@/lib/api/client";
 import { ApiError } from "@/lib/api/client";
-import { listAdvisors, listMyBookings, listServices } from "@/lib/api/resources";
+import { listAllMyBookings, listBookingServices, listBookingAdvisors } from "@/lib/api/my-bookings";
 import type { ApiBooking, ApiPublicAdvisor, ApiPublicService } from "@/lib/api/types";
 import { invalidate, useLastAnswer, useResource } from "@/lib/api/use-resource";
 import { asUuid, useMountTime, useQueryValue } from "@/components/bookings/booking-flow";
@@ -400,22 +399,22 @@ export function MyBookingsScreen() {
   const [openId, setOpenId] = useState<string | null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
 
-  const bookingsFetcher = useCallback((signal: AbortSignal) => listMyBookings({ limit: 50 }, signal), []);
-  const servicesFetcher = useCallback((signal: AbortSignal) => listServices({ limit: 100 }, signal), []);
-  const advisorsFetcher = useCallback((signal: AbortSignal) => listAdvisors({ limit: 100 }, signal), []);
+  const bookingsFetcher = useCallback((signal: AbortSignal) => listAllMyBookings(signal), []);
+  const servicesFetcher = useCallback((signal: AbortSignal) => listBookingServices(signal), []);
+  const advisorsFetcher = useCallback((signal: AbortSignal) => listBookingAdvisors(signal), []);
 
-  const bookings = useResource<Paginated<ApiBooking>>("bookings/me?limit=50", bookingsFetcher);
-  const services = useResource<Paginated<ApiPublicService>>("services?limit=100", servicesFetcher);
-  const advisors = useResource<Paginated<ApiPublicAdvisor>>("advisors?limit=100", advisorsFetcher);
+  const bookings = useResource<ApiBooking[]>("bookings/me/all", bookingsFetcher);
+  const services = useResource<ApiPublicService[]>("services/all", servicesFetcher);
+  const advisors = useResource<ApiPublicAdvisor[]>("advisors/all", advisorsFetcher);
   // Kept on screen while the list is read again after a change made in the
   // open card, so the card keeps what it was saying (a cancellation to check,
   // or to try again).
   const read = useLastAnswer(bookings);
 
-  const serviceById = new Map((services.data?.items ?? []).map((service) => [service.id, service]));
-  const advisorById = new Map((advisors.data?.items ?? []).map((advisor) => [advisor.id, advisor]));
+  const serviceById = new Map((services.data ?? []).map((service) => [service.id, service]));
+  const advisorById = new Map((advisors.data ?? []).map((advisor) => [advisor.id, advisor]));
 
-  const entries: readonly BookingEntry[] = (read?.items ?? [])
+  const entries: readonly BookingEntry[] = (read ?? [])
     .map((booking) => ({
       booking,
       service: serviceById.get(booking.serviceId),

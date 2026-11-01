@@ -117,10 +117,12 @@ export function WorkHub({
   tab,
   subtitle,
   children,
+  showStats = true,
 }: {
   readonly tab: WorkTab;
   readonly subtitle: ReactNode;
   readonly children: ReactNode;
+  readonly showStats?: boolean;
 }) {
   const t = useTranslations("work");
 
@@ -147,7 +149,7 @@ export function WorkHub({
             title={t("title")}
           />
           <WorkTabs current={tab} />
-          <WorkStats />
+          {showStats ? <WorkStats /> : null}
           {children}
         </div>
         <SiteFooter className="hidden lg:flex" />

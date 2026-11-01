@@ -187,7 +187,7 @@ test("real registration, verification, desktop/mobile profile, password reset an
   const secondDevice = await browser.newContext();
   await test.step("Create a new account through the real form", async () => {
     await page.goto("http://localhost:3001/register", { waitUntil: "domcontentloaded" });
-    await page.screenshot({ path: `${output}/registration-initial.png`, fullPage: true });
+    await page.screenshot({ path: `${output}/registration-initial.png`, fullPage: true, caret: "initial" });
     await page.locator("#register-display-name").fill("Auth Proof");
     await page.locator("#register-full-name").fill("Auth Proof User");
     await page.locator("#register-email").fill(email);

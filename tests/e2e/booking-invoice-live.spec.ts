@@ -40,7 +40,12 @@ test("both sessions open the exact shared receipt on desktop and phone", async (
         await page.goto(`/bookings/detail?bookingId=${bookingId}`);
         const response = await lookup;
         expect(response.status()).toBe(200);
-        expect((await response.json()).data.id).toBe(invoiceId);
+        // Strict Mode may abort a duplicate browser read after its headers arrive.
+        // The visible receipt link proves the completed UI read; verify the exact
+        // persisted association separately through the authenticated request client.
+        const persisted = await context.request.get(`http://localhost:3200/api/v1/payment/invoices/for-booking/${bookingId}`);
+        expect(persisted.status()).toBe(200);
+        expect((await persisted.json()).data.id).toBe(invoiceId);
         const receipt = page.getByRole("link", { name: "ดูใบเสร็จ", exact: true });
         await expect(receipt).toHaveAttribute("href", `/transactions/detail?id=${invoiceId}`);
         await receipt.click();
