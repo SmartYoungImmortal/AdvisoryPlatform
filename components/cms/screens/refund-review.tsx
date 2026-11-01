@@ -14,7 +14,7 @@ import { useCmsFeedback } from "@/components/cms/feedback";
 import { useRecordId } from "@/components/cms/hooks";
 import { CmsPage } from "@/components/cms/layout";
 import { useAccountName } from "@/components/cms/people";
-import { RulingDecision } from "@/components/cms/ruling";
+import { useRulingDecision } from "@/components/cms/ruling";
 import {
   CmsDataList,
   CmsDataRow,
@@ -159,10 +159,21 @@ function Review({ refund }: { readonly refund: AdminRefundCaseDetail }) {
     if (result.ok) router.push(BACK);
   }
 
+  const decision = useRulingDecision({
+    approveLabel: t("approve"),
+    onApprove: approve,
+    onReject: reject,
+    reasonLabel: t("reason"),
+    reasonPlaceholder: t("rejectPlaceholder"),
+    reasonRequired: t("reasonRequired"),
+    rejectLabel: t("reject"),
+  });
+
   return (
     <CmsPage
       aside={
         <CmsSidebarOptions
+          actions={open ? decision.actions : undefined}
           info={[
             { label: t("requestedAt"), by: requester, at: refund.createdAt },
             ...(refund.resolvedAt
@@ -176,17 +187,7 @@ function Review({ refund }: { readonly refund: AdminRefundCaseDetail }) {
               : []),
           ]}
         >
-          {open ? (
-            <RulingDecision
-              approveLabel={t("approve")}
-              onApprove={approve}
-              onReject={reject}
-              reasonLabel={t("reason")}
-              reasonPlaceholder={t("rejectPlaceholder")}
-              reasonRequired={t("reasonRequired")}
-              rejectLabel={t("reject")}
-            />
-          ) : undefined}
+          {open ? decision.field : undefined}
         </CmsSidebarOptions>
       }
       backHref={BACK}

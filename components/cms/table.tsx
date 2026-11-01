@@ -165,11 +165,12 @@ const ROW_HOVER = "group-hover/row:bg-muted/40";
  * in a soft grey circle (as the notification rows do) and can carry a grey
  * line under it (`sub`).
  *
- * Above it, the toolbar: the status capsules on the left (`chips`), the
- * search capsule and any other filters on the right. When rows are selected a
- * grey strip under the toolbar says how many and carries the bulk actions.
- * Under it, the range, the rows per page and the pages. Selection persists
- * across pages.
+ * Laid out as the console this is modelled on lays out its `CmsTable`: above
+ * it the toolbar, the search and any other filters on the left, and on the
+ * right the actions for the rows ticked (while there are any), then the status
+ * capsules (`chips`); under it the footer, the rows per page, the range and
+ * how many are ticked on the left and the pages on the right. Selection
+ * persists across pages.
  */
 export function CmsTable<Row extends { readonly id: string }>({
   list,
@@ -195,7 +196,7 @@ export function CmsTable<Row extends { readonly id: string }>({
   /** Further filters, after the search box. */
   readonly filters?: ReactNode;
   /**
-   * The selection strip's actions, drawn for the rows ticked; with none the
+   * The toolbar's actions for the rows ticked, drawn while there are any; with none the
    * table has no checkboxes. A render prop (`render…`), not a component: it is
    * called with the selection each time the strip draws.
    */
@@ -234,8 +235,7 @@ export function CmsTable<Row extends { readonly id: string }>({
   return (
     <div className="flex min-w-0 flex-col overflow-hidden rounded-lg border border-border bg-card">
       <div className="flex flex-col gap-3 border-b border-border px-5 py-4 md:flex-row md:items-center md:justify-between md:gap-4">
-        <div className="min-w-0">{chips}</div>
-        <div className="flex flex-wrap items-center gap-2 md:justify-end">
+        <div className="flex flex-wrap items-center gap-2">
           <CmsInput
             aria-label={searchPlaceholder ?? t("search")}
             className="md:w-64"
@@ -259,24 +259,11 @@ export function CmsTable<Row extends { readonly id: string }>({
           />
           {filters}
         </div>
-      </div>
-
-      {selectable && selected.size > 0 ? (
-        <div className="flex min-h-12 flex-wrap items-center gap-x-4 gap-y-2 border-b border-border bg-muted/60 px-5 py-2">
-          <span className="text-sm font-medium text-foreground">
-            {t("selected", { count: selected.size })}
-          </span>
-          <div className="flex flex-wrap items-center gap-2">{renderBulkActions([...selected])}</div>
-          <CmsButton
-            className="ms-auto text-muted-foreground"
-            onClick={list.clearSelection}
-            size="sm"
-            variant="link"
-          >
-            {t("clearSelection")}
-          </CmsButton>
+        <div className="flex min-w-0 flex-wrap items-center gap-2 md:justify-end">
+          {selectable && selected.size > 0 ? renderBulkActions([...selected]) : null}
+          {chips}
         </div>
-      ) : null}
+      </div>
 
       <div>
         <Table>
@@ -391,7 +378,6 @@ export function CmsTable<Row extends { readonly id: string }>({
       {list.total > 0 ? (
         <div className="flex flex-col-reverse items-center justify-between gap-3 border-t border-border px-5 py-4 text-sm text-muted-foreground sm:flex-row">
           <div className="flex flex-wrap items-center gap-x-5 gap-y-2">
-            <span>{t("range", { start, end, total: list.total })}</span>
             {list.total > PER_PAGE_OPTIONS[0] ? (
               <span className="flex items-center gap-2">
                 <span>{t("perPage")}</span>
@@ -402,6 +388,15 @@ export function CmsTable<Row extends { readonly id: string }>({
                   onValueChange={(value) => list.setPerPage(Number(value))}
                   value={String(list.perPage)}
                 />
+              </span>
+            ) : null}
+            <span>{t("range", { start, end, total: list.total })}</span>
+            {selected.size > 0 ? (
+              <span className="flex items-center gap-2">
+                <span className="font-medium text-foreground">{t("selected", { count: selected.size })}</span>
+                <CmsButton onClick={list.clearSelection} size="sm" variant="link">
+                  {t("clearSelection")}
+                </CmsButton>
               </span>
             ) : null}
           </div>

@@ -14,7 +14,7 @@ import { useCmsFeedback } from "@/components/cms/feedback";
 import { useRecordId } from "@/components/cms/hooks";
 import { CmsPage } from "@/components/cms/layout";
 import { useAccountName } from "@/components/cms/people";
-import { RulingDecision } from "@/components/cms/ruling";
+import { useRulingDecision } from "@/components/cms/ruling";
 import {
   CmsDataList,
   CmsDataRow,
@@ -172,10 +172,22 @@ function Review({ request }: { readonly request: IdentityVerification }) {
     if (result.ok) advance();
   }
 
+  const decision = useRulingDecision({
+    approveLabel: t("approve"),
+    onApprove: approve,
+    onReject: reject,
+    reasonHelp: t("reasonHelp"),
+    reasonLabel: t("reason"),
+    reasonPlaceholder: t("rejectPlaceholder"),
+    reasonRequired: t("reasonRequired"),
+    rejectLabel: t("reject"),
+  });
+
   return (
     <CmsPage
       aside={
         <CmsSidebarOptions
+          actions={pending ? decision.actions : undefined}
           info={[
             { label: t("submittedAt"), by: name, at: request.submittedAt },
             ...(request.verifiedAt
@@ -189,18 +201,7 @@ function Review({ request }: { readonly request: IdentityVerification }) {
               : []),
           ]}
         >
-          {pending ? (
-            <RulingDecision
-              approveLabel={t("approve")}
-              onApprove={approve}
-              onReject={reject}
-              reasonHelp={t("reasonHelp")}
-              reasonLabel={t("reason")}
-              reasonPlaceholder={t("rejectPlaceholder")}
-              reasonRequired={t("reasonRequired")}
-              rejectLabel={t("reject")}
-            />
-          ) : undefined}
+          {pending ? decision.field : undefined}
         </CmsSidebarOptions>
       }
       backHref={BACK}

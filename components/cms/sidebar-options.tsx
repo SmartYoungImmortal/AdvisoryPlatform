@@ -10,12 +10,14 @@ import { formatDateTime } from "@/lib/mock-db/format";
 import { cn } from "@/lib/utils";
 
 /**
- * The column beside a record, as the console this is modelled on lays out its
- * right panel: a card of when it arrived and when it was decided (and by
- * whom), then a card of what can be done with it, so the decision sits beside
- * the record it is about rather than at the foot of a long page. No rules
- * inside either: each date is a grey label over its value. The record's
- * status is beside its title.
+ * The column beside a record, in the order the console this is modelled on
+ * stacks its side panel, 16 apart: a card of the record's own controls
+ * (`children`, such as the reason a rejection needs), a card of when it
+ * arrived and when it was decided (and by whom), then the actions at full
+ * width under them, not in a card — so the decision sits beside the record it
+ * is about rather than at the foot of a long page. No rules inside the cards:
+ * each date is a grey label over its value. The record's status is beside
+ * its title.
  */
 export function CmsSidebarOptions({
   info,
@@ -27,7 +29,7 @@ export function CmsSidebarOptions({
     readonly by?: string | null;
     readonly at: string | null;
   }>;
-  /** Anything else the decision needs (a reason field), above the actions. */
+  /** The record's own controls (a reason field), in the card at the top. */
   readonly children?: ReactNode;
   readonly actions?: ReactNode;
 }) {
@@ -35,6 +37,7 @@ export function CmsSidebarOptions({
   const card = "rounded-lg border border-border bg-card p-5";
   return (
     <div className="flex flex-col gap-4">
+      {children ? <div className={card}>{children}</div> : null}
       {info && info.length > 0 ? (
         <dl className={cn(card, "flex flex-col gap-4")}>
           {info.map((row) => (
@@ -50,12 +53,7 @@ export function CmsSidebarOptions({
           ))}
         </dl>
       ) : null}
-      {children !== undefined || actions !== undefined ? (
-        <div className={cn(card, "flex flex-col gap-4")}>
-          {children}
-          {actions ? <div className="flex flex-col gap-2">{actions}</div> : null}
-        </div>
-      ) : null}
+      {actions ? <div className="flex flex-col gap-2">{actions}</div> : null}
     </div>
   );
 }

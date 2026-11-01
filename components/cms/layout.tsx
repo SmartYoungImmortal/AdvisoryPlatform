@@ -480,12 +480,14 @@ export function CmsPageTabs({
  * layouts:
  *
  * - **The console's** (`full`, and every record page, which has `backHref`),
- *   as the console this is modelled on lays its pages out: a head bar across
- *   the panel on a hairline (the way back as a round arrow, the title in the
- *   site's heading face with its status beside it, a muted line, the page's
- *   actions at the right), then the body at the panel's full width, 24 in. A
- *   record's `aside` is a column of cards 280 or 320 wide beside it, held in
- *   view while it scrolls. Its sections are cards (`CmsSection`).
+ *   as the console this is modelled on lays its pages out
+ *   (`UDashboardNavbar` over `UDashboardPanel`'s body), in the site's own
+ *   type: a 64px head bar across the panel on a hairline, 24 in, all on one
+ *   line (the way back as a round arrow, the title in the site's heading
+ *   face, its status beside it, then `description` in grey; the page's
+ *   actions at the right); then the body at the panel's full width, 24 in, its
+ *   parts 24 apart. A record's `aside` is a column 280 or 320 wide beside it,
+ *   32 off. Its sections are cards (`CmsSection`).
  * - **The centred column** the overview keeps: at most 1280 wide, 36 in and
  *   40 down, the head over the body.
  */
@@ -529,38 +531,34 @@ export function CmsPage({
       <CmsPageKindContext.Provider value="console">
         <div className="flex min-h-0 min-w-0 flex-1 flex-col">
           {phoneBar}
-          <header className="cms-scale flex shrink-0 flex-wrap items-center justify-between gap-x-6 gap-y-3 border-b border-border px-5 py-4 md:px-6 md:py-5">
-            <div className="flex min-w-0 items-center gap-2">
+          <header className="cms-scale flex h-16 shrink-0 items-center justify-between gap-4 border-b border-border px-4 sm:px-6">
+            <div className="flex min-w-0 items-center gap-3">
               {backHref ? (
                 <Link
                   aria-label={backLabel ?? t("back")}
-                  className="-ms-2 flex size-10 shrink-0 items-center justify-center rounded-full text-foreground outline-none transition-colors hover:bg-muted focus-visible:ring-3 focus-visible:ring-ring/50"
+                  className="-ms-2 -me-1 flex size-10 shrink-0 items-center justify-center rounded-full text-foreground outline-none transition-colors hover:bg-muted focus-visible:ring-3 focus-visible:ring-ring/50"
                   href={backHref}
                 >
                   <ArrowLeft aria-hidden className="size-5" />
                 </Link>
               ) : null}
-              <div className="flex min-w-0 flex-col gap-0.5">
-                <div className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1">
-                  <h1 className="min-w-0 font-hero text-title-compact font-normal tracking-tight break-words text-hero-ink md:text-2xl">
-                    {title}
-                  </h1>
-                  {badge}
-                </div>
-                {description ? <p className="text-sm text-muted-foreground">{description}</p> : null}
-              </div>
+              <h1 className="min-w-0 truncate font-hero text-title-compact font-normal tracking-tight text-hero-ink md:text-2xl">
+                {title}
+              </h1>
+              {badge}
+              {description ? (
+                <p className="hidden min-w-0 truncate text-sm text-muted-foreground md:block">{description}</p>
+              ) : null}
             </div>
-            {actions ? <div className="flex flex-wrap items-center gap-2">{actions}</div> : null}
+            {actions ? <div className="flex shrink-0 items-center gap-2">{actions}</div> : null}
           </header>
           <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain" data-slot="cms-scroll">
-            <div className="cms-scale flex w-full flex-col gap-6 px-4 pt-4 pb-16 sm:px-6 sm:pt-6">
+            <div className="cms-scale flex w-full flex-col gap-4 p-4 sm:gap-6 sm:p-6">
               {tabs}
               <div className={cn(aside && "lg:flex lg:items-start lg:gap-8")}>
-                <div className="flex min-w-0 flex-1 flex-col gap-6">{children}</div>
+                <div className="flex min-w-0 flex-1 flex-col gap-4 sm:gap-6">{children}</div>
                 {aside ? (
-                  <aside className="mt-6 flex flex-col gap-4 lg:sticky lg:top-6 lg:mt-0 lg:w-70 lg:shrink-0 xl:w-80">
-                    {aside}
-                  </aside>
+                  <aside className="mt-6 flex flex-col gap-4 lg:mt-0 lg:w-70 lg:shrink-0 xl:w-80">{aside}</aside>
                 ) : null}
               </div>
             </div>
