@@ -1,13 +1,17 @@
+"use client";
+
 import type { LucideIcon } from "lucide-react";
 import type { ReactNode } from "react";
 
+import { useCmsPageKind } from "@/components/cms/page-kind";
 import { cn } from "@/lib/utils";
 
 /**
- * One titled part of a page, flat on the white panel the way the settings
- * page's categories are: a 16px semibold heading with an optional muted line
- * under it, then the content. No box of its own: parts are told apart by the
- * space between them and by the hairlines of the rows inside.
+ * One titled part of a page: a 16px semibold heading with an optional muted
+ * line under it, then the content. In the console's layout it is a white card
+ * with round corners on a hairline, its heading inside, as the console this is
+ * modelled on boxes each part; on the overview's centred column it stays flat
+ * on the panel, told apart by the space between parts.
  */
 export function CmsSection({
   title,
@@ -22,10 +26,13 @@ export function CmsSection({
   readonly children?: ReactNode;
   readonly className?: string;
 }) {
+  const card = useCmsPageKind() === "console";
   return (
-    <section className={cn("flex min-w-0 flex-col", className)}>
+    <section
+      className={cn("flex min-w-0 flex-col", card && "rounded-2xl border border-border bg-card p-5 md:p-6", className)}
+    >
       {title !== undefined || actions !== undefined ? (
-        <header className="mb-3 flex items-end justify-between gap-3">
+        <header className={cn("flex items-end justify-between gap-3", card ? "mb-5" : "mb-3")}>
           <div className="min-w-0">
             {title !== undefined ? (
               <h2 className="text-base font-semibold text-foreground">{title}</h2>

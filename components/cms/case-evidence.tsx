@@ -76,7 +76,7 @@ export function CaseEvidence({
         {conversation.length === 0 ? (
           <CmsEmpty className="py-8" icon={MessagesSquare} title={t("noConversation")} />
         ) : (
-          <ol className="flex flex-col gap-4 rounded-2xl border border-border p-4 md:p-5">
+          <ol className="flex flex-col gap-4 rounded-2xl bg-muted/50 p-4 md:p-5">
             {conversation.map((line) => (
               <Line
                 advisee={line.senderUserId === appointment?.adviseeId}

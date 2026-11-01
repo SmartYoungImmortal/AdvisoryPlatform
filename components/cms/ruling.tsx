@@ -43,7 +43,7 @@ export function RulingDecision({
       <CmsButton block icon={Check} onClick={onApprove} size="lg">
         {approveLabel}
       </CmsButton>
-      <div className="mt-5 flex flex-col gap-3 border-t border-border pt-5">
+      <div className="mt-6 flex flex-col gap-3">
         <CmsFormField error={error} help={reasonHelp} htmlFor={id} label={reasonLabel}>
           <CmsTextarea
             id={id}

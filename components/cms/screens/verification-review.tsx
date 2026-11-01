@@ -218,7 +218,9 @@ function Review({ request }: { readonly request: IdentityVerification }) {
             <span className="font-latin">{request.email}</span>
           </CmsDataRow>
           {request.rejectionReason ? (
-            <CmsDataRow label={t("reason")}>{request.rejectionReason}</CmsDataRow>
+            <CmsDataRow label={t("reason")} wide>
+              {request.rejectionReason}
+            </CmsDataRow>
           ) : null}
         </CmsDataList>
       </CmsSection>
@@ -245,9 +247,9 @@ function Review({ request }: { readonly request: IdentityVerification }) {
         {proofItems.length === 0 ? (
           <p className="text-sm text-muted-foreground">{t("noSkills")}</p>
         ) : (
-          <ul className="border-b border-border">
+          <ul className="-my-1 flex flex-col">
             {proofItems.map((proof) => (
-              <li className="border-t border-border" key={proof.id}>
+              <li key={proof.id}>
                 <Link
                   className="-mx-3 flex items-center gap-3 rounded-xl px-3 py-3 outline-none transition-colors hover:bg-muted/50 focus-visible:ring-3 focus-visible:ring-ring/50"
                   href={`${BACK}/proof?id=${proof.id}`}

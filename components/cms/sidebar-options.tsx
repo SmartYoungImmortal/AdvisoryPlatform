@@ -10,10 +10,12 @@ import { formatDateTime } from "@/lib/mock-db/format";
 import { cn } from "@/lib/utils";
 
 /**
- * The column beside a record: when it arrived and when it was decided (and by
- * whom), then what can be done with it. Flat, the two parts ruled off by a
- * hairline, so the decision sits beside the record it is about rather than at
- * the foot of a long page. The record's status is the pill beside its title.
+ * The column beside a record, as the console this is modelled on lays out its
+ * right panel: a card of when it arrived and when it was decided (and by
+ * whom), then a card of what can be done with it, so the decision sits beside
+ * the record it is about rather than at the foot of a long page. No rules
+ * inside either: each date is a grey label over its value. The record's
+ * status is beside its title.
  */
 export function CmsSidebarOptions({
   info,
@@ -30,18 +32,18 @@ export function CmsSidebarOptions({
   readonly actions?: ReactNode;
 }) {
   const t = useTranslations("cms.options");
-  const blocks = "border-t border-border py-5 first:border-t-0 first:pt-0";
+  const card = "rounded-2xl border border-border bg-card p-5";
   return (
-    <div className="flex flex-col">
+    <div className="flex flex-col gap-4">
       {info && info.length > 0 ? (
-        <dl className={cn(blocks, "flex flex-col gap-3")}>
+        <dl className={cn(card, "flex flex-col gap-4")}>
           {info.map((row) => (
-            <div className="flex flex-col gap-0.5" key={row.label}>
-              <dt className="text-xs font-medium text-muted-foreground">{row.label}</dt>
-              <dd className="text-sm text-foreground">
+            <div className="flex flex-col gap-1" key={row.label}>
+              <dt className="text-sm text-muted-foreground">{row.label}</dt>
+              <dd className="text-sm font-medium text-foreground">
                 {formatDateTime(row.at)}
                 {row.by ? (
-                  <span className="block text-muted-foreground">{t("by", { name: row.by })}</span>
+                  <span className="block font-normal text-muted-foreground">{t("by", { name: row.by })}</span>
                 ) : null}
               </dd>
             </div>
@@ -49,7 +51,7 @@ export function CmsSidebarOptions({
         </dl>
       ) : null}
       {children !== undefined || actions !== undefined ? (
-        <div className={cn(blocks, "flex flex-col gap-4")}>
+        <div className={cn(card, "flex flex-col gap-4")}>
           {children}
           {actions ? <div className="flex flex-col gap-2">{actions}</div> : null}
         </div>
@@ -58,22 +60,28 @@ export function CmsSidebarOptions({
   );
 }
 
-/** Label and value rows on hairlines: the facts of a record. */
+/**
+ * The facts of a record, as a form's fields are laid out but to be read: two
+ * columns from `sm`, each a grey label over its value, with no rules between.
+ */
 export function CmsDataList({ children }: { readonly children: ReactNode }) {
-  return <dl className="border-b border-border">{children}</dl>;
+  return <dl className="grid gap-x-8 gap-y-5 sm:grid-cols-2">{children}</dl>;
 }
 
 export function CmsDataRow({
   label,
+  wide = false,
   children,
 }: {
   readonly label: string;
+  /** Across both columns: a long text, a reason, a description. */
+  readonly wide?: boolean;
   readonly children: ReactNode;
 }) {
   return (
-    <div className="grid gap-1 border-t border-border py-3.5 text-sm sm:grid-cols-[12rem_minmax(0,1fr)] sm:gap-6">
-      <dt className="text-muted-foreground">{label}</dt>
-      <dd className="min-w-0 break-words text-foreground">{children}</dd>
+    <div className={cn("flex min-w-0 flex-col gap-1", wide && "sm:col-span-2")}>
+      <dt className="text-sm text-muted-foreground">{label}</dt>
+      <dd className="min-w-0 text-base break-words text-foreground">{children}</dd>
     </div>
   );
 }

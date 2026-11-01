@@ -190,7 +190,9 @@ function ReportRecord({ report }: { readonly report: AdminReport }) {
           <CmsDataRow label={t("col.reporter")}>
             <PersonLink id={report.reporterUserId} name={reporter} />
           </CmsDataRow>
-          <CmsDataRow label={t("col.detail")}>{report.reason}</CmsDataRow>
+          <CmsDataRow label={t("col.detail")} wide>
+            {report.reason}
+          </CmsDataRow>
         </CmsDataList>
       </CmsSection>
       <CaseEvidence context={evidence.data} loading={evidence.loading} />

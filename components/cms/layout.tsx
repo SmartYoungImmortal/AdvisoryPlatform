@@ -3,7 +3,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { ChevronLeft, ChevronsUpDown, ExternalLink, LogOut, Menu } from "lucide-react";
+import { ArrowLeft, ChevronLeft, ChevronsUpDown, ExternalLink, LogOut, Menu } from "lucide-react";
 import { useTranslations } from "next-intl";
 import {
   createContext,
@@ -33,6 +33,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
 import { logo } from "@/lib/assets/r2";
+import { CmsPageKindContext } from "@/components/cms/page-kind";
 import { cmsNav, isCmsNavActive, type CmsNavCount, type CmsNavItem } from "@/lib/navigation/cms";
 import { signOut, useSession } from "@/lib/session";
 import { cn } from "@/lib/utils";
@@ -442,7 +443,7 @@ export function CmsPageTabs({
   return (
     <nav
       aria-label={label}
-      className="mt-6 flex gap-6 overflow-x-auto border-b border-border md:gap-8"
+      className="flex gap-6 overflow-x-auto border-b border-border md:gap-8"
     >
       {tabs.map((tab) => {
         const active = tab.key === current;
@@ -475,15 +476,18 @@ export function CmsPageTabs({
 }
 
 /**
- * A page inside the panel: the phone's bar (below `lg`), then the page column
- * — at most 1280 wide, 36 in from the panel's edges and 40 down, as the
- * account pages' column is — holding the head (the way back to the list, the
- * title in the site's heading face with its status beside it, a muted line,
- * the page's own actions at the right, its tabs) and the body.
+ * A page inside the panel, below the phone's bar (under `lg`), in one of two
+ * layouts:
  *
- * `aside` is the column beside a record: 288 or 320 wide from `lg`, ruled off
- * by a hairline and held in view while the record scrolls; under the record
- * on a phone.
+ * - **The console's** (`full`, and every record page, which has `backHref`),
+ *   as the console this is modelled on lays its pages out: a head bar across
+ *   the panel on a hairline (the way back as a round arrow, the title in the
+ *   site's heading face with its status beside it, a muted line, the page's
+ *   actions at the right), then the body at the panel's full width, 24 in. A
+ *   record's `aside` is a column of cards 280 or 320 wide beside it, held in
+ *   view while it scrolls. Its sections are cards (`CmsSection`).
+ * - **The centred column** the overview keeps: at most 1280 wide, 36 in and
+ *   40 down, the head over the body.
  */
 export function CmsPage({
   title,
@@ -497,7 +501,7 @@ export function CmsPage({
   full = false,
   children,
 }: {
-  /** A list page: the panel's full width rather than the centred column. */
+  /** A list page: the console's layout at the panel's full width (a record page has it already). */
   readonly full?: boolean;
   readonly title: ReactNode;
   readonly badge?: ReactNode;
@@ -513,28 +517,64 @@ export function CmsPage({
 }) {
   const t = useTranslations("cms.nav");
   const { setOpen } = useContext(SidebarContext);
+  const phoneBar = (
+    <div className="flex h-14 shrink-0 items-center gap-1 border-b border-border px-2 lg:hidden">
+      <CmsButton aria-label={t("openMenu")} icon={Menu} onClick={() => setOpen(true)} variant="ghost" />
+      <Image alt="Advisory" className="h-5.5 w-auto brightness-0" src={logo} />
+    </div>
+  );
+
+  if (full || backHref !== undefined) {
+    return (
+      <CmsPageKindContext.Provider value="console">
+        <div className="flex min-h-0 min-w-0 flex-1 flex-col">
+          {phoneBar}
+          <header className="cms-scale flex shrink-0 flex-wrap items-center justify-between gap-x-6 gap-y-3 border-b border-border px-5 py-4 md:px-6 md:py-5">
+            <div className="flex min-w-0 items-center gap-2">
+              {backHref ? (
+                <Link
+                  aria-label={backLabel ?? t("back")}
+                  className="-ms-2 flex size-10 shrink-0 items-center justify-center rounded-full text-foreground outline-none transition-colors hover:bg-muted focus-visible:ring-3 focus-visible:ring-ring/50"
+                  href={backHref}
+                >
+                  <ArrowLeft aria-hidden className="size-5" />
+                </Link>
+              ) : null}
+              <div className="flex min-w-0 flex-col gap-0.5">
+                <div className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1">
+                  <h1 className="min-w-0 font-hero text-title-compact font-normal tracking-tight break-words text-hero-ink md:text-2xl">
+                    {title}
+                  </h1>
+                  {badge}
+                </div>
+                {description ? <p className="text-sm text-muted-foreground">{description}</p> : null}
+              </div>
+            </div>
+            {actions ? <div className="flex flex-wrap items-center gap-2">{actions}</div> : null}
+          </header>
+          <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain" data-slot="cms-scroll">
+            <div className="cms-scale flex w-full flex-col gap-6 px-4 pt-4 pb-16 sm:px-6 sm:pt-6">
+              {tabs}
+              <div className={cn(aside && "lg:flex lg:items-start lg:gap-8")}>
+                <div className="flex min-w-0 flex-1 flex-col gap-6">{children}</div>
+                {aside ? (
+                  <aside className="mt-6 flex flex-col gap-4 lg:sticky lg:top-6 lg:mt-0 lg:w-70 lg:shrink-0 xl:w-80">
+                    {aside}
+                  </aside>
+                ) : null}
+              </div>
+            </div>
+          </div>
+        </div>
+      </CmsPageKindContext.Provider>
+    );
+  }
 
   return (
     <div className="flex min-h-0 min-w-0 flex-1 flex-col">
-      <div className="flex h-14 shrink-0 items-center gap-1 border-b border-border px-2 lg:hidden">
-        <CmsButton
-          aria-label={t("openMenu")}
-          icon={Menu}
-          onClick={() => setOpen(true)}
-          variant="ghost"
-        />
-        <Image alt="Advisory" className="h-5.5 w-auto brightness-0" src={logo} />
-      </div>
+      {phoneBar}
       <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain" data-slot="cms-scroll">
-        {/* A list takes the panel's full width at a 32 inset, as the console
-            this is modelled on lays its tables out; every other page keeps
-            the centred column. */}
-        <div
-          className={cn(
-            "cms-scale flex w-full flex-col px-5 pt-6 pb-16",
-            full ? "md:px-8 md:pt-8" : "mx-auto max-w-7xl md:px-10 md:pt-8 lg:px-9 lg:pt-10",
-          )}
-        >
+        <div className="cms-scale mx-auto flex w-full max-w-7xl flex-col px-5 pt-6 pb-16 md:px-10 md:pt-8 lg:px-9 lg:pt-10">
           <header className="flex flex-col">
             {backHref ? (
               <Link

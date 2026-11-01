@@ -209,7 +209,9 @@ function Review({ refund }: { readonly refund: AdminRefundCaseDetail }) {
           <CmsDataRow label={t("col.amount")}>
             <span className="font-latin">{amount}</span>
           </CmsDataRow>
-          <CmsDataRow label={t("col.reason")}>{refund.reason}</CmsDataRow>
+          <CmsDataRow label={t("col.reason")} wide>
+            {refund.reason}
+          </CmsDataRow>
         </CmsDataList>
       </CmsSection>
 

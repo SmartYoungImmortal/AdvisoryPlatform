@@ -180,7 +180,9 @@ function ProofRecord({ proof }: { readonly proof: SkillProof }) {
             </span>
           </CmsDataRow>
           {proof.rejectionReason ? (
-            <CmsDataRow label={t("reason")}>{proof.rejectionReason}</CmsDataRow>
+            <CmsDataRow label={t("reason")} wide>
+              {proof.rejectionReason}
+            </CmsDataRow>
           ) : null}
         </CmsDataList>
       </CmsSection>
