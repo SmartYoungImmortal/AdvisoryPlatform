@@ -1,7 +1,7 @@
 import { execFileSync } from "node:child_process";
 import { readFileSync } from "node:fs";
 import { randomUUID } from "node:crypto";
-import { expect, test } from "@playwright/test";
+import { expect, test } from "./support/coverage";
 import { z } from "zod";
 
 const cleanupScript = process.env.REFUND_EVIDENCE_CLEANUP_SCRIPT;

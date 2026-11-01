@@ -1,6 +1,6 @@
 import { execFileSync } from "node:child_process";
 import { createHash, randomUUID } from "node:crypto";
-import { expect, test } from "@playwright/test";
+import { expect, test } from "./support/coverage";
 import { z } from "zod";
 
 test.skip(process.env.AUTH_LIVE_PROOF !== "1", "Requires the named disposable local proof database and API");

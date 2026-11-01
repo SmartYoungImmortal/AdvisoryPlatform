@@ -1,4 +1,4 @@
-import { expect, test } from "@playwright/test";
+import { expect, test } from "./support/coverage";
 import { z } from "zod";
 
 test.skip(process.env.AVAILABILITY_LIVE_PROOF !== "1", "Requires the disposable localhost:3200 proof API");

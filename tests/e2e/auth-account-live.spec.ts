@@ -1,10 +1,11 @@
-import { test, expect, type APIRequestContext, type Page } from "@playwright/test";
+import { test, expect, type APIRequestContext, type Page } from "./support/coverage";
 import { mkdir, writeFile } from "node:fs/promises";
 import { resolve } from "node:path";
 
 const output = resolve(process.cwd(), "../.audit/auth-proof-2026-10-27");
 const password = "Auth-Proof-2026!";
 const replacement = "Auth-Changed-2026!";
+test.use({ video: "on", viewport: { width: 1440, height: 1000 } });
 const api = "http://localhost:3200";
 test.use({ actionTimeout: 15_000, navigationTimeout: 30_000 });
 
@@ -47,16 +48,14 @@ async function login(page: Page, email: string, secret: string, options: { next:
   return response;
 }
 
-test("real two-mailbox email change, resend and advisee permission boundaries", async ({ browser }) => {
+test("real two-mailbox email change, resend and advisee permission boundaries", async ({ browser, context, page }) => {
   test.skip(process.env.AUTH_LIVE_PROOF !== "1", "Requires disposable local proof API and Mailpit");
   test.setTimeout(120_000);
   await mkdir(output, { recursive: true });
   const email = `email-proof-${Date.now()}@example.test`;
   const changedEmail = email.replace("email-proof", "changed-proof");
-  const context = await browser.newContext({ baseURL: "http://localhost:3001", viewport: { width: 1440, height: 1000 }, recordVideo: { dir: output } });
   context.setDefaultTimeout(15_000);
   context.setDefaultNavigationTimeout(30_000);
-  const page = await context.newPage();
   const created = await context.request.post(`${api}/api/auth/sign-up/email`, {
     headers: { origin: "http://localhost:3001" },
     data: { email, password, name: "Email Proof", fullName: "Email Proof User", timezone: "Asia/Bangkok", callbackURL: "http://localhost:3001/email-verified" },
@@ -122,19 +121,17 @@ test("real two-mailbox email change, resend and advisee permission boundaries", 
     });
   } finally {
     await context.request.delete(`${api}/api/v1/users/me`);
-    await context.close();
   }
 });
 
-test("real suspension denies login and unban restores access for disposable user", async ({ browser }) => {
+test("real suspension denies login and unban restores access for disposable user", async ({ browser, context, page }) => {
   test.skip(process.env.AUTH_LIVE_PROOF !== "1", "Requires disposable local proof API, seeded admin and Mailpit");
   test.setTimeout(90_000);
   const email = `suspension-proof-${Date.now()}@example.test`;
-  const context = await browser.newContext({ baseURL: "http://localhost:3001", viewport: { width: 390, height: 844 } });
   context.setDefaultTimeout(15_000);
   context.setDefaultNavigationTimeout(30_000);
+  await page.setViewportSize({ width: 390, height: 844 });
   const administrator = await browser.newContext();
-  const page = await context.newPage();
   const created = await context.request.post(`${api}/api/auth/sign-up/email`, {
     headers: { origin: "http://localhost:3001" },
     data: { email, password, name: "Suspension Proof", fullName: "Suspension Proof User", timezone: "Asia/Bangkok", callbackURL: "http://localhost:3001/email-verified" },
@@ -170,20 +167,17 @@ test("real suspension denies login and unban restores access for disposable user
     });
     await context.request.post(`${api}/api/auth/sign-in/email`, { headers: { origin: "http://localhost:3001" }, data: { email, password } });
     await context.request.delete(`${api}/api/v1/users/me`);
-    await context.close();
     await administrator.close();
   }
 });
 
-test("real registration, verification, desktop/mobile profile, password reset and deletion", async ({ browser }) => {
+test("real registration, verification, desktop/mobile profile, password reset and deletion", async ({ browser, context, page }) => {
   test.skip(process.env.AUTH_LIVE_PROOF !== "1", "Requires disposable local advisory_proof API and Mailpit");
   test.setTimeout(180_000);
   await mkdir(output, { recursive: true });
   const email = `auth-proof-${Date.now()}@example.test`;
-  const context = await browser.newContext({ baseURL: "http://localhost:3001", viewport: { width: 1440, height: 1000 }, recordVideo: { dir: output } });
   context.setDefaultTimeout(15_000);
   context.setDefaultNavigationTimeout(30_000);
-  const page = await context.newPage();
   const secondDevice = await browser.newContext();
   await test.step("Create a new account through the real form", async () => {
     await page.goto("http://localhost:3001/register", { waitUntil: "domcontentloaded" });
@@ -286,5 +280,4 @@ test("real registration, verification, desktop/mobile profile, password reset an
     await page.screenshot({ path: `${output}/deleted-account-denied.png`, fullPage: true });
   });
   await secondDevice.close();
-  await context.close();
 });

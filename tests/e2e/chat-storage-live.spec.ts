@@ -2,7 +2,7 @@ import { execFileSync } from "node:child_process";
 import { randomUUID } from "node:crypto";
 import { mkdirSync } from "node:fs";
 import { resolve } from "node:path";
-import { expect, test, type BrowserContext, type Page } from "@playwright/test";
+import { expect, test, type BrowserContext, type Page } from "./support/coverage";
 import { z } from "zod";
 
 test.skip(process.env.STORAGE_UI_LIVE_PROOF !== "1", "Requires local proof API, SeaweedFS, and the named disposable database");

@@ -1,6 +1,6 @@
 import { execFileSync } from "node:child_process";
 import { randomUUID } from "node:crypto";
-import { expect, test } from "@playwright/test";
+import { expect, test } from "./support/coverage";
 
 test.skip(process.env.BOOKING_LIVE_PROOF !== "1", "Requires the isolated seeded proof API and database");
 test.use({ video: "on" });

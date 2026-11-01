@@ -2,7 +2,7 @@ import { execFileSync } from "node:child_process";
 import { randomUUID } from "node:crypto";
 import { mkdirSync, readFileSync } from "node:fs";
 import { resolve } from "node:path";
-import { expect, test } from "@playwright/test";
+import { expect, test } from "./support/coverage";
 import { z } from "zod";
 
 test.skip(process.env.STORAGE_UI_LIVE_PROOF !== "1", "Requires the isolated proof API, SeaweedFS, and named disposable database");
