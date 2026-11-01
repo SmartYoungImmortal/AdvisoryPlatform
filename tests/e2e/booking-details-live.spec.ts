@@ -165,3 +165,44 @@ test("sign in, open details on desktop and phone, cancel, and verify persistence
     );
   }
 });
+
+test("profile counts and upcoming links include bookings beyond the first hundred", async ({ page }) => {
+  test.setTimeout(120_000);
+  const ids = Array.from({ length: 102 }, () => randomUUID());
+  const values = ids.map((id, index) => `('${id}'::uuid,${index})`).join(",");
+  sql(`INSERT INTO service_appointments (id,service_id,advisor_id,advisee_id,start_time,end_time,unavailable_until,state,blocks_availability)
+    SELECT fixture.id,s.id,s.advisor_id,u.id,
+      CASE WHEN fixture.n=101 THEN now()+interval '10 minutes' ELSE now()-interval '30 days' END,
+      CASE WHEN fixture.n=101 THEN now()+interval '70 minutes' ELSE now()-interval '29 days 23 hours' END,
+      CASE WHEN fixture.n=101 THEN now()+interval '70 minutes' ELSE now()-interval '29 days 23 hours' END,
+      (CASE WHEN fixture.n=101 THEN 'BOOKED' ELSE 'COMPLETED' END)::appointment_state,false
+    FROM (VALUES ${values}) fixture(id,n)
+    CROSS JOIN (SELECT id,advisor_id FROM services WHERE name='ตรวจแผนภาษีก่อนยื่น' LIMIT 1) s
+    CROSS JOIN (SELECT id FROM "user" WHERE email='nattapong.d@advisory.demo') u`);
+  try {
+    await page.goto("/login?next=%2Fprofile");
+    await page.locator('input[type="email"]').fill("nattapong.d@advisory.demo");
+    await page.locator('form button[type="submit"]').click();
+    await page.locator('input[type="password"]').fill("AdvisoryDemo!2026");
+    await page.locator('form button[type="submit"]').click();
+    await expect(page).toHaveURL(/\/profile$/);
+    const completed = sql(`SELECT count(*) FROM service_appointments b JOIN "user" u ON u.id=b.advisee_id WHERE u.email='nattapong.d@advisory.demo' AND b.state='COMPLETED'`);
+    expect(Number(completed)).toBeGreaterThan(100);
+    const figures = page.getByRole("definition");
+    const stats = page.locator('dl[aria-label="ตัวเลขจากการจองของคุณ"]');
+    await expect(stats.locator("div").filter({ has: page.getByText("ปรึกษาแล้ว", { exact: true }) }).locator("dd")).toHaveText(Number(completed).toLocaleString("th-TH"));
+    const upcoming = page.locator('section[aria-labelledby="profile-upcoming"] ul a').first();
+    await expect(upcoming.first()).toBeVisible();
+    for (const width of [1440, 390]) {
+      await page.setViewportSize({ width, height: 1000 });
+      await page.screenshot({ path: `test-results/profile-history-${width}.png`, fullPage: true });
+    }
+    await page.reload();
+    await expect(upcoming.first()).toBeVisible();
+    await expect(figures.first()).toBeVisible();
+    await upcoming.click();
+    await expect(page.locator(`a[href="/bookings/detail?bookingId=${ids[101]}"]`)).toBeVisible();
+  } finally {
+    sql(`DELETE FROM service_appointments WHERE id IN (${ids.map(id => `'${id}'`).join(",")})`);
+  }
+});
