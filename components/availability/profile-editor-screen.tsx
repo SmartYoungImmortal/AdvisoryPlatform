@@ -693,6 +693,7 @@ export function ProfileEditorScreen({
   const invalid = state === "error";
   const picker = state === "picker";
   const [profileId, setProfileId] = useState("");
+  const [profileName, setProfileName] = useState("");
   const [profile, setProfile] = useState<AvailabilityProfile | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -705,7 +706,7 @@ export function ProfileEditorScreen({
       if (!active) return;
       const current = queryId ? profiles.find((candidate) => candidate.id === queryId) : profiles[0];
       if (!current) throw new Error("ยังไม่มีชุดเวลาว่าง กรุณาสร้างชุดใหม่ก่อน");
-      setProfile(current); setProfileId(current.id);
+      setProfile(current); setProfileId(current.id); setProfileName(current.name);
     }).catch((cause: unknown) => { if (active) setError(cause instanceof Error ? cause.message : "โหลดชุดเวลาว่างไม่สำเร็จ"); });
     return () => { active = false; };
   }, [create, queryId]);
@@ -760,7 +761,7 @@ export function ProfileEditorScreen({
       if (overlap) throw new Error("ช่วงเวลาทับซ้อนกัน กรุณาปรับเวลาเริ่มหรือเวลาสิ้นสุด");
       const values: UpsertAvailabilityProfile = { name, weeklyWindows, specificWindows, blockedPeriods };
       const result = profileId ? await availabilityApi.updateProfile(profileId, values) : await availabilityApi.createProfile(values);
-      setProfile(result); setProfileId(result.id); invalidate("availability/profiles"); setSaved(true);
+      setProfile(result); setProfileId(result.id); setProfileName(result.name); invalidate("availability/profiles"); invalidate("advisors/me/services"); invalidate("services/"); setSaved(true);
       window.history.replaceState(null, "", `${window.location.pathname}?id=${encodeURIComponent(result.id)}`);
     } catch (cause) { setError(cause instanceof Error ? cause.message : "บันทึกชุดเวลาว่างไม่สำเร็จ"); }
     finally { setBusy(false); }
@@ -818,7 +819,8 @@ export function ProfileEditorScreen({
             <Input
               className="h-9"
               name="name"
-              defaultValue={profile?.name ?? ""}
+              value={profileName}
+              onChange={(event) => setProfileName(event.target.value)}
               placeholder={create ? t("namePlaceholder") : undefined}
               type="text"
             />

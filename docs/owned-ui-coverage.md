@@ -43,3 +43,7 @@ Browser artifacts use a separate ignored `ui-coverage/` directory so the ordinar
 The full 45-scenario local run passes, but the owned-source gate remains **failing**: 79.83% statements, 68.34% branches, 72.00% functions and 81.87% lines across 62 owned source files. Seven files never appeared in an exercised browser bundle. This baseline includes the same-compiler zero-count warmup and verifies each captured owned source against the current file contents. The source hash is recorded in `scope.json`; captures from changed source revisions are rejected.
 
 This is measurement groundwork, not completion of #60. Next work includes real advisor service detail/availability wiring (legacy routes still render fixture data), legal/logout paths, profile error states and rescheduling. Code execution figures must not be presented as visual acceptance.
+
+## Service-detail follow-up — 1 November 2026
+
+The live service-detail and service-schedule routes now read owner data and real slots. Desktop and phone browser proof includes profile-save invalidation, date-specific rules and exact session links. See `docs/review/service-detail.md`. The baseline above predates this work; no new whole-UI percentage is claimed.
