@@ -35,7 +35,7 @@ import type { Paginated } from "@/lib/api/client";
 import { useResource } from "@/lib/api/use-resource";
 
 const PROOFS_KEY = ADMIN_KEYS.skillProofs;
-const BACK = "/admin/verification?tab=skills";
+const BACK = "/admin/verification";
 
 /**
  * One skill document, on the verification desk's second tab: the document and
@@ -58,7 +58,7 @@ export function SkillProofReviewScreen() {
     fetcher,
   );
   const proof = proofs.data?.items.find((p) => p.id === id);
-  const frame = { backHref: BACK, backLabel: t("tab.skills"), title: t("proofTitle") };
+  const frame = { backHref: BACK, backLabel: t("title"), title: t("proofTitle") };
 
   if (id === "") {
     return (
@@ -158,7 +158,7 @@ function ProofRecord({ proof }: { readonly proof: SkillProof }) {
         </CmsSidebarOptions>
       }
       backHref={BACK}
-      backLabel={t("tab.skills")}
+      backLabel={t("title")}
       badge={<CmsStatus group="proof" value={proof.reviewStatus} />}
       title={proof.skillName}
     >

@@ -2141,6 +2141,9 @@
       "idCard": "ID card",
       "skillCount": "Skill documents ({count})",
       "noSkills": "No skill documents yet",
+      "proofsPending": "{pending} of {total} waiting",
+      "proofsCount": "{total} files",
+      "rejectProofTitle": "Reject “{skill}”?",
       "submittedAt": "Sent",
       "decidedAt": "Decided"
     },

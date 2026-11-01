@@ -1428,6 +1428,9 @@
       "idCard": "บัตรประชาชน",
       "skillCount": "เอกสารทักษะ ({count})",
       "noSkills": "ยังไม่มีเอกสารทักษะ",
+      "proofsPending": "รอตรวจ {pending} จาก {total}",
+      "proofsCount": "{total} ฉบับ",
+      "rejectProofTitle": "ไม่อนุมัติเอกสาร “{skill}”?",
       "submittedAt": "ส่งเมื่อ",
       "decidedAt": "ตัดสินเมื่อ"
     },

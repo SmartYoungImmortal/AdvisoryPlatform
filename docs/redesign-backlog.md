@@ -148,6 +148,8 @@ redesign แล้ว (28 ต.ค.) รอพี่ดู: กรอบเดี
 
 ## เรื่องค้างที่ไม่ใช่หน้า
 
+- [ ] Admin: user guide แบบ Systronics ในหน้า `/admin/services` (และหน้าอื่นของ admin) พี่สั่งให้ทำหลัง redesign admin ผ่าน (1 พ.ย.)
+
 - [ ] หน้า home ยังกระตุกนิดหน่อยตอนเลื่อน
 - [ ] Google / Facebook / Apple login: ต้องสร้าง OAuth client แล้วใส่ `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` ฯลฯ ใน `.env` ของ API (โค้ดทั้งสองฝั่งพร้อมแล้ว)
 - [ ] ให้ทนายไทยตรวจ `/terms` และ `/privacy-policy` ก่อนเปิดใช้กับลูกค้าจริง
