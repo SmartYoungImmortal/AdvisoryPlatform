@@ -1,7 +1,7 @@
 import { execFileSync } from "node:child_process";
 import { randomUUID } from "node:crypto";
 import { readFile } from "node:fs/promises";
-import { expect, test } from "@playwright/test";
+import { expect, test } from "./support/coverage";
 
 // Opt in only against the disposable, seeded proof API. No network interception.
 test.skip(

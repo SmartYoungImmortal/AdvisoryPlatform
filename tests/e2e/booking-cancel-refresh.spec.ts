@@ -1,4 +1,4 @@
-import { expect, test, type Page, type Route } from "@playwright/test";
+import { expect, test, type Page, type Route } from "./support/coverage";
 
 const bookingId = "booking-cancel-refresh-test";
 const serviceId = "service-cancel-refresh-test";
