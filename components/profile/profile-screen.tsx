@@ -205,7 +205,7 @@ function Stats({ history }: { readonly history: BookingHistory }) {
   const { bookings, upcoming, completed } = history;
   // A failed list has no figures to give; the panel below says why. An
   // account that has never booked has nothing to count yet.
-  if (bookings.error || bookings.data?.total === 0) return null;
+  if (bookings.error || bookings.data?.length === 0) return null;
 
   const minutes = completed.reduce(
     (sum, { booking }) => sum + (Date.parse(booking.endTime) - Date.parse(booking.startTime)) / 60_000,

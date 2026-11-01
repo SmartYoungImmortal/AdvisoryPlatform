@@ -1,4 +1,4 @@
-import { expect, test, type Page } from "@playwright/test";
+import { expect, test, type Page } from "./support/coverage";
 
 const api = "http://localhost:3200/api/v1";
 

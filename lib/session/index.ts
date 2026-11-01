@@ -51,17 +51,6 @@ import type { Account, Role } from "@/lib/mock-db/types";
  * in, which is a far better signal to build a three-state session on.
  */
 
-/**
- * Kept because it is exported, and for nothing else.
- *
- * Locking an account after five wrong passwords was a mock-database behaviour:
- * the store owned `failedLogins` and could count. better-auth has no lockout and
- * publishes no remaining-attempts figure, so nothing here can honestly say "two
- * tries left" — and a number invented on the client is worse than no number. The
- * login screen shows the API's own sentence instead.
- */
-export const MAX_FAILED_LOGINS = 5;
-
 export type Session =
   | { readonly status: "loading" }
   | { readonly status: "anonymous" }
@@ -336,9 +325,7 @@ export type SignInResult =
        *   build made without `NEXT_PUBLIC_API_URL`.
        * - `forbidden` — the right password at the wrong door. Decided here, not
        *   by the API; see `options.allow`.
-       * - `locked` — never produced. There is no lockout (see
-       *   `MAX_FAILED_LOGINS`); it stays in the union because the locked frame
-       *   still opens on its own route and maps copy off this name.
+       * - `locked` — five failed attempts within 15 minutes; the API owns the timer.
        */
       readonly reason:
         | "invalid"
@@ -349,13 +336,15 @@ export type SignInResult =
         | "unreachable";
       /** The API's own sentence, when the API answered. Safe to show. */
       readonly message?: string;
+      readonly retryAfterSeconds?: number;
     };
 
 function rejected(cause: unknown): SignInResult {
   if (!(cause instanceof ApiError)) return { ok: false, reason: "unreachable" };
   const reason =
+    cause.status === 429 && cause.code === "LOGIN_LOCKED" ? "locked" :
     cause.status === 401 ? "invalid" : cause.status === 403 ? "suspended" : "failed";
-  return { ok: false, reason, message: cause.message };
+  return { ok: false, reason, message: cause.message, retryAfterSeconds: cause.retryAfterSeconds };
 }
 
 /**

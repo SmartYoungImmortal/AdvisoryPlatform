@@ -1,4 +1,4 @@
-import { expect, test } from "@playwright/test";
+import { expect, test } from "./support/coverage";
 import { z } from "zod";
 
 test.skip(process.env.BOOKING_LIVE_PROOF !== "1", "Requires the isolated seeded proof API on localhost:3200");

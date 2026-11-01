@@ -2,7 +2,7 @@ import { execFileSync } from "node:child_process";
 import { randomUUID } from "node:crypto";
 import { mkdirSync, readFileSync } from "node:fs";
 import { resolve } from "node:path";
-import { expect, test } from "@playwright/test";
+import { expect, test } from "./support/coverage";
 import { z } from "zod";
 
 test.skip(process.env.STORAGE_UI_LIVE_PROOF !== "1", "Requires the isolated proof API, SeaweedFS, and named disposable database");
@@ -60,7 +60,7 @@ test("real onboarding uploads appear in private admin identity and skill reviews
     expect(login.status()).toBe(200);
     const cases = [
       { name: "identity", bytes: identityImage, path: `/admin/verification/review?id=${userId}`, route: `/api/v1/admin/identity-verifications/${userId}/document-url` },
-      { name: "skill", bytes: skillImage, path: `/admin/skill-proofs/review?id=${proofId}`, route: `/api/v1/admin/skill-proofs/${proofId}/document-url` },
+      { name: "skill", bytes: skillImage, path: `/admin/verification/proof?id=${proofId}`, route: `/api/v1/admin/skill-proofs/${proofId}/document-url` },
     ];
     const errors: string[] = [];
     page.on("pageerror", (error) => errors.push(error.message));

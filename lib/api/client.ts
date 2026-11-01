@@ -54,12 +54,14 @@ export interface CursorPage<T> {
 export class ApiError extends Error {
   readonly status: number;
   readonly code?: string;
+  readonly retryAfterSeconds?: number;
 
-  constructor(status: number, message: string, code?: string) {
+  constructor(status: number, message: string, code?: string, retryAfterSeconds?: number) {
     super(message);
     this.name = "ApiError";
     this.status = status;
     this.code = code;
+    this.retryAfterSeconds = retryAfterSeconds;
   }
 
   /** The session is missing or expired, and signing in again is the fix. */
@@ -186,7 +188,11 @@ async function unwrap<T>(response: Response, enveloped: boolean): Promise<T> {
       typeof (payload as { code: unknown }).code === "string"
         ? (payload as { code: string }).code
         : undefined;
-    throw new ApiError(response.status, message, code);
+    const retryAfterSeconds = typeof payload === "object" && payload !== null &&
+      "retryAfterSeconds" in payload && typeof payload.retryAfterSeconds === "number" &&
+      Number.isFinite(payload.retryAfterSeconds) && payload.retryAfterSeconds > 0
+      ? payload.retryAfterSeconds : undefined;
+    throw new ApiError(response.status, message, code, retryAfterSeconds);
   }
 
   if (!enveloped) return payload as T;
