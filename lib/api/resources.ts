@@ -83,6 +83,18 @@ export function listServiceSlots(
   return api.get(`services/${serviceId}/slots`, { query: { ...range }, signal });
 }
 
+/** Read replacement slots using the stored booking duration and ownership. */
+export function listBookingRescheduleSlots(
+  bookingId: string,
+  range: Pick<ApiSlotQuery, "from" | "to">,
+  signal?: AbortSignal,
+): Promise<readonly ApiSlot[]> {
+  return api.get(`bookings/${encodeURIComponent(bookingId)}/reschedule-slots`, {
+    query: range,
+    signal,
+  });
+}
+
 /** `GET /service-categories` — public. */
 export function listServiceCategories(
   signal?: AbortSignal,
