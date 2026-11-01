@@ -27,3 +27,9 @@ Behavior verdict: Passed locally. Figma verdict: **Differences remain**. Calenda
 Screenshots and browser recordings are retained outside Git in the workspace’s `.audit/advisor-bookings-proof/`. They are not attached or remotely accessible from this document. Native GitHub upload is unavailable in this environment (`gh pr edit` has no attachment option and no browser surface is available); do not mistake local evidence for hosted PR media. Visual review is incomplete until accessible evidence and the shared-shell decision are resolved.
 
 A fresh calendar screenshot fetch timed out in Figma; the previously read frame context remains the reference. Desktop and phone session reference PNGs and labelled side-by-side comparisons are retained locally. The Next.js development badge remains visible in proof; no issue indicator was hidden.
+
+## Final combined regression — 1 November 2026
+
+All **45 browser scenarios passed** in one local run with auth, availability, storage, booking, refund and cancellation-edge proof enabled, against the real API and disposable services (ordinary isolated tests retain their explicit mocks). No scenarios were skipped. A separate real registration/verification/profile/password/reset/deletion rerun passed after setting the initial screenshot to preserve the caret, preventing screenshot styling from altering the form before hydration. The shared chat portrait produces a performance advisory; it does not fail the flow and its unrelated component was not changed.
+
+CodeRabbit follow-up findings were handled: the chat control’s actual button role and href were verified live, and later-page service/advisor reference loading was implemented and tested. The API dependency is merged in [API #73](https://github.com/SmartYoungImmortal/AdvisoryPlatformAPI/pull/73). These results do not resolve the visual differences or establish deployment verification.
