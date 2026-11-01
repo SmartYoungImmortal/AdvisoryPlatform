@@ -173,10 +173,10 @@ export function PromptPayDialog({ promptPay }: { readonly promptPay: PromptPayme
                 <p className="mt-1 text-sm text-muted-foreground">
                   {t("promptPayExpiresIn")} <span className="font-latin tabular-nums">{clock}</span>
                 </p>
-                <p className="mt-5 flex items-center gap-2 text-sm text-foreground" role="status">
+                <output className="mt-5 flex items-center gap-2 text-sm text-foreground">
                   <Loader2 aria-hidden className="size-4 animate-spin motion-reduce:animate-none" />
                   {t("promptPayWaiting")}
-                </p>
+                </output>
                 <p className="mt-3 text-xs leading-4 text-muted-foreground">{t("promptPayHint")}</p>
               </>
             )}

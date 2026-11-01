@@ -217,6 +217,45 @@ function ChosenMethod({ method, last4, bank }: { readonly method: PayMethod; rea
   );
 }
 
+/**
+ * The foot bar's button: Next until the last step, then Google Pay's own
+ * button or the pay button for every other way.
+ */
+function StepAction({
+  last,
+  method,
+  payments,
+  onNext,
+}: {
+  readonly last: boolean;
+  readonly method: PayMethod;
+  readonly payments: Payments;
+  readonly onNext: () => void;
+}) {
+  const t = useTranslations("payment");
+  const { working, workingLabel, ready } = methodState(method, payments);
+
+  if (!last) {
+    return (
+      <Button className={cn(INK_BUTTON, "w-full")} onClick={onNext} type="button">
+        {t("next")}
+      </Button>
+    );
+  }
+  if (method === "googlepay") return <GooglePayButton googlePay={payments.googlePay} />;
+  return (
+    <PrimaryButton
+      block
+      className="h-10 rounded-[12px] text-sm font-medium lg:h-10"
+      disabled={!payments.payment.configured || working || !ready}
+      onClick={payWith(method, payments)}
+      type="button"
+    >
+      {working ? t(workingLabel) : t("confirmTitle")}
+    </PrimaryButton>
+  );
+}
+
 export function CheckoutSteps({
   booking,
   coupon,
@@ -246,7 +285,7 @@ export function CheckoutSteps({
   const titles = [t("reviewTitle"), t("addMethodTitle"), t("confirmTitle")];
   const last4 = payment.card.number.replace(/\D/g, "").slice(-4);
   const byCard = method === "card";
-  const { working, problem, workingLabel, ready } = methodState(method, payments);
+  const { problem } = methodState(method, payments);
 
   // Each step starts at its top, as a new screen would.
   useEffect(() => {
@@ -361,23 +400,7 @@ export function CheckoutSteps({
           ))}
         </div>
         <div className="px-6 py-3">
-          {step < 2 ? (
-            <Button className={cn(INK_BUTTON, "w-full")} onClick={onNext} type="button">
-              {t("next")}
-            </Button>
-          ) : method === "googlepay" ? (
-            <GooglePayButton googlePay={googlePay} />
-          ) : (
-            <PrimaryButton
-              block
-              className="h-10 rounded-[12px] text-sm font-medium lg:h-10"
-              disabled={!payment.configured || working || !ready}
-              onClick={payWith(method, payments)}
-              type="button"
-            >
-              {working ? t(workingLabel) : t("confirmTitle")}
-            </PrimaryButton>
-          )}
+          <StepAction last={step === 2} method={method} onNext={onNext} payments={payments} />
         </div>
       </div>
 
