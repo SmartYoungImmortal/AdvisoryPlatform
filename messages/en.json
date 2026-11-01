@@ -1976,12 +1976,7 @@
       "previous": "Previous page",
       "next": "Next page",
       "picked": "{count} picked",
-      "clearFilter": "Clear the filter",
-      "sort": "Sort",
-      "sortBy": "Sort: {column}",
-      "sortDefault": "Default order",
-      "ascending": "low to high",
-      "descending": "high to low"
+      "clearFilter": "Clear the filter"
     },
     "options": {
       "by": "by {name}",

@@ -1263,12 +1263,7 @@
       "previous": "หน้าก่อนหน้า",
       "next": "หน้าถัดไป",
       "picked": "เลือก {count} รายการ",
-      "clearFilter": "ล้างตัวกรอง",
-      "sort": "เรียงตาม",
-      "sortBy": "เรียงตาม{column}",
-      "sortDefault": "ลำดับเดิม",
-      "ascending": "น้อยไปมาก",
-      "descending": "มากไปน้อย"
+      "clearFilter": "ล้างตัวกรอง"
     },
     "options": {
       "by": "โดย {name}",

@@ -100,7 +100,12 @@ export function UsersScreen() {
       header: t("col.name"),
       sortable: true,
       primary: true,
-      render: (a) => a.fullName || a.displayName,
+      render: (a) => (
+        <span className="inline-flex items-center gap-3">
+          <CmsAvatar account={{ name: a.displayName, imageUrl: a.image }} size="sm" />
+          {a.fullName || a.displayName}
+        </span>
+      ),
     },
     {
       id: "email",
@@ -134,7 +139,6 @@ export function UsersScreen() {
         <CmsApiError error={accounts.error} onRetry={accounts.reload} />
       ) : (
         <CmsTable
-          leading={(a) => <CmsAvatar account={{ name: a.displayName, imageUrl: a.image }} size="row" />}
           renderBulkActions={(ids) => {
             // The API refuses suspending your own account with a 400 of its own;
             // leaving it out of the selection is kinder than letting the batch

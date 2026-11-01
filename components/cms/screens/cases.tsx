@@ -166,12 +166,12 @@ function ReportQueue() {
     {
       id: "detail",
       header: t("col.detail"),
-      render: (r) => r.reason,
+      className: "text-muted-foreground",
+      render: (r) => <span className="block max-w-80 truncate">{r.reason}</span>,
     },
     {
       id: "reporter",
       header: t("col.reporter"),
-      labelled: true,
       render: (r) => accountName(r.reporterUserId) ?? r.reporterDisplayName,
     },
     statusColumn(t("col.status"), (r) => <CmsStatus group="report" value={r.status} />),
@@ -179,7 +179,7 @@ function ReportQueue() {
     {
       id: "reviewer",
       header: t("col.reviewer"),
-      labelled: true,
+      className: "text-muted-foreground",
       render: (r) => accountName(r.reviewedByAdminId) ?? "-",
     },
   ];
@@ -189,7 +189,6 @@ function ReportQueue() {
 
   return (
     <CmsTable
-      leadingIcon={Flag}
       renderBulkActions={(ids) => {
         const open = openIds(ids);
         return open.length === 0 ? null : (
@@ -297,7 +296,6 @@ function FlagQueue() {
       id: "penalty",
       header: t("col.penalty"),
       align: "end",
-      labelled: true,
       className: "font-latin",
       render: (f) => f.penaltyPointsApplied,
     },
@@ -306,7 +304,7 @@ function FlagQueue() {
     {
       id: "reviewer",
       header: t("col.reviewer"),
-      labelled: true,
+      className: "text-muted-foreground",
       render: (f) => accountName(f.reviewedByAdminId) ?? "-",
     },
   ];
@@ -316,7 +314,6 @@ function FlagQueue() {
 
   return (
     <CmsTable
-      leadingIcon={Radar}
       renderBulkActions={(ids) => {
         const open = openIds(ids);
         return open.length === 0 ? null : (
