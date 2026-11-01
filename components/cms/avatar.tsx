@@ -24,6 +24,8 @@ const SIZE = {
   sm: { box: "size-6 text-xs", px: 24 },
   md: { box: "size-8 text-sm", px: 32 },
   lg: { box: "size-9 text-sm", px: 36 },
+  /** A list row's portrait, the site's 40px row circle. */
+  row: { box: "size-10 text-sm", px: 40 },
   xl: { box: "size-12 text-base", px: 48 },
 } as const;
 

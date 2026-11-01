@@ -6,7 +6,6 @@ import {
   ArrowDown,
   ArrowUp,
   ChevronDown,
-  ChevronsUpDown,
   Inbox,
   Search,
   SearchX,
@@ -14,7 +13,7 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import { useTranslations } from "next-intl";
-import type { ReactNode } from "react";
+import { Fragment, type ReactNode } from "react";
 
 import { CmsButton } from "@/components/cms/button";
 import { CmsEmpty } from "@/components/cms/card";
@@ -26,16 +25,10 @@ import {
   DropdownMenu,
   DropdownMenuCheckboxItem,
   DropdownMenuContent,
+  DropdownMenuRadioGroup,
+  DropdownMenuRadioItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
 import { formatDateTime } from "@/lib/mock-db/format";
 import { cn } from "@/lib/utils";
 
@@ -52,10 +45,15 @@ export type CmsColumn<Row> = {
   readonly primary?: boolean;
   /** The cell holds its own controls, so a click there is not a row click. */
   readonly interactive?: boolean;
+  /**
+   * Said with its header before it in the row's grey line ("สมัครเมื่อ 24 ต.ค.
+   * 69"): a date, or who did something, which mean nothing without it.
+   */
+  readonly labelled?: boolean;
   readonly render: (row: Row) => ReactNode;
 };
 
-/** A sortable date and time column, printed in Thai the way the site prints dates. */
+/** A sortable date and time, printed in Thai the way the site prints dates, with its header before it. */
 export function dateColumn<Row>(
   id: string,
   header: string,
@@ -65,17 +63,41 @@ export function dateColumn<Row>(
     id,
     header,
     sortable: true,
-    className: "w-px text-muted-foreground",
+    labelled: true,
     render: (row) => formatDateTime(read(row)),
   };
 }
 
-/** The status pill's column: sortable, as narrow as its widest pill. */
+/** The status: sortable, and printed at the row's right under any figure there. */
 export function statusColumn<Row>(
   header: string,
   render: (row: Row) => ReactNode,
 ): CmsColumn<Row> {
-  return { id: "status", header, sortable: true, className: "w-px", render };
+  return { id: "status", header, sortable: true, render };
+}
+
+/** Whether a cell printed anything worth a place in the grey line. */
+function said(node: ReactNode): boolean {
+  return !(node === null || node === undefined || node === false || node === "" || node === "-");
+}
+
+/** The row's grey line: every other column's value, joined with a middle dot. */
+function MetaLine<Row>({ columns, row }: { readonly columns: ReadonlyArray<CmsColumn<Row>>; readonly row: Row }) {
+  const parts = columns.map((column) => ({ column, value: column.render(row) })).filter((part) => said(part.value));
+  if (parts.length === 0) return null;
+  return (
+    <p className="truncate text-sm text-muted-foreground">
+      {parts.map(({ column, value }, i) => (
+        <Fragment key={column.id}>
+          {i > 0 ? " · " : null}
+          <span className={column.className}>
+            {column.labelled ? `${column.header} ` : null}
+            {value}
+          </span>
+        </Fragment>
+      ))}
+    </p>
+  );
 }
 
 /** The empty state a screen asks for when its queue has nothing in it. */
@@ -119,15 +141,23 @@ function TableEmpty({
 }
 
 /**
- * A list page's table, in the pattern the references share and the site's
- * own rows already follow: no box round it, a hairline under the head and
- * between rows, 52px rows of 14px type, the record's name in medium weight.
+ * A list page, drawn as the site's transaction history draws its rows rather
+ * than as a table: no head and no rules, each record a row with a round
+ * portrait or glyph, its name in body type over a grey line of everything else
+ * (`MetaLine`), and at the right any figure over its status in colour.
+ *
+ * - The **primary** column is the name, and the link to the record when the
+ *   table has `rowHref`, so a keyboard reaches every row.
+ * - The **status** column (`statusColumn`) and any **end**-aligned column sit
+ *   at the right; **interactive** columns after them, out of the row's click.
+ * - Every other column joins the grey line, its header before it when it is
+ *   `labelled`.
  *
  * Above it, the toolbar: the status capsules on the left (`chips`), the
- * search capsule and any other filters on the right. When rows are selected a
- * grey strip under the toolbar says how many and carries the bulk actions.
- * Under it, the range, the rows per page and the pages. Selection persists
- * across pages.
+ * search capsule, any other filters and the order (`SortMenu`) on the right.
+ * When rows are selected a grey strip under the toolbar says how many and
+ * carries the bulk actions. Under it, the range, the rows per page and the
+ * pages. Selection persists across pages.
  */
 export function CmsTable<Row extends { readonly id: string }>({
   list,
@@ -137,10 +167,16 @@ export function CmsTable<Row extends { readonly id: string }>({
   filters,
   renderBulkActions,
   rowHref,
+  leading,
+  leadingIcon: LeadingIcon,
   empty,
 }: {
   readonly list: CmsListState<Row>;
   readonly columns: ReadonlyArray<CmsColumn<Row>>;
+  /** The row's round portrait, 40 across (`CmsAvatar size="row"`). */
+  readonly leading?: (row: Row) => ReactNode;
+  /** With no portrait, the list's glyph in a soft grey circle, as the site's rows draw theirs. */
+  readonly leadingIcon?: LucideIcon;
   readonly searchPlaceholder?: string;
   /** The status capsules, at the toolbar's left (`CmsChips`). */
   readonly chips?: ReactNode;
@@ -176,12 +212,16 @@ export function CmsTable<Row extends { readonly id: string }>({
 
   const start = list.total === 0 ? 0 : (list.page - 1) * list.perPage + 1;
   const end = Math.min(list.page * list.perPage, list.total);
-  const span = columns.length + (selectable ? 1 : 0);
 
-  const emptyState =
-    rows.length === 0 ? (
-      <TableEmpty empty={empty} filtered={filtered} onClearSearch={() => list.setSearch("")} search={list.search} />
-    ) : null;
+  const title = columns.find((column) => column.primary) ?? columns[0];
+  const status = columns.find((column) => column.id === "status");
+  const figures = columns.filter(
+    (column) => column !== title && column !== status && column.align === "end" && !column.interactive,
+  );
+  const controls = columns.filter((column) => column !== title && column.interactive);
+  const meta = columns.filter(
+    (column) => column !== title && column !== status && !figures.includes(column) && !controls.includes(column),
+  );
 
   return (
     <div className="flex min-w-0 flex-col">
@@ -210,6 +250,7 @@ export function CmsTable<Row extends { readonly id: string }>({
             value={list.search}
           />
           {filters}
+          <SortMenu columns={columns} list={list} />
         </div>
       </div>
 
@@ -230,107 +271,88 @@ export function CmsTable<Row extends { readonly id: string }>({
         </div>
       ) : null}
 
-      {/* The first and last cells lose their outer inset, so the columns line
-          up with the page title and the search box, and the rules end where
-          the page column does. */}
-      <div className="mt-4">
-        <Table>
-          <TableHeader>
-            <TableRow className="hover:bg-transparent">
-              {selectable ? (
-                <TableHead className="w-8 ps-0 pe-0">
+      {selectable && rows.length > 0 ? (
+        <label className="mt-4 flex h-8 w-fit items-center gap-3 text-sm text-muted-foreground">
+          <Checkbox
+            checked={allOnPage}
+            indeterminate={selectedOnPage > 0 && !allOnPage}
+            onCheckedChange={(checked) => toggle(pageIds, checked)}
+          />
+          {t("selectAll")}
+        </label>
+      ) : null}
+
+      {rows.length === 0 ? (
+        <TableEmpty empty={empty} filtered={filtered} onClearSearch={() => list.setSearch("")} search={list.search} />
+      ) : (
+        // Pulled out by the rows' own inset, so their portraits line up with
+        // the page title while the grey under the pointer reaches past them.
+        <ul className={cn("-mx-3 flex flex-col", selectable ? "mt-1" : "mt-4")}>
+          {rows.map((row) => {
+            const href = rowHref?.(row);
+            const name = title.render(row);
+            return (
+              <li
+                className={cn(
+                  "flex min-h-16 items-center gap-4 rounded-2xl px-3 py-2.5 transition-colors",
+                  href && "cursor-pointer hover:bg-muted/60",
+                  selected.has(row.id) && "bg-muted/60",
+                )}
+                key={row.id}
+                onClick={href ? () => router.push(href) : undefined}
+              >
+                {selectable ? (
                   <Checkbox
-                    aria-label={t("selectAll")}
-                    checked={allOnPage}
-                    indeterminate={selectedOnPage > 0 && !allOnPage}
-                    onCheckedChange={(checked) => toggle(pageIds, checked)}
+                    aria-label={t("selectRow")}
+                    checked={selected.has(row.id)}
+                    onCheckedChange={(checked) => toggle([row.id], checked)}
+                    onClick={(event) => event.stopPropagation()}
                   />
-                </TableHead>
-              ) : null}
-              {columns.map((column) => (
-                <TableHead
-                  aria-sort={
-                    list.sort?.id === column.id
-                      ? list.sort.desc
-                        ? "descending"
-                        : "ascending"
-                      : undefined
-                  }
-                  className={cn(
-                    "h-11 px-3 text-sm font-medium whitespace-nowrap text-muted-foreground first:ps-0 last:pe-0",
-                    column.align === "end" ? "text-end" : "text-start",
-                    column.className,
-                  )}
-                  key={column.id}
-                >
-                  {column.sortable ? <SortButton column={column} list={list} /> : column.header}
-                </TableHead>
-              ))}
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {rows.length === 0 ? (
-              <TableRow className="border-0 hover:bg-transparent">
-                <TableCell className="p-0 whitespace-normal" colSpan={span}>
-                  {emptyState}
-                </TableCell>
-              </TableRow>
-            ) : (
-              rows.map((row) => {
-                const href = rowHref?.(row);
-                return (
-                  <TableRow
-                    className={cn(
-                      "data-[state=selected]:bg-muted/60",
-                      href ? "cursor-pointer hover:bg-muted/50" : "hover:bg-transparent",
-                    )}
-                    data-state={selected.has(row.id) ? "selected" : undefined}
-                    key={row.id}
-                    onClick={href ? () => router.push(href) : undefined}
-                  >
-                    {selectable ? (
-                      <TableCell
-                        className="w-8 ps-0 pe-0"
+                ) : null}
+                {leading ? leading(row) : null}
+                {!leading && LeadingIcon ? (
+                  <span className="flex size-10 shrink-0 items-center justify-center rounded-full bg-muted">
+                    <LeadingIcon aria-hidden className="size-4.5 text-foreground" strokeWidth={1.75} />
+                  </span>
+                ) : null}
+                <div className="flex min-w-0 flex-1 flex-col gap-0.5">
+                  <p className={cn("truncate text-base font-medium text-foreground", title.className)}>
+                    {href ? (
+                      <Link
+                        className="rounded-sm outline-none hover:underline hover:underline-offset-4 focus-visible:ring-3 focus-visible:ring-ring/50"
+                        href={href}
                         onClick={(event) => event.stopPropagation()}
                       >
-                        <Checkbox
-                          aria-label={t("selectRow")}
-                          checked={selected.has(row.id)}
-                          onCheckedChange={(checked) => toggle([row.id], checked)}
-                        />
-                      </TableCell>
-                    ) : null}
-                    {columns.map((column) => (
-                      <TableCell
-                        className={cn(
-                          "h-13 px-3 py-2 text-sm whitespace-nowrap text-foreground first:ps-0 last:pe-0",
-                          column.align === "end" && "text-end",
-                          column.primary && "font-medium",
-                          column.className,
-                        )}
-                        key={column.id}
-                        onClick={column.interactive ? (event) => event.stopPropagation() : undefined}
-                      >
-                        {column.primary && href ? (
-                          <Link
-                            className="rounded-sm outline-none hover:underline hover:underline-offset-4 focus-visible:ring-3 focus-visible:ring-ring/50"
-                            href={href}
-                            onClick={(event) => event.stopPropagation()}
-                          >
-                            {column.render(row)}
-                          </Link>
-                        ) : (
-                          column.render(row)
-                        )}
-                      </TableCell>
+                        {name}
+                      </Link>
+                    ) : (
+                      name
+                    )}
+                  </p>
+                  <MetaLine columns={meta} row={row} />
+                </div>
+                {figures.length > 0 || status ? (
+                  <div className="flex shrink-0 flex-col items-end gap-0.5 text-end">
+                    {figures.map((column) => (
+                      <span className={cn("text-sm font-semibold text-foreground", column.className)} key={column.id}>
+                        {column.labelled ? `${column.header} ` : null}
+                        {column.render(row)}
+                      </span>
                     ))}
-                  </TableRow>
-                );
-              })
-            )}
-          </TableBody>
-        </Table>
-      </div>
+                    {status ? status.render(row) : null}
+                  </div>
+                ) : null}
+                {controls.map((column) => (
+                  // Its own controls: a press there is not the row's.
+                  <div className="shrink-0 text-sm" key={column.id} onClick={(event) => event.stopPropagation()}>
+                    {column.render(row)}
+                  </div>
+                ))}
+              </li>
+            );
+          })}
+        </ul>
+      )}
 
       {list.total > 0 ? (
         <div className="mt-4 flex flex-col-reverse items-center justify-between gap-3 text-sm text-muted-foreground sm:flex-row">
@@ -361,33 +383,51 @@ export function CmsTable<Row extends { readonly id: string }>({
   );
 }
 
-function SortButton<Row extends { readonly id: string }>({
-  column,
+/** The order the rows are in, now the list has no head to click: a white capsule after the filters. */
+function SortMenu<Row extends { readonly id: string }>({
+  columns,
   list,
 }: {
-  readonly column: CmsColumn<Row>;
+  readonly columns: ReadonlyArray<CmsColumn<Row>>;
   readonly list: CmsListState<Row>;
 }) {
-  const state = list.sort?.id === column.id ? (list.sort.desc ? "desc" : "asc") : null;
-  const Icon = state === "asc" ? ArrowUp : state === "desc" ? ArrowDown : ChevronsUpDown;
+  const t = useTranslations("cms.table");
+  const sortable = columns.filter((column) => column.sortable);
+  if (sortable.length === 0) return null;
+  const current = list.sort ? sortable.find((column) => column.id === list.sort?.id) : undefined;
+  const value = list.sort ? `${list.sort.id}:${list.sort.desc ? "desc" : "asc"}` : "";
+  let directionIcon: LucideIcon = ChevronDown;
+  if (current) directionIcon = list.sort?.desc ? ArrowDown : ArrowUp;
+  const item = "h-9 gap-2 rounded-lg px-2.5 text-sm text-foreground focus:bg-muted";
+
   return (
-    <CmsButton
-      className={cn(
-        "-mx-2 h-8 px-2 font-medium md:h-8 [&_svg]:size-3.5",
-        state ? "text-foreground" : "text-muted-foreground",
-      )}
-      onClick={() => {
-        // Ascending, descending, then back to the list's own order.
-        if (state === null) list.setSort({ id: column.id, desc: false });
-        else if (state === "asc") list.setSort({ id: column.id, desc: true });
-        else list.setSort(null);
-      }}
-      size="sm"
-      trailingIcon={Icon}
-      variant="ghost"
-    >
-      {column.header}
-    </CmsButton>
+    <DropdownMenu>
+      <DropdownMenuTrigger render={<CmsButton trailingIcon={directionIcon} variant="secondary" />}>
+        {current ? t("sortBy", { column: current.header }) : t("sort")}
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end" className="min-w-56 rounded-xl bg-popover p-1 shadow-panel ring-1 ring-border">
+        <DropdownMenuRadioGroup
+          onValueChange={(next: string) => {
+            if (!next) return list.setSort(null);
+            const [id, direction] = next.split(":");
+            list.setSort({ id, desc: direction === "desc" });
+          }}
+          value={value}
+        >
+          <DropdownMenuRadioItem className={item} value="">
+            {t("sortDefault")}
+          </DropdownMenuRadioItem>
+          {sortable.flatMap((column) =>
+            (["asc", "desc"] as const).map((direction) => (
+              <DropdownMenuRadioItem className={item} key={`${column.id}:${direction}`} value={`${column.id}:${direction}`}>
+                {column.header}
+                <span className="text-muted-foreground">{t(direction === "asc" ? "ascending" : "descending")}</span>
+              </DropdownMenuRadioItem>
+            )),
+          )}
+        </DropdownMenuRadioGroup>
+      </DropdownMenuContent>
+    </DropdownMenu>
   );
 }
 

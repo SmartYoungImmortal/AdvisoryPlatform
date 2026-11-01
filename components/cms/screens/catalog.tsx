@@ -144,13 +144,12 @@ export function CatalogScreen() {
   );
 }
 
-/** The record's description, held to one line in the table. */
+/** The record's description, in the row's grey line (which holds it to one line). */
 function descriptionColumn(header: string): CmsColumn<TaxonomyRecord> {
   return {
     id: "description",
     header,
-    className: "text-muted-foreground",
-    render: (r) => <span className="block max-w-96 truncate">{r.description || "-"}</span>,
+    render: (r) => r.description || "-",
   };
 }
 
@@ -208,20 +207,21 @@ function CategoryTable({
       header: t("col.services"),
       sortable: true,
       align: "end",
-      className: "font-latin",
+      labelled: true,
       render: (c) => usage.get(c.id) ?? 0,
     },
     dateColumn("updatedAt", t("col.updatedAt"), (c) => c.modifiedAt),
     {
       id: "updatedBy",
       header: t("col.updatedBy"),
-      className: "text-muted-foreground",
+      labelled: true,
       render: (c) => accountName(c.updatedByUserId) ?? "-",
     },
   ];
 
   return (
     <CmsTable
+      leadingIcon={Tags}
       renderBulkActions={(ids) => (
         <CmsButton icon={Trash2} onClick={() => remove(ids)} size="sm" variant="danger-soft">
           {t("deleteSelected", { count: ids.length })}
@@ -255,13 +255,14 @@ function SkillTable({ skills }: { readonly skills: readonly TaxonomyRecord[] }) 
     {
       id: "updatedBy",
       header: t("col.updatedBy"),
-      className: "text-muted-foreground",
+      labelled: true,
       render: (s) => accountName(s.updatedByUserId) ?? "-",
     },
   ];
 
   return (
     <CmsTable
+      leadingIcon={Sparkles}
       renderBulkActions={(ids) => (
         <CmsButton
           icon={Trash2}

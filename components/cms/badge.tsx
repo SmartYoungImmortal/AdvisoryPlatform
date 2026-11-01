@@ -4,22 +4,21 @@ import type { ReactNode } from "react";
 import { cn } from "@/lib/utils";
 
 /**
- * A status, as the site's small pills are drawn (the topic chips, the
- * countdown on a booking): a capsule 24 tall, 12px medium type, the colour
- * carried by the text on its own faint tint and never by a fill.
+ * A status, as the site's transaction rows print theirs ("ชำระแล้ว"): 12px
+ * words in the status's colour, with no capsule or tint behind them.
  */
 export const cmsBadgeVariants = cva(
-  "inline-flex h-6 w-fit shrink-0 items-center gap-1 rounded-full px-2.5 text-xs font-medium whitespace-nowrap",
+  "inline-flex w-fit shrink-0 items-center gap-1 text-xs font-medium whitespace-nowrap",
   {
     variants: {
       color: {
-        neutral: "bg-muted text-foreground",
-        primary: "bg-primary/8 text-primary",
-        action: "bg-action/10 text-action",
-        error: "bg-destructive/10 text-destructive",
-        success: "bg-success/10 text-success",
-        warning: "bg-warning/10 text-warning",
-        info: "bg-info/10 text-info",
+        neutral: "text-muted-foreground",
+        primary: "text-primary",
+        action: "text-action",
+        error: "text-destructive",
+        success: "text-success",
+        warning: "text-warning",
+        info: "text-info",
       },
     },
     defaultVariants: { color: "neutral" },

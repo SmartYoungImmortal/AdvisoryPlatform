@@ -2,7 +2,6 @@
 
 import Link from "next/link";
 import {
-  ArrowRight,
   Banknote,
   FileBadge,
   Flag,
@@ -19,11 +18,12 @@ import { CmsSection } from "@/components/cms/card";
 import { useDashboardCounts, type Count } from "@/components/cms/dashboard-data";
 import { CmsPage } from "@/components/cms/layout";
 import { formatBaht } from "@/lib/mock-db/format";
+import { cn } from "@/lib/utils";
 
 /**
  * The console's landing page: what is waiting, then the size of the platform.
  *
- * Two rows of figures and nothing else. The first is the work — one figure per
+ * Two lists of figures and nothing else. The first is the work — one row per
  * queue, each the way into it, a queue with nothing in it said in grey rather
  * than as a loud zero. The second is the platform itself: accounts, listings
  * and the money still owed to advisors. Every figure is the API's, read as
@@ -60,7 +60,7 @@ export function DashboardScreen() {
       title={t("title")}
     >
       <CmsSection title={t("queuesTitle")}>
-        <ul className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-5">
+        <ul className="-mx-3 flex flex-col">
           {queues.map((queue) => (
             <li key={queue.href}>
               <Tile
@@ -77,7 +77,7 @@ export function DashboardScreen() {
       </CmsSection>
 
       <CmsSection title={t("platformTitle")}>
-        <ul className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+        <ul className="-mx-3 flex flex-col">
           <li>
             <Tile href="/admin/users" icon={Users} label={t("users")} value={live.users} way={t("openList")} />
           </li>
@@ -110,10 +110,9 @@ export function DashboardScreen() {
 }
 
 /**
- * One figure: a white tile on a hairline with 18px corners (the bordered
- * empty states on the account pages), its name and line icon over the figure
- * in the Latin face, and where it leads along the foot. The whole tile is the
- * link.
+ * One figure, as the site's transaction rows read: the glyph in a soft grey
+ * circle, the name over where it leads in grey, and the figure at the right
+ * where a row's amount sits. The whole row is the link, grey under the pointer.
  */
 function Tile({
   href,
@@ -134,26 +133,23 @@ function Tile({
 }) {
   return (
     <Link
-      className="group flex h-full flex-col gap-4 rounded-2xl border border-border bg-card p-5 outline-none transition-colors hover:border-accented hover:bg-muted/30 focus-visible:ring-3 focus-visible:ring-ring/50"
+      className="flex min-h-16 items-center gap-4 rounded-2xl px-3 py-2.5 outline-none transition-colors hover:bg-muted/60 focus-visible:ring-3 focus-visible:ring-ring/50"
       href={href}
     >
-      <span className="flex items-start justify-between gap-3">
-        <span className="text-sm font-medium text-muted-foreground">{label}</span>
-        <Icon aria-hidden className="size-5 shrink-0 text-muted-foreground" strokeWidth={1.75} />
+      <span className="flex size-10 shrink-0 items-center justify-center rounded-full bg-muted">
+        <Icon aria-hidden className="size-4.5 text-foreground" strokeWidth={1.75} />
       </span>
-      {/* At the foot, so the figures of a row line up when a name wraps. Size
-          and colour on separate elements: the merge reads the theme's own
-          `text-heading` as a colour and would drop it beside one. */}
-      <span className="mt-auto flex flex-col gap-4">
-        <span className="font-latin text-heading leading-none font-semibold tracking-tight">
-          <span className={value === undefined || quiet ? "text-dimmed" : "text-hero-ink"}>
-            {value ?? "-"}
-          </span>
-        </span>
-        <span className="flex items-center gap-1 text-sm text-muted-foreground transition-colors group-hover:text-foreground">
-          {way}
-          <ArrowRight aria-hidden className="size-3.5" />
-        </span>
+      <span className="flex min-w-0 flex-1 flex-col gap-0.5">
+        <span className="truncate text-base font-medium text-foreground">{label}</span>
+        <span className="truncate text-sm text-muted-foreground">{way}</span>
+      </span>
+      <span
+        className={cn(
+          "shrink-0 font-latin text-lg font-semibold tracking-tight",
+          value === undefined || quiet ? "text-dimmed" : "text-hero-ink",
+        )}
+      >
+        {value ?? "-"}
       </span>
     </Link>
   );

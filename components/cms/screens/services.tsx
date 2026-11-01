@@ -107,7 +107,7 @@ export function ServicesScreen() {
       header: t("col.title"),
       sortable: true,
       primary: true,
-      render: (s) => <span className="inline-block max-w-80 truncate align-bottom">{s.name}</span>,
+      render: (s) => s.name,
     },
     {
       id: "advisor",
@@ -117,7 +117,6 @@ export function ServicesScreen() {
     {
       id: "category",
       header: t("col.category"),
-      className: "text-muted-foreground",
       render: (s) => categoryName.get(s.categoryId) ?? "-",
     },
     {
@@ -128,7 +127,7 @@ export function ServicesScreen() {
       render: (s) => (
         <>
           <span className="font-latin">{formatBaht(s.priceSatang)}</span>
-          <span className="text-muted-foreground"> / {t("minutes", { count: s.durationMinutes })}</span>
+          <span className="font-normal text-muted-foreground"> / {t("minutes", { count: s.durationMinutes })}</span>
         </>
       ),
     },
@@ -154,6 +153,7 @@ export function ServicesScreen() {
   return (
     <CmsPage title={t("title")}>
       <CmsTable
+        leadingIcon={Store}
         chips={
           <CmsChips
             label={t("col.status")}

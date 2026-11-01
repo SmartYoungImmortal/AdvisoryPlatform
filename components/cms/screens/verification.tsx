@@ -205,13 +205,14 @@ function IdentityTable({ requests }: { readonly requests: readonly IdentityVerif
     {
       id: "reviewer",
       header: t("col.reviewer"),
-      className: "text-muted-foreground",
+      labelled: true,
       render: (r) => accountName(r.verifiedByAdminId) ?? "-",
     },
   ];
 
   return (
     <CmsTable
+      leadingIcon={ShieldCheck}
       renderBulkActions={(ids) => {
         const open = waiting(ids);
         return open.length === 0 ? null : (
@@ -303,21 +304,22 @@ function ProofTable({ proofs }: { readonly proofs: readonly SkillProof[] }) {
     {
       id: "file",
       header: t("col.file"),
-      className: "font-latin text-muted-foreground",
-      render: (p) => <span className="block max-w-56 truncate">{p.originalFileName}</span>,
+      className: "font-latin",
+      render: (p) => p.originalFileName,
     },
     statusColumn(t("col.status"), (p) => <CmsStatus group="proof" value={p.reviewStatus} />),
     dateColumn("createdAt", t("col.submittedAt"), (p) => p.createdAt),
     {
       id: "reviewer",
       header: t("col.reviewer"),
-      className: "text-muted-foreground",
+      labelled: true,
       render: (p) => accountName(p.reviewedByAdminId) ?? "-",
     },
   ];
 
   return (
     <CmsTable
+      leadingIcon={FileBadge}
       renderBulkActions={(ids) => {
         const open = pendingIds(ids);
         return open.length === 0 ? null : (

@@ -93,8 +93,7 @@ export function RefundsScreen() {
     {
       id: "reason",
       header: t("col.reason"),
-      className: "text-muted-foreground",
-      render: (r) => <span className="block max-w-80 truncate">{r.reason}</span>,
+      render: (r) => r.reason,
     },
     {
       id: "amount",
@@ -109,7 +108,7 @@ export function RefundsScreen() {
     {
       id: "reviewer",
       header: t("col.reviewer"),
-      className: "text-muted-foreground",
+      labelled: true,
       render: (r) => accountName(r.reviewedByAdminId) ?? "-",
     },
   ];
@@ -122,6 +121,7 @@ export function RefundsScreen() {
         <CmsApiError error={refunds.error} onRetry={refunds.reload} />
       ) : (
         <CmsTable
+          leadingIcon={Receipt}
           renderBulkActions={(ids) => {
             const open = ids.filter((id) => items.find((r) => r.id === id)?.status === "OPEN");
             if (open.length === 0) return null;

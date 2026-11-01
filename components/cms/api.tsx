@@ -61,14 +61,15 @@ export function CmsApiError({
 const BONE = "block rounded-full bg-muted";
 
 /**
- * A table-shaped placeholder at the table's own heights — the capsules and the
- * search, the head, the rows — so the page does not reflow when the rows land.
+ * A list-shaped placeholder at the list's own heights — the capsules and the
+ * search, then rows of a circle, a name and its grey line, and a status at the
+ * right — so the page does not reflow when the rows land. `columns` is kept
+ * for the screens that pass it; the rows no longer have columns to count.
  */
 export function CmsTableSkeleton({
-  columns,
   rows = 6,
 }: {
-  readonly columns: number;
+  readonly columns?: number;
   readonly rows?: number;
 }) {
   return (
@@ -81,19 +82,15 @@ export function CmsTableSkeleton({
         </span>
         <span className={cn(BONE, "hidden h-9 w-64 md:block")} />
       </div>
-      <div className="mt-4 divide-y divide-border border-b border-border">
-        {Array.from({ length: rows + 1 }, (_, row) => (
-          <div className={cn("flex items-center gap-6", row === 0 ? "h-11" : "h-13")} key={row}>
-            {Array.from({ length: Math.min(columns, 6) }, (_, column) => (
-              <span
-                className={cn(
-                  BONE,
-                  row === 0 ? "h-2.5 opacity-60" : "h-3",
-                  column === 0 ? "w-1/4" : "flex-1",
-                )}
-                key={column}
-              />
-            ))}
+      <div className="mt-4 flex flex-col">
+        {Array.from({ length: rows }, (_, row) => (
+          <div className="flex min-h-16 items-center gap-4 py-2.5" key={row}>
+            <span className={cn(BONE, "size-10 shrink-0")} />
+            <span className="flex flex-1 flex-col gap-2">
+              <span className={cn(BONE, "h-3.5 w-48")} />
+              <span className={cn(BONE, "h-3 w-80 opacity-60")} />
+            </span>
+            <span className={cn(BONE, "h-3 w-14")} />
           </div>
         ))}
       </div>

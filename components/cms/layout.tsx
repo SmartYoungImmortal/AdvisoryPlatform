@@ -537,7 +537,8 @@ export function CmsPage({
             <div className="flex flex-wrap items-start justify-between gap-x-6 gap-y-3">
               <div className="flex min-w-0 flex-col gap-1">
                 <div className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1.5">
-                  <h1 className="min-w-0 font-hero text-title-compact font-normal tracking-tight break-words text-hero-ink md:text-2xl">
+                  {/* The account pages' title as it lands at 1440: 32 in the heading face. */}
+                  <h1 className="min-w-0 font-hero text-title-compact font-normal tracking-tight break-words text-hero-ink md:text-heading-lg">
                     {title}
                   </h1>
                   {badge}
