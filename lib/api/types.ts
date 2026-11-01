@@ -96,6 +96,50 @@ export interface ApiPublicAdvisorQuery {
   readonly skillId?: string;
 }
 
+/** How well an advisor speaks a language, strongest first. */
+export type ApiLanguageProficiency = "NATIVE" | "FLUENT" | "PROFESSIONAL" | "BASIC";
+
+/** A job; no end while it is the advisor's current work. */
+export interface ApiAdvisorExperience {
+  readonly title: string;
+  readonly organization: string;
+  readonly startYear: number;
+  readonly startMonth: number | null;
+  readonly endYear: number | null;
+  readonly endMonth: number | null;
+  readonly description: string | null;
+}
+
+export interface ApiAdvisorEducation {
+  readonly institution: string;
+  readonly degree: string | null;
+  readonly startYear: number | null;
+  readonly endYear: number | null;
+}
+
+export interface ApiAdvisorLanguage {
+  readonly language: string;
+  readonly proficiency: ApiLanguageProficiency;
+}
+
+/** A licence, certificate or award. */
+export interface ApiAdvisorCredential {
+  readonly title: string;
+  readonly issuer: string | null;
+  readonly year: number | null;
+}
+
+/**
+ * `AdvisorBackgroundResponseDto` — `GET /advisors/:id/background`, and the
+ * advisor's own at `advisors/me/background`. Each list in the advisor's order.
+ */
+export interface ApiAdvisorBackground {
+  readonly experiences: readonly ApiAdvisorExperience[];
+  readonly educations: readonly ApiAdvisorEducation[];
+  readonly languages: readonly ApiAdvisorLanguage[];
+  readonly credentials: readonly ApiAdvisorCredential[];
+}
+
 /** `AvailabilitySlotResponseDto` — availability/dtos/availability.dto.ts:134 */
 export interface ApiSlot {
   readonly startTime: string;
@@ -121,8 +165,11 @@ export interface ApiReview {
   readonly createdAt: string;
   readonly modifiedAt: string;
   readonly appointmentStartTime: string;
+  readonly serviceId: string;
   readonly serviceName: string;
   readonly serviceDurationMinutes: number;
+  /** The package it was booked on; null for a service sold whole. */
+  readonly packageName: string | null;
   readonly reviewerDisplayName: string;
   /** A storage key, not a URL. See `avatarUrl` on the user endpoints. */
   readonly reviewerAvatarKey: string | null;
@@ -345,4 +392,28 @@ export interface ApiCouponPreview {
 /** `CheckoutResponse`: the card's 3-D Secure page, which the browser goes to. */
 export interface ApiCheckoutResult {
   readonly url: string;
+}
+
+/** `PromptPayResponse`: the QR code to scan, what it charges, and when it expires. */
+export interface ApiPromptPay {
+  readonly qrImageUrl: string;
+  readonly amountSatang: number;
+  readonly expiresAt: string;
+}
+
+/** `PromptPayStatusResponse`: `url` is null until the code's outcome is known. */
+export interface ApiPromptPayStatus {
+  readonly status: "pending" | "success" | "failed";
+  readonly url: string | null;
+}
+
+/** The Thai banks whose app pays an invoice (`MOBILE_BANKS` in the API's payment providers). */
+export type ApiMobileBank = "scb" | "kbank" | "ktb" | "bbl" | "bay";
+
+/** `MobileBankingDto` — `POST /payment/mobile-banking` */
+export interface ApiMobileBankingInput {
+  readonly invoiceId: string;
+  readonly bank: ApiMobileBank;
+  /** The phone the app is on, when the browser can tell. */
+  readonly platform?: "IOS" | "ANDROID";
 }

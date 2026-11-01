@@ -216,11 +216,9 @@ export type ArtName =
   | "question_mark"
   | "book"
   | "chart"
-  | "building_office"
-  | "building_condo"
-  | "building_shophouse"
-  | "tree_round"
-  | "tree_tall"
+  | "street_block"
+  | "street_tree_a"
+  | "street_tree_b"
   | "phone"
   | "laptop"
   | "desk"
@@ -241,11 +239,15 @@ export type ArtName =
   | "plant_big"
   | "office_chair"
   | "sticky_note"
-  | "answer_casual"
-  | "certificate"
-  | "office_window"
-  | "panel_desk"
-  | "binder_shelf"
+  | "bulb_note"
+  | "answer_idea"
+  | "window_linen"
+  | "white_desk"
+  | "desk_chair"
+  | "table_lamp"
+  | "books_stack"
+  | "coffee_cup"
+  | "bookshelf"
   | "snake_plant";
 
 /**
@@ -258,8 +260,8 @@ const ART_SIZE: Partial<Record<ArtName, readonly [number, number]>> = {
   asker_think: [395, 1148],
   asker_chin: [289, 1122],
   expert_wave: [367, 1198],
-  ask_walk: [499, 1100],
-  answer_walk: [377, 1100],
+  ask_walk: [495, 1100],
+  answer_walk: [465, 1100],
   ask_phone: [338, 1137],
   ask_call: [600, 1122],
   ask_relieved: [364, 1136],
@@ -279,11 +281,9 @@ const ART_SIZE: Partial<Record<ArtName, readonly [number, number]>> = {
   clock: [481, 480],
   book: [351, 320],
   question_mark: [266, 340],
-  building_office: [416, 1160],
-  building_condo: [507, 1040],
-  building_shophouse: [1040, 609],
-  tree_round: [590, 840],
-  tree_tall: [289, 1120],
+  street_block: [1155, 357],
+  street_tree_a: [753, 1100],
+  street_tree_b: [821, 1053],
   star: [265, 260],
   laptop: [471, 320],
   window_room: [508, 1000],
@@ -292,11 +292,15 @@ const ART_SIZE: Partial<Record<ArtName, readonly [number, number]>> = {
   plant_big: [736, 1040],
   office_chair: [482, 760],
   sticky_note: [234, 240],
-  answer_casual: [674, 1172],
-  certificate: [568, 500],
-  office_window: [1042, 602],
-  panel_desk: [960, 600],
-  binder_shelf: [520, 890],
+  bulb_note: [240, 240],
+  answer_idea: [401, 1180],
+  window_linen: [666, 1000],
+  white_desk: [756, 600],
+  desk_chair: [371, 700],
+  table_lamp: [181, 340],
+  books_stack: [310, 130],
+  coffee_cup: [94, 150],
+  bookshelf: [495, 1000],
   snake_plant: [366, 900],
 };
 

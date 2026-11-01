@@ -1,6 +1,7 @@
 "use client";
 
 import { Check, Info, X, type LucideIcon } from "lucide-react";
+import Link from "next/link";
 import { useTranslations } from "next-intl";
 import { useCallback, useEffect, useRef, useState, type PointerEvent, type ReactNode } from "react";
 
@@ -15,6 +16,8 @@ const PROBLEM_TOAST_MS = 6_000;
 const EXIT_MS = 200;
 /** How far a toast has to be pushed sideways before letting go dismisses it. */
 const SWIPE_PX = 72;
+/** A finger that moves less than this is still a tap on the card. */
+const TAP_SLOP_PX = 6;
 
 /** One message: what happened, and a second line when there is more to say. */
 export type ToastMessage = {
@@ -132,7 +135,8 @@ const BAR: Record<ToastTone, string> = {
  * left says what it is about (a small green tick on its own tint for done,
  * a blue bubble tile for a message), the title in ink with the time at the
  * right when there is one, a second line in grey, and an action under them
- * as a small black capsule. How long it has left runs out along its foot,
+ * as a small black capsule, or with `href` the whole card as the way to what
+ * it is about. How long it has left runs out along its foot,
  * and stops while the pointer or the focus is on it. A close at its top
  * right on the desktop, shown on hover; on a touch screen it is pushed off
  * sideways.
@@ -146,6 +150,8 @@ export function ToastCard({
   meta,
   detail,
   action,
+  href,
+  onOpen,
   duration,
   countdownKey,
   paused = false,
@@ -161,6 +167,10 @@ export function ToastCard({
   readonly detail?: ReactNode;
   /** The way to what it is about, drawn as `TOAST_ACTION`. */
   readonly action?: ReactNode;
+  /** Makes the whole card the way to what it is about, in place of an action. */
+  readonly href?: string;
+  /** Called as the card is opened through `href`. */
+  readonly onOpen?: () => void;
   /** How long the countdown runs, in ms. */
   readonly duration: number;
   /** A new key restarts the countdown for a new message in the same card. */
@@ -173,14 +183,20 @@ export function ToastCard({
   const c = useTranslations("common");
   const Icon = icon;
   const [drag, setDrag] = useState<{ readonly from: number; readonly by: number } | null>(null);
+  // Whether the finger moved the card, so letting go of a push is not a tap on it.
+  const pushed = useRef(false);
 
   // A finger pushes it sideways; let go past `SWIPE_PX` and it is gone.
   const press = (event: PointerEvent<HTMLDivElement>) => {
+    pushed.current = false;
     if (event.pointerType === "mouse" || !onClose) return;
     setDrag({ from: event.clientX, by: 0 });
   };
   const move = (event: PointerEvent<HTMLDivElement>) => {
-    if (drag) setDrag({ from: drag.from, by: event.clientX - drag.from });
+    if (!drag) return;
+    const by = event.clientX - drag.from;
+    if (Math.abs(by) > TAP_SLOP_PX) pushed.current = true;
+    setDrag({ from: drag.from, by });
   };
   const release = () => {
     if (drag && Math.abs(drag.by) > SWIPE_PX) onClose?.();
@@ -222,6 +238,22 @@ export function ToastCard({
         </div>
       </div>
 
+      {/* The whole card is the link, laid over it; the close stays above it. */}
+      {href ? (
+        <Link
+          aria-label={typeof title === "string" ? title : undefined}
+          className="absolute inset-0 rounded-2xl outline-none focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:ring-inset"
+          href={href}
+          onClick={(event) => {
+            if (pushed.current) {
+              event.preventDefault();
+              return;
+            }
+            onOpen?.();
+          }}
+        />
+      ) : null}
+
       {/* How long it has left, running out along the card's own foot (cut
           by its corners), held while it is read. */}
       <span
@@ -234,7 +266,7 @@ export function ToastCard({
       {onClose ? (
         <Button
           aria-label={c("close")}
-          className="absolute top-2.5 right-2.5 hidden size-7 rounded-full p-0 text-muted-foreground transition-opacity duration-150 group-hover/toast:opacity-100 hover:bg-muted hover:text-foreground focus-visible:opacity-100 lg:flex lg:opacity-0"
+          className="absolute top-2.5 right-2.5 z-10 hidden size-7 rounded-full p-0 text-muted-foreground transition-opacity duration-150 group-hover/toast:opacity-100 hover:bg-muted hover:text-foreground focus-visible:opacity-100 lg:flex lg:opacity-0"
           onClick={onClose}
           size="icon"
           type="button"

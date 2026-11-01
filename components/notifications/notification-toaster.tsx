@@ -1,7 +1,6 @@
 "use client";
 
 import { Bell, MessageSquare } from "lucide-react";
-import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { useState } from "react";
@@ -14,7 +13,7 @@ import {
   notificationTarget,
   rememberNotification,
 } from "@/components/notifications/notifications-data";
-import { TOAST_ACTION, ToastCard, ToastViewport, useCountdown } from "@/components/mobile/toast";
+import { ToastCard, ToastViewport, useCountdown } from "@/components/mobile/toast";
 import { isApiConfigured } from "@/lib/api/client";
 import { useSession } from "@/lib/session";
 
@@ -24,16 +23,15 @@ const TOAST_MS = 6_000;
 /**
  * What just arrived, in the app's one toast (`ToastCard`): a blue bubble
  * tile for a message (the dark bell for anything else), the notification's
- * title with "เมื่อสักครู่" beside it, its first line, and the black capsule
- * that opens it. It waits while it is read, closes from its corner or with a
- * push sideways, and shows the newest notification found by the shared
- * check on every page except the notification center.
+ * title with "เมื่อสักครู่" beside it and its first line; the card itself
+ * opens it, with no button of its own. It waits while it is read, closes
+ * from its corner or with a push sideways, and shows the newest notification
+ * found by the shared check on every page except the notification center.
  *
  * The in-app banner (the session reminder) is separate, mobile only, and waits
  * until the server can send reminders.
  */
 export function NotificationToaster() {
-  const t = useTranslations("notifications");
   const c = useTranslations("common");
   const pathname = usePathname();
   const signedIn = useSession().status === "authenticated";
@@ -53,24 +51,17 @@ export function NotificationToaster() {
     <ToastViewport>
       {show ? (
         <ToastCard
-          action={
-            <Link
-              className={TOAST_ACTION}
-              href={notificationTarget(fresh)}
-              onClick={() => {
-                rememberNotification(fresh);
-                dismissFresh();
-              }}
-            >
-              {message ? t("toastViewMessage") : t("toastView")}
-            </Link>
-          }
           countdownKey={fresh.id}
           detail={fresh.content ?? undefined}
           duration={TOAST_MS}
+          href={notificationTarget(fresh)}
           icon={message ? MessageSquare : Bell}
           meta={c("justNow")}
           onClose={dismissFresh}
+          onOpen={() => {
+            rememberNotification(fresh);
+            dismissFresh();
+          }}
           onPause={setPaused}
           paused={paused}
           title={fresh.title}

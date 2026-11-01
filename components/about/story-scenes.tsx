@@ -328,42 +328,71 @@ export function OpeningScene() {
 
 /* ── 1: and this is Answer ───────────────────────────────────────────────── */
 
+/**
+ * The answers, against Ask's questions: the same note in the same marker,
+ * blue where Ask's are yellow, with a light bulb drawn where Ask's has a
+ * question mark, popping out round Answer's head as she gets it. Two sit between the window (its right edge
+ * 658) and her raised hand, three fan out to the right above the bookshelf
+ * (its top 430); all under the title.
+ */
+const ANSWERS = [
+  { spot: "top-0 left-4 lg:top-[295px] lg:left-[1020px]", tilt: "-rotate-6", size: "h-16 lg:h-[110px]" },
+  { spot: "hidden lg:block lg:top-[250px] lg:left-[680px]", tilt: "rotate-12", size: "lg:h-[90px]" },
+  { spot: "hidden lg:block lg:top-[255px] lg:left-[1170px]", tilt: "rotate-3", size: "lg:h-[95px]" },
+  { spot: "hidden lg:block lg:top-[420px] lg:left-[1050px]", tilt: "rotate-6", size: "lg:h-[80px]" },
+  { spot: "hidden lg:block lg:top-[400px] lg:left-[690px]", tilt: "-rotate-3", size: "lg:h-[75px]" },
+] as const;
+
 function AnswerScene() {
   const t = useTranslations("about");
   return (
     <Scene id="s1" labelledBy="story-s1" staged>
       <Lines accent={0} id="story-s1" lines={[t("s1L1"), t("s1L2")]} />
-      {/* Answer's office, next door to Ask's room: she is a financial and tax
-          adviser, so it is a working adviser's room, light and orderly, in as
-          few pieces as Ask's: the window on the city, her certificate on the
-          wall, her desk with Answer standing behind it, the shelf of client
-          binders, and the plant framing the right edge. Sized to Answer
-          (163 cm, her head's top at 703): desk 78 cm, shelf 125. All stand on
-          the line 100 up, the plant a step nearer at 90. */}
+      {/* Answer's room, next door to Ask's and laid out like it the other way
+          round: the window with the desk under it and the chair pulled up on
+          the left, Answer in the middle, her bookshelf and the plant on the
+          right. Photographed like Ask's room, from eye height, and sized to
+          Answer as Ask's room is to Ask (590 high, about 160 cm): desk 75 cm,
+          chair 84, shelf 128. All stand on the line 100 up, the plant a step
+          nearer at 90. */}
       <Stage className="h-96">
-        <Part name="piece" spot="hidden lg:block lg:top-[240px] lg:left-[130px]">
-          <Art className="lg:h-[300px]" name="office_window" />
+        <Part name="piece" spot="hidden lg:block lg:top-[252px] lg:left-[355px]">
+          <Art className="lg:h-[455px]" name="window_linen" />
         </Part>
-        <Part name="piece" spot="hidden lg:block lg:top-[270px] lg:left-[1060px]">
-          <Art className="lg:h-[120px]" name="certificate" />
+        <Part name="piece" spot="bottom-0 left-0 lg:bottom-[100px] lg:left-[330px]">
+          <Art className="h-28 lg:h-[280px]" name="white_desk" />
         </Part>
-        <Part name="piece" spot="hidden lg:block lg:bottom-[100px] lg:left-[1220px]">
-          <Art className="lg:h-[460px]" name="binder_shelf" />
+        {/* On the desk, left to right: the lamp at the back corner, the books,
+            the coffee at the front. */}
+        <Part name="piece" spot="bottom-[100px] left-[16px] lg:bottom-[372px] lg:left-[362px]">
+          <Art className="h-12 lg:h-25" name="table_lamp" />
         </Part>
-        {/* Answer is pictured from the hips up, standing behind the desk: the
-            picture's foot (363) is behind its front panel, which runs solid
-            from its top (390) to the floor. */}
-        <Part kind="right" name="answer" spot="inset-x-0 bottom-[80px] flex justify-center lg:inset-x-auto lg:bottom-[363px] lg:left-[694px]">
+        <Part name="piece" spot="hidden lg:block lg:bottom-[368px] lg:left-[426px]">
+          <Art className="lg:h-7.5" name="books_stack" />
+        </Part>
+        <Part name="piece" spot="hidden lg:block lg:bottom-[366px] lg:left-[600px]">
+          <Art className="lg:h-11.5" name="coffee_cup" />
+        </Part>
+        {/* The chair is pulled up in front of the desk, a step nearer. */}
+        <Part name="piece" spot="hidden lg:block lg:bottom-[40px] lg:left-[200px] lg:z-10">
+          <Art className="lg:h-[330px]" name="desk_chair" />
+        </Part>
+        <Part kind="right" name="answer" spot="right-4 bottom-0 lg:right-auto lg:bottom-[100px] lg:left-[800px]">
           <Bob>
-            <Art className="h-64 lg:h-[340px]" name="answer_casual" />
+            <Art className="h-80 lg:h-[590px]" name="answer_idea" />
           </Bob>
         </Part>
-        <Part name="piece" spot="inset-x-0 bottom-0 flex justify-center lg:inset-x-auto lg:bottom-[100px] lg:left-[560px]">
-          <Art className="h-28 lg:h-[290px]" name="panel_desk" />
+        <Part name="piece" spot="hidden lg:block lg:bottom-[100px] lg:left-[1140px]">
+          <Art className="lg:h-[470px]" name="bookshelf" />
         </Part>
-        <Part name="piece" spot="hidden lg:block lg:bottom-[90px] lg:left-[1500px]">
+        <Part name="piece" spot="hidden lg:block lg:bottom-[90px] lg:left-[1390px]">
           <Art className="lg:h-[360px]" name="snake_plant" />
         </Part>
+        {ANSWERS.map(({ spot, tilt, size }) => (
+          <Part key={spot} name="note" spot={spot}>
+            <Cut name="bulb_note" size={size} tilt={tilt} />
+          </Part>
+        ))}
       </Stage>
     </Scene>
   );
@@ -376,31 +405,29 @@ function StreetScene() {
   return (
     <Scene id="s2" labelledBy="story-s2" staged>
       <Lines accent={1} id="story-s2" lines={[t("s2L1"), t("s2L2")]} />
+      {/* The street as cut-outs on the page's white, like the rooms before
+          it: one quiet joined row of buildings of different heights, the two
+          walking past each other in front of it, a street tree at each side,
+          all on the line 100 up. */}
       <Stage className="h-96">
-        <Part kind="rise" name="building" spot="bottom-0 left-0 lg:bottom-[100px] lg:left-[200px]">
-          <Art className="h-56 opacity-90 lg:h-[600px]" name="building_office" />
+        <Part kind="rise" name="building" spot="inset-x-0 bottom-0 flex justify-center lg:inset-x-auto lg:bottom-[100px] lg:left-[208px]">
+          <Art className="h-24 lg:h-100" name="street_block" />
         </Part>
-        <Part kind="rise" name="building" spot="right-0 bottom-0 lg:right-auto lg:bottom-[100px] lg:left-[1210px]">
-          <Art className="h-48 opacity-90 lg:h-[520px]" name="building_condo" />
-        </Part>
-        <Part kind="rise" name="building" spot="inset-x-0 bottom-0 flex justify-center lg:inset-x-auto lg:bottom-[100px] lg:left-[600px]">
-          <Art className="h-28 opacity-90 lg:h-[320px]" name="building_shophouse" />
-        </Part>
-        <Part kind="left" name="ask" spot="bottom-0 left-[16%] lg:bottom-[90px] lg:left-[700px]">
+        <Part kind="left" name="ask" spot="bottom-0 left-[16%] lg:bottom-[90px] lg:left-[650px]">
           <Bob>
             <Art className="h-48 lg:h-[520px]" name="ask_walk" />
           </Bob>
         </Part>
-        <Part kind="right" name="answer" spot="right-[16%] bottom-0 lg:right-auto lg:bottom-[90px] lg:left-[860px]">
+        <Part kind="right" name="answer" spot="right-[16%] bottom-0 lg:right-auto lg:bottom-[90px] lg:left-[890px]">
           <Bob>
             <Art className="h-48 lg:h-[540px]" name="answer_walk" />
           </Bob>
         </Part>
-        <Part kind="left" name="tree-left" spot="hidden lg:block lg:bottom-[40px] lg:left-[-40px]">
-          <Art className="lg:h-[560px]" name="tree_tall" />
+        <Part kind="left" name="tree-left" spot="hidden lg:block lg:bottom-[80px] lg:left-[-90px]">
+          <Art className="lg:h-[600px]" name="street_tree_a" />
         </Part>
-        <Part kind="right" name="tree-right" spot="hidden lg:block lg:bottom-[50px] lg:left-[1470px]">
-          <Art className="lg:h-[420px]" name="tree_round" />
+        <Part kind="right" name="tree-right" spot="hidden lg:block lg:bottom-[84px] lg:left-[1400px]">
+          <Art className="lg:h-[540px]" name="street_tree_b" />
         </Part>
       </Stage>
     </Scene>

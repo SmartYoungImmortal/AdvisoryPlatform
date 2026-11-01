@@ -22,12 +22,16 @@
 import { api, type Paginated } from "@/lib/api/client";
 import type {
   ApiAdviseeInvoice,
+  ApiAdvisorBackground,
   ApiAvatarUrl,
   ApiBooking,
   ApiBookingInput,
   ApiCheckoutInput,
   ApiCheckoutResult,
   ApiCouponPreview,
+  ApiMobileBankingInput,
+  ApiPromptPay,
+  ApiPromptPayStatus,
   ApiInvoice,
   ApiMeeting,
   ApiNamedRecord,
@@ -114,6 +118,14 @@ export function getAdvisor(
   signal?: AbortSignal,
 ): Promise<ApiPublicAdvisor> {
   return api.get(`advisors/${advisorId}`, { signal });
+}
+
+/** `GET /advisors/:id/background` — work, education, languages, licences and awards. */
+export function getAdvisorBackground(
+  advisorId: string,
+  signal?: AbortSignal,
+): Promise<ApiAdvisorBackground> {
+  return api.get(`advisors/${advisorId}/background`, { signal });
 }
 
 /* ------------------------------------------------------------------ reviews */
@@ -448,6 +460,38 @@ export function startCheckout(
   signal?: AbortSignal,
 ): Promise<ApiCheckoutResult> {
   return api.post("payment/checkout", { body: input, signal });
+}
+
+/**
+ * `POST /payment/promptpay` — charge the invoice by a PromptPay QR code. The
+ * answer is the code's image (an SVG the provider serves to anyone), the
+ * amount it charges and when it expires (15 minutes on). Asking again makes a
+ * new code; an invoice no longer waiting for payment answers 400.
+ */
+export function payByPromptPay(invoiceId: string, signal?: AbortSignal): Promise<ApiPromptPay> {
+  return api.post("payment/promptpay", { body: { invoiceId }, signal });
+}
+
+/**
+ * `GET /payment/invoice/:id/promptpay-status` — whether the code was paid.
+ * The first answer that is not `pending` records the outcome and books the
+ * bookings, and `url` is the page checkout goes to.
+ */
+export function getPromptPayStatus(invoiceId: string, signal?: AbortSignal): Promise<ApiPromptPayStatus> {
+  return api.get(`payment/invoice/${invoiceId}/promptpay-status`, { signal });
+}
+
+/**
+ * `POST /payment/mobile-banking` — charge the invoice in a bank's app. `url`
+ * opens the app (in test mode, Omise's page to mark the charge paid or
+ * failed); the bank sends the payer back through the card's 3-D Secure
+ * return, which books the booking.
+ */
+export function payByMobileBanking(
+  input: ApiMobileBankingInput,
+  signal?: AbortSignal,
+): Promise<ApiCheckoutResult> {
+  return api.post("payment/mobile-banking", { body: input, signal });
 }
 
 /** `GET /health` — unprefixed by nothing: it is `/api/v1/health` like the rest. */

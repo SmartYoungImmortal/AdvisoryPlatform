@@ -2,7 +2,7 @@
 
 import { Radio } from "@base-ui/react/radio";
 import { RadioGroup } from "@base-ui/react/radio-group";
-import { Check, ChevronDown, CreditCard, Lock, Star, X } from "lucide-react";
+import { Check, ChevronDown, CreditCard, Landmark, Lock, Star, X } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 import { useCallback, useMemo, useState, type ComponentProps, type FormEvent, type ReactNode } from "react";
@@ -25,6 +25,8 @@ import { Button } from "@/components/ui/button";
 import { Dialog, DialogClose, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
+
+import { BankMarks } from "./checkout-mobile-banking";
 
 /**
  * The pieces `/checkout/card` is built from, shared by the page's two shapes:
@@ -364,18 +366,43 @@ function MethodRow({
   );
 }
 
+/** The ways to pay: PromptPay's code, a bank's app, a typed card, or a card from Google Pay. */
+export type PayMethod = "promptpay" | "mobilebanking" | "card" | "googlepay";
+
+/** PromptPay's mark, the company's own, in a 32 slot. */
+export function PromptPayMark() {
+  return <BrandMark className="w-8" height={216} src="/icons/promptpay.png" width={643} />;
+}
+
+/** Google Pay's mark, the company's own, in a 32 slot. */
+export function GooglePayMark() {
+  return <BrandMark className="w-8" height={400} src="/icons/google-pay.svg" width={752} />;
+}
+
 /**
- * The ways to pay as one card of rows: PromptPay, the card, Google Pay, the
- * card the one open now (the API charges cards only). `fields` go under the
- * card's row, as the desktop draws them; the phone asks for them in a sheet
- * of their own and passes none.
+ * The ways to pay as one card of rows: PromptPay, a bank's app, the card,
+ * Google Pay. `fields` go under the card's row while the card is chosen, as
+ * the desktop draws them; the phone asks for them in a sheet of their own
+ * and passes none. The banks go under their row while it is chosen, and the
+ * row is only there when `mobileBanking` is given (`checkout-mobile-banking`
+ * says where). Google Pay can be chosen once the browser has said it can pay
+ * with it (`googlePay`: null while it is asked), and says so where it cannot.
  */
 export function MethodList({
+  method,
+  onMethodChange,
+  googlePay,
+  mobileBanking,
   fields,
   heading,
   tall = false,
   className,
 }: {
+  readonly method: PayMethod;
+  readonly onMethodChange: (method: PayMethod) => void;
+  readonly googlePay: boolean | null;
+  /** The banks to pick from (`BankList`); null where the row is not offered. */
+  readonly mobileBanking: ReactNode;
   readonly fields?: ReactNode;
   /** The card's own heading, over its rows; the phone's page title says it instead. */
   readonly heading?: string;
@@ -390,16 +417,24 @@ export function MethodList({
           {heading}
         </h2>
       ) : null}
-      <RadioGroup aria-label={t("methodTitle")} className={cn("flex flex-col", tall ? "px-4" : "px-6")} defaultValue="card">
-        <MethodRow
-          disabled
-          first
-          label={t("methodPromptPay")}
-          mark={<BrandMark className="w-8" height={216} src="/icons/promptpay.png" width={643} />}
-          note={t("methodSoon")}
-          tall={tall}
-          value="promptpay"
-        />
+      <RadioGroup
+        aria-label={t("methodTitle")}
+        className={cn("flex flex-col", tall ? "px-4" : "px-6")}
+        onValueChange={(value) => onMethodChange(value as PayMethod)}
+        value={method}
+      >
+        <MethodRow first label={t("methodPromptPay")} mark={<PromptPayMark />} tall={tall} value="promptpay" />
+        {mobileBanking ? (
+          <MethodRow
+            detail={<BankMarks />}
+            label={t("methodMobileBanking")}
+            mark={<Landmark className="size-6" strokeWidth={1.5} />}
+            tall={tall}
+            value="mobilebanking"
+          >
+            {method === "mobilebanking" ? mobileBanking : null}
+          </MethodRow>
+        ) : null}
         <MethodRow
           detail={<CardBrands />}
           label={t("methodCard")}
@@ -407,13 +442,13 @@ export function MethodList({
           tall={tall}
           value="card"
         >
-          {fields}
+          {method === "card" ? fields : null}
         </MethodRow>
         <MethodRow
-          disabled
+          disabled={googlePay !== true}
           label={t("methodGooglePay")}
-          mark={<BrandMark className="w-8" height={400} src="/icons/google-pay.svg" width={752} />}
-          note={t("methodSoon")}
+          mark={<GooglePayMark />}
+          note={googlePay === false ? t("googlePayUnavailable") : undefined}
           tall={tall}
           value="googlepay"
         />

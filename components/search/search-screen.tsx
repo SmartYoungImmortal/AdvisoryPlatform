@@ -22,8 +22,9 @@ import {
   DEFAULT_FILTERS,
   activeCount,
   applyFilters,
-  categoriesOf,
+  categoryOptionsOf,
   matchQuery,
+  type CategoryOption,
   type Filters,
   type LengthBand,
   type MinRating,
@@ -124,7 +125,7 @@ function Chip({
 const CATEGORY_LIMIT = 7;
 
 /**
- * The busiest categories under the search field (`categoriesOf` sorts them):
+ * The busiest categories under the search field (`categoryOptionsOf` sorts them):
  * "all" and six more, two rows at most on a desktop, one sideways row on the
  * phone. Every category, these included, is in the filter panel; one chosen
  * there joins this row so the choice stays in view.
@@ -134,13 +135,15 @@ function CategoryChips({
   value,
   onChange,
 }: {
-  readonly categories: readonly string[];
+  readonly categories: readonly CategoryOption[];
+  /** The chosen category's id. */
   readonly value: string | null;
   readonly onChange: (category: string | null) => void;
 }) {
   const t = useTranslations("search");
   const shown = categories.slice(0, CATEGORY_LIMIT);
-  if (value && !shown.includes(value)) shown.push(value);
+  const chosen = categories.find((category) => category.id === value);
+  if (chosen && !shown.includes(chosen)) shown.push(chosen);
 
   return (
     <div className="-mx-5 flex w-screen max-w-none gap-2 overflow-x-auto px-5 pb-1 [scrollbar-width:none] md:mx-0 md:w-full md:flex-wrap md:justify-center md:px-0">
@@ -148,8 +151,8 @@ function CategoryChips({
         {t("allCategories")}
       </Chip>
       {shown.map((category) => (
-        <Chip active={value === category} key={category} onClick={() => onChange(category)}>
-          {category}
+        <Chip active={value === category.id} key={category.id} onClick={() => onChange(category.id)}>
+          {category.name}
         </Chip>
       ))}
     </div>
@@ -256,7 +259,7 @@ function FilterPanel({
 }: {
   readonly filters: Filters;
   readonly onChange: (next: Filters) => void;
-  readonly categories: readonly string[];
+  readonly categories: readonly CategoryOption[];
 }) {
   const t = useTranslations("search");
   const set = <K extends keyof Filters>(key: K, value: Filters[K]) =>
@@ -272,8 +275,8 @@ function FilterPanel({
             {t("allCategories")}
           </Chip>
           {categories.map((category) => (
-            <Chip active={filters.category === category} key={category} onClick={() => set("category", category)}>
-              {category}
+            <Chip active={filters.category === category.id} key={category.id} onClick={() => set("category", category.id)}>
+              {category.name}
             </Chip>
           ))}
         </div>
@@ -482,7 +485,7 @@ function FilterSheet({
   readonly filters: Filters;
   readonly onChange: (next: Filters) => void;
   readonly resultCount: number;
-  readonly categories: readonly string[];
+  readonly categories: readonly CategoryOption[];
 }) {
   const t = useTranslations("search");
   const desktop = useIsDesktop();
@@ -687,7 +690,7 @@ export function SearchScreen({
   const matched = matchQuery(catalogue.items, query);
   const openToday = useOpenToday(filters.today);
   const results = applyFilters(matched, filters, sort, openToday);
-  const categories = categoriesOf(catalogue.items);
+  const categories = categoryOptionsOf(catalogue.items);
   const filtered = activeCount(filters) > 0;
   const clear = () => setFilters(DEFAULT_FILTERS);
   const examples = [

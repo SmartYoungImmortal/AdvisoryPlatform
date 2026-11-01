@@ -67,6 +67,8 @@ export type LiveService = {
   readonly title: string;
   readonly description: string;
   readonly category: string;
+  /** The category's id; its name above is in the page's language. */
+  readonly categoryId: string;
   /** Baht, from the API's satang. */
   readonly price: number;
   readonly minutes: number;
@@ -218,6 +220,7 @@ function join(
     title: service.name,
     description: service.description,
     category,
+    categoryId: service.categoryId,
     price: service.priceSatang / 100,
     minutes: service.durationMinutes,
     advisorId: advisor.id,

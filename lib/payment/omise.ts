@@ -29,11 +29,23 @@ type OmiseTokenResponse = {
   readonly message?: string;
 };
 
+/** A wallet's encrypted card, as Omise's `createToken("tokenization", …)` takes it. */
+type OmiseTokenization = {
+  readonly method: "googlepay";
+  /** The wallet's token, the JSON string it answered. */
+  readonly data: string;
+};
+
 type OmiseGlobal = {
   setPublicKey(key: string): void;
   createToken(
     kind: "card",
     card: OmiseCard,
+    callback: (status: number, response: OmiseTokenResponse) => void,
+  ): void;
+  createToken(
+    kind: "tokenization",
+    tokenization: OmiseTokenization,
     callback: (status: number, response: OmiseTokenResponse) => void,
   ): void;
 };
@@ -74,6 +86,22 @@ export async function createCardToken(publicKey: string, card: OmiseCard): Promi
     omise.createToken("card", card, (status, response) => {
       if (status === 200 && response.id) resolve(response.id);
       else reject(new Error(response.message ?? response.code ?? "card rejected"));
+    });
+  });
+}
+
+/**
+ * The card chosen in Google Pay as the same single-use card token, from the
+ * wallet's encrypted token (`lib/payment/google-pay.ts`). Charged like a typed
+ * card; Omise only adds `tokenization_method: "googlepay"` to it.
+ */
+export async function createGooglePayToken(publicKey: string, data: string): Promise<string> {
+  const omise = await loadScript();
+  omise.setPublicKey(publicKey);
+  return new Promise((resolve, reject) => {
+    omise.createToken("tokenization", { method: "googlepay", data }, (status, response) => {
+      if (status === 200 && response.id) resolve(response.id);
+      else reject(new Error(response.message ?? response.code ?? "Google Pay rejected"));
     });
   });
 }

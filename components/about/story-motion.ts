@@ -167,8 +167,11 @@ const SCENE_MOTION: Record<string, (cut: Cut) => number> = {
   s1(cut) {
     // The room was there all along, next door to Ask's: the camera has just
     // slid over to it, so everything in it, the lines too, is already in
-    // place. It holds a beat, then the lines lift off as the street comes in.
-    const length = 1.6;
+    // place. Answer's notes, a light bulb on each, pop out round her head as
+    // Ask's did, it holds a beat, then the lines lift off as the street
+    // comes in.
+    const length = 2;
+    popIn(cut, part(cut, "note").slice(1), 0.1, 0.18);
     linesOut(cut, length - 0.5);
     return length;
   },

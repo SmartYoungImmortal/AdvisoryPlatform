@@ -216,21 +216,72 @@ export function LiveServiceDetailSkeleton() {
       }
     >
       <div aria-busy className={COLUMNS}>
-        <div aria-hidden className={cn(INTRO_COLUMN, "items-center")} style={INTRO_VARS}>
-          <span className="-mx-6 -mt-2 block aspect-[4/3] animate-pulse self-stretch bg-muted md:mx-0 md:mt-0 md:aspect-[493/241] md:rounded-2xl lg:rounded-[28.5px]" />
-          <span className="relative -mt-8 size-16 rounded-full bg-muted ring-3 ring-card md:-mt-9 md:size-18 lg:-mt-[51px] lg:size-[102px]" />
-          <span className="mt-4 h-8 w-3/4 animate-pulse rounded-lg bg-muted lg:mt-[23.75px] lg:h-[42.75px]" />
-          <span className="mt-3 h-4 w-4/5 animate-pulse rounded-md bg-muted lg:mt-[23.75px] lg:h-[23.75px]" />
-          <span className="mt-2 h-4 w-3/5 animate-pulse rounded-md bg-muted lg:h-[23.75px]" />
-          <span className="mt-[57px] hidden h-[109px] w-full animate-pulse rounded-[28.5px] bg-muted lg:block" />
+        {/* `ServiceIntro`'s own stack, piece for piece: the cover, on the
+            phone the white sheet lapping it with the face on its edge, the
+            name, two lines of what it is, the facts, and from `lg` the price
+            card docked on the screen's foot. */}
+        <div aria-hidden className={INTRO_COLUMN} style={INTRO_VARS}>
+          <div className="flex flex-col items-center lg:flex-1">
+            <span className="-mx-6 -mt-2 block aspect-[4/3] animate-pulse self-stretch bg-muted md:mx-0 md:mt-0 md:aspect-[493/241] md:rounded-2xl lg:rounded-[28.5px]" />
+            <div className="relative z-1 -mx-6 -mt-8 flex flex-col items-center self-stretch rounded-t-[32px] bg-card px-6 md:contents">
+              <span className="relative -mt-8 block size-16 rounded-full bg-muted ring-3 ring-card md:-mt-9 md:size-18 lg:-mt-[51px] lg:size-[102px]" />
+              {/* Each bar the height of the line it stands for, so the
+                  packages under it start where they will. */}
+              <span className="mt-3 block h-9 w-3/4 max-w-[427px] animate-pulse rounded-lg bg-muted md:mt-4 md:h-8 lg:mt-[23.75px] lg:h-[42.75px]" />
+              <span className="mt-1.5 block h-5 w-28 animate-pulse rounded-md bg-muted lg:mt-[7.125px] lg:h-[19px] lg:w-[150px]" />
+              <span className="mt-3 block h-5 w-4/5 max-w-[427px] animate-pulse rounded-md bg-muted lg:mt-[23.75px] lg:h-[23.75px]" />
+              <span className="mt-1.5 block h-5 w-3/5 max-w-[340px] animate-pulse rounded-md bg-muted lg:mt-2 lg:h-[23.75px]" />
+              <span className="mt-4 block h-3.5 w-40 animate-pulse rounded-md bg-muted lg:mt-[28.5px] lg:h-[16.6px] lg:w-[195px]" />
+              <span className="mt-1.5 block h-3.5 w-28 animate-pulse rounded-md bg-muted lg:mt-[4.75px] lg:h-[14.25px] lg:w-[135px]" />
+              <div className="hidden w-full pt-[57px] lg:mt-auto lg:block">
+                <div className="flex items-center justify-between gap-[19px] rounded-t-[28.5px] rounded-b-[7.125px] bg-card py-[23.75px] pr-[23.75px] pl-9.5 shadow-panel">
+                  <span className="flex flex-col gap-[7.125px]">
+                    <span className="block h-[28.5px] w-[140px] animate-pulse rounded-md bg-muted" />
+                    <span className="block h-[16.6px] w-[180px] animate-pulse rounded-md bg-muted" />
+                  </span>
+                  <span className="block h-[61.75px] w-[230px] animate-pulse rounded-full bg-muted" />
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
-        <div aria-hidden className="flex min-w-0 flex-col gap-5 lg:gap-[23.75px]">
-          {[0, 1, 2].map((key) => (
-            <span className="flex items-center gap-4 lg:gap-[19px]" key={key}>
-              <span className="size-12 shrink-0 animate-pulse rounded-full bg-muted lg:size-[57px]" />
-              <span className="h-4 w-1/2 animate-pulse rounded-md bg-muted lg:h-[23.75px]" />
-            </span>
-          ))}
+
+        {/* The packages as `PackageCards` draws them, then the reviews'
+            head and their first two, as `ReviewsSection` does. */}
+        <div aria-hidden className="flex min-w-0 flex-col lg:pb-28">
+          <div className="border-b border-border pb-9 lg:pb-[57px]">
+            <div className="flex flex-col gap-3 lg:gap-[19px]">
+              {[0, 1, 2].map((key) => (
+                <span
+                  className="flex items-center gap-5 rounded-[20px] bg-card p-2 pr-5 shadow-panel ring-1 ring-foreground/[0.03] lg:gap-[23.75px] lg:rounded-[28.5px] lg:p-[9.5px] lg:pr-[28.5px]"
+                  key={key}
+                >
+                  <span className="block h-25 w-26 shrink-0 animate-pulse rounded-[20px] bg-muted lg:size-[123.5px] lg:rounded-[19px]" />
+                  <span className="flex min-w-0 flex-1 flex-col gap-2 lg:gap-[9.5px]">
+                    <span className="block h-4 w-1/3 animate-pulse rounded-md bg-muted lg:h-[21.4px]" />
+                    <span className="block h-3.5 w-11/12 animate-pulse rounded-md bg-muted lg:h-[16.6px]" />
+                    <span className="block h-3.5 w-3/4 animate-pulse rounded-md bg-muted lg:h-[16.6px]" />
+                    <span className="block h-3.5 w-1/4 animate-pulse rounded-md bg-muted lg:h-[16.6px]" />
+                  </span>
+                </span>
+              ))}
+            </div>
+          </div>
+          <div className="py-9 lg:py-[57px]">
+            <span className="mb-6 block h-6 w-28 animate-pulse rounded-md bg-muted lg:mb-9.5 lg:h-6.5 lg:w-[150px]" />
+            <div className="grid gap-10 md:grid-cols-2 md:gap-x-10 lg:gap-x-[47.5px]">
+              {[0, 1].map((key) => (
+                <span className="flex flex-col gap-4" key={key}>
+                  <span className="flex items-center gap-4">
+                    <span className="size-10 animate-pulse rounded-full bg-muted lg:size-[47.5px]" />
+                    <span className="h-4 w-1/3 animate-pulse rounded-md bg-muted" />
+                  </span>
+                  <span className="h-4 w-4/5 animate-pulse rounded-md bg-muted" />
+                  <span className="h-4 w-3/5 animate-pulse rounded-md bg-muted" />
+                </span>
+              ))}
+            </div>
+          </div>
         </div>
       </div>
     </Frame>

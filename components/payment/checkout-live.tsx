@@ -23,8 +23,12 @@ import {
   TermsNote,
   useCardPayment,
   useOrder,
-  type CardPayment,
+  type PayMethod,
 } from "./checkout-parts";
+import { GooglePayButton, useGooglePay } from "./checkout-googlepay";
+import { methodState, payWith, type Payments } from "./checkout-methods";
+import { BankList, useMobileBanking, useOnPhone } from "./checkout-mobile-banking";
+import { PromptPayDialog, usePromptPay } from "./checkout-promptpay";
 import { CheckoutSteps } from "./checkout-steps";
 
 /**
@@ -62,8 +66,9 @@ import { CheckoutSteps } from "./checkout-steps";
  *    with the invoice's id.
  *
  * When the API has no public key, card payments are not set up and the button
- * stays off. PromptPay and Google Pay are listed and not yet choosable: the API
- * charges cards only.
+ * stays off. PromptPay pays by a QR code (`checkout-promptpay.tsx`); a bank's
+ * app by the page that opens it (`checkout-mobile-banking.tsx`); Google Pay is
+ * a card chosen in Google's sheet, charged as above (`checkout-googlepay.tsx`).
  */
 
 /** The width the page stops being the phone's steps: 744 (46.5rem). */
@@ -107,35 +112,63 @@ function OrderCard({
   );
 }
 
-/** The ways to pay, the card's fields under its row, and the button that pays. */
-function PayForm({ payment, className }: { readonly payment: CardPayment; readonly className?: string }) {
+/**
+ * The ways to pay, the card's fields or the banks under their row while it
+ * is chosen, and the button that pays: the card through 3-D Secure, PromptPay
+ * by the QR code it opens, the bank's app, or Google's own button for Google
+ * Pay.
+ */
+function PayForm({
+  method,
+  onMethodChange,
+  payments,
+  mobileBankingOffered,
+  className,
+}: {
+  readonly method: PayMethod;
+  readonly onMethodChange: (method: PayMethod) => void;
+  readonly payments: Payments;
+  /** Whether a bank's app is a way to pay here: on a phone or tablet. */
+  readonly mobileBankingOffered: boolean;
+  readonly className?: string;
+}) {
   const t = useTranslations("payment");
+  const { payment, googlePay, mobileBanking } = payments;
   const onSubmit = (event: FormEvent) => {
     event.preventDefault();
-    payment.pay();
+    if (method !== "googlepay") payWith(method, payments)();
   };
+  const { working, problem, workingLabel, ready } = methodState(method, payments);
 
   return (
     <form className={cn("flex w-full flex-col", className)} noValidate onSubmit={onSubmit}>
       <MethodList
         className="w-full rounded-[24px] border border-border pb-1"
         fields={<CardFields className="pb-4" payment={payment} />}
+        googlePay={googlePay.available}
         heading={t("methodTitle")}
+        method={method}
+        mobileBanking={mobileBankingOffered ? <BankList mobileBanking={mobileBanking} /> : null}
+        onMethodChange={onMethodChange}
       />
 
       <TermsNote className="mt-3.5" />
 
-      <PrimaryButton
-        block
-        className="mt-3 h-12 rounded-[12px] text-base font-medium lg:h-12"
-        disabled={!payment.configured || payment.paying || !payment.ready}
-        type="submit"
-      >
-        {payment.paying ? t("payWorking") : t("confirmTitle")}
-      </PrimaryButton>
-      {payment.problem ? (
+      {method === "googlepay" ? (
+        <GooglePayButton className="mt-3" googlePay={googlePay} />
+      ) : (
+        <PrimaryButton
+          block
+          className="mt-3 h-12 rounded-[12px] text-base font-medium lg:h-12"
+          disabled={!payment.configured || working || !ready}
+          type="submit"
+        >
+          {working ? t(workingLabel) : t("confirmTitle")}
+        </PrimaryButton>
+      )}
+      {problem ? (
         <p className="mt-2 text-sm text-destructive" role="alert">
-          {payment.problem}
+          {problem}
         </p>
       ) : null}
     </form>
@@ -168,7 +201,7 @@ function CheckoutFooter() {
   const link = "underline-offset-2 hover:underline";
   return (
     <footer className="mt-auto w-full shrink-0 border-t border-border bg-footer-ground">
-      <div className="mx-auto w-full max-w-[1920px] px-6 py-6 text-center text-sm text-foreground min-[59.375rem]:px-8 min-[59.375rem]:text-left min-[90rem]:px-12">
+      <div className="mx-auto w-full max-w-[1920px] px-6 py-5 text-center text-sm text-foreground min-[59.375rem]:px-8 min-[59.375rem]:text-left min-[90rem]:px-12">
         <Link className={link} href="/privacy-policy">
           {t("footerPrivacy")}
         </Link>
@@ -189,35 +222,65 @@ function CheckoutReady({ booking }: { readonly booking: ApiBooking }) {
   const c = useTranslations("common");
   const wide = useWideCheckout();
   const [coupon, setCoupon] = useState<ApiCouponPreview | null>(null);
+  // PromptPay first, as it is the way most here pay.
+  const [method, setMethod] = useState<PayMethod>("promptpay");
   const payment = useCardPayment(booking.id, coupon?.code);
+  const promptPay = usePromptPay(booking.id, coupon?.code);
+  // Google's sheet shows the total, so it is known before the press: the
+  // coupon's, or the price as booked.
+  const order = useOrder(booking);
+  const googlePay = useGooglePay(booking.id, coupon?.code, coupon ? coupon.amountSatang : order.priceSatang);
+  const mobileBanking = useMobileBanking(booking.id, coupon?.code);
+  const payments: Payments = { payment, promptPay, googlePay, mobileBanking };
+  // A bank's app is on a phone or tablet, so only there is it a way to pay.
+  const onPhone = useOnPhone();
 
   if (!wide) {
-    return <CheckoutSteps booking={booking} coupon={coupon} onCoupon={setCoupon} payment={payment} />;
+    return (
+      <>
+        <CheckoutSteps
+          booking={booking}
+          coupon={coupon}
+          method={method}
+          mobileBankingOffered={onPhone}
+          onCoupon={setCoupon}
+          onMethodChange={setMethod}
+          payments={payments}
+        />
+        <PromptPayDialog promptPay={promptPay} />
+      </>
+    );
   }
 
   return (
     <>
+      <PromptPayDialog promptPay={promptPay} />
       <TopBar />
-      <div className={COLUMN}>
+      <div className={cn(COLUMN, "relative")}>
         {/* The round way back hangs in the margin, centred on the title's
             line and 24 from it, so the title lines up with both columns under
-            it and the cards start 24 under the title, not under the circle. */}
-        <div className="relative">
-          <Link
-            aria-label={c("back")}
-            className="absolute -top-1 -left-17 flex size-11 items-center justify-center rounded-full bg-muted text-foreground transition-colors hover:bg-accent"
-            href="/search"
-          >
-            {/* The arrow 13 across in a 2px line: lucide's spans 14 of its
-                24, so a 22 box, the line held at 2 whatever the box. */}
-            <ArrowLeft absoluteStrokeWidth aria-hidden className="size-5.5" strokeWidth={2} />
-          </Link>
-          <h1 className="text-3xl leading-9 font-semibold tracking-tight text-foreground">{t("confirmTitle")}</h1>
-        </div>
+            it and the cards start 24 under the title, not under the circle.
+            It scrolls with the title. */}
+        <Link
+          aria-label={c("back")}
+          className="absolute top-7 -left-17 flex size-11 items-center justify-center rounded-full bg-muted text-foreground transition-colors hover:bg-accent"
+          href="/search"
+        >
+          {/* The arrow 13 across in a 2px line: lucide's spans 14 of its
+              24, so a 22 box, the line held at 2 whatever the box. */}
+          <ArrowLeft absoluteStrokeWidth aria-hidden className="size-5.5" strokeWidth={2} />
+        </Link>
+        <h1 className="text-3xl leading-9 font-semibold tracking-tight text-foreground">{t("confirmTitle")}</h1>
 
         <div className={COLUMNS}>
           <OrderCard booking={booking} className="min-[59.375rem]:col-start-2 min-[59.375rem]:row-start-1" coupon={coupon} onCoupon={setCoupon} />
-          <PayForm className="min-[59.375rem]:col-start-1 min-[59.375rem]:row-start-1" payment={payment} />
+          <PayForm
+            className="min-[59.375rem]:col-start-1 min-[59.375rem]:row-start-1"
+            method={method}
+            mobileBankingOffered={onPhone}
+            onMethodChange={setMethod}
+            payments={payments}
+          />
         </div>
       </div>
       <CheckoutFooter />

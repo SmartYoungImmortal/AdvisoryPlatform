@@ -13,6 +13,11 @@ export type MinRating = "any" | "4.5" | "4.8";
 export type SortKey = "recommended" | "newest" | "priceLow" | "priceHigh" | "rating";
 
 export type Filters = {
+  /**
+   * The category's id, not its name: the name is in the page's language, and
+   * a choice kept by name stayed behind, in the old language, when the
+   * language changed.
+   */
   readonly category: string | null;
   readonly price: PriceBand;
   readonly length: LengthBand;
@@ -35,6 +40,7 @@ export type Filterable = {
   /** Epoch ms the service was listed. */
   readonly listedAt: number;
   readonly category: string;
+  readonly categoryId: string;
   /** Baht. */
   readonly price: number;
   readonly minutes: number;
@@ -67,7 +73,7 @@ function matches(
     // While today's answer is still loading the list is left as it is, rather
     // than emptied and then refilled.
     (!filters.today || openToday === null || openToday.has(item.id)) &&
-    (filters.category === null || item.category === filters.category) &&
+    (filters.category === null || item.categoryId === filters.category) &&
     PRICE[filters.price](item.price) &&
     LENGTH[filters.length](item.minutes) &&
     (filters.rating === "any" || (item.rating ?? 0) >= Number(filters.rating))
@@ -116,6 +122,18 @@ export function categoriesOf(list: readonly { readonly category: string }[]): re
   return [...counts.entries()]
     .toSorted(([a, x], [b, y]) => y - x || a.localeCompare(b, "th"))
     .map(([category]) => category);
+}
+
+/** A category to choose by: its id, which a filter keeps, and its name in the page's language. */
+export type CategoryOption = { readonly id: string; readonly name: string };
+
+/** `categoriesOf`'s order, each category with its id. */
+export function categoryOptionsOf(
+  list: readonly { readonly category: string; readonly categoryId: string }[],
+): readonly CategoryOption[] {
+  const ids = new Map<string, string>();
+  for (const { category, categoryId } of list) if (category && !ids.has(category)) ids.set(category, categoryId);
+  return categoriesOf(list).map((name) => ({ id: ids.get(name) ?? name, name }));
 }
 
 /**
