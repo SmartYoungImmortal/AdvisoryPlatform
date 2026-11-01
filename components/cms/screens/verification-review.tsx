@@ -229,7 +229,7 @@ function Review({ request }: { readonly request: IdentityVerification }) {
         {document ? (
           <CmsDocument className="max-w-lg" name={t("idCard")} url={document} />
         ) : request.verificationStatus === "NONE" ? (
-          <CmsEmpty className="rounded-2xl border border-border py-10" icon={IdCard} title={t("noDocument")} />
+          <CmsEmpty className="rounded-lg border border-border py-10" icon={IdCard} title={t("noDocument")} />
         ) : (
           // The key stays with the API, which signs the card for a few minutes.
           <CmsStoredDocument
@@ -251,7 +251,7 @@ function Review({ request }: { readonly request: IdentityVerification }) {
             {proofItems.map((proof) => (
               <li key={proof.id}>
                 <Link
-                  className="-mx-3 flex items-center gap-3 rounded-xl px-3 py-3 outline-none transition-colors hover:bg-muted/50 focus-visible:ring-3 focus-visible:ring-ring/50"
+                  className="-mx-3 flex items-center gap-3 rounded-lg px-3 py-3 outline-none transition-colors hover:bg-muted/50 focus-visible:ring-3 focus-visible:ring-ring/50"
                   href={`${BACK}/proof?id=${proof.id}`}
                 >
                   <span className="flex size-9 shrink-0 items-center justify-center rounded-full bg-muted text-foreground">

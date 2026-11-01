@@ -32,7 +32,7 @@ export function CmsSidebarOptions({
   readonly actions?: ReactNode;
 }) {
   const t = useTranslations("cms.options");
-  const card = "rounded-2xl border border-border bg-card p-5";
+  const card = "rounded-lg border border-border bg-card p-5";
   return (
     <div className="flex flex-col gap-4">
       {info && info.length > 0 ? (

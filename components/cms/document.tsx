@@ -51,14 +51,14 @@ export function CmsDocument({
     <figure className={cn("flex w-full flex-col gap-3", className)}>
       {isPdf(url, mimeType) ? (
         <iframe
-          className="aspect-9/16 h-130 w-auto max-w-full self-start rounded-2xl border border-border bg-muted"
+          className="aspect-9/16 h-130 w-auto max-w-full self-start rounded-lg border border-border bg-muted"
           // No thumbnail pane: on a one-page certificate it only halves the zoom.
           src={`${url}#navpanes=0&view=FitH`}
           title={name}
         />
       ) : (
         <a
-          className="block overflow-hidden rounded-2xl border border-border transition-opacity outline-none hover:opacity-90 focus-visible:ring-3 focus-visible:ring-ring/50"
+          className="block overflow-hidden rounded-lg border border-border transition-opacity outline-none hover:opacity-90 focus-visible:ring-3 focus-visible:ring-ring/50"
           href={url}
           rel="noreferrer"
           target="_blank"
@@ -106,7 +106,7 @@ export function CmsStoredDocument({
     return (
       <span
         aria-hidden
-        className={cn("block aspect-9/16 h-130 max-w-full rounded-2xl bg-muted", className)}
+        className={cn("block aspect-9/16 h-130 max-w-full rounded-lg bg-muted", className)}
       />
     );
   }
@@ -114,7 +114,7 @@ export function CmsStoredDocument({
     return (
       <CmsEmpty
         body={signed.error?.message}
-        className="rounded-2xl border border-border py-10"
+        className="rounded-lg border border-border py-10"
         icon={icon}
         title={emptyTitle}
       />
@@ -160,7 +160,7 @@ export function CmsDocumentGrid({
           <li className="min-w-0" key={file.key}>
             {file.url ? (
               <a
-                className="flex flex-col overflow-hidden rounded-xl border border-border transition-opacity outline-none hover:opacity-90 focus-visible:ring-3 focus-visible:ring-ring/50"
+                className="flex flex-col overflow-hidden rounded-lg border border-border transition-opacity outline-none hover:opacity-90 focus-visible:ring-3 focus-visible:ring-ring/50"
                 href={file.url}
                 rel="noreferrer"
                 target="_blank"
@@ -169,7 +169,7 @@ export function CmsDocumentGrid({
                 {tile}
               </a>
             ) : (
-              <span className="flex flex-col overflow-hidden rounded-xl border border-border" title={file.name}>
+              <span className="flex flex-col overflow-hidden rounded-lg border border-border" title={file.name}>
                 {tile}
               </span>
             )}

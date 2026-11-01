@@ -29,7 +29,7 @@ export function CmsSection({
   const card = useCmsPageKind() === "console";
   return (
     <section
-      className={cn("flex min-w-0 flex-col", card && "rounded-2xl border border-border bg-card p-5 md:p-6", className)}
+      className={cn("flex min-w-0 flex-col", card && "rounded-lg border border-border bg-card p-5 md:p-6", className)}
     >
       {title !== undefined || actions !== undefined ? (
         <header className={cn("flex items-end justify-between gap-3", card ? "mb-5" : "mb-3")}>

@@ -2250,6 +2250,7 @@
     },
     "cases": {
       "title": "Reports",
+      "flagSubject": "A message steering off the platform",
       "tab": {
         "reports": "From users",
         "flags": "Detected"
@@ -2258,6 +2259,7 @@
         "reported": "Reported user",
         "detail": "Detail",
         "reporter": "Reported by",
+        "source": "Source",
         "createdAt": "Reported",
         "status": "Status",
         "signals": "Pattern found",

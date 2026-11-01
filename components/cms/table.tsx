@@ -132,6 +132,19 @@ function TableEmpty({
   return <CmsEmpty body={empty?.body} icon={empty?.icon ?? Inbox} title={empty?.title ?? t("empty")} />;
 }
 
+/**
+ * A row's glyph in a soft grey circle before its name, as the site's
+ * notification rows draw theirs; white under the pointer so it still shows on
+ * the row's grey. For a `leading` that changes by row.
+ */
+export function CmsRowGlyph({ icon: Icon }: { readonly icon: LucideIcon }) {
+  return (
+    <span className="flex size-9 shrink-0 items-center justify-center rounded-full bg-muted transition-colors group-hover/row:bg-card">
+      <Icon aria-hidden className="size-4 text-foreground" strokeWidth={1.75} />
+    </span>
+  );
+}
+
 /** The head's cells: a soft grey band across the card, its labels small and grey. */
 const HEAD_CELL =
   "h-11 bg-muted/50 px-3 text-xs font-medium whitespace-nowrap text-muted-foreground first:ps-5 last:pe-5";
@@ -219,7 +232,7 @@ export function CmsTable<Row extends { readonly id: string }>({
     ) : null;
 
   return (
-    <div className="flex min-w-0 flex-col overflow-hidden rounded-2xl border border-border bg-card">
+    <div className="flex min-w-0 flex-col overflow-hidden rounded-lg border border-border bg-card">
       <div className="flex flex-col gap-3 border-b border-border px-5 py-4 md:flex-row md:items-center md:justify-between md:gap-4">
         <div className="min-w-0">{chips}</div>
         <div className="flex flex-wrap items-center gap-2 md:justify-end">
@@ -227,7 +240,7 @@ export function CmsTable<Row extends { readonly id: string }>({
             aria-label={searchPlaceholder ?? t("search")}
             className="md:w-64"
             icon={Search}
-            inputClassName="rounded-full md:h-9 [&::-webkit-search-cancel-button]:hidden"
+            inputClassName="md:h-9 [&::-webkit-search-cancel-button]:hidden"
             onChange={(event) => list.setSearch(event.target.value)}
             placeholder={searchPlaceholder ?? t("search")}
             trailing={
@@ -342,11 +355,7 @@ export function CmsTable<Row extends { readonly id: string }>({
                         {column.primary ? (
                           <span className="flex items-center gap-3">
                             {leading ? leading(row) : null}
-                            {!leading && LeadingIcon ? (
-                              <span className="flex size-9 shrink-0 items-center justify-center rounded-full bg-muted transition-colors group-hover/row:bg-card">
-                                <LeadingIcon aria-hidden className="size-4 text-foreground" strokeWidth={1.75} />
-                              </span>
-                            ) : null}
+                            {!leading && LeadingIcon ? <CmsRowGlyph icon={LeadingIcon} /> : null}
                             <span className="flex min-w-0 flex-col gap-0.5">
                               <span className="truncate font-medium">
                                 {href ? (
@@ -388,7 +397,7 @@ export function CmsTable<Row extends { readonly id: string }>({
                 <span>{t("perPage")}</span>
                 <CmsSelect
                   aria-label={t("perPage")}
-                  className="w-20 rounded-full md:data-[size=default]:h-9"
+                  className="w-20 md:data-[size=default]:h-9"
                   items={PER_PAGE_OPTIONS.map((n) => ({ value: String(n), label: String(n) }))}
                   onValueChange={(value) => list.setPerPage(Number(value))}
                   value={String(list.perPage)}
