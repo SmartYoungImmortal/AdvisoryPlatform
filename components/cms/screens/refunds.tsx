@@ -110,7 +110,7 @@ export function RefundsScreen() {
   ];
 
   return (
-    <CmsPage title={t("title")}>
+    <CmsPage full title={t("title")}>
       {refunds.loading ? (
         <CmsTableSkeleton columns={columns.length} />
       ) : refunds.error ? (

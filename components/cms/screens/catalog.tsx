@@ -104,6 +104,7 @@ export function CatalogScreen() {
 
   return (
     <CmsPage
+      full
       actions={
         <CmsLinkButton href={taxonomyEditHref(tab, "new")} icon={Plus}>
           {tab === "categories" ? t("newCategory") : t("newSkill")}

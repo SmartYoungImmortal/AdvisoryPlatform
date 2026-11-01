@@ -118,6 +118,7 @@ export function UsersScreen() {
 
   return (
     <CmsPage
+      full
       description={
         truncated ? tTable("truncated", { shown: items.length, total }) : undefined
       }

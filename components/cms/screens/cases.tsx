@@ -78,6 +78,7 @@ export function CasesScreen() {
 
   return (
     <CmsPage
+      full
       tabs={
         <CmsPageTabs
           current={tab}

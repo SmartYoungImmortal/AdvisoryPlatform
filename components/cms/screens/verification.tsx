@@ -71,6 +71,7 @@ export function VerificationScreen() {
 
   return (
     <CmsPage
+      full
       tabs={
         <CmsPageTabs
           current={tab}

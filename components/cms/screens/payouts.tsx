@@ -207,6 +207,7 @@ export function PayoutsScreen() {
 
   return (
     <CmsPage
+      full
       description={due > 0 ? t("due", { amount: formatBaht(due) }) : undefined}
       title={t("title")}
     >

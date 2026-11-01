@@ -494,8 +494,11 @@ export function CmsPage({
   actions,
   tabs,
   aside,
+  full = false,
   children,
 }: {
+  /** A list page: the panel's full width rather than the centred column. */
+  readonly full?: boolean;
   readonly title: ReactNode;
   readonly badge?: ReactNode;
   readonly description?: ReactNode;
@@ -523,9 +526,15 @@ export function CmsPage({
         <Image alt="Advisory" className="h-5.5 w-auto brightness-0" src={logo} />
       </div>
       <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain" data-slot="cms-scroll">
-        {/* The panel's full width at a 32 inset, as the console this is
-            modelled on lays its pages out: no narrow centred column. */}
-        <div className="cms-scale flex w-full flex-col px-5 pt-6 pb-16 md:px-8 md:pt-8">
+        {/* A list takes the panel's full width at a 32 inset, as the console
+            this is modelled on lays its tables out; every other page keeps
+            the centred column. */}
+        <div
+          className={cn(
+            "cms-scale flex w-full flex-col px-5 pt-6 pb-16",
+            full ? "md:px-8 md:pt-8" : "mx-auto max-w-7xl md:px-10 md:pt-8 lg:px-9 lg:pt-10",
+          )}
+        >
           <header className="flex flex-col">
             {backHref ? (
               <Link
