@@ -1,4 +1,25 @@
 {
+  "advisorBookings": {
+    "loading": "Loading your bookings…",
+    "loadFailed": "We couldn't load this booking information. Check your connection and try again.",
+    "retry": "Try again",
+    "refresh": "Refresh",
+    "previousMonth": "Previous month",
+    "nextMonth": "Next month",
+    "timezone": "Time zone: {zone}",
+    "bookingCount": "{count, plural, one {# booking} other {# bookings}}",
+    "emptyDay": "No bookings on this day.",
+    "manageAvailability": "Manage availability",
+    "missingBooking": "Open a session from your calendar to view its details.",
+    "duration": "{minutes} minutes",
+    "latestScreening": "Latest screening answers",
+    "noScreening": "No screening request has been submitted for this client and service.",
+    "noAnswers": "This request has no saved answers.",
+    "joining": "Opening room…",
+    "chatUnavailable": "A conversation is not available for this session.",
+    "opensAt": "The room opens at {time}.",
+    "screeningStatus": { "PENDING": "Awaiting review", "ACCEPTED": "Accepted", "DECLINED": "Declined", "EXPIRED": "Questions have changed" }
+  },
   "bookingRefund": {
     "back": "Back to booking",
     "title": "Cancel and request a refund",

@@ -9,43 +9,28 @@ import {
   CreditCard,
   FileText,
   History,
-  MessageSquare,
   ShieldCheck,
   Star,
   Wallet,
   type LucideIcon,
 } from "lucide-react";
 import { useTranslations } from "next-intl";
-import { Suspense } from "react";
 
 import { NeutralButton, PrimaryButton } from "@/components/mobile/buttons";
-import {
-  MobileScreen,
-  ScreenBody,
-  ScreenTopBar,
-} from "@/components/mobile/screen";
 import { StatusPill, type StatusTone } from "@/components/mobile/status-pill";
-import { Surface, SurfaceList, surfaceClass } from "@/components/mobile/surface";
-import { Button } from "@/components/ui/button";
+import { Surface, SurfaceList } from "@/components/mobile/surface";
 import { WorkSectionHead } from "@/components/work/section-head";
-import {
-  SessionDetailFallback,
-  SessionDetailFromQuery,
-} from "@/components/work/session-detail";
+import { AdvisorSessionDetailScreen } from "@/components/work/session-detail";
+import { AdvisorCalendarScreen } from "@/components/work/advisor-calendar-screen";
 import { WorkHub, useTodayLabel } from "@/components/work/work-hub";
-import { WEEKDAY_KEYS, buddhistYear, monthGrid } from "@/lib/calendar";
 import { SPLIT_WITH_RAIL } from "@/lib/layout";
 import { cn } from "@/lib/utils";
 import {
-  FREE_GAPS,
   LATER_TODAY,
-  MONTH_SESSION_COUNT,
   NEXT_SESSION,
   PAYOUT_ACCOUNT,
   PENDING_ITEMS,
   RECENT_CONSULTATIONS,
-  SESSIONS_BY_DAY,
-  TODAY,
   TODAY_SESSIONS,
   type SessionFixture,
 } from "@/lib/work";
@@ -224,163 +209,8 @@ export function WorkTodayScreen() {
   );
 }
 
-/**
- * Figma "Advisor calendar" (1374:20803) — the month around today. Past days fade,
- * today takes the accent, and a dot under a date means a session is booked on it.
- *
- * The grid is computed, so it disagrees with the frame on purpose: the frame puts
- * the 16th on a Saturday, and 16 August 2026 is a Sunday.
- *
- * Three things were wrong with it. The dots started on the 17th while the same
- * screen listed three sessions today. The legend drew a filled circle for "วันนี้"
- * next to a cell that was a filled *square*, and a dot for "มีเซสชัน" that the cell
- * did draw — so half the key described something that was not on screen. And at 1440
- * it was forty-eight-pixel dots floating in 171px columns with no grid at all, which
- * is not a calendar, it is a scatter plot.
- */
 export function WorkCalendarScreen() {
-  const t = useTranslations("work");
-  const s = useTranslations("serviceSchedule");
-  const today = useTodayLabel();
-  const cells = monthGrid(TODAY.year, TODAY.month);
-  /** Where the last week starts — its cells own the card's bottom edge. */
-  const lastRow = cells.length - 7;
-
-  return (
-    <WorkHub subtitle={t("calendarSubtitle")} tab="calendar">
-      <div className={cn("contents", SPLIT_WITH_RAIL)}>
-        <section className={BLOCK}>
-          {/* The month used to sit between two `<span role="img">`s dressed as
-              buttons — a control that could not be pressed, with an aria-label
-              promising it could. Only this month has sessions, so there is nowhere
-              for an arrow to go; the row states the month and what is booked in it. */}
-          <WorkSectionHead
-            title={t("monthLabel", { year: buddhistYear(TODAY.year) })}
-            trailing={
-              <p className="shrink-0 text-sm font-normal whitespace-nowrap text-muted-foreground">
-                {t("sessionCount", { count: MONTH_SESSION_COUNT })}
-              </p>
-            }
-          />
-
-          <Surface className="w-full overflow-hidden">
-            <div className="grid w-full grid-cols-7">
-              {WEEKDAY_KEYS.map((key) => (
-                <p
-                  className="py-2 text-center text-xs font-normal text-muted-foreground lg:border-b lg:border-border lg:bg-muted/40 lg:py-2.5"
-                  key={key}
-                >
-                  {s(`weekdayShort.${key}`)}
-                </p>
-              ))}
-              {cells.map((cell, index) => {
-                const isToday = cell.inMonth && cell.day === TODAY.day;
-                const past = cell.inMonth && cell.day < TODAY.day;
-                const count = cell.inMonth
-                  ? SESSIONS_BY_DAY.get(cell.day)
-                  : undefined;
-
-                return (
-                  <div
-                    className={cn(
-                      // A 48px dot on the phone; a real 171×88 cell with a
-                      // hairline on every edge from `lg`.
-                      "relative flex h-12 flex-col items-center justify-center",
-                      "lg:h-22 lg:items-start lg:justify-start lg:gap-1 lg:p-2",
-                      index % 7 !== 6 && "lg:border-r lg:border-border",
-                      index < lastRow && "lg:border-b lg:border-border",
-                      !cell.inMonth && "lg:bg-muted/40",
-                    )}
-                    // The same date can appear twice (a trailing 1 and the 1st).
-                    key={`${index}-${cell.day}`}
-                  >
-                    <span
-                      className={cn(
-                        "flex size-10 shrink-0 items-center justify-center rounded-full font-latin text-base font-normal tabular-nums lg:size-8 lg:text-sm",
-                        (!cell.inMonth || past) && "text-muted-foreground/50",
-                        cell.inMonth && !past && !isToday && "text-foreground",
-                        // A filled circle, which is what the legend has always
-                        // drawn for it.
-                        isToday && "bg-primary font-medium text-primary-foreground",
-                      )}
-                    >
-                      {cell.day}
-                    </span>
-                    {count ? (
-                      <span className="absolute bottom-1.5 flex items-center gap-1.5 lg:static lg:pl-1.5">
-                        <span
-                          className={cn(
-                            "size-1.5 shrink-0 rounded-full",
-                            // Inside the accent circle on the phone, on the cell
-                            // ground at desktop — it has to stay visible on both.
-                            isToday
-                              ? "bg-primary-foreground lg:bg-primary"
-                              : "bg-primary",
-                          )}
-                        />
-                        <span className="hidden text-xs font-normal whitespace-nowrap text-muted-foreground lg:inline">
-                          {t("sessionCount", { count })}
-                        </span>
-                      </span>
-                    ) : null}
-                  </div>
-                );
-              })}
-            </div>
-          </Surface>
-
-          <div className="flex w-full shrink-0 items-center gap-4 py-1">
-            <span className="flex items-center gap-1.5 text-xs font-normal text-muted-foreground">
-              <span className="size-1.5 rounded-full bg-primary" />
-              {t("legendSession")}
-            </span>
-            <span className="flex items-center gap-1.5 text-xs font-normal text-muted-foreground">
-              <span className="size-2.5 rounded-full bg-primary" />
-              {t("legendToday")}
-            </span>
-          </div>
-        </section>
-
-        <section className={BLOCK}>
-          <WorkSectionHead
-            title={t("todayHeading", { date: today })}
-            trailing={
-              <p className="shrink-0 text-sm font-normal whitespace-nowrap text-muted-foreground">
-                {t("sessionCount", { count: TODAY_SESSIONS.length })}
-              </p>
-            }
-          />
-          <SurfaceList>
-            {TODAY_SESSIONS.map((session) => (
-              <SessionRow key={session.id} session={session} />
-            ))}
-          </SurfaceList>
-          {/* A well, not a card: the free slots are what is *left* of the day above
-              them, so they belong under that surface rather than beside it. */}
-          <Link
-            className={cn(
-              surfaceClass({ tier: "well" }),
-              "flex w-full items-center gap-3 p-3.5 transition-colors hover:bg-border/40",
-            )}
-            href="/availability/profiles"
-          >
-            <div className="flex min-w-px flex-1 flex-col items-start gap-0.5 overflow-clip">
-              <p className="text-sm font-semibold text-foreground">
-                {t("freeGaps", { count: FREE_GAPS.length })}
-              </p>
-              <p className="font-latin text-xs font-normal tabular-nums text-muted-foreground">
-                {FREE_GAPS.join(" · ")}
-              </p>
-            </div>
-            <span className="shrink-0 text-sm font-medium text-primary">
-              {t("manage")}
-            </span>
-            <ChevronRight className="size-4 shrink-0 text-muted-foreground" />
-          </Link>
-        </section>
-      </div>
-    </WorkHub>
-  );
+  return <AdvisorCalendarScreen />;
 }
 
 /**
@@ -541,53 +371,6 @@ export function WorkEarningsScreen() {
   );
 }
 
-/**
- * Figma "Session detail - advisor" (1961:32956) — one booked session opened up.
- *
- * The chrome stays on the server; the body is the client half, because the session
- * it describes comes from `?id=` and a static export has no server to resolve that.
- * The fallback is the next session, which is what the route showed when it could not
- * tell one session from another at all.
- */
 export function SessionDetailScreen() {
-  const t = useTranslations("work");
-  const c = useTranslations("common");
-
-  return (
-    // Figma "Desktop / Session detail - advisor" (1998:29715) reads the same
-    // blocks on a column rather than a phone frame; the back chevron stays,
-    // because the workspace nav has nowhere else to put it.
-    <MobileScreen className="pb-0" wide>
-      <ScreenTopBar href="/work" label={c("back")} />
-
-      <ScreenBody className="gap-4 pb-6 lg:pb-14 lg:[&>*]:mx-auto lg:[&>*]:w-full lg:[&>*]:max-w-220">
-        <h1 className="w-full shrink-0 px-6 text-2xl font-semibold text-foreground">
-          {t("sessionTitle")}
-        </h1>
-
-        <Suspense fallback={<SessionDetailFallback />}>
-          <SessionDetailFromQuery />
-        </Suspense>
-      </ScreenBody>
-
-      <div className="flex w-full shrink-0 items-center gap-3 border-t border-border bg-card px-6 py-3 lg:justify-center">
-        <Button
-          aria-label={t("openChat")}
-          className="size-9 shrink-0"
-          nativeButton={false}
-          render={<Link href="/chat/sarah-jenskins" />}
-          size="icon"
-          variant="outline"
-        >
-          <MessageSquare className="size-4" />
-        </Button>
-        <PrimaryButton
-          className="min-w-px flex-1 lg:flex-none"
-          href="/chat/sarah-jenskins"
-        >
-          {t("joinRoom")}
-        </PrimaryButton>
-      </div>
-    </MobileScreen>
-  );
+  return <AdvisorSessionDetailScreen />;
 }

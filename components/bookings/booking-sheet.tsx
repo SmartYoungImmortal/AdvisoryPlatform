@@ -14,7 +14,7 @@ import {
 import Image from "next/image";
 import Link from "next/link";
 import { useFormatter, useTranslations } from "next-intl";
-import { useCallback, useEffect, useId, useState, type ReactNode } from "react";
+import { useCallback, useId, useState, type ReactNode } from "react";
 
 import { DESKTOP_TYPE_LIFT } from "@/components/account/account-shell";
 import { AUTH_LINK } from "@/components/auth/auth-split";
@@ -36,10 +36,11 @@ import { SHEET_W, SHEET_X } from "@/components/payment/invoice-screens";
 import { invoiceHref } from "@/components/payment/transactions-data";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogClose, DialogContent } from "@/components/ui/dialog";
-import { getMyBookingInvoice, openBookingMeeting } from "@/lib/api/resources";
+import { getMyBookingInvoice } from "@/lib/api/resources";
 import type { ApiAdviseeInvoice, ApiBooking, ApiPublicAdvisor, ApiPublicService } from "@/lib/api/types";
 import { useResource } from "@/lib/api/use-resource";
 import { cn } from "@/lib/utils";
+import { useBookingMeeting } from "@/components/bookings/use-booking-meeting";
 
 /**
  * One booking as the screens show it: the appointment row, joined to the
@@ -158,67 +159,6 @@ export function useWaysOn(entry: BookingEntry, now: number): { readonly main: Wa
     return { main: { label: t("review"), href: `/reviews/session?booking=${booking.id}` }, more: [rebook] };
   }
   return { main: rebook, more: [chat] };
-}
-
-/** How early a booked session's call opens, as the API holds it (`MEETING.opensMinutesBefore`). */
-const CALL_OPENS_MS = 10 * 60_000;
-
-/**
- * Whether the session's video call can be joined now, and if not yet, when it
- * can. The API's own rule: a booking in progress always; a booked one from 10
- * minutes before it starts until it ends; nothing else ever.
- */
-function callWindow(booking: ApiBooking, at: number): { readonly open: boolean; readonly opensAt: Date | null } {
-  if (booking.state === "IN_PROGRESS") return { open: true, opensAt: null };
-  if (booking.state !== "BOOKED" || at >= Date.parse(booking.endTime)) return { open: false, opensAt: null };
-  const opens = Date.parse(booking.startTime) - CALL_OPENS_MS;
-  return at >= opens ? { open: true, opensAt: null } : { open: false, opensAt: new Date(opens) };
-}
-
-/**
- * The time now, moved on every 30 seconds while the card is open: the page's
- * own clock stops when it mounts, and the way into the call has to appear
- * when its room opens without the reader reloading.
- */
-function useTicking(from: number): number {
-  const [tick, setTick] = useState(from);
-  useEffect(() => {
-    const id = window.setInterval(() => setTick(Date.now()), 30_000);
-    return () => window.clearInterval(id);
-  }, []);
-  return Math.max(tick, from);
-}
-
-/**
- * Joining the session's call: the room's address from the API, opened in a
- * tab of its own. The tab is opened inside the press, blank, and sent to the
- * room once the API answers; one opened after the answer would be a popup the
- * browser blocks. It is cut from this page (`opener`) before it goes there.
- */
-function useJoinCall(bookingId: string) {
-  const t = useTranslations("bookings");
-  const [joining, setJoining] = useState(false);
-  const [problem, setProblem] = useState<string | null>(null);
-  const join = () => {
-    const tab = window.open("", "_blank");
-    setJoining(true);
-    setProblem(null);
-    openBookingMeeting(bookingId)
-      .then(({ url }) => {
-        if (tab) {
-          tab.opener = null;
-          tab.location.href = url;
-        } else {
-          window.location.assign(url);
-        }
-      })
-      .catch(() => {
-        tab?.close();
-        setProblem(t("joinFailed"));
-      })
-      .finally(() => setJoining(false));
-  };
-  return { join, joining, problem };
 }
 
 /**
@@ -408,9 +348,7 @@ export function BookingSheet({
   const clock = useClock();
   const ways = useWaysOn(entry, now);
   const MainIcon = ways.main.icon;
-  const tick = useTicking(now);
-  const call = callWindow(entry.booking, tick);
-  const joinCall = useJoinCall(entry.booking.id);
+  const call = useBookingMeeting(entry.booking, now);
   // While the call can be joined, joining it is the way on; what was the way
   // on (the chat) moves in with the rest.
   const more = call.open ? [ways.main, ...ways.more.filter((way) => way.href !== ways.main.href)] : ways.more;
@@ -447,9 +385,9 @@ export function BookingSheet({
 
       <div className={cn("flex flex-col items-start gap-2", UNDER_TEXT)}>
         {call.open ? (
-          <Button className={MAIN_PILL} disabled={joinCall.joining} onClick={joinCall.join} type="button">
+          <Button className={MAIN_PILL} disabled={call.joining} onClick={call.join} type="button">
             <Video aria-hidden className="size-4 lg:size-5" />
-            {joinCall.joining ? t("joinOpening") : t("join")}
+            {call.joining ? t("joinOpening") : t("join")}
           </Button>
         ) : (
           <Button className={MAIN_PILL} nativeButton={false} render={<Link href={ways.main.href} />}>
@@ -462,9 +400,9 @@ export function BookingSheet({
             {t("joinOpensAt", { time: clock(call.opensAt) })}
           </p>
         ) : null}
-        {joinCall.problem ? (
+        {call.problem ? (
           <p className="text-xs text-destructive lg:text-frame-label" role="alert">
-            {joinCall.problem}
+            {call.problem}
           </p>
         ) : null}
       </div>

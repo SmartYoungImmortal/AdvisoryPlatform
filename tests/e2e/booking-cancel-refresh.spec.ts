@@ -118,6 +118,10 @@ async function mockBookingApi(page: Page) {
       return;
     }
 
+    if (pathname.startsWith("/api/v1/payment/invoices/for-booking/")) {
+      await route.fulfill({ status: 404, contentType: "application/json", body: JSON.stringify({ statusCode: 404, message: "Invoice not found" }) });
+      return;
+    }
     await fulfill(route, {});
   });
 }
