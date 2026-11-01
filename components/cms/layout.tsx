@@ -223,7 +223,7 @@ function SidebarBody({ version }: { readonly version: number }) {
 
   return (
     <div className="flex h-full min-h-0 flex-col">
-      <div className="flex h-16 shrink-0 items-center gap-2.5 px-5">
+      <div className="flex h-16 shrink-0 items-center justify-center px-5">
         <Link
           aria-label={t("home")}
           className="flex shrink-0 rounded-md outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
