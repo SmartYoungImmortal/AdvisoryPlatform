@@ -6,6 +6,12 @@ The service list now opens the full advisor detail screen with the owner's saved
 
 Use the local frontend on port 3001 and API on port 3200, with a signed-in approved advisor. These links require local services; there is no deployed preview.
 
+From the frontend checkout, start the local frontend after the disposable API is running:
+
+```sh
+NEXT_PUBLIC_API_URL=http://localhost:3200 pnpm dev --port 3001
+```
+
 1. Open [My services](http://localhost:3001/advisor/services) and select a service.
 2. Check its name, price, duration, publication state, linked availability profile and bookings. Open a booking to see that session's participant and service.
 3. Follow **Edit availability profile**, change its name, save, and return. The detail screen shows the saved name without a full reload.
