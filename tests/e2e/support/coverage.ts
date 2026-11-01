@@ -1,3 +1,4 @@
+import { mapInBatches } from "../../../scripts/coverage-batch.mjs";
 import { createHash } from "node:crypto";
 import { mergeProcessCovs } from "@bcoe/v8-coverage";
 import { mkdir, writeFile } from "node:fs/promises";
@@ -31,19 +32,20 @@ export const test = base.extend<{ uiCoverage: void }>({
       >[number] & { source: string; sourceMap: unknown })[] = [];
       async function snapshot(restart: boolean) {
         const scripts = await page.coverage.stopJSCoverage();
-        for (const script of scripts) {
+        const reads = await mapInBatches(scripts, async (script) => {
           if (
             !script.url.startsWith(
               "http://localhost:3001/_next/static/chunks/",
             ) ||
             !script.source
           )
-            continue;
-          if (!/"\[project\]\/(components|lib)\//.test(script.source)) continue;
+            return null;
+          if (!/"\[project\]\/(components|lib)\//.test(script.source))
+            return null;
           const mapping = script.source.match(
             /\/\/# sourceMappingURL=(\S+)/,
           )?.[1];
-          if (!mapping) continue;
+          if (!mapping) return null;
           const response = await page.request.get(
             new URL(mapping, script.url).href,
           );
@@ -52,9 +54,10 @@ export const test = base.extend<{ uiCoverage: void }>({
               `Coverage source map unavailable: ${response.status()} ${new URL(mapping, script.url).href}`,
             );
           const sourceMap: unknown = await response.json();
-          if (projectSource(sourceMap))
-            captured.push({ ...script, source: script.source, sourceMap });
-        }
+          if (!projectSource(sourceMap)) return null;
+          return { ...script, source: script.source, sourceMap };
+        });
+        captured.push(...reads.filter((item) => item !== null));
         if (restart)
           await page.coverage.startJSCoverage({ resetOnNavigation: false });
       }

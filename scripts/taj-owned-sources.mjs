@@ -41,11 +41,9 @@ async function walk(directory) {
     await Promise.all(
       entries.map((entry) => {
         const name = path.join(directory, entry.name);
-        return entry.isDirectory()
-          ? walk(name)
-          : /(?<!\.d)\.tsx?$/.test(name)
-            ? [name]
-            : [];
+        if (entry.isDirectory()) return walk(name);
+        if (/(?<!\.d)\.tsx?$/.test(name)) return [name];
+        return [];
       }),
     )
   ).flat();
@@ -60,5 +58,5 @@ export async function ownedSources(root = process.cwd()) {
     ...new Set([...nested, ...files.map((file) => path.join(root, file))]),
   ]
     .filter((file) => !(path.relative(root, file) in sharedSourcesOutsideScope))
-    .sort();
+    .sort((left, right) => left.localeCompare(right, "en"));
 }

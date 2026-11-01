@@ -1,3 +1,4 @@
+import { mapInBatches } from "./coverage-batch.mjs";
 import { createHash } from "node:crypto";
 import { mkdir, readFile, readdir, writeFile } from "node:fs/promises";
 import path from "node:path";
@@ -58,61 +59,71 @@ const contentByUrl = new Map();
 const processes = [];
 const browserLoaded = new Set();
 let scenarios = 0;
-for (const name of (await readdir(rawDirectory)).filter((name) =>
-  name.endsWith(".json"),
-)) {
-  const captured = z
-    .array(capturedScript)
-    .parse(JSON.parse(await readFile(path.join(rawDirectory, name), "utf8")));
-  if (!captured.length) continue;
-  if (name !== "warmup.json") scenarios++;
-  const result = [];
-  for (const script of captured) {
-    const hash = createHash("sha256").update(script.source).digest("hex");
-    const url = pathToFileURL(
-      path.join(root, ".next", "ui-coverage", `${hash}.js`),
-    ).href;
-    contentByUrl.set(url, script);
-    if (name !== "warmup.json") {
-      for (const source of encodedMap(AnyMap(script.sourceMap)).sources) {
-        if (source.startsWith("file:") && owned.has(fileURLToPath(source)))
-          browserLoaded.add(fileURLToPath(source));
+const captureFiles = (await readdir(rawDirectory))
+  .filter((name) => name.endsWith(".json"))
+  .sort((left, right) => left.localeCompare(right, "en"));
+// One writer merges the coverage map; keep large parsed captures bounded.
+await mapInBatches(
+  captureFiles,
+  async (name) => {
+    const captured = z
+      .array(capturedScript)
+      .parse(JSON.parse(await readFile(path.join(rawDirectory, name), "utf8")));
+    if (!captured.length) return;
+    if (name !== "warmup.json") scenarios++;
+    const result = [];
+    for (const script of captured) {
+      const hash = createHash("sha256").update(script.source).digest("hex");
+      const url = pathToFileURL(
+        path.join(root, ".next", "ui-coverage", `${hash}.js`),
+      ).href;
+      contentByUrl.set(url, script);
+      if (name !== "warmup.json") {
+        for (const source of encodedMap(AnyMap(script.sourceMap)).sources) {
+          if (source.startsWith("file:") && owned.has(fileURLToPath(source)))
+            browserLoaded.add(fileURLToPath(source));
+        }
       }
+      result.push({ url, scriptId: hash, functions: script.functions });
     }
-    result.push({ url, scriptId: hash, functions: script.functions });
-  }
-  processes.push({ result });
-}
+    processes.push({ result });
+  },
+  1,
+);
 if (scenarios === 0 || contentByUrl.size === 0)
   throw new Error(
     "No browser coverage was captured; run UI_COVERAGE_DIR=<directory> with the browser tests first.",
   );
 const merged = mergeProcessCovs(processes);
-for (const script of merged.result) {
-  const original = contentByUrl.get(script.url);
-  if (!original) throw new Error(`Missing captured source: ${script.url}`);
-  const sourceMap = encodedMap(AnyMap(original.sourceMap));
-  for (const [index, name] of sourceMap.sources.entries()) {
-    if (!name.startsWith("file:")) continue;
-    const file = fileURLToPath(name);
-    if (
-      owned.has(file) &&
-      sourceMap.sourcesContent?.[index] !== currentSource.get(file)
-    ) {
-      throw new Error(
-        `Captured source differs from current ${path.relative(root, file)}. Clear captures and rerun; never merge different source revisions.`,
-      );
+await mapInBatches(
+  merged.result,
+  async (script) => {
+    const original = contentByUrl.get(script.url);
+    if (!original) throw new Error(`Missing captured source: ${script.url}`);
+    const sourceMap = encodedMap(AnyMap(original.sourceMap));
+    for (const [index, name] of sourceMap.sources.entries()) {
+      if (!name.startsWith("file:")) continue;
+      const file = fileURLToPath(name);
+      if (
+        owned.has(file) &&
+        sourceMap.sourcesContent?.[index] !== currentSource.get(file)
+      ) {
+        throw new Error(
+          `Captured source differs from current ${path.relative(root, file)}. Clear captures and rerun; never merge different source revisions.`,
+        );
+      }
     }
-  }
-  const mapped = await convert({
-    code: original.source,
-    ast: await parseAstAsync(original.source),
-    sourceMap,
-    coverage: script,
-  });
-  for (const [file, data] of Object.entries(mapped))
-    if (owned.has(file)) coverage.addFileCoverage(data);
-}
+    const mapped = await convert({
+      code: original.source,
+      ast: await parseAstAsync(original.source),
+      sourceMap,
+      coverage: script,
+    });
+    for (const [file, data] of Object.entries(mapped))
+      if (owned.has(file)) coverage.addFileCoverage(data);
+  },
+  1,
+);
 
 // Every owned file needs the same compiler output used by the browser. Warmup
 // roots carry zero counts, so unvisited pages remain in a fixed denominator.

@@ -1,3 +1,4 @@
+import { createRequire } from "node:module";
 import { rm } from "node:fs/promises";
 import path from "node:path";
 import { spawnSync } from "node:child_process";
@@ -11,9 +12,10 @@ const env = {
   UI_COVERAGE_DIR: directory,
   UI_COVERAGE_REPORT: reportDirectory,
 };
+const require = createRequire(import.meta.url);
 const tests = spawnSync(
-  "pnpm",
-  ["exec", "playwright", "test", ...process.argv.slice(2)],
+  process.execPath,
+  [require.resolve("@playwright/test/cli"), "test", ...process.argv.slice(2)],
   { env, stdio: "inherit" },
 );
 const report = spawnSync(
