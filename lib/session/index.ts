@@ -383,7 +383,7 @@ export async function signIn(
   }
 
   if (options.allow && !options.allow.includes(account.role)) {
-    await signOut();
+    if (!(await signOut())) return { ok: false, reason: "unreachable" };
     return { ok: false, reason: "forbidden" };
   }
 
@@ -391,22 +391,16 @@ export async function signIn(
   return { ok: true, account };
 }
 
-/**
- * Drop the session here first, then ask the API to drop its cookie.
- *
- * That order is deliberate: the screen shows signed-out at once, and if the
- * caller leaves early the local half has already happened. Callers that leave
- * with a full `window.location.replace` (the log-out dialog, the console menu)
- * wait for this first, because a navigation cancels the in-flight POST and
- * the cookie would outlive the sign-out.
- */
-export async function signOut(): Promise<void> {
-  publish(ANONYMOUS);
+/** Only mark the browser signed out after the API confirms session revocation. */
+export async function signOut(): Promise<boolean> {
   try {
     await authSignOut();
+    publish(ANONYMOUS);
+    return true;
   } catch {
-    // The cookie may outlive this tab's idea of the session. Nothing a screen
-    // can do about it, and the next `/users/me` is the authority either way.
+    // A failed request can leave the cookie valid, or lose a successful response.
+    // The caller must offer retry without claiming that logout completed.
+    return false;
   }
 }
 
