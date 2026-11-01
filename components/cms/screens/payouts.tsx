@@ -173,6 +173,7 @@ export function PayoutsScreen() {
   } else {
     body = (
       <CmsTable
+        leadingIcon={Banknote}
         chips={
           <CmsChips
             label={t("col.status")}

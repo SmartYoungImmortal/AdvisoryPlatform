@@ -36,7 +36,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { formatDateTime } from "@/lib/mock-db/format";
+import { formatDate, formatTime } from "@/lib/mock-db/format";
 import { cn } from "@/lib/utils";
 
 export type CmsColumn<Row> = {
@@ -50,12 +50,18 @@ export type CmsColumn<Row> = {
    * when the table has `rowHref`, so a keyboard reaches every row.
    */
   readonly primary?: boolean;
+  /**
+   * On the primary column, a grey line under the name (the email under a
+   * person, the category under a service), as the site's rows carry one, so
+   * the table needs a column fewer.
+   */
+  readonly sub?: (row: Row) => ReactNode;
   /** The cell holds its own controls, so a click there is not a row click. */
   readonly interactive?: boolean;
   readonly render: (row: Row) => ReactNode;
 };
 
-/** A sortable date and time column, printed in Thai the way the site prints dates. */
+/** A sortable date column, printed in Thai the way the site prints dates: the day, its time in grey under it. */
 export function dateColumn<Row>(
   id: string,
   header: string,
@@ -65,8 +71,16 @@ export function dateColumn<Row>(
     id,
     header,
     sortable: true,
-    className: "w-px text-muted-foreground",
-    render: (row) => formatDateTime(read(row)),
+    className: "w-px",
+    render: (row) => {
+      const at = read(row);
+      return (
+        <span className="flex flex-col leading-tight">
+          <span className="text-foreground">{formatDate(at)}</span>
+          {at ? <span className="text-xs text-muted-foreground">{formatTime(at)}</span> : null}
+        </span>
+      );
+    },
   };
 }
 
@@ -118,10 +132,25 @@ function TableEmpty({
   return <CmsEmpty body={empty?.body} icon={empty?.icon ?? Inbox} title={empty?.title ?? t("empty")} />;
 }
 
+/** The head's cells: a soft grey band across the card, its labels small and grey. */
+const HEAD_CELL =
+  "h-11 bg-muted/50 px-3 text-xs font-medium whitespace-nowrap text-muted-foreground first:ps-5 last:pe-5";
+
+/** A row's cells, 64 tall, the end cells at the card's own inset. */
+const BODY_CELL =
+  "h-16 px-3 py-3 text-sm whitespace-nowrap text-foreground transition-colors first:ps-5 last:pe-5 group-data-[state=selected]/row:bg-muted/70";
+
+/** A row that leads somewhere goes grey under the pointer. */
+const ROW_HOVER = "group-hover/row:bg-muted/40";
+
 /**
- * A list page's table, in the pattern the references share and the site's
- * own rows already follow: no box round it, a hairline under the head and
- * between rows, 52px rows of 14px type, the record's name in medium weight.
+ * A list page's table: the console's columns, sorting and ticks, drawn in the
+ * account pages' manner. No box round it and no rules between rows; the head
+ * a soft grey band with round ends, its sort arrow showing only on the column
+ * sorted by or under the pointer; 64px rows, each going grey with round ends
+ * under the pointer. The name leads with a round portrait or the list's glyph
+ * in a soft grey circle (as the notification rows do) and can carry a grey
+ * line under it (`sub`).
  *
  * Above it, the toolbar: the status capsules on the left (`chips`), the
  * search capsule and any other filters on the right. When rows are selected a
@@ -137,8 +166,14 @@ export function CmsTable<Row extends { readonly id: string }>({
   filters,
   renderBulkActions,
   rowHref,
+  leading,
+  leadingIcon: LeadingIcon,
   empty,
 }: {
+  /** The row's round portrait, before the name (`CmsAvatar size="lg"`). */
+  readonly leading?: (row: Row) => ReactNode;
+  /** With no portrait, the list's glyph in a soft grey circle, as the site's rows draw theirs. */
+  readonly leadingIcon?: LucideIcon;
   readonly list: CmsListState<Row>;
   readonly columns: ReadonlyArray<CmsColumn<Row>>;
   readonly searchPlaceholder?: string;
@@ -184,8 +219,8 @@ export function CmsTable<Row extends { readonly id: string }>({
     ) : null;
 
   return (
-    <div className="flex min-w-0 flex-col">
-      <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between md:gap-4">
+    <div className="flex min-w-0 flex-col overflow-hidden rounded-2xl border border-border bg-card">
+      <div className="flex flex-col gap-3 border-b border-border px-5 py-4 md:flex-row md:items-center md:justify-between md:gap-4">
         <div className="min-w-0">{chips}</div>
         <div className="flex flex-wrap items-center gap-2 md:justify-end">
           <CmsInput
@@ -214,7 +249,7 @@ export function CmsTable<Row extends { readonly id: string }>({
       </div>
 
       {selectable && selected.size > 0 ? (
-        <div className="mt-4 flex min-h-12 flex-wrap items-center gap-x-4 gap-y-2 rounded-2xl bg-muted px-4 py-2">
+        <div className="flex min-h-12 flex-wrap items-center gap-x-4 gap-y-2 border-b border-border bg-muted/60 px-5 py-2">
           <span className="text-sm font-medium text-foreground">
             {t("selected", { count: selected.size })}
           </span>
@@ -230,15 +265,12 @@ export function CmsTable<Row extends { readonly id: string }>({
         </div>
       ) : null}
 
-      {/* The first and last cells lose their outer inset, so the columns line
-          up with the page title and the search box, and the rules end where
-          the page column does. */}
-      <div className="mt-4">
+      <div>
         <Table>
-          <TableHeader>
+          <TableHeader className="[&_tr]:border-border">
             <TableRow className="hover:bg-transparent">
               {selectable ? (
-                <TableHead className="w-8 ps-0 pe-0">
+                <TableHead className={cn(HEAD_CELL, "w-8 pe-0")}>
                   <Checkbox
                     aria-label={t("selectAll")}
                     checked={allOnPage}
@@ -256,11 +288,7 @@ export function CmsTable<Row extends { readonly id: string }>({
                         : "ascending"
                       : undefined
                   }
-                  className={cn(
-                    "h-11 px-3 text-sm font-medium whitespace-nowrap text-muted-foreground first:ps-0 last:pe-0",
-                    column.align === "end" ? "text-end" : "text-start",
-                    column.className,
-                  )}
+                  className={cn(HEAD_CELL, column.align === "end" ? "text-end" : "text-start", column.className)}
                   key={column.id}
                 >
                   {column.sortable ? <SortButton column={column} list={list} /> : column.header}
@@ -281,8 +309,8 @@ export function CmsTable<Row extends { readonly id: string }>({
                 return (
                   <TableRow
                     className={cn(
-                      "data-[state=selected]:bg-muted/60",
-                      href ? "cursor-pointer hover:bg-muted/50" : "hover:bg-transparent",
+                      "group/row border-border hover:bg-transparent data-[state=selected]:bg-transparent",
+                      href && "cursor-pointer",
                     )}
                     data-state={selected.has(row.id) ? "selected" : undefined}
                     key={row.id}
@@ -290,7 +318,7 @@ export function CmsTable<Row extends { readonly id: string }>({
                   >
                     {selectable ? (
                       <TableCell
-                        className="w-8 ps-0 pe-0"
+                        className={cn(BODY_CELL, href && ROW_HOVER, "w-8 pe-0")}
                         onClick={(event) => event.stopPropagation()}
                       >
                         <Checkbox
@@ -303,22 +331,41 @@ export function CmsTable<Row extends { readonly id: string }>({
                     {columns.map((column) => (
                       <TableCell
                         className={cn(
-                          "h-13 px-3 py-2 text-sm whitespace-nowrap text-foreground first:ps-0 last:pe-0",
+                          BODY_CELL,
+                          href && ROW_HOVER,
                           column.align === "end" && "text-end",
-                          column.primary && "font-medium",
                           column.className,
                         )}
                         key={column.id}
                         onClick={column.interactive ? (event) => event.stopPropagation() : undefined}
                       >
-                        {column.primary && href ? (
-                          <Link
-                            className="rounded-sm outline-none hover:underline hover:underline-offset-4 focus-visible:ring-3 focus-visible:ring-ring/50"
-                            href={href}
-                            onClick={(event) => event.stopPropagation()}
-                          >
-                            {column.render(row)}
-                          </Link>
+                        {column.primary ? (
+                          <span className="flex items-center gap-3">
+                            {leading ? leading(row) : null}
+                            {!leading && LeadingIcon ? (
+                              <span className="flex size-9 shrink-0 items-center justify-center rounded-full bg-muted transition-colors group-hover/row:bg-card">
+                                <LeadingIcon aria-hidden className="size-4 text-foreground" strokeWidth={1.75} />
+                              </span>
+                            ) : null}
+                            <span className="flex min-w-0 flex-col gap-0.5">
+                              <span className="truncate font-medium">
+                                {href ? (
+                                  <Link
+                                    className="rounded-sm outline-none hover:underline hover:underline-offset-4 focus-visible:ring-3 focus-visible:ring-ring/50"
+                                    href={href}
+                                    onClick={(event) => event.stopPropagation()}
+                                  >
+                                    {column.render(row)}
+                                  </Link>
+                                ) : (
+                                  column.render(row)
+                                )}
+                              </span>
+                              {column.sub ? (
+                                <span className="truncate text-xs text-muted-foreground">{column.sub(row)}</span>
+                              ) : null}
+                            </span>
+                          </span>
                         ) : (
                           column.render(row)
                         )}
@@ -333,7 +380,7 @@ export function CmsTable<Row extends { readonly id: string }>({
       </div>
 
       {list.total > 0 ? (
-        <div className="mt-4 flex flex-col-reverse items-center justify-between gap-3 text-sm text-muted-foreground sm:flex-row">
+        <div className="flex flex-col-reverse items-center justify-between gap-3 border-t border-border px-5 py-4 text-sm text-muted-foreground sm:flex-row">
           <div className="flex flex-wrap items-center gap-x-5 gap-y-2">
             <span>{t("range", { start, end, total: list.total })}</span>
             {list.total > PER_PAGE_OPTIONS[0] ? (
@@ -373,8 +420,9 @@ function SortButton<Row extends { readonly id: string }>({
   return (
     <CmsButton
       className={cn(
-        "-mx-2 h-8 px-2 font-medium md:h-8 [&_svg]:size-3.5",
-        state ? "text-foreground" : "text-muted-foreground",
+        "-mx-2 h-7 px-2 text-xs font-medium hover:bg-card md:h-7 [&_svg]:size-3.5",
+        // The arrow only on the column sorted by, or under the pointer.
+        state ? "text-foreground" : "text-muted-foreground [&_svg]:opacity-0 hover:[&_svg]:opacity-100 focus-visible:[&_svg]:opacity-100",
       )}
       onClick={() => {
         // Ascending, descending, then back to the list's own order.

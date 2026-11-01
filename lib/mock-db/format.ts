@@ -18,6 +18,12 @@ const DATE_TIME = new Intl.DateTimeFormat("th-TH", {
   timeZone: "Asia/Bangkok",
 });
 
+const TIME = new Intl.DateTimeFormat("th-TH", {
+  hour: "2-digit",
+  minute: "2-digit",
+  timeZone: "Asia/Bangkok",
+});
+
 const BAHT = new Intl.NumberFormat("th-TH", {
   style: "currency",
   currency: "THB",
@@ -41,6 +47,11 @@ export function formatDate(iso: string | null): string {
 
 export function formatDateTime(iso: string | null): string {
   return iso ? DATE_TIME.format(new Date(iso)) : "-";
+}
+
+/** The clock alone, `14:38`, Bangkok time: a list's date column prints it under the day. */
+export function formatTime(iso: string | null): string {
+  return iso ? TIME.format(new Date(iso)) : "";
 }
 
 /**

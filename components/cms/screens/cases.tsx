@@ -162,12 +162,7 @@ function ReportQueue() {
       header: t("col.reported"),
       primary: true,
       render: (r) => accountName(r.reportedUserId) ?? r.reportedDisplayName,
-    },
-    {
-      id: "detail",
-      header: t("col.detail"),
-      className: "text-muted-foreground",
-      render: (r) => <span className="block max-w-80 truncate">{r.reason}</span>,
+      sub: (r) => <span className="block max-w-96 truncate">{r.reason}</span>,
     },
     {
       id: "reporter",
@@ -189,6 +184,7 @@ function ReportQueue() {
 
   return (
     <CmsTable
+      leadingIcon={Flag}
       renderBulkActions={(ids) => {
         const open = openIds(ids);
         return open.length === 0 ? null : (
@@ -314,6 +310,7 @@ function FlagQueue() {
 
   return (
     <CmsTable
+      leadingIcon={Radar}
       renderBulkActions={(ids) => {
         const open = openIds(ids);
         return open.length === 0 ? null : (

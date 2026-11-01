@@ -191,12 +191,7 @@ function IdentityTable({ requests }: { readonly requests: readonly IdentityVerif
       sortable: true,
       primary: true,
       render: (r) => accountName(r.advisorId) ?? r.displayName,
-    },
-    {
-      id: "email",
-      header: t("col.email"),
-      className: "font-latin text-muted-foreground",
-      render: (r) => r.email,
+      sub: (r) => <span className="font-latin">{r.email}</span>,
     },
     statusColumn(t("col.status"), (r) => (
       <CmsStatus group="identity" value={r.verificationStatus} />
@@ -294,17 +289,18 @@ function ProofTable({ proofs }: { readonly proofs: readonly SkillProof[] }) {
   }
 
   const columns: ReadonlyArray<CmsColumn<SkillProof>> = [
-    { id: "skill", header: t("col.skill"), sortable: true, primary: true, render: (p) => p.skillName },
+    {
+      id: "skill",
+      header: t("col.skill"),
+      sortable: true,
+      primary: true,
+      render: (p) => p.skillName,
+      sub: (p) => <span className="block max-w-72 truncate font-latin">{p.originalFileName}</span>,
+    },
     {
       id: "advisor",
       header: t("col.advisor"),
       render: (p) => accountName(p.advisorId) ?? p.advisorDisplayName,
-    },
-    {
-      id: "file",
-      header: t("col.file"),
-      className: "font-latin text-muted-foreground",
-      render: (p) => <span className="block max-w-56 truncate">{p.originalFileName}</span>,
     },
     statusColumn(t("col.status"), (p) => <CmsStatus group="proof" value={p.reviewStatus} />),
     dateColumn("createdAt", t("col.submittedAt"), (p) => p.createdAt),
