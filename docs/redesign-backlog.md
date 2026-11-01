@@ -34,6 +34,7 @@
 - [x] RD-03 หน้าบริการ: `/service/[id]` (หัว showcase, แพ็กเกจ, กล่องจองสองขั้น, รีวิว) ผ่าน 1 พ.ย.
 - [x] RD-13 หน้า auth ที่เหลือ: `/reset-password`, `/verification-sent`, `/email-verified` ผ่าน 1 พ.ย.
 - [x] RD-18 Toast: `components/mobile/toast.tsx` และ `components/notifications/notification-toaster.tsx` เป็นแบบเดียวกันแล้ว ผ่าน 1 พ.ย.
+- [x] RD-04 checkout: `/checkout/card`, `/checkout/card/saved` (บัตรผ่าน Omise, PromptPay, Google Pay, mobile banking, คูปอง) ผ่าน 1 พ.ย.
 
 ## ทำแล้วแต่ยังไม่ผ่าน
 
@@ -52,7 +53,6 @@
 - [ ] `/advisors/[advisorId]`, `/about`, `/services`, `/reviews`: ทำใหม่ 30 ต.ค. navbar ของเว็บ + ปุ่มย้อนกลับ การ์ดแบบหน้าค้นหา รีวิวแบบหน้าบริการ แท็บ About
 
 ### RD-04 · จองและชำระเงิน
-- [ ] `/checkout/card`, `/checkout/card/saved`: ทำแล้ว 30 ต.ค. (บัตรผ่าน Omise, PromptPay, Google Pay, mobile banking, คูปอง)
 - [ ] `/checkout/processing`, `/checkout/success`, `/checkout/failed`, `/checkout/slot-taken`, `/checkout/unconfirmed`: success อ่านใบเสร็จจริง ที่เหลือใช้ component เดียวกัน
 
 ### RD-09 · รีวิวหลังคุย
