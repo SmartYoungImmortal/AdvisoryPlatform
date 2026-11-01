@@ -249,7 +249,6 @@ for (const width of [1440, 390]) {
             await docs.screenshot({
               path: `test-results/reschedule-swagger-${scenario}.png`,
             });
-            await docs.waitForTimeout(1800);
           };
           const docs = await context.newPage();
           await showSlots(docs, 200, "owner");
@@ -282,7 +281,6 @@ for (const width of [1440, 390]) {
         await page.screenshot({
           path: `test-results/reschedule-${mode}-${width}.png`,
         });
-        await page.waitForTimeout(1400);
         await target.click();
         if (mode === "package") {
           // A real second request takes the selected time before this browser submits.
@@ -309,7 +307,6 @@ for (const width of [1440, 390]) {
           await page.screenshot({
             path: `test-results/reschedule-conflict-${width}.png`,
           });
-          await page.waitForTimeout(1400);
           await page.getByRole("button", { name: /12:00/ }).click();
         }
         const moved = page.waitForResponse(
@@ -342,7 +339,6 @@ for (const width of [1440, 390]) {
         await page.screenshot({
           path: `test-results/reschedule-result-${mode}-${width}.png`,
         });
-        await page.waitForTimeout(1800);
         const old = bookingSchema.parse(
           (
             await (
