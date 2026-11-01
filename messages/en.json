@@ -1,4 +1,28 @@
 {
+  "serviceSchedule": {
+    "sourceRulesNote": "These are your saved rules. Free slots come from the scheduling API; unavailable-slot reasons and total opened-slot statistics are not supplied.",
+    "specificWindows": "Extra windows for this date",
+    "blockedPeriods": "Blocked periods for this date",
+    "allDay": "All day",
+    "globalCeiling": "Daily limit across all services",
+    "bookingState": {
+      "PENDING_PAYMENT": "Awaiting payment",
+      "BOOKED": "Booked",
+      "IN_PROGRESS": "In progress",
+      "COMPLETED": "Completed",
+      "CANCELLED": "Cancelled",
+      "NO_SHOW": "No show"
+    }
+  },
+  "advisorServices": {
+    "profileUnavailable": "Availability profile unavailable",
+    "ceilingMinutes": "{minutes} minutes per day",
+    "noBookings": "No bookings for this service yet",
+    "statsUnavailable": "Total opened and remaining slot counts are unavailable. Bookings show all non-cancelled sessions.",
+    "hiddenSchedule": "Publish this service to see its bookable slots. Saved availability settings remain visible.",
+    "timezone": "Timezone: {zone}",
+    "noSlots": "No bookable slots in this date range."
+  },
   "advisorBookings": {
     "loading": "Loading your bookings…",
     "loadFailed": "We couldn't load this booking information. Check your connection and try again.",
