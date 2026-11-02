@@ -438,9 +438,10 @@ export function ServiceEditor({
   // The one save: for a new service always there; for one that exists once something changed (or just saved).
   const footer =
     creating || dirty || saved || problem ? (
-      // At the foot of the panel's scroller, the width of the panel; its row on the page's column, clear of the desk's 320 menu.
-      <div className="sticky bottom-0 z-40 mt-auto w-full shrink-0 border-t border-border bg-card">
-        <div className="app-scale flex w-full flex-wrap items-center justify-between gap-3 px-5 py-3 md:px-10 lg:py-4 lg:pr-12 lg:pl-92">
+      // Held to the foot of the screen under the page's own column (beside the desk's menu, never under it);
+      // on the phone out to the screen's edges, past the column's gutter.
+      <div className="sticky bottom-0 z-40 -mx-5 mt-auto shrink-0 border-t border-border bg-card md:-mx-10 lg:mx-0">
+        <div className="flex w-full flex-wrap items-center justify-between gap-3 px-5 py-3 md:px-10 lg:px-12 lg:py-4">
           <p
             className={cn("text-sm lg:text-frame-meta", problem ? "text-destructive" : saved && !dirty ? "text-success" : "text-muted-foreground")}
             role={problem ? "alert" : "status"}

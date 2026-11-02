@@ -3,7 +3,7 @@
 import type { StaticImageData } from "next/image";
 import Link from "next/link";
 import { SearchX } from "lucide-react";
-import { useCallback, useEffect, type CSSProperties, type ReactNode } from "react";
+import { useCallback, useEffect, useRef, useState, type CSSProperties, type ReactNode } from "react";
 import { useTranslations } from "next-intl";
 
 import { ApiError } from "@/lib/api/client";
@@ -25,7 +25,6 @@ import {
   useSelection,
 } from "@/components/service/service-booking";
 import { ServiceIntro } from "@/components/service/service-head";
-import { servicePhotoSet } from "@/components/service/service-photo-sets";
 import {
   AdvisorSection,
   KnowSection,
@@ -79,9 +78,28 @@ const COLUMNS =
  * 38 of top padding; inside `app-scale` that is the bar's height over the
  * page's zoom, plus 38. The screen's height is `100dvh` over the same zoom,
  * since a viewport length here is zoomed with everything else.
+ *
+ * On a screen too short for the column (`--intro-height`, measured), it is
+ * held where its foot meets the screen's instead: it goes up with the page
+ * only until the price card shows, and stays there, rather than being held
+ * at its start and pushed up all at once where the page ends.
  */
 const INTRO_COLUMN =
-  "flex min-w-0 flex-col md:mx-auto md:w-full md:max-w-xl lg:sticky lg:top-(--intro-top) lg:mx-0 lg:min-h-[calc(100dvh_/_var(--app-zoom)_-_var(--intro-top))] lg:max-w-none";
+  "flex min-w-0 flex-col md:mx-auto md:w-full md:max-w-xl lg:sticky lg:top-[min(var(--intro-top),calc(var(--intro-screen,100dvh)_/_var(--app-zoom)_-_var(--intro-height,0px)_-_var(--intro-foot,0px)))] lg:mx-0 lg:min-h-[calc(var(--intro-screen,100dvh)_/_var(--app-zoom)_-_var(--intro-top))] lg:max-w-none";
+
+/** The intro column's height in its own lengths (`offsetHeight`, not zoomed), as `--intro-height`. */
+function useIntroHeight(): [React.RefObject<HTMLElement | null>, CSSProperties] {
+  const ref = useRef<HTMLElement>(null);
+  const [height, setHeight] = useState<number | null>(null);
+  useEffect(() => {
+    const element = ref.current;
+    if (!element) return;
+    const observer = new ResizeObserver(() => setHeight(element.offsetHeight));
+    observer.observe(element);
+    return () => observer.disconnect();
+  }, []);
+  return [ref, height === null ? {} : ({ "--intro-height": `${height}px` } as CSSProperties)];
+}
 
 const INTRO_VARS = {
   "--app-zoom": "tan(atan2(min(100vw, 1440px), 1710px))",
@@ -99,12 +117,17 @@ export type DeskHead = {
 };
 
 /**
- * The intro in the owner's view (the desk's frame) scrolls with the page
- * rather than being held: under the desk's band a short screen has less room
- * than the column is tall, and a held column taller than its room is pushed
- * up all at once where the page ends.
+ * The intro in the owner's view (the desk's frame): it starts under the
+ * desk's band held at the top (its 88, then the page's 32), its screen is the
+ * panel's, 6 in from the window's top and bottom, and the frame keeps 64
+ * under the page (`--intro-foot`) that the column can never reach.
  */
-const OWNER_INTRO = "lg:static lg:min-h-0";
+const OWNER_INTRO_VARS = {
+  "--app-zoom": "tan(atan2(min(100vw, 1440px), 1710px))",
+  "--intro-top": "120px",
+  "--intro-screen": "calc(100dvh - 12px)",
+  "--intro-foot": "64px",
+} as CSSProperties;
 
 /**
  * The advisor's score, or undefined when nothing has been scored: `average`
@@ -140,22 +163,13 @@ function useAdvisor(advisorId: string): ApiPublicAdvisor | undefined {
   return useResource<ApiPublicAdvisor>(`advisors/${advisorId}`, fetcher).data;
 }
 
-/**
- * The photographs, cover first: the card's cover (what the reader pressed),
- * then the service's own, each URL once, since the API may list the same
- * cover among them.
- */
+/** The photographs, cover first. */
 function photosOf(item: LiveService | undefined, service: ApiPublicService): readonly string[] {
-  // Photographs the advisor uploaded win: they come back presigned from our
-  // storage, where the seed's are plain hotlinks. A local preview is one on
-  // its way there (the editor's client view, before the save).
-  const uploaded = (service.images ?? []).some((src) => /[?&]X-Amz-Signature=/.test(src) || src.startsWith("blob:"));
-  if (uploaded && service.images) return service.images;
-  // This page's own three, where the service has them (`service-photo-sets`).
-  const own = servicePhotoSet(service.id);
-  if (own) return own;
-  const all = [item?.cover.src, ...(service.images ?? item?.images ?? [])];
-  return [...new Set(all.filter((src): src is string => Boolean(src)))];
+  // The service's own photographs, as its owner keeps them in the API (and as the editor's client view
+  // holds them before the save): the same ones its editor, its card and its owner's list show. Only a
+  // service with none wears its card's picture.
+  if (service.images && service.images.length > 0) return service.images;
+  return item ? [item.cover.src] : [];
 }
 
 /**
@@ -419,6 +433,7 @@ export function ServiceView({ service, owner }: { readonly service: ApiPublicSer
   const rating = useRatingSummary(service.advisorId);
   const selection = useSelection();
   const picker = usePicker();
+  const [introRef, introHeight] = useIntroHeight();
 
   const item = catalogue.items.find((entry) => entry.id === service.id);
   const name = item?.advisorName ?? advisor?.displayName ?? "";
@@ -445,7 +460,7 @@ export function ServiceView({ service, owner }: { readonly service: ApiPublicSer
       />
       <div className={COLUMNS}>
         {/* `items-start` on the grid is what lets the column ride. */}
-        <aside aria-label={t("panelLabel")} className={cn(INTRO_COLUMN, owner && OWNER_INTRO)} style={INTRO_VARS}>
+        <aside aria-label={t("panelLabel")} className={INTRO_COLUMN} ref={introRef} style={{ ...(owner ? OWNER_INTRO_VARS : INTRO_VARS), ...introHeight }}>
           {owner ? <div className="mb-4 flex flex-wrap gap-2 lg:mb-6">{owner.intro}</div> : null}
           <ServiceIntro
             booking={<BookingCard picker={picker} selection={selection} service={service} />}

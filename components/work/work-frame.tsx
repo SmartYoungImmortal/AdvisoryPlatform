@@ -228,10 +228,11 @@ export function WorkFrame({
                 {isPlace ? <WorkTabs current={place} /> : null}
                 {isPlace && action ? <div className="mt-4 lg:hidden">{action}</div> : null}
                 <div className="flex min-w-0 flex-1 flex-col lg:px-12 lg:pb-16">{children}</div>
+                {/* Under the page in its own column, so it never runs under the menu beside it. */}
+                {footer}
               </div>
             </div>
           </AccountShell>
-          {footer}
         </ScreenBody>
       </AppFrame>
       {overlay}
