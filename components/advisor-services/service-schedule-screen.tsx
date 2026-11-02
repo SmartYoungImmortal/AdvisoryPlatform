@@ -96,7 +96,7 @@ function Schedule({ data, back }: { readonly data: ServiceDetail; readonly back:
   const dayBookings = data.bookings.filter((booking) => bookingDay(booking.startTime, zone) === day);
   const scheduleHref = data.profile
     ? `/availability/profiles/edit?id=${encodeURIComponent(data.profile.id)}`
-    : "/availability/profiles";
+    : "/availability";
 
   const clock = new Intl.DateTimeFormat(locale, { hour: "2-digit", minute: "2-digit", hourCycle: "h23", timeZone: zone });
   const range = (from: string, to: string) => `${from.slice(0, 5)}–${to.slice(0, 5)}`;

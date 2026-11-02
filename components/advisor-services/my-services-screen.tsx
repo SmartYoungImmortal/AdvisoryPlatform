@@ -7,7 +7,8 @@ import { useFormatter, useTranslations } from "next-intl";
 import { authPill } from "@/components/auth/auth-split";
 import { ApiErrorCard } from "@/components/service/parts";
 import { Button } from "@/components/ui/button";
-import { DESK_BOX, DESK_PILL, DeskPage } from "@/components/work/desk-page";
+import { DESK_BOX, DESK_PILL } from "@/components/work/desk-page";
+import { WorkHub } from "@/components/work/work-hub";
 import { useResource } from "@/lib/api/use-resource";
 import { listMyAdvisorServices, listMyAvailabilityProfiles, type AdvisorService } from "@/lib/advisor-services/api";
 import { cn } from "@/lib/utils";
@@ -80,19 +81,20 @@ export function MyServicesScreen() {
   const figures = [
     { label: t("statTotal"), value: services.data?.total ?? 0 },
     { label: t("statPublished"), value: rows.filter((item) => item.isPublished).length },
-    { label: t("statProfiles"), value: profiles.data?.length ?? 0, href: "/availability/profiles" },
+    { label: t("statProfiles"), value: profiles.data?.length ?? 0, href: "/availability" },
   ];
   const failure = services.error ?? profiles.error;
 
   return (
-    <DeskPage
+    <WorkHub
       action={
         <Button className={cn(authPill(true), DESK_PILL)} nativeButton={false} render={<Link href="/advisor/services/new" />}>
           <Plus aria-hidden />
           {t("create")}
         </Button>
       }
-      title={t("title")}
+      subtitle={t("hubSubtitle")}
+      tab="services"
     >
       <div className="mt-5 flex flex-col gap-8 lg:mt-8 lg:gap-10">
         <dl className="flex w-full max-w-xl rounded-2xl border border-border py-1 md:w-fit lg:py-1.5">
@@ -159,6 +161,6 @@ export function MyServicesScreen() {
           </ul>
         )}
       </div>
-    </DeskPage>
+    </WorkHub>
   );
 }

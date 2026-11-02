@@ -189,9 +189,20 @@ function Section({ title, hint, action, children }: {
 
 /* ------------------------------------------------------------------ screen */
 
+/**
+ * Where the editor goes back to, and on to once saved: the service it was
+ * opened from (`?back=`), or the hours. Only a page of the advisor's own
+ * services is taken, since the address is anyone's to write.
+ */
+function useBack(): string {
+  const back = useQueryValue("back");
+  return back?.startsWith("/advisor/services") ? back : "/availability";
+}
+
 export function ScheduleEditorScreen({ mode }: { readonly mode: "create" | "edit" }) {
   const t = useTranslations("schedule");
   const id = useQueryValue("id");
+  const back = useBack();
   const profiles = useResource<AvailabilityProfile[]>(
     "availability/profiles",
     useCallback((signal: AbortSignal) => availabilityApi.getProfiles(signal), []),
@@ -199,7 +210,7 @@ export function ScheduleEditorScreen({ mode }: { readonly mode: "create" | "edit
 
   if (mode === "edit" && (profiles.error || !profiles.data)) {
     return (
-      <DeskPage backHref="/availability/profiles" title={t("editTitle")}>
+      <DeskPage backHref={back} title={t("editTitle")}>
         <div className="mt-5 lg:mt-8">
           {profiles.error ? (
             <ApiErrorCard error={profiles.error} onRetry={profiles.reload} title={t("loadFailed")} />
@@ -213,17 +224,17 @@ export function ScheduleEditorScreen({ mode }: { readonly mode: "create" | "edit
   const profile = mode === "edit" ? profiles.data?.find((item) => item.id === id) : undefined;
   if (mode === "edit" && !profile) {
     return (
-      <DeskPage backHref="/availability/profiles" title={t("editTitle")}>
+      <DeskPage backHref={back} title={t("editTitle")}>
         <p className="mt-5 text-sm text-muted-foreground lg:mt-8 lg:text-frame-meta" role="alert">
           {t("notFound")}
         </p>
       </DeskPage>
     );
   }
-  return <Editor key={profile?.id ?? "new"} profile={profile} />;
+  return <Editor back={back} key={profile?.id ?? "new"} profile={profile} />;
 }
 
-function Editor({ profile }: { readonly profile?: AvailabilityProfile }) {
+function Editor({ profile, back }: { readonly profile?: AvailabilityProfile; readonly back: string }) {
   const t = useTranslations("schedule");
   const d = useTranslations("availability");
   const c = useTranslations("common");
@@ -302,7 +313,7 @@ function Editor({ profile }: { readonly profile?: AvailabilityProfile }) {
       invalidate("availability/profiles");
       invalidate("advisors/me/services");
       invalidate("services/");
-      router.push("/availability/profiles");
+      router.push(back);
     } catch (cause) {
       setProblem(cause instanceof Error ? cause.message : String(cause));
       setSaving(false);
@@ -313,7 +324,7 @@ function Editor({ profile }: { readonly profile?: AvailabilityProfile }) {
     format.dateTime(new Date(`${date}T12:00:00Z`), { weekday: "short", day: "numeric", month: "short", year: "numeric", timeZone: "UTC" });
 
   return (
-    <DeskPage backHref="/availability/profiles" subtitle={t("subtitle")} title={profile ? t("editTitle") : t("createTitle")}>
+    <DeskPage backHref={back} subtitle={t("subtitle")} title={profile ? t("editTitle") : t("createTitle")}>
       <form
         className="mt-5 flex w-full max-w-200 flex-col gap-8 lg:mt-8 lg:gap-10"
         noValidate
@@ -521,7 +532,7 @@ function Editor({ profile }: { readonly profile?: AvailabilityProfile }) {
         ) : null}
 
         <div className="flex w-full items-center gap-3 lg:justify-end">
-          <Button className={cn(authPill(false), DESK_PILL, "flex-1 lg:flex-none")} nativeButton={false} render={<Link href="/availability/profiles" />} variant="outline">
+          <Button className={cn(authPill(false), DESK_PILL, "flex-1 lg:flex-none")} nativeButton={false} render={<Link href={back} />} variant="outline">
             {c("cancel")}
           </Button>
           <Button className={cn(authPill(true), DESK_PILL, "flex-[2] lg:flex-none")} disabled={saving} type="submit">

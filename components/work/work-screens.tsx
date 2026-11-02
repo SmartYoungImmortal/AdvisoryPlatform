@@ -1,23 +1,10 @@
 "use client";
 
-import {
-  Briefcase,
-  CalendarDays,
-  Clock,
-  CreditCard,
-  FileText,
-  MessageSquare,
-  ShieldCheck,
-  Star,
-  UserRoundPen,
-  Wallet,
-  type LucideIcon,
-} from "lucide-react";
+import { CalendarDays, CreditCard, MessageSquare, ShieldCheck, Wallet, type LucideIcon } from "lucide-react";
 import Link from "next/link";
 import { useFormatter, useTranslations } from "next-intl";
 import { useCallback, type ReactNode } from "react";
 
-import { LinkList, LinkListCount } from "@/components/account/link-list";
 import { authPill } from "@/components/auth/auth-split";
 import { useMountTime } from "@/components/bookings/booking-flow";
 import { DayGroup } from "@/components/notifications/notification-center-screen";
@@ -161,31 +148,6 @@ function RowsBone({ rows = 3 }: { readonly rows?: number }) {
         </div>
       ))}
     </div>
-  );
-}
-
-/** The desk's tools, beside every view: what the advisor sells, when, and what they owe an answer to. */
-function Tools({ pending }: { readonly pending: number | undefined }) {
-  const t = useTranslations("workDesk");
-  return (
-    <Section id="work-tools" title={t("toolsTitle")}>
-      <LinkList
-        label={t("toolsTitle")}
-        rows={[
-          { icon: Briefcase, label: t("toolServices"), href: "/advisor/services" },
-          { icon: Clock, label: t("toolAvailability"), href: "/availability" },
-          {
-            icon: FileText,
-            label: t("toolScreening"),
-            href: "/screening/requests",
-            badge: pending ? <LinkListCount count={pending} label={t("pendingCount", { count: pending })} /> : null,
-          },
-          { icon: Star, label: t("toolReviews"), href: "/profile?tab=reviews" },
-          { icon: UserRoundPen, label: t("toolAdvisorEdit"), href: "/advisor/edit" },
-          { icon: CreditCard, label: t("toolPayoutAccount"), href: "/earnings/payout-account" },
-        ]}
-      />
-    </Section>
   );
 }
 
@@ -476,10 +438,6 @@ function Today({ profile }: { readonly profile: ApiOwnProfile }) {
             </Section>
           ) : null}
         </div>
-
-        <div className="min-w-0 lg:col-start-2 lg:row-start-2">
-          <Tools pending={pending.data} />
-        </div>
       </div>
     </WorkHub>
   );
@@ -516,7 +474,6 @@ function Earnings({ profile }: { readonly profile: ApiOwnProfile }) {
   const format = useFormatter();
   const baht = useBaht();
   const payouts = usePayouts();
-  const pending = usePendingScreening();
   const timeZone = profile.timezone;
 
   const items = payouts.data?.items ?? [];
@@ -535,8 +492,17 @@ function Earnings({ profile }: { readonly profile: ApiOwnProfile }) {
   }
 
   return (
-    <WorkHub subtitle={t("earningsSubtitle")} tab="earnings">
-      <div className={DESK}>
+    <WorkHub
+      action={
+        <Button className={cn(authPill(false), DESK_PILL)} nativeButton={false} render={<Link href="/earnings/payout-account" />} variant="outline">
+          <CreditCard aria-hidden />
+          {t("toolPayoutAccount")}
+        </Button>
+      }
+      subtitle={t("earningsSubtitle")}
+      tab="earnings"
+    >
+      <div className="mt-5 lg:mt-8">
         <div className="flex min-w-0 flex-col gap-8 lg:gap-10">
           <Figures
             figures={[
@@ -573,8 +539,6 @@ function Earnings({ profile }: { readonly profile: ApiOwnProfile }) {
             )}
           </Section>
         </div>
-
-        <Tools pending={pending.data} />
       </div>
     </WorkHub>
   );

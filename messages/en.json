@@ -49,6 +49,7 @@
     "checkPrice": "Price and length",
     "checkCategory": "Category",
     "checkSchedule": "Schedule",
+    "checkPhotoToSell": "A cover photo (one is needed to be on sale)",
     "missing": "Still missing: {items}",
     "readyToCreate": "All set. Create it as a draft, or put it on sale now (that needs a cover photo).",
     "createDraft": "Create as draft",
@@ -168,6 +169,7 @@
     "removePackageYes": "Delete package"
   },
   "advisorServices": {
+    "hubSubtitle": "What clients see and book. Press a service to edit it.",
     "loadFailed": "Couldn't load your services",
     "profileUnavailable": "Availability profile unavailable",
     "ceilingMinutes": "{minutes} minutes per day",

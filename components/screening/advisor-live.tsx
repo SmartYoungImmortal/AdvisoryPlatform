@@ -40,7 +40,8 @@ import {
   type ScreeningErrorKey,
 } from "@/components/screening/screening-data";
 import { DayGroup } from "@/components/notifications/notification-center-screen";
-import { DESK_BOX, DESK_GLYPH, DESK_ROW, DeskPage } from "@/components/work/desk-page";
+import { DESK_BOX, DESK_GLYPH, DESK_ROW } from "@/components/work/desk-page";
+import { WorkHub } from "@/components/work/work-hub";
 import { invalidate, useResource } from "@/lib/api/use-resource";
 import { cn } from "@/lib/utils";
 
@@ -156,9 +157,9 @@ export function LiveScreeningRequests() {
   }
 
   return (
-    <DeskPage title={t("requestsTitle")}>
+    <WorkHub subtitle={t("requestsSubtitle")} tab="requests">
       <div className="mt-5 flex flex-col lg:mt-8">{body}</div>
-    </DeskPage>
+    </WorkHub>
   );
 }
 

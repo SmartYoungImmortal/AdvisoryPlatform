@@ -82,7 +82,7 @@ export function ProfilesScreen({ state = "default" }: { readonly state?: Profile
       invalidate("advisors/me/services");
       invalidate("services/");
       profiles.reload();
-      router.push("/availability/profiles");
+      router.push("/availability");
     } catch (cause) {
       setDeleteError(cause instanceof Error ? cause.message : String(cause));
     }

@@ -1,74 +1,50 @@
 "use client";
 
-import { ChevronLeft } from "lucide-react";
-import Link from "next/link";
-import { useTranslations } from "next-intl";
 import type { ReactNode } from "react";
 
-import { AccountShell } from "@/components/account/account-shell";
-import { AppFrame } from "@/components/account/app-frame";
-import { MobileScreen, ScreenBody } from "@/components/mobile/screen";
-import { FEED_COLUMN } from "@/components/notifications/notification-center-screen";
-import { Button } from "@/components/ui/button";
-import { WORK_GUTTER } from "@/components/work/work-hub";
-import { cn } from "@/lib/utils";
+import type { RailKey } from "@/components/account/app-frame";
+import { WorkFrame } from "@/components/work/work-frame";
+import type { WorkTab } from "@/lib/work";
+
+/** The desk's place a page opened from, read off where its chevron goes back to. */
+function placeOf(backHref: string): WorkTab | null {
+  if (backHref.startsWith("/advisor/services")) return "services";
+  if (backHref.startsWith("/availability")) return "availability";
+  if (backHref.startsWith("/screening")) return "requests";
+  if (backHref.startsWith("/work/earnings") || backHref.startsWith("/earnings")) return "earnings";
+  if (backHref.startsWith("/work/calendar")) return "calendar";
+  if (backHref.startsWith("/work")) return "today";
+  return null;
+}
 
 /**
- * A page behind the work desk — the services, availability, screening
- * requests, reviews, the advisor page's facts, the payout account — framed
- * as the account's own pages are (the transactions page, step for step):
- * the rail with "งาน" current, the white panel, the phone's back chevron to
- * the desk on a row of its own, the title in the hero's face, a line under
- * it, and the page's one action at the right.
+ * A page one of the desk's places opens — a session, a service's schedule, a
+ * set of hours, the payout account — in the desk's frame (`WorkFrame`): the
+ * menu stays at the left with the place it came from marked, and the page
+ * has the chevron back to it at every width, its title, a line under it,
+ * and its one action at the right. The advisor page's facts belong to the
+ * profile (`rail="profile"`) and have no desk menu.
  */
 export function DeskPage({
   title,
   subtitle,
   action,
   backHref = "/work",
+  rail = "work",
   children,
 }: {
   readonly title: ReactNode;
   readonly subtitle?: ReactNode;
   readonly action?: ReactNode;
   readonly backHref?: string;
+  /** The rail's place this page belongs to: the desk's, or the profile's for the advisor page's facts. */
+  readonly rail?: RailKey;
   readonly children: ReactNode;
 }) {
-  const c = useTranslations("common");
-
   return (
-    <MobileScreen className="bg-card" wide="md">
-      <AppFrame active="work">
-        <ScreenBody className="bg-card">
-          <AccountShell>
-            <div className={cn("flex w-full min-w-0 flex-col pt-6 pb-12 lg:flex-1 lg:pt-0 lg:pb-0", FEED_COLUMN, WORK_GUTTER)}>
-              <header className="flex w-full flex-col items-start gap-3 lg:gap-0">
-                <Button
-                  aria-label={c("back")}
-                  className="relative -ml-1.5 size-8 shrink-0 text-foreground before:absolute before:-inset-1.5 before:content-[''] lg:hidden"
-                  nativeButton={false}
-                  render={<Link href={backHref} />}
-                  size="icon"
-                  variant="ghost"
-                >
-                  <ChevronLeft aria-hidden className="size-6" />
-                </Button>
-                <div className="flex w-full flex-wrap items-end justify-between gap-x-4 gap-y-3">
-                  <div className="flex min-w-0 flex-col gap-1 lg:gap-2">
-                    <h1 className="font-hero text-title-compact font-normal tracking-tight text-hero-ink lg:text-frame-title">
-                      {title}
-                    </h1>
-                    {subtitle ? <p className="text-sm text-muted-foreground lg:text-frame-meta">{subtitle}</p> : null}
-                  </div>
-                  {action}
-                </div>
-              </header>
-              {children}
-            </div>
-          </AccountShell>
-        </ScreenBody>
-      </AppFrame>
-    </MobileScreen>
+    <WorkFrame action={action} backHref={backHref} place={rail === "work" ? placeOf(backHref) : null} rail={rail} subtitle={subtitle} title={title}>
+      {children}
+    </WorkFrame>
   );
 }
 

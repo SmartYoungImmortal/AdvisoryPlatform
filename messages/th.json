@@ -2031,6 +2031,7 @@
     "optional": "ตอบเป็นข้อความ · ไม่บังคับ",
     "addQuestion": "เพิ่มคำถาม",
     "requestsTitle": "คำขอปรึกษา",
+    "requestsSubtitle": "คำตอบคัดกรองที่ลูกค้าส่งมาก่อนจอง รอคุณรับหรือปฏิเสธ",
     "pending": "รอตอบกลับ",
     "answered": "ตอบแล้ว",
     "req1Name": "อารยา ส.",
@@ -3037,6 +3038,7 @@
     "checkPrice": "ราคาและความยาว",
     "checkCategory": "หมวดหมู่",
     "checkSchedule": "ชุดเวลาว่าง",
+    "checkPhotoToSell": "รูปปก (เปิดให้จองต้องมีรูปปก)",
     "missing": "ยังขาด: {items}",
     "readyToCreate": "ครบแล้ว สร้างเป็นร่างไว้ก่อน หรือเปิดให้จองเลยก็ได้ (เปิดให้จองต้องมีรูปปก)",
     "createDraft": "สร้างเป็นร่าง",
@@ -3156,6 +3158,7 @@
     "removePackageYes": "ลบแพ็กเกจ"
   },
   "advisorServices": {
+    "hubSubtitle": "บริการที่ลูกค้าเห็นและจองได้ กดที่บริการเพื่อแก้ไข",
     "loadFailed": "โหลดบริการไม่สำเร็จ",
     "profileUnavailable": "ไม่พบชุดเวลาว่าง",
     "ceilingMinutes": "{minutes} นาทีต่อวัน",
@@ -3400,6 +3403,9 @@
     "tab": {
       "today": "วันนี้",
       "calendar": "ปฏิทิน",
+      "services": "บริการ",
+      "availability": "เวลาว่าง",
+      "requests": "คำขอปรึกษา",
       "earnings": "รายได้"
     },
     "dateLabel": "{weekday} {day} {month} {year}",

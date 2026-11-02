@@ -33,6 +33,7 @@ import {
   ReviewsSection,
 } from "@/components/service/service-sections";
 import { Button } from "@/components/ui/button";
+import { WorkFrame } from "@/components/work/work-frame";
 import { cn } from "@/lib/utils";
 
 /**
@@ -80,11 +81,36 @@ const COLUMNS =
  * since a viewport length here is zoomed with everything else.
  */
 const INTRO_COLUMN =
-  "flex min-w-0 flex-col md:mx-auto md:w-full md:max-w-xl lg:sticky lg:top-(--intro-top) lg:mx-0 lg:min-h-[calc(100dvh_/_var(--app-zoom)_-_var(--intro-top))] lg:max-w-none";
+  "flex min-w-0 flex-col md:mx-auto md:w-full md:max-w-xl lg:sticky lg:top-(--intro-top) lg:mx-0 lg:min-h-[calc(var(--intro-screen,100dvh)_/_var(--app-zoom)_-_var(--intro-top))] lg:max-w-none";
 
 const INTRO_VARS = {
   "--app-zoom": "tan(atan2(min(100vw, 1440px), 1710px))",
   "--intro-top": "calc(88px * clamp(0.75, tan(atan2(100vw, 1710px)), 1) / var(--app-zoom) + 38px)",
+} as CSSProperties;
+
+/**
+ * The head of the advisor's own service in the desk's frame (`WorkFrame`):
+ * the band's title, line and action, and where its chevron goes back to.
+ */
+export type DeskHead = {
+  readonly title: ReactNode;
+  readonly subtitle?: ReactNode;
+  readonly action?: ReactNode;
+  readonly backHref: string;
+};
+
+/**
+ * Where the owner's page starts from `lg`, under the desk's band held at the
+ * top (its 88, then the page's 32), and so where what rides beside it sticks:
+ * there, it never moves.
+ */
+export const OWNER_PAGE_TOP = "120px";
+
+/** The intro's start in the desk's frame: under the band; the screen's height less the panel's 6 above and below. */
+const OWNER_INTRO_VARS = {
+  "--app-zoom": "tan(atan2(min(100vw, 1440px), 1710px))",
+  "--intro-top": OWNER_PAGE_TOP,
+  "--intro-screen": "calc(100dvh - 12px)",
 } as CSSProperties;
 
 /**
@@ -128,8 +154,9 @@ function useAdvisor(advisorId: string): ApiPublicAdvisor | undefined {
  */
 function photosOf(item: LiveService | undefined, service: ApiPublicService): readonly string[] {
   // Photographs the advisor uploaded win: they come back presigned from our
-  // storage, where the seed's are plain hotlinks.
-  const uploaded = (service.images ?? []).some((src) => /[?&]X-Amz-Signature=/.test(src));
+  // storage, where the seed's are plain hotlinks. A local preview is one on
+  // its way there (the editor's client view, before the save).
+  const uploaded = (service.images ?? []).some((src) => /[?&]X-Amz-Signature=/.test(src) || src.startsWith("blob:"));
   if (uploaded && service.images) return service.images;
   // This page's own three, where the service has them (`service-photo-sets`).
   const own = servicePhotoSet(service.id);
@@ -190,14 +217,46 @@ function similarTo(
  * account pages are drawn at `app-scale`, and the same `frame-*` step has to
  * read the same size here as there.
  */
-export function ServiceFrame({ children, bar }: { readonly children: ReactNode; readonly bar?: ReactNode }) {
+export function ServiceFrame({ children, bar, desk, footer }: {
+  readonly children: ReactNode;
+  readonly bar?: ReactNode;
+  /**
+   * The advisor's own service (its editor, and the client's view of it): in
+   * the work desk's frame (`WorkFrame`) under this head, with the desk's menu
+   * at the left and "บริการ" marked, not under the marketplace's bar.
+   */
+  readonly desk?: DeskHead;
+  /** Held to the foot of the scroller, under the page (the editor's save). */
+  readonly footer?: ReactNode;
+}) {
   // This page's neutral greys (`.neutral-greys`): on the frame for what it
   // draws, on <body> while it is mounted for the dialogs and sheets that
-  // portal out of it.
+  // portal out of it. Not on <body> in the desk's frame, whose menu and rail
+  // keep the account pages' own greys.
+  const inDesk = desk !== undefined;
   useEffect(() => {
+    if (inDesk) return;
     document.body.classList.add("neutral-greys");
     return () => document.body.classList.remove("neutral-greys");
-  }, []);
+  }, [inDesk]);
+
+  if (desk) {
+    return (
+      <WorkFrame
+        action={desk.action}
+        backHref={desk.backHref}
+        bodyClassName="neutral-greys"
+        footer={footer}
+        overlay={bar}
+        place="services"
+        stickyBand
+        subtitle={desk.subtitle}
+        title={desk.title}
+      >
+        <div className="mt-5 flex flex-1 flex-col lg:mt-8">{children}</div>
+      </WorkFrame>
+    );
+  }
 
   return (
     <MobileScreen className="neutral-greys pb-0" wide="md">
@@ -209,6 +268,7 @@ export function ServiceFrame({ children, bar }: { readonly children: ReactNode; 
         <div className="app-scale mx-auto flex w-full flex-1 flex-col px-6 pt-2 pb-32 md:px-12 md:pt-4 lg:max-w-[1658px] lg:px-8 lg:pt-9.5 lg:pb-0">
           {children}
         </div>
+        {footer}
       </ScreenBody>
       {bar}
     </MobileScreen>
@@ -220,9 +280,14 @@ export function ServiceFrame({ children, bar }: { readonly children: ReactNode; 
  * photograph and the panel beside them. The route's prerendered HTML is this
  * too (`ServiceDetailScreen`), so a cold load never shows another page first.
  */
-export function LiveServiceDetailSkeleton() {
+export function LiveServiceDetailSkeleton({ desk = false }: { readonly desk?: boolean }) {
   return (
     <ServiceFrame
+      desk={
+        desk
+          ? { backHref: "/advisor/services", title: <span aria-hidden className="block h-7 w-56 animate-pulse rounded-md bg-muted motion-reduce:animate-none" /> }
+          : undefined
+      }
       bar={
         // The phone's floating price holds its place too, so nothing
         // appears from nowhere when the price arrives.
@@ -351,9 +416,12 @@ function Unavailable({ error, onRetry }: { readonly error: Error; readonly onRet
  * details and the packages where they stand.
  */
 export type OwnerSlots = {
-  readonly bar: ReactNode;
+  /** The desk's band over the page (`DeskHead`). */
+  readonly head: DeskHead;
   readonly intro: ReactNode;
   readonly packages: ReactNode;
+  /** Held to the foot of the page (the editor's save). */
+  readonly footer?: ReactNode;
 };
 
 /** The loaded service, with everything around it; with `owner`, the owner's view of it. */
@@ -380,8 +448,7 @@ export function ServiceView({ service, owner }: { readonly service: ApiPublicSer
   const settled = !(catalogue.loading && !item);
 
   return (
-    <ServiceFrame bar={<BookingBar picker={picker} selection={selection} service={service} />}>
-      {owner?.bar}
+    <ServiceFrame bar={<BookingBar picker={picker} selection={selection} service={service} />} desk={owner?.head} footer={owner?.footer}>
       <BookingPicker
         advisorName={name}
         photos={settled ? photos : []}
@@ -391,7 +458,7 @@ export function ServiceView({ service, owner }: { readonly service: ApiPublicSer
       />
       <div className={COLUMNS}>
         {/* `items-start` on the grid is what lets the column ride. */}
-        <aside aria-label={t("panelLabel")} className={INTRO_COLUMN} style={INTRO_VARS}>
+        <aside aria-label={t("panelLabel")} className={INTRO_COLUMN} style={owner ? OWNER_INTRO_VARS : INTRO_VARS}>
           {owner ? <div className="mb-4 flex flex-wrap gap-2 lg:mb-6">{owner.intro}</div> : null}
           <ServiceIntro
             booking={<BookingCard picker={picker} selection={selection} service={service} />}

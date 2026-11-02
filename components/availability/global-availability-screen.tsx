@@ -12,7 +12,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
 import { useWeekLine } from "@/components/availability/profiles-screen";
-import { DESK_BOX, DESK_PILL, DeskPage } from "@/components/work/desk-page";
+import { DESK_BOX, DESK_PILL } from "@/components/work/desk-page";
+import { WorkHub } from "@/components/work/work-hub";
 import { cn } from "@/lib/utils";
 import { availabilityApi, type AvailabilityProfile, type GlobalAvailability } from "@/lib/availability/api";
 import { invalidate, useResource } from "@/lib/api/use-resource";
@@ -184,13 +185,18 @@ export function GlobalAvailabilityScreen({
   };
 
   return (
-    <form key={data ? JSON.stringify(data) : state} onSubmit={onSave} onChange={(event) => {
+    <form key={data ? JSON.stringify(data) : state} onSubmit={onSave} onReset={() => {
+      setLimitEnabled(null);
+      setCustomSelection({});
+      setSaved(false);
+      setSaveError(null);
+    }} onChange={(event) => {
       const input = event.target;
       if (input instanceof HTMLInputElement && (input.name === "horizon" || input.name === "buffer" || input.name === "dailyLimit")) {
         setCustomSelection((current) => ({ ...current, [input.name]: input.value === "custom" }));
       }
     }} className="contents">
-      <DeskPage subtitle={<ThaiText>{t("subtitle")}</ThaiText>} title={t("title")}>
+      <WorkHub subtitle={<ThaiText>{t("subtitle")}</ThaiText>} tab="availability">
         <div className="mt-5 flex max-w-200 flex-col lg:mt-8">
           {/* The record as the three numbers it is. */}
           <dl className="mb-8 flex w-full max-w-xl rounded-2xl border border-border py-1 md:w-fit lg:mb-10 lg:py-1.5">
@@ -351,12 +357,8 @@ export function GlobalAvailabilityScreen({
           ) : null}
 
           <div className="mt-8 flex w-full items-center gap-3 lg:mt-10 lg:justify-end">
-            <Button
-              className={cn(authPill(false), DESK_PILL, "flex-1 lg:flex-none")}
-              nativeButton={false}
-              render={<Link href="/work" />}
-              variant="outline"
-            >
+            {/* Puts the choices back as they were saved, on the page: going elsewhere is the capsules' job. */}
+            <Button className={cn(authPill(false), DESK_PILL, "flex-1 lg:flex-none")} type="reset" variant="outline">
               {c("cancel")}
             </Button>
             <Button className={cn(authPill(true), DESK_PILL, "flex-[2] lg:flex-none")} disabled={saving} type="submit">
@@ -364,7 +366,7 @@ export function GlobalAvailabilityScreen({
             </Button>
           </div>
         </div>
-      </DeskPage>
+      </WorkHub>
     </form>
   );
 }
