@@ -1,15 +1,25 @@
 "use client";
 
-import { Plus } from "lucide-react";
+import { CalendarClock, ChevronDown, Plus } from "lucide-react";
+import Link from "next/link";
 import { useTranslations } from "next-intl";
 import { useState } from "react";
 
-import { useWeekLine } from "@/components/availability/profiles-screen";
+import { PILL_BONE, WeekHours, WeekHoursBones } from "@/components/availability/week-hours";
 import { SETTINGS_DIALOG_ACTIONS, SettingsDialog, settingsPill } from "@/components/profile/settings-dialog";
 import { ApiErrorCard } from "@/components/service/parts";
 import { Button } from "@/components/ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuRadioGroup,
+  DropdownMenuRadioItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
-import { DESK_BONE, DeskRow, DeskRowAction, DeskSection } from "@/components/work/desk-parts";
+import { DESK_BONE, DeskEmpty } from "@/components/work/desk-parts";
 import { WorkHub } from "@/components/work/work-hub";
 import { cn } from "@/lib/utils";
 import { availabilityApi, type AvailabilityProfile, type GlobalAvailability } from "@/lib/availability/api";
@@ -28,22 +38,36 @@ type Rule = "horizon" | "buffer" | "limit";
 /** The three rules as the page holds them: days ahead, minutes between, and hours a day (none for no ceiling). */
 type Rules = { readonly horizon: number; readonly buffer: number; readonly limit: number | null };
 
+/** The page under the frame's band, as the calendar's. */
+const PAGE = "mt-5 flex w-full min-w-0 flex-col lg:mt-8";
+
+/** The grey capsule of the calendar's head (40 tall, 14/500), and its round button. */
+const PILL =
+  "h-10 gap-1.5 rounded-full bg-muted px-4 text-sm font-medium text-foreground hover:bg-muted/70 hover:text-foreground lg:text-frame-label";
+const ROUND = "size-10 rounded-full bg-muted text-foreground hover:bg-muted/70 hover:text-foreground";
+
+/** The set's name at the head, the calendar's month: large, in the title's face. */
+const TITLE = "truncate font-hero text-2xl font-medium tracking-tight text-hero-ink lg:text-frame-title";
+
+const MENU = "min-w-56 rounded-2xl p-1.5";
+const MENU_ITEM = "h-10 rounded-xl pl-3 text-sm";
+
 /**
- * `/availability`: the advisor's hours, laid out as the settings page is —
- * the sets of hours as rows (each its week and the way into its editor, the
- * way to make another beside the part's name), then the booking rules as
- * rows, each its value and "change", which opens the rule in a popup that
- * saves just it. While the record is read the page is those rows' shape.
+ * `/availability`: the advisor's hours drawn as the calendar draws a week.
+ * At the head, as the calendar's month, the set of hours shown (a menu
+ * beside it switches between sets and makes a new one), and at its right the
+ * way into that set's editor and a new set. Under it the three booking rules
+ * as grey capsules, each its value, each opening its rule in a popup that
+ * saves just it. Then the week, its open hours as blocks.
  *
  * Without an API answer the page shows the prototype's figures for `state`.
  */
 export function GlobalAvailabilityScreen({ state = "default" }: { readonly state?: GlobalAvailabilityState }) {
   const t = useTranslations("availability");
-  const s = useTranslations("schedule");
-  const weekLine = useWeekLine();
   const resource = useResource<GlobalAvailability>("availability/global", () => availabilityApi.getGlobal());
   const profiles = useResource<AvailabilityProfile[]>("availability/profiles", () => availabilityApi.getProfiles());
   const [editing, setEditing] = useState<Rule | null>(null);
+  const [chosenId, setChosenId] = useState<string | null>(null);
 
   const data = resource.data;
   const fixture = GLOBAL_AVAILABILITY[state];
@@ -74,6 +98,15 @@ export function GlobalAvailabilityScreen({ state = "default" }: { readonly state
 
   const loading = (resource.loading && !data) || (profiles.loading && !profiles.data);
   const failure = resource.error ?? profiles.error;
+  const sets = profiles.data ?? [];
+  const shown = sets.find((profile) => profile.id === chosenId) ?? sets[0];
+
+  // The rules as the calendar's grey capsules: what each is, its value, the way to change it.
+  const ruleCapsules: readonly { readonly rule: Rule; readonly label: string; readonly value: string }[] = [
+    { rule: "horizon", label: t("horizonLabel"), value: t("days", { count: rules.horizon }) },
+    { rule: "buffer", label: t("bufferLabel"), value: rules.buffer === 0 ? t("noBuffer") : t("minutes", { count: rules.buffer }) },
+    { rule: "limit", label: t("limitLabel"), value: rules.limit === null ? t("limitOffTitle") : t("hours", { count: rules.limit }) },
+  ];
 
   return (
     <WorkHub tab="availability">
@@ -91,40 +124,56 @@ export function GlobalAvailabilityScreen({ state = "default" }: { readonly state
           />
         </div>
       ) : (
-        <div className="flex w-full max-w-220 flex-col">
-          <DeskSection
-            action={
-              <DeskRowAction href="/availability/profiles/new">
-                <Plus aria-hidden />
-                {s("createTitle")}
-              </DeskRowAction>
-            }
-            className="mt-5 lg:mt-8"
-            id="hours-sets"
-            title={t("profilesLabel")}
-          >
-            <ul className="flex flex-col">
-              {(profiles.data ?? []).map((profile) => (
-                <DeskRow detail={<span className="font-latin tabular-nums">{weekLine(profile)}</span>} key={profile.id} label={profile.name}>
-                  <DeskRowAction href={`/availability/profiles/edit?id=${encodeURIComponent(profile.id)}`}>{t("edit")}</DeskRowAction>
-                </DeskRow>
-              ))}
-            </ul>
-          </DeskSection>
+        <div className={PAGE}>
+          <div className="flex items-center justify-between gap-3">
+            <div className="flex min-w-0 items-center gap-1">
+              <h2 className={TITLE}>{shown ? shown.name : t("profilesLabel")}</h2>
+              {sets.length > 0 ? <ProfileMenu chosen={shown?.id ?? ""} onPick={setChosenId} profiles={sets} /> : null}
+            </div>
+            <div className="flex shrink-0 items-center gap-3">
+              {shown ? (
+                <Button
+                  className={PILL}
+                  nativeButton={false}
+                  render={<Link href={`/availability/profiles/edit?id=${encodeURIComponent(shown.id)}`} />}
+                  variant="ghost"
+                >
+                  {t("editorTitle")}
+                </Button>
+              ) : null}
+              <Button
+                aria-label={t("createTitle")}
+                className={ROUND}
+                nativeButton={false}
+                render={<Link href="/availability/profiles/new" />}
+                size="icon"
+                variant="ghost"
+              >
+                <Plus aria-hidden className="size-5" />
+              </Button>
+            </div>
+          </div>
 
-          <DeskSection className="mt-8 lg:mt-12" id="hours-rules" title={t("rulesTitle")}>
-            <ul className="flex flex-col">
-              <DeskRow detail={t("days", { count: rules.horizon })} label={t("horizonLabel")}>
-                <DeskRowAction onClick={() => setEditing("horizon")}>{t("change")}</DeskRowAction>
-              </DeskRow>
-              <DeskRow detail={rules.buffer === 0 ? t("noBuffer") : t("minutes", { count: rules.buffer })} label={t("bufferLabel")}>
-                <DeskRowAction onClick={() => setEditing("buffer")}>{t("change")}</DeskRowAction>
-              </DeskRow>
-              <DeskRow detail={rules.limit === null ? t("limitOffTitle") : t("hours", { count: rules.limit })} label={t("limitLabel")}>
-                <DeskRowAction onClick={() => setEditing("limit")}>{t("change")}</DeskRowAction>
-              </DeskRow>
-            </ul>
-          </DeskSection>
+          <div aria-label={t("rulesTitle")} className="mt-4 flex flex-wrap gap-2 lg:mt-5 lg:gap-3" role="group">
+            {ruleCapsules.map(({ rule, label, value }) => (
+              <Button className={PILL} key={rule} onClick={() => setEditing(rule)} type="button" variant="ghost">
+                <span className="text-muted-foreground">{label}</span>
+                {value}
+                <ChevronDown aria-hidden className="size-4" />
+              </Button>
+            ))}
+          </div>
+
+          {shown ? (
+            <WeekHours windows={shown.weeklyWindows} />
+          ) : (
+            <DeskEmpty
+              action={{ label: t("createTitle"), href: "/availability/profiles/new" }}
+              body={t("emptyBody")}
+              icon={CalendarClock}
+              title={t("emptyTitle")}
+            />
+          )}
         </div>
       )}
 
@@ -275,38 +324,63 @@ function RuleDialog({ title, options, value, custom, onSave, onClose }: {
   );
 }
 
-/** The page's own shape while it is read: each part's name and its rows, line for line as `DeskRow` draws them. */
-function HoursSkeleton({ label }: { readonly label: string }) {
-  const part = (rows: number, name: string, action: boolean, className: string) => (
-    <div aria-hidden className={cn("flex flex-col", className)}>
-      <div className="flex min-h-11 items-end justify-between gap-3">
-        <span className="flex h-lh items-center text-base lg:text-frame-body">
-          <span className={cn(DESK_BONE, "h-4 rounded", name)} />
-        </span>
-        {action ? <span className={cn(DESK_BONE, "h-8 w-36 rounded-full lg:h-11 lg:w-44")} /> : null}
-      </div>
-      <ul className="flex flex-col">
-        {Array.from({ length: rows }, (_, row) => (
-          <li className="flex items-center gap-4 border-b border-border py-3 md:py-3.5 lg:gap-8 lg:py-5" key={row}>
-            <span className="flex min-w-0 flex-1 flex-col gap-0.5 lg:gap-1">
-              <span className="flex h-lh items-center text-sm lg:text-frame-body">
-                <span className={cn(DESK_BONE, "h-3.5 w-40 rounded lg:h-4.5")} />
-              </span>
-              <span className="flex h-lh items-center text-xs lg:text-frame-meta">
-                <span className={cn(DESK_BONE, "h-3 w-56 rounded lg:h-4")} />
-              </span>
-            </span>
-            <span className={cn(DESK_BONE, "h-8 w-16 shrink-0 rounded-full lg:h-11 lg:w-20")} />
-          </li>
-        ))}
-      </ul>
-    </div>
-  );
+/**
+ * The sets of hours as a menu by the head's name: each set to show, then
+ * the way to make another.
+ */
+function ProfileMenu({ profiles, chosen, onPick }: {
+  readonly profiles: readonly AvailabilityProfile[];
+  readonly chosen: string;
+  readonly onPick: (id: string) => void;
+}) {
+  const t = useTranslations("availability");
   return (
-    <div aria-busy className="flex w-full max-w-220 flex-col">
+    <DropdownMenu>
+      <DropdownMenuTrigger
+        render={
+          <Button aria-label={t("profilesLabel")} className="size-10 rounded-full text-foreground" size="icon" type="button" variant="ghost">
+            <ChevronDown aria-hidden className="size-6" />
+          </Button>
+        }
+      />
+      <DropdownMenuContent align="start" className={MENU}>
+        <DropdownMenuRadioGroup onValueChange={(value) => onPick(value as string)} value={chosen}>
+          {profiles.map((profile) => (
+            <DropdownMenuRadioItem className={MENU_ITEM} key={profile.id} value={profile.id}>
+              {profile.name}
+            </DropdownMenuRadioItem>
+          ))}
+        </DropdownMenuRadioGroup>
+        <DropdownMenuSeparator />
+        <DropdownMenuItem className={MENU_ITEM} render={<Link href="/availability/profiles/new" />}>
+          <Plus aria-hidden />
+          {t("createTitle")}
+        </DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+}
+
+/** The page's own shape while it is read: the head's name and its two buttons, the three rule capsules, then the week. */
+function HoursSkeleton({ label }: { readonly label: string }) {
+  return (
+    <div aria-busy className={PAGE}>
       <span className="sr-only">{label}</span>
-      {part(2, "w-24", true, "mt-5 lg:mt-8")}
-      {part(3, "w-28", false, "mt-8 lg:mt-12")}
+      <div aria-hidden className="flex items-center justify-between gap-3">
+        <span className={cn(TITLE, "flex h-lh items-center")}>
+          <span className={cn(DESK_BONE, "h-6 w-48 rounded-md lg:h-8 lg:w-72")} />
+        </span>
+        <span className="flex shrink-0 items-center gap-3">
+          <span className={cn(PILL_BONE, "w-32")} />
+          <span className={cn(PILL_BONE, "w-10")} />
+        </span>
+      </div>
+      <div aria-hidden className="mt-4 flex flex-wrap gap-2 lg:mt-5 lg:gap-3">
+        {["w-52", "w-48", "w-56"].map((width) => (
+          <span className={cn(PILL_BONE, width)} key={width} />
+        ))}
+      </div>
+      <WeekHoursBones />
     </div>
   );
 }
