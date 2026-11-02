@@ -90,11 +90,10 @@ const INTRO_VARS = {
 
 /**
  * The head of the advisor's own service in the desk's frame (`WorkFrame`):
- * the band's title, line and action, and where its chevron goes back to.
+ * the band's title and action, and where its chevron goes back to.
  */
 export type DeskHead = {
   readonly title: ReactNode;
-  readonly subtitle?: ReactNode;
   readonly action?: ReactNode;
   readonly backHref: string;
 };
@@ -104,7 +103,7 @@ export type DeskHead = {
  * top (its 88, then the page's 32), and so where what rides beside it sticks:
  * there, it never moves.
  */
-export const OWNER_PAGE_TOP = "120px";
+const OWNER_PAGE_TOP = "120px";
 
 /** The intro's start in the desk's frame: under the band; the screen's height less the panel's 6 above and below. */
 const OWNER_INTRO_VARS = {
@@ -250,7 +249,6 @@ export function ServiceFrame({ children, bar, desk, footer }: {
         overlay={bar}
         place="services"
         stickyBand
-        subtitle={desk.subtitle}
         title={desk.title}
       >
         <div className="mt-5 flex flex-1 flex-col lg:mt-8">{children}</div>
@@ -280,14 +278,9 @@ export function ServiceFrame({ children, bar, desk, footer }: {
  * photograph and the panel beside them. The route's prerendered HTML is this
  * too (`ServiceDetailScreen`), so a cold load never shows another page first.
  */
-export function LiveServiceDetailSkeleton({ desk = false }: { readonly desk?: boolean }) {
+export function LiveServiceDetailSkeleton() {
   return (
     <ServiceFrame
-      desk={
-        desk
-          ? { backHref: "/advisor/services", title: <span aria-hidden className="block h-7 w-56 animate-pulse rounded-md bg-muted motion-reduce:animate-none" /> }
-          : undefined
-      }
       bar={
         // The phone's floating price holds its place too, so nothing
         // appears from nowhere when the price arrives.

@@ -115,11 +115,6 @@ function Schedule({ data, back }: { readonly data: ServiceDetail; readonly back:
         </Button>
       }
       backHref={back}
-      subtitle={
-        data.profile
-          ? t("subtitle", { service: data.service.name, profile: data.profile.name })
-          : t("subtitleNoProfile", { service: data.service.name })
-      }
       title={t("title")}
     >
       <div className="mt-5 grid w-full gap-8 lg:mt-8 lg:grid-cols-[minmax(0,1.2fr)_minmax(0,1fr)] lg:gap-12">

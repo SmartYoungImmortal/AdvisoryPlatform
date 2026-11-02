@@ -157,7 +157,7 @@ export function LiveScreeningRequests() {
   }
 
   return (
-    <WorkHub subtitle={t("requestsSubtitle")} tab="requests">
+    <WorkHub tab="requests">
       <div className="mt-5 flex flex-col lg:mt-8">{body}</div>
     </WorkHub>
   );

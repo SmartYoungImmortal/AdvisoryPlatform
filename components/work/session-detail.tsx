@@ -130,7 +130,7 @@ function SessionView({ booking, profile }: { readonly booking: AdvisorBookingDet
   const booked = new Intl.DateTimeFormat(locale, { dateStyle: "medium", timeStyle: "short", timeZone }).format(new Date(booking.createdAt));
 
   return (
-    <DeskPage subtitle={s("reference", { code: reference })} title={w("sessionTitle")}>
+    <DeskPage title={w("sessionTitle")}>
       <div className="mt-5 flex flex-col gap-8 lg:mt-8 lg:gap-10">
         {/* When, where it stands, and the ways in: the reason to open this page. */}
         <section className="flex flex-col gap-5 border-b border-border pb-8 md:flex-row md:items-end md:justify-between lg:pb-10">

@@ -3,7 +3,7 @@
 import { CalendarDays, ChevronRight, CreditCard, Inbox, MessageSquare, ShieldCheck, Star, Wallet, type LucideIcon } from "lucide-react";
 import Link from "next/link";
 import { useFormatter, useTranslations } from "next-intl";
-import { useCallback, type ReactNode } from "react";
+import { useCallback, useState, type ReactNode } from "react";
 
 import { LinkListCount } from "@/components/account/link-list";
 import { authPill } from "@/components/auth/auth-split";
@@ -17,6 +17,7 @@ import { SessionRow } from "@/components/work/session-row";
 import { AdvisorSessionDetailScreen } from "@/components/work/session-detail";
 import { useAdvisorBookings, usePayouts, usePendingScreening, useRatingSummary } from "@/components/work/work-data";
 import { DESK_GLYPH, DESK_PILL } from "@/components/work/desk-page";
+import { DeskEmpty, DeskFilter, DeskListSkeleton } from "@/components/work/desk-parts";
 import { WorkHub } from "@/components/work/work-hub";
 import { getAdvisorBooking, type AdvisorBooking, type AdvisorBookingDetail } from "@/lib/api/advisor-bookings";
 import type { ApiPayout } from "@/lib/api/advisor-work";
@@ -60,26 +61,6 @@ function useBaht(): (satang: number) => string {
 }
 
 /* -------------------------------------------------------------- the pieces */
-
-type Figure = { readonly label: string; readonly value: ReactNode };
-
-/** The figures box: values over their labels in one hairline box, as the profile's. */
-function Figures({ label, figures }: { readonly label: string; readonly figures: readonly Figure[] }) {
-  return (
-    <dl aria-label={label} className="flex w-full max-w-xl rounded-2xl border border-border py-1 md:w-fit lg:py-1.5">
-      {figures.map((figure) => (
-        <div className="flex flex-1 flex-col items-center px-3 py-2 md:flex-none md:px-5 lg:px-6" key={figure.label}>
-          <dt className="order-2 text-xs whitespace-nowrap text-muted-foreground md:text-sm lg:text-frame-label">
-            {figure.label}
-          </dt>
-          <dd className="order-1 font-latin text-xl leading-tight font-semibold text-foreground tabular-nums md:text-2xl lg:text-frame-figure">
-            {figure.value}
-          </dd>
-        </div>
-      ))}
-    </dl>
-  );
-}
 
 /** A figure still on its way. */
 function FigureBone() {
@@ -372,13 +353,9 @@ function Today({ profile }: { readonly profile: ApiOwnProfile }) {
   const paidThisMonth = (payouts.data?.items ?? [])
     .filter((payout) => payout.status === "PAID" && payout.paidAt && bookingDay(payout.paidAt, timeZone).startsWith(month))
     .reduce((sum, payout) => sum + payout.netAmountSatang, 0);
-  const dateLabel = format.dateTime(new Date(now), { weekday: "long", day: "numeric", month: "long", year: "numeric", timeZone });
 
   return (
-    <WorkHub
-      subtitle={bookings.data ? t("todaySubtitle", { date: dateLabel, count: todayCount }) : dateLabel}
-      tab="today"
-    >
+    <WorkHub tab="today">
       <VerificationBanner />
       {/* Four blocks, placed so the phone reads them in the order that matters
           — the next session, the figures, the rest of the days, the tools —
@@ -510,12 +487,14 @@ function Earnings({ profile }: { readonly profile: ApiOwnProfile }) {
   const payouts = usePayouts();
   const timeZone = profile.timezone;
 
+  const [shown, setShown] = useState<"all" | ApiPayout["status"]>("all");
   const items = payouts.data?.items ?? [];
   const sum = (status: ApiPayout["status"]) =>
     items.filter((item) => item.status === status).reduce((total, item) => total + item.netAmountSatang, 0);
+  const visible = shown === "all" ? items : items.filter((item) => item.status === shown);
 
   const months: { key: string; label: string; rows: ApiPayout[] }[] = [];
-  for (const payout of items.toSorted((a, b) => b.createdAt.localeCompare(a.createdAt))) {
+  for (const payout of visible.toSorted((a, b) => b.createdAt.localeCompare(a.createdAt))) {
     const key = bookingDay(payout.createdAt, timeZone).slice(0, 7);
     let group = months.at(-1);
     if (group?.key !== key) {
@@ -533,47 +512,52 @@ function Earnings({ profile }: { readonly profile: ApiOwnProfile }) {
           {t("toolPayoutAccount")}
         </Button>
       }
-      subtitle={t("earningsSubtitle")}
       tab="earnings"
     >
-      <div className="mt-5 lg:mt-8">
-        <div className="flex min-w-0 flex-col gap-8 lg:gap-10">
-          <Figures
-            figures={[
-              { label: t("figPaid"), value: payouts.data ? baht(sum("PAID")) : <FigureBone /> },
-              { label: t("figPendingPay"), value: payouts.data ? baht(sum("PENDING")) : <FigureBone /> },
-              { label: t("figCount"), value: payouts.data ? format.number(payouts.data.total) : <FigureBone /> },
-            ]}
-            label={t("figuresLabel")}
-          />
-
-          <Section id="work-payouts" title={t("historyTitle")}>
-            {payouts.error ? (
-              <ApiErrorCard className={ERROR_CARD_LG} error={payouts.error} onRetry={payouts.reload} title={t("earningsLoadFailed")} />
-            ) : !payouts.data ? (
-              <RowsBone />
-            ) : months.length === 0 ? (
-              <Empty
-                action={t("earningsEmptyAction")}
-                body={t("earningsEmptyBody")}
-                href="/earnings/payout-account"
-                icon={Wallet}
-                title={t("earningsEmptyTitle")}
-              />
-            ) : (
-              <div className="-mt-5 flex flex-col divide-y divide-border lg:-mt-8">
-                {months.map((month) => (
-                  <DayGroup key={month.key} label={month.label}>
-                    {month.rows.map((payout) => (
-                      <PayoutRow baht={baht} key={payout.id} payout={payout} timeZone={timeZone} />
-                    ))}
-                  </DayGroup>
-                ))}
-              </div>
-            )}
-          </Section>
+      {payouts.error ? (
+        <div className="mt-5 lg:mt-8">
+          <ApiErrorCard className={ERROR_CARD_LG} error={payouts.error} onRetry={payouts.reload} title={t("earningsLoadFailed")} />
         </div>
-      </div>
+      ) : !payouts.data ? (
+        <DeskListSkeleton capsules={["w-22 lg:w-26", "w-32 lg:w-38", "w-26 lg:w-30"]} label={t("loading")} rows={1} />
+      ) : items.length === 0 ? (
+        <DeskEmpty
+          action={{ label: t("earningsEmptyAction"), href: "/earnings/payout-account" }}
+          body={t("earningsEmptyBody")}
+          icon={Wallet}
+          title={t("earningsEmptyTitle")}
+        />
+      ) : (
+        <>
+          {/* What each holds is its sum: the money is the point of the page. */}
+          <DeskFilter
+            label={t("historyTitle")}
+            onChange={setShown}
+            options={[
+              { key: "all", label: t("filterAll"), note: format.number(items.length) },
+              { key: "PAID", label: t("payoutStatus.PAID"), note: baht(sum("PAID")) },
+              { key: "PENDING", label: t("payoutStatus.PENDING"), note: baht(sum("PENDING")) },
+              ...(items.some((item) => item.status === "FAILED")
+                ? [{ key: "FAILED" as const, label: t("payoutStatus.FAILED"), note: baht(sum("FAILED")) }]
+                : []),
+            ]}
+            value={shown}
+          />
+          {months.length === 0 ? (
+            <p className="pt-8 text-sm text-muted-foreground lg:pt-12 lg:text-frame-body">{t("filteredEmpty")}</p>
+          ) : (
+            <div className="flex flex-col divide-y divide-border">
+              {months.map((month) => (
+                <DayGroup key={month.key} label={month.label}>
+                  {month.rows.map((payout) => (
+                    <PayoutRow baht={baht} key={payout.id} payout={payout} timeZone={timeZone} />
+                  ))}
+                </DayGroup>
+              ))}
+            </div>
+          )}
+        </>
+      )}
     </WorkHub>
   );
 }

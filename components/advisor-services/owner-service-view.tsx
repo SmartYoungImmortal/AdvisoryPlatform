@@ -4,9 +4,8 @@ import Link from "next/link";
 import { useTranslations } from "next-intl";
 import { useCallback } from "react";
 
-import { ServiceEditor, type Part } from "@/components/advisor-services/service-editor";
+import { ServiceEditor, ServiceEditorSkeleton, type Part } from "@/components/advisor-services/service-editor";
 import { authPill } from "@/components/auth/auth-split";
-import { LiveServiceDetailSkeleton } from "@/components/service/service-detail-live";
 import { ApiErrorCard } from "@/components/service/parts";
 import { Button } from "@/components/ui/button";
 import {
@@ -75,7 +74,7 @@ export function OwnerServiceScreen({ serviceId, initialPart = null }: {
       </div>
     );
   }
-  if (!record || !images || !packages) return <LiveServiceDetailSkeleton desk />;
+  if (!record || !images || !packages) return <ServiceEditorSkeleton />;
 
   return (
     <ServiceEditor images={images.images} initialPart={initialPart} onSaved={owned.reload} packages={packages} record={record} />

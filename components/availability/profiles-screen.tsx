@@ -97,7 +97,6 @@ export function ProfilesScreen({ state = "default" }: { readonly state?: Profile
         </Button>
       }
       backHref="/availability"
-      subtitle={t("listSubtitle")}
       title={a("profilesTitle")}
     >
       <div className="mt-5 flex flex-col gap-6 lg:mt-8">

@@ -169,7 +169,6 @@
     "removePackageYes": "Delete package"
   },
   "advisorServices": {
-    "hubSubtitle": "What clients see and book. Press a service to edit it.",
     "loadFailed": "Couldn't load your services",
     "profileUnavailable": "Availability profile unavailable",
     "ceilingMinutes": "{minutes} minutes per day",

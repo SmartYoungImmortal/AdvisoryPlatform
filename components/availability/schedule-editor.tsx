@@ -324,7 +324,7 @@ function Editor({ profile, back }: { readonly profile?: AvailabilityProfile; rea
     format.dateTime(new Date(`${date}T12:00:00Z`), { weekday: "short", day: "numeric", month: "short", year: "numeric", timeZone: "UTC" });
 
   return (
-    <DeskPage backHref={back} subtitle={t("subtitle")} title={profile ? t("editTitle") : t("createTitle")}>
+    <DeskPage backHref={back} title={profile ? t("editTitle") : t("createTitle")}>
       <form
         className="mt-5 flex w-full max-w-200 flex-col gap-8 lg:mt-8 lg:gap-10"
         noValidate

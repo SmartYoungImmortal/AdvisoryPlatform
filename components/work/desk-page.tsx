@@ -21,20 +21,18 @@ function placeOf(backHref: string): WorkTab | null {
  * A page one of the desk's places opens — a session, a service's schedule, a
  * set of hours, the payout account — in the desk's frame (`WorkFrame`): the
  * menu stays at the left with the place it came from marked, and the page
- * has the chevron back to it at every width, its title, a line under it,
- * and its one action at the right. The advisor page's facts belong to the
+ * has the chevron back to it at every width, its title, and its one action
+ * at the right. The advisor page's facts belong to the
  * profile (`rail="profile"`) and have no desk menu.
  */
 export function DeskPage({
   title,
-  subtitle,
   action,
   backHref = "/work",
   rail = "work",
   children,
 }: {
   readonly title: ReactNode;
-  readonly subtitle?: ReactNode;
   readonly action?: ReactNode;
   readonly backHref?: string;
   /** The rail's place this page belongs to: the desk's, or the profile's for the advisor page's facts. */
@@ -42,7 +40,7 @@ export function DeskPage({
   readonly children: ReactNode;
 }) {
   return (
-    <WorkFrame action={action} backHref={backHref} place={rail === "work" ? placeOf(backHref) : null} rail={rail} subtitle={subtitle} title={title}>
+    <WorkFrame action={action} backHref={backHref} place={rail === "work" ? placeOf(backHref) : null} rail={rail} title={title}>
       {children}
     </WorkFrame>
   );

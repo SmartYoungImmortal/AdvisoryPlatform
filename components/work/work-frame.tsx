@@ -113,7 +113,8 @@ function WorkTabs({ current }: { readonly current: WorkTab }) {
  * panel, laid out as the settings page is — from `lg` the desk's menu
  * (`WorkMenu`) at the left, and beside it the page under its band (its 88
  * row ruled off below: the way back when the page is one thing a place
- * opened, the title, its line, its action at the right). On the phone the
+ * opened, the place's glyph on its grey tile, the title and nothing under
+ * it, the page's action at the right). On the phone the
  * band is the title in the hero's face; a place shows the capsules under it
  * and the tab bar at the foot, and what a place opened shows the chevron
  * back on a row of its own instead.
@@ -125,7 +126,6 @@ function WorkTabs({ current }: { readonly current: WorkTab }) {
 export function WorkFrame({
   place,
   title,
-  subtitle,
   action,
   backHref,
   rail = "work",
@@ -136,8 +136,8 @@ export function WorkFrame({
   children,
 }: {
   readonly place: WorkTab | null;
+  /** The page's name, and nothing under it: the page says the rest. */
   readonly title: ReactNode;
-  readonly subtitle?: ReactNode;
   /** The page's one action, at the right of its title. */
   readonly action?: ReactNode;
   /** For a page a place opened: where its chevron goes back to. */
@@ -155,6 +155,7 @@ export function WorkFrame({
 }) {
   const c = useTranslations("common");
   const isPlace = place !== null && backHref === undefined;
+  const PlaceIcon = place === null ? null : PLACE_ICON[place];
 
   return (
     <MobileScreen className="bg-card pb-0" wide="md">
@@ -190,16 +191,17 @@ export function WorkFrame({
                       <ChevronLeft aria-hidden className="size-6" />
                     </Button>
                   ) : null}
-                  <div className="flex w-full min-w-0 flex-1 flex-wrap items-end justify-between gap-x-4 gap-y-3 lg:flex-nowrap lg:items-center">
-                    <div className="flex min-w-0 flex-col gap-1 lg:gap-0.5">
-                      <h1 className="font-hero text-title-compact font-normal tracking-tight text-hero-ink lg:truncate lg:font-sans lg:text-frame-heading lg:font-semibold lg:tracking-normal lg:text-foreground">
+                  <div className="flex w-full min-w-0 flex-1 flex-wrap items-center justify-between gap-x-4 gap-y-3 lg:flex-nowrap">
+                    <div className="flex min-w-0 items-center gap-3">
+                      {/* From `lg` the place's glyph on a soft grey tile before the title, as the settings page heads each category. */}
+                      {PlaceIcon ? (
+                        <span className="hidden size-12 shrink-0 items-center justify-center rounded-xl bg-muted text-foreground lg:flex">
+                          <PlaceIcon aria-hidden className={cn("size-6", SOLID_GLYPH)} strokeWidth={1.75} />
+                        </span>
+                      ) : null}
+                      <h1 className="min-w-0 font-hero text-title-compact font-normal tracking-tight text-hero-ink lg:truncate lg:font-sans lg:text-frame-heading lg:font-semibold lg:tracking-normal lg:text-foreground">
                         {title}
                       </h1>
-                      {/* On the phone always a line, held by a space until the page has its words, so the
-                          capsules under it never move; from `lg` the band's height holds everything still. */}
-                      <p className={cn("text-sm text-muted-foreground lg:truncate lg:text-frame-meta", !subtitle && "lg:hidden")}>
-                        {subtitle ?? " "}
-                      </p>
                     </div>
                     {/* A place's action goes under the capsules on the phone, so they stand at the same height on all six. */}
                     {action ? <div className={cn("shrink-0", isPlace && "max-lg:hidden")}>{action}</div> : null}

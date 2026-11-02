@@ -694,7 +694,7 @@ export function AdvisorProfileEditScreen() {
   }
 
   return (
-    <DeskPage backHref="/profile" rail="profile" subtitle={t("editSubtitle")} title={t("editTitle")}>
+    <DeskPage backHref="/profile" rail="profile" title={t("editTitle")}>
       {body}
     </DeskPage>
   );

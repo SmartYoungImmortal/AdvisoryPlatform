@@ -196,7 +196,7 @@ export function GlobalAvailabilityScreen({
         setCustomSelection((current) => ({ ...current, [input.name]: input.value === "custom" }));
       }
     }} className="contents">
-      <WorkHub subtitle={<ThaiText>{t("subtitle")}</ThaiText>} tab="availability">
+      <WorkHub tab="availability">
         <div className="mt-5 flex max-w-200 flex-col lg:mt-8">
           {/* The record as the three numbers it is. */}
           <dl className="mb-8 flex w-full max-w-xl rounded-2xl border border-border py-1 md:w-fit lg:mb-10 lg:py-1.5">

@@ -47,10 +47,9 @@ export function AdvisorBookingReadState({
 }
 
 export function AdvisorCalendarScreen() {
-  const t = useTranslations("work");
   const profile = useResource<ApiOwnProfile>("users/me", getOwnProfile);
   return (
-    <WorkHub subtitle={t("calendarSubtitle")} tab="calendar">
+    <WorkHub tab="calendar">
       {profile.error ? (
         <AdvisorBookingReadState failed retry={profile.reload} />
       ) : profile.data ? (

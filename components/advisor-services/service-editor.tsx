@@ -1,17 +1,17 @@
 "use client";
 
-import { ArrowDown, ArrowUp,CalendarRange, ChevronLeft, ChevronRight, ImagePlus, Pencil, Plus, Trash2, X } from "lucide-react";
+import { ArrowDown, ArrowUp, CalendarRange, ImagePlus, Pencil, Plus, Trash2, X } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useFormatter, useTranslations } from "next-intl";
-import { useCallback, useEffect, useRef, useState, type CSSProperties, type ReactNode } from "react";
+import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 
 import { EntryDialog, TextAreaField, TextField } from "@/components/advisor/edit-fields";
 import { authPill } from "@/components/auth/auth-split";
 import { useWeekLine } from "@/components/availability/profiles-screen";
 import { SETTINGS_DIALOG_ACTIONS, SettingsDialog, settingsPill } from "@/components/profile/settings-dialog";
 import { ApiErrorCard } from "@/components/service/parts";
-import { OWNER_PAGE_TOP, ServiceFrame, ServiceView, type DeskHead } from "@/components/service/service-detail-live";
+import { ServiceFrame, ServiceView, type DeskHead } from "@/components/service/service-detail-live";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
@@ -44,8 +44,8 @@ import { cn } from "@/lib/utils";
 
 /**
  * The advisor's service editor, one page for making a service and for
- * changing one: the parts as a hairline list at the left, each showing what
- * it holds, and the part pressed open beside it. Everything — photographs,
+ * changing one: every part one under the other on hairlines, read from the
+ * top down to the save at the foot. Everything — photographs,
  * words, packages and their pictures, categories, schedule, booking rules,
  * the other services shown, and whether it is on sale — is held on the page
  * as it is changed, and nothing reaches the API until the bar at the foot
@@ -173,28 +173,25 @@ export function ServiceEditor({
 }) {
   const t = useTranslations("ownerService");
   const e = useTranslations("serviceEditor");
-  const format = useFormatter();
   const router = useRouter();
-  const weekLine = useWeekLine();
   const categories = useResource<Paginated<ServiceCategory>>("service-categories", listServiceCategories);
   const profiles = useResource<AvailabilityProfile[]>("advisors/me/availability/profiles", availabilityApi.getProfiles);
-  const mine = useResource<AdvisorServicesPage>(
-    "advisors/me/services?page=1&limit=100",
-    useCallback((signal: AbortSignal) => listMyAdvisorServices(signal), []),
-  );
 
   const creating = record === null;
   const [initial, setInitial] = useState<Draft>(() => draftOf(record, images, packages));
   const [draft, setDraft] = useState<Draft>(initial);
-  /** The part open: on the phone none until one is pressed; from `lg` the photographs until another is. */
-  const [open, setOpen] = useState<Part | null>(initialPart);
   const [mode, setMode] = useState<"edit" | "preview">("edit");
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [problem, setProblem] = useState<string | null>(null);
   const [deleting, setDeleting] = useState(false);
-  const shown: Part = open ?? "photos";
-  const set = <K extends keyof Draft>(key: K, value: Draft[K]) => {
+
+  // Opened on a part (the old settings address opens on the booking rules): the page starts there.
+  useEffect(() => {
+    if (initialPart) document.getElementById(`part-${initialPart}`)?.scrollIntoView({ block: "start" });
+  }, [initialPart]);
+
+  const set =<K extends keyof Draft>(key: K, value: Draft[K]) => {
     setDraft((now) => ({ ...now, [key]: value }));
     setSaved(false);
     setProblem(null);
@@ -225,16 +222,12 @@ export function ServiceEditor({
   };
 
   const dirty = signature(draft) !== signature(initial);
-  const money = (satang: number) => format.number(satang / 100, "baht");
   const baht = bahtOf(draft.price);
   const length = minutesOf(draft.minutes);
   const cheapest = draft.packages.length > 0 ? draft.packages.reduce((low, item) => (item.priceSatang < low.priceSatang ? item : low)) : null;
   // With packages the service's own price is the cheapest's, as the page shows it; without, the one typed.
   const basePrice = cheapest ? cheapest.priceSatang : baht === null ? null : baht * 100;
   const baseMinutes = cheapest ? cheapest.durationMinutes : length;
-  const packagePrices = draft.packages.map((item) => item.priceSatang);
-  const profile = profiles.data?.find((item) => item.id === draft.profileId);
-  const names = new Map((mine.data?.items ?? []).map((item) => [item.id, item.name] as const));
 
   const missing = [
     { label: e("checkName"), done: draft.name.trim().length > 0 },
@@ -244,59 +237,6 @@ export function ServiceEditor({
     // A service on sale shows a photograph: the API refuses one without.
     { label: e("checkPhotoToSell"), done: !draft.published || draft.photos.length > 0 },
   ].filter((item) => !item.done);
-  const notYet = <span className="text-foreground">{e("notYet")}</span>;
-
-  const rows: PartRow[] = [
-    {
-      part: "photos",
-      title: t("photosSection"),
-      value: draft.photos.length > 0 ? t("photosCount", { count: draft.photos.length, max: MAX_SERVICE_IMAGES }) : t("photosNoneShort"),
-      thumbs: draft.photos.slice(0, 3).map((photo) => photo.src),
-    },
-    { part: "text", title: t("textSection"), value: draft.name.trim() || notYet },
-    {
-      part: "packages",
-      title: t("pricingSection"),
-      value:
-        draft.packages.length > 0
-          ? t("packagesSummary", { count: draft.packages.length, from: money(Math.min(...packagePrices)), to: money(Math.max(...packagePrices)) })
-          : baht !== null && length !== null
-            ? t("priceSummary", { price: money(baht * 100), minutes: length })
-            : notYet,
-      thumbs: draft.packages.flatMap((item) => (item.picture ? [item.picture.src] : [])).slice(0, 3),
-    },
-    {
-      part: "category",
-      title: t("categorySection"),
-      value:
-        draft.categories.length === 0
-          ? notYet
-          : categories.data
-            ? draft.categories.map((id) => categories.data?.items.find((item) => item.id === id)?.name).filter(Boolean).join(" · ")
-            : "…",
-    },
-    {
-      part: "schedule",
-      title: t("scheduleProfileSection"),
-      value: !draft.profileId ? notYet : !profiles.data ? "…" : profile ? `${profile.name} · ${weekLine(profile)}` : t("scheduleNone"),
-    },
-    {
-      part: "booking",
-      title: t("bookingSection"),
-      value: [
-        draft.limit ? t("limitHours", { count: draft.limit / 60 }) : t("limitNone"),
-        draft.screening ? t("screeningOn") : null,
-        draft.trial ? t("trialOn", { count: draft.trial }) : null,
-      ]
-        .filter(Boolean)
-        .join(" · "),
-    },
-    {
-      part: "related",
-      title: t("relatedTitle"),
-      value: draft.related.length > 0 ? draft.related.map((id) => names.get(id) ?? "…").join(" · ") : t("relatedAutoShort"),
-    },
-  ];
 
   async function writePackages(serviceId: string) {
     const stored = await replaceMyServicePackages(
@@ -468,36 +408,15 @@ export function ServiceEditor({
 
   return (
     <ServiceFrame desk={head} footer={footer}>
-      <PartsLayout
-        below={
-          record ? (
-            <Button
-              className="h-10 self-start px-2 text-sm font-medium text-muted-foreground hover:bg-transparent hover:text-destructive lg:text-frame-meta"
-              onClick={() => setDeleting(true)}
-              type="button"
-              variant="ghost"
-            >
-              <Trash2 aria-hidden className="size-4" />
-              {t("deleteService")}
-            </Button>
-          ) : null
-        }
-        onOpen={setOpen}
-        open={open}
-        rows={rows}
-        shown={shown}
-      >
-        {shown === "photos" ? (
-          <Pane hint={t("photosHint")} title={t("photosSection")}>
-            <PhotoGrid
-              onAdd={(files) => set("photos", [...draft.photos, ...files.map(preview)])}
-              onRemove={(key) => set("photos", draft.photos.filter((photo) => photo.key !== key))}
-              photos={draft.photos}
-            />
-          </Pane>
-        ) : null}
-        {shown === "text" ? (
-          <Pane title={t("textSection")}>
+      <div className={EDITOR_COLUMN}>
+        <Pane part="photos" title={t("photosSection")}>
+          <PhotoGrid
+            onAdd={(files) => set("photos", [...draft.photos, ...files.map(preview)])}
+            onRemove={(key) => set("photos", draft.photos.filter((photo) => photo.key !== key))}
+            photos={draft.photos}
+          />
+        </Pane>
+        <Pane part="text" title={t("textSection")}>
             <div className="flex flex-col gap-1.5">
               <label className="text-sm font-medium text-muted-foreground" htmlFor="service-name">
                 {t("titleSection")}
@@ -530,52 +449,54 @@ export function ServiceEditor({
               />
               <Counter count={draft.description.length} max={5000} />
             </div>
-          </Pane>
+        </Pane>
+        <Pane part="packages" title={t("pricingSection")}>
+          {draft.packages.length === 0 ? (
+            <div className="grid grid-cols-2 gap-3">
+              <FieldWithUnit id="service-price" label={t("priceLabel")} onChange={(value) => set("price", value)} unit={t("bahtUnit")} value={draft.price} />
+              <FieldWithUnit id="service-minutes" label={t("minutesLabel")} onChange={(value) => set("minutes", value)} unit={t("minuteUnit")} value={draft.minutes} />
+            </div>
+          ) : null}
+          <PackageList onChange={(next) => set("packages", next)} packages={draft.packages} preview={preview} />
+        </Pane>
+        <Pane part="category" title={t("categorySection")}>
+          <CategoryChoices categories={categories.data?.items ?? null} chosen={draft.categories} onChange={(next) => set("categories", next)} />
+        </Pane>
+        <Pane part="schedule" title={t("scheduleProfileSection")}>
+          <ScheduleChoices
+            back={record ? `/advisor/services/view?serviceId=${encodeURIComponent(record.id)}` : "/advisor/services/new"}
+            chosen={draft.profileId}
+            onChange={(next) => set("profileId", next)}
+            profiles={profiles.data ?? null}
+          />
+        </Pane>
+        <Pane part="booking" title={t("bookingSection")}>
+          <BookingRules
+            limit={draft.limit}
+            onLimit={(next) => set("limit", next)}
+            onScreening={(next) => set("screening", next)}
+            onTrial={(next) => set("trial", next)}
+            screening={draft.screening}
+            trial={draft.trial}
+          />
+        </Pane>
+        <Pane part="related" title={t("relatedTitle")}>
+          <RelatedPicker chosen={draft.related} onChange={(next) => set("related", next)} serviceId={record?.id ?? ""} />
+        </Pane>
+        {record ? (
+          <div className="py-6 lg:py-8">
+            <Button
+              className="h-10 px-2 text-sm font-medium text-muted-foreground hover:bg-transparent hover:text-destructive lg:text-frame-meta"
+              onClick={() => setDeleting(true)}
+              type="button"
+              variant="ghost"
+            >
+              <Trash2 aria-hidden className="size-4" />
+              {t("deleteService")}
+            </Button>
+          </div>
         ) : null}
-        {shown === "packages" ? (
-          <Pane hint={draft.packages.length > 0 ? t("packagesHint") : t("pricingHintNone")} title={t("pricingSection")}>
-            {draft.packages.length === 0 ? (
-              <div className="grid grid-cols-2 gap-3">
-                <FieldWithUnit id="service-price" label={t("priceLabel")} onChange={(value) => set("price", value)} unit={t("bahtUnit")} value={draft.price} />
-                <FieldWithUnit id="service-minutes" label={t("minutesLabel")} onChange={(value) => set("minutes", value)} unit={t("minuteUnit")} value={draft.minutes} />
-              </div>
-            ) : null}
-            <PackageList onChange={(next) => set("packages", next)} packages={draft.packages} preview={preview} />
-          </Pane>
-        ) : null}
-        {shown === "category" ? (
-          <Pane hint={t("categoryHint", { max: MAX_CATEGORIES })} title={t("categorySection")}>
-            <CategoryChoices categories={categories.data?.items ?? null} chosen={draft.categories} onChange={(next) => set("categories", next)} />
-          </Pane>
-        ) : null}
-        {shown === "schedule" ? (
-          <Pane hint={t("scheduleProfileHint")} title={t("scheduleProfileSection")}>
-            <ScheduleChoices
-              back={record ? `/advisor/services/view?serviceId=${encodeURIComponent(record.id)}` : "/advisor/services/new"}
-              chosen={draft.profileId}
-              onChange={(next) => set("profileId", next)}
-              profiles={profiles.data ?? null}
-            />
-          </Pane>
-        ) : null}
-        {shown === "booking" ? (
-          <Pane hint={t("bookingHint")} title={t("bookingSection")}>
-            <BookingRules
-              limit={draft.limit}
-              onLimit={(next) => set("limit", next)}
-              onScreening={(next) => set("screening", next)}
-              onTrial={(next) => set("trial", next)}
-              screening={draft.screening}
-              trial={draft.trial}
-            />
-          </Pane>
-        ) : null}
-        {shown === "related" ? (
-          <Pane hint={t("relatedBody", { max: MAX_RELATED_SERVICES })} title={t("relatedTitle")}>
-            <RelatedPicker chosen={draft.related} onChange={(next) => set("related", next)} serviceId={record?.id ?? ""} />
-          </Pane>
-        ) : null}
-      </PartsLayout>
+      </div>
       {deleting && record ? <DeleteServiceConfirm onClose={() => setDeleting(false)} record={record} /> : null}
     </ServiceFrame>
   );
@@ -638,87 +559,77 @@ function OwnerControls({ serviceId, mode, onMode, published, onPublished }: {
   );
 }
 
-/** A row of the parts list: the part, its name, its value on one line, and small pictures where it has them. */
-type PartRow = { readonly part: Part; readonly title: string; readonly value: ReactNode; readonly thumbs?: readonly string[] };
+/** The parts' column: one measure for all of them, so every part ends on the same right edge. */
+const EDITOR_COLUMN = "flex w-full max-w-220 flex-col divide-y divide-border";
 
 /**
- * The parts as one hairline list at the left (with what goes under it), and
- * the part open beside it. On the phone the list is the page and a part
- * opens in its place, with the way back to the list above it.
+ * The editor's own shape while the service is read, so nothing shifts when
+ * it lands: the band (the way back, the tile, the name), then the first
+ * parts as they stand — the photographs' cover and tiles, the name's field,
+ * the description's box — each under its name.
  */
-function PartsLayout({ rows, shown, open, onOpen, below, children }: {
-  readonly rows: readonly PartRow[];
-  readonly shown: Part;
-  /** The part pressed; none on the phone shows the list. */
-  readonly open: Part | null;
-  readonly onOpen: (part: Part | null) => void;
-  readonly below?: ReactNode;
-  readonly children: ReactNode;
-}) {
+export function ServiceEditorSkeleton() {
   const t = useTranslations("ownerService");
+  const bone = "animate-pulse bg-muted motion-reduce:animate-none";
   return (
-    <div className="grid grid-cols-1 gap-8 lg:grid-cols-[minmax(0,340px)_minmax(0,1fr)] lg:gap-10">
-      <nav
-        aria-label={t("sectionsLabel")}
-        className={cn("flex flex-col gap-4 lg:sticky lg:top-(--owner-page-top) lg:self-start", open && "max-lg:hidden")}
-        style={{ "--owner-page-top": OWNER_PAGE_TOP } as CSSProperties}
-      >
-        <ul className="flex flex-col divide-y divide-border overflow-hidden rounded-2xl border border-border">
-          {rows.map((row) => {
-            const selected = shown === row.part;
-            return (
-              <li key={row.part}>
-                <button
-                  aria-current={selected ? "true" : undefined}
-                  className={cn(
-                    "flex w-full items-center gap-3 px-4 py-3.5 text-left outline-none transition-colors focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:ring-inset lg:px-5",
-                    selected ? "bg-muted" : "hover:bg-muted/50",
-                  )}
-                  onClick={() => onOpen(row.part)}
-                  type="button"
-                >
-                  <span className="flex min-w-0 flex-1 flex-col gap-0.5">
-                    <span className="text-sm font-medium text-foreground lg:text-frame-meta">{row.title}</span>
-                    <span className="truncate text-sm text-muted-foreground lg:text-frame-meta">{row.value}</span>
-                  </span>
-                  {row.thumbs && row.thumbs.length > 0 ? (
-                    <span className="flex shrink-0 -space-x-2.5">
-                      {row.thumbs.map((src) => (
-                        <span className="block size-8 overflow-hidden rounded-lg bg-muted ring-2 ring-card" key={src}>
-                          {/* eslint-disable-next-line @next/next/no-img-element -- a stored URL or a local preview */}
-                          <img alt="" className="size-full object-cover" src={src} />
-                        </span>
-                      ))}
-                    </span>
-                  ) : null}
-                  <ChevronRight aria-hidden className="size-4 shrink-0 text-muted-foreground lg:hidden" />
-                </button>
-              </li>
-            );
-          })}
-        </ul>
-        {below}
-      </nav>
-
-      <div className={cn("min-w-0", !open && "max-lg:hidden")}>
-        <Button className="-ml-2 mb-4 h-9 gap-1 px-2 text-sm lg:hidden" onClick={() => onOpen(null)} type="button" variant="ghost">
-          <ChevronLeft aria-hidden className="size-5" />
-          {t("allSections")}
-        </Button>
-        {children}
+    <ServiceFrame desk={{ backHref: "/advisor/services", title: <span aria-hidden className={cn(bone, "block h-6 w-56 rounded-md lg:h-7")} /> }}>
+      <div aria-busy className={EDITOR_COLUMN}>
+        <section aria-hidden className="flex flex-col gap-4 py-8 first:pt-0 lg:gap-5 lg:py-10">
+          <span className="flex h-lh items-center text-base lg:text-frame-body">
+            <span className={cn(bone, "h-4 w-16 rounded")} />
+          </span>
+          <div className="grid grid-cols-[minmax(0,3fr)_minmax(0,1fr)_minmax(0,1fr)] grid-rows-3 gap-2 lg:gap-3">
+            <span className={cn(bone, "row-span-3 rounded-2xl")} />
+            {[0, 1, 2, 3, 4].map((tile) => (
+              <span className={cn(bone, "aspect-[4/3] rounded-2xl")} key={tile} />
+            ))}
+          </div>
+          <span className="flex h-lh items-center text-xs lg:text-frame-label">
+            <span className={cn(bone, "h-3 w-12 rounded")} />
+          </span>
+        </section>
+        {/* The name's field and the description's box, line for line as `TextPart` draws them. */}
+        <section aria-hidden className="flex flex-col gap-4 py-8 lg:gap-5 lg:py-10">
+          <span className="flex h-lh items-center text-base lg:text-frame-body">
+            <span className={cn(bone, "h-4 w-32 rounded")} />
+          </span>
+          <div className="flex flex-col gap-1.5">
+            <span className="flex h-lh items-center text-sm">
+              <span className={cn(bone, "h-3 w-16 rounded")} />
+            </span>
+            <span className={cn(bone, "h-13.5 w-full rounded-xl")} />
+            <span className="flex h-lh items-center text-sm">
+              <span className={cn(bone, "h-3 w-56 rounded")} />
+            </span>
+          </div>
+          <div className="flex flex-col gap-1.5">
+            <span className="flex h-lh items-center text-sm">
+              <span className={cn(bone, "h-3 w-16 rounded")} />
+            </span>
+            <span className={cn(bone, "h-56 w-full rounded-xl")} />
+            <span className="flex h-lh items-center justify-end text-xs lg:text-frame-label">
+              <span className={cn(bone, "h-3 w-12 rounded")} />
+            </span>
+          </div>
+        </section>
+        {/* Last, so the first part is still the column's first child (its `first:pt-0`). */}
+        <span className="sr-only">{t("loading")}</span>
       </div>
-    </div>
+    </ServiceFrame>
   );
 }
 
-/** A part opened: its name, a line on it, and what it holds. */
-function Pane({ title, hint, children }: { readonly title: string; readonly hint?: ReactNode; readonly children: ReactNode }) {
+/**
+ * One part of the page, one under the other on hairlines: its name a step
+ * under the band's title, then what it holds. Its anchor (`part-…`) is where
+ * an address that names the part starts the page, clear of the band.
+ */
+function Pane({ part, title, children }: { readonly part: Part; readonly title: string; readonly children: ReactNode }) {
   return (
-    <section className="flex flex-col gap-5 lg:gap-6">
-      <div className="flex flex-col gap-1.5">
-        <h2 className="text-xl font-semibold text-foreground lg:text-frame-heading">{title}</h2>
-        {hint ? <p className="text-sm text-muted-foreground lg:text-frame-meta">{hint}</p> : null}
-      </div>
+    <section aria-labelledby={`part-${part}-title`} className="flex scroll-mt-28 flex-col gap-4 py-8 first:pt-0 lg:gap-5 lg:py-10" id={`part-${part}`}>
+      <h2 className="text-base font-semibold text-foreground lg:text-frame-body" id={`part-${part}-title`}>
+        {title}
+      </h2>
       {children}
     </section>
   );
