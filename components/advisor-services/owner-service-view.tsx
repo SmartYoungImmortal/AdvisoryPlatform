@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useTranslations } from "next-intl";
 import { useCallback, useState } from "react";
 
-import { ListingEditor } from "@/components/advisor-services/listing-editor";
+import { ListingEditor, type Part } from "@/components/advisor-services/listing-editor";
 import { authPill } from "@/components/auth/auth-split";
 import { LiveServiceDetailSkeleton, ServiceFrame, ServiceView } from "@/components/service/service-detail-live";
 import { ApiErrorCard } from "@/components/service/parts";
@@ -77,7 +77,11 @@ function useOwnedService(serviceId: string) {
   return { record, images, packages, service, reload, error: record.error ?? images.error ?? packages.error };
 }
 
-export function OwnerServiceScreen({ serviceId }: { readonly serviceId: string }) {
+export function OwnerServiceScreen({ serviceId, initialPart = null }: {
+  readonly serviceId: string;
+  /** The editor's part to open with; the old settings route opens on the booking rules. */
+  readonly initialPart?: Part | null;
+}) {
   const t = useTranslations("ownerService");
   const owned = useOwnedService(serviceId);
   const [mode, setMode] = useState<"edit" | "preview">("edit");
@@ -99,7 +103,13 @@ export function OwnerServiceScreen({ serviceId }: { readonly serviceId: string }
   return (
     <ServiceFrame>
       {bar}
-      <ListingEditor images={owned.images.data.images} onChanged={owned.reload} packages={owned.packages.data} record={owned.record.data} />
+      <ListingEditor
+        images={owned.images.data.images}
+        initialPart={initialPart}
+        onChanged={owned.reload}
+        packages={owned.packages.data}
+        record={owned.record.data}
+      />
     </ServiceFrame>
   );
 }
@@ -175,14 +185,6 @@ function OwnerBar({ record, mode, onMode, onChanged }: {
         >
           <CalendarRange aria-hidden />
           {t("schedule")}
-        </Button>
-        <Button
-          className={cn(authPill(false), PILL)}
-          nativeButton={false}
-          render={<Link href={`/advisor/services/manage?serviceId=${encodeURIComponent(record.id)}`} />}
-          variant="outline"
-        >
-          {t("moreSettings")}
         </Button>
       </div>
       {failure ? (

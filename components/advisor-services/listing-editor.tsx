@@ -2,20 +2,25 @@
 
 import { ArrowDown, ArrowUp, ChevronLeft, ChevronRight, ImagePlus, LoaderCircle, Pencil, Plus, Trash2, X } from "lucide-react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useFormatter, useTranslations } from "next-intl";
 import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 
 import { EntryDialog, TextAreaField, TextField } from "@/components/advisor/edit-fields";
 import { authPill } from "@/components/auth/auth-split";
+import { useWeekLine } from "@/components/availability/profiles-screen";
 import { ApiErrorCard } from "@/components/service/parts";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import {
   MAX_RELATED_SERVICES,
   MAX_SERVICE_IMAGES,
   MAX_SERVICE_PACKAGES,
+  deleteAdvisorService,
   listMyAdvisorServices,
+  listServiceCategories,
   removeAdvisorServiceImage,
   removeServicePackageImage,
   replaceMyServicePackages,
@@ -24,10 +29,14 @@ import {
   uploadServicePackageImage,
   type AdvisorService,
   type AdvisorServicesPage,
+  type ServiceCategory,
   type ServicePackageInput,
 } from "@/lib/advisor-services/api";
+import type { Paginated } from "@/lib/api/client";
 import type { ApiServicePackage } from "@/lib/api/types";
-import { useResource } from "@/lib/api/use-resource";
+import { invalidate, useResource } from "@/lib/api/use-resource";
+import { CUSTOM_BOUNDS } from "@/lib/availability";
+import { availabilityApi, type AvailabilityProfile, type GlobalAvailability } from "@/lib/availability/api";
 import { useLiveCatalogue } from "@/lib/catalogue/live";
 import { cn } from "@/lib/utils";
 
@@ -43,7 +52,7 @@ import { cn } from "@/lib/utils";
  * own, so their cards lead there.
  */
 
-type Part = "photos" | "title" | "description" | "price" | "packages" | "related";
+export type Part = "photos" | "text" | "packages" | "category" | "schedule" | "booking" | "related";
 
 const PILL = "h-10 w-auto px-4 text-sm md:h-10 md:px-5 md:text-sm lg:h-12 lg:px-6 lg:text-frame-body";
 const FIELD = "h-11 rounded-xl border-accented bg-card px-4 text-base shadow-none md:h-12 md:text-base";
@@ -82,155 +91,151 @@ export function ListingEditor({
   images,
   packages,
   onChanged,
+  initialPart = null,
 }: {
   readonly record: AdvisorService;
   readonly images: readonly string[];
   readonly packages: readonly ApiServicePackage[];
   readonly onChanged: () => void;
+  /** The part to open with (the settings route opens on the booking rules). */
+  readonly initialPart?: Part | null;
 }) {
   const t = useTranslations("ownerService");
   const format = useFormatter();
+  const weekLine = useWeekLine();
   /** The part open: on the phone none until one is pressed; from `lg` the photographs until another is. */
-  const [open, setOpen] = useState<Part | null>(null);
+  const [open, setOpen] = useState<Part | null>(initialPart);
+  const [deleting, setDeleting] = useState(false);
   const shown: Part = open ?? "photos";
   const mine = useResource<AdvisorServicesPage>(
     "advisors/me/services?page=1&limit=100",
     useCallback((signal: AbortSignal) => listMyAdvisorServices(signal), []),
   );
+  const categories = useResource<Paginated<ServiceCategory>>("service-categories", listServiceCategories);
+  const profiles = useResource<AvailabilityProfile[]>("advisors/me/availability/profiles", availabilityApi.getProfiles);
   const names = new Map((mine.data?.items ?? []).map((item) => [item.id, item.name] as const));
   const related = record.relatedServiceIds ?? [];
   const money = (satang: number) => format.number(satang / 100, "baht");
+  const profile = profiles.data?.find((item) => item.id === record.availabilityProfileId);
+  const category = categories.data?.items.find((item) => item.id === record.categoryId);
+  const packagePrices = packages.map((item) => item.priceSatang);
 
-  const cards: { readonly part: Part; readonly title: string; readonly preview: ReactNode }[] = [
+  const rows: { readonly part: Part; readonly title: string; readonly value: ReactNode; readonly thumbs?: readonly string[] }[] = [
     {
       part: "photos",
       title: t("photosSection"),
-      preview:
-        images.length > 0 ? (
-          <span className="grid grid-cols-3 gap-1.5">
-            {images.slice(0, 3).map((src, index) => (
-              <span className="relative block aspect-square overflow-hidden rounded-lg bg-muted" key={src}>
-                {/* eslint-disable-next-line @next/next/no-img-element -- presigned storage URLs change per read */}
-                <img alt="" className="size-full object-cover" src={src} />
-                {index === 2 && images.length > 3 ? (
-                  <span className="absolute inset-0 flex items-center justify-center bg-scrim/50 font-latin text-sm font-medium text-on-media">
-                    +{images.length - 3}
-                  </span>
-                ) : null}
-              </span>
-            ))}
-          </span>
-        ) : (
-          <span className="text-sm text-muted-foreground">{t("photosNone")}</span>
-        ),
+      value: images.length > 0 ? t("photosCount", { count: images.length, max: MAX_SERVICE_IMAGES }) : t("photosNoneShort"),
+      thumbs: images.slice(0, 3),
     },
-    { part: "title", title: t("titleSection"), preview: <span className="text-base font-semibold text-foreground lg:text-frame-body">{record.name}</span> },
-    {
-      part: "description",
-      title: t("descriptionLabel"),
-      preview: (
-        <span className="line-clamp-3 text-sm text-muted-foreground lg:text-frame-meta">{record.description || t("descriptionEmpty")}</span>
-      ),
-    },
-    {
-      part: "price",
-      title: t("priceSection"),
-      preview: (
-        <span className="font-latin text-sm text-foreground tabular-nums lg:text-frame-meta">
-          {t("priceSummary", { price: money(record.priceSatang), minutes: record.durationMinutes })}
-        </span>
-      ),
-    },
+    { part: "text", title: t("textSection"), value: record.name },
     {
       part: "packages",
-      title: t("packagesTitle"),
-      preview:
-        packages.length > 0 ? (
-          <span className="flex flex-col gap-2">
-            {packages.slice(0, 3).map((item) => (
-              <span className="flex items-center gap-2.5" key={item.id}>
-                <span className="block size-9 shrink-0 overflow-hidden rounded-lg bg-muted">
-                  {item.image ? (
-                    // eslint-disable-next-line @next/next/no-img-element -- presigned storage URLs change per read
-                    <img alt="" className="size-full object-cover" src={item.image} />
-                  ) : null}
-                </span>
-                <span className="min-w-0 flex-1 truncate text-sm text-foreground lg:text-frame-meta">{item.name}</span>
-                <span className="shrink-0 font-latin text-sm text-muted-foreground tabular-nums lg:text-frame-meta">{money(item.priceSatang)}</span>
-              </span>
-            ))}
-            {packages.length > 3 ? <span className="text-sm text-muted-foreground">{t("packagesMore", { count: packages.length - 3 })}</span> : null}
-          </span>
-        ) : (
-          <span className="text-sm text-muted-foreground lg:text-frame-meta">{t("packagesNoneShort")}</span>
-        ),
+      title: t("pricingSection"),
+      value:
+        packages.length > 0
+          ? t("packagesSummary", { count: packages.length, from: money(Math.min(...packagePrices)), to: money(Math.max(...packagePrices)) })
+          : t("priceSummary", { price: money(record.priceSatang), minutes: record.durationMinutes }),
+      thumbs: packages.flatMap((item) => (item.image ? [item.image] : [])).slice(0, 3),
+    },
+    { part: "category", title: t("categorySection"), value: category?.name ?? "…" },
+    {
+      part: "schedule",
+      title: t("scheduleProfileSection"),
+      value: !profiles.data ? "…" : profile ? `${profile.name} · ${weekLine(profile)}` : t("scheduleNone"),
+    },
+    {
+      part: "booking",
+      title: t("bookingSection"),
+      value: [
+        record.dailyConsultationLimitMinutes ? t("limitHours", { count: record.dailyConsultationLimitMinutes / 60 }) : t("limitNone"),
+        record.screeningRequired ? t("screeningOn") : null,
+        record.trialEnabled && record.trialDurationMinutes ? t("trialOn", { count: record.trialDurationMinutes }) : null,
+      ]
+        .filter(Boolean)
+        .join(" · "),
     },
     {
       part: "related",
       title: t("relatedTitle"),
-      preview: (
-        <span className="line-clamp-2 text-sm text-muted-foreground lg:text-frame-meta">
-          {related.length > 0 ? related.map((id) => names.get(id) ?? "…").join(" · ") : t("relatedAutoShort")}
-        </span>
-      ),
+      value: related.length > 0 ? related.map((id) => names.get(id) ?? "…").join(" · ") : t("relatedAutoShort"),
     },
   ];
 
-  const card = (selected: boolean) =>
-    cn(
-      "flex w-full flex-col items-stretch gap-2.5 rounded-2xl border p-4 text-left outline-none transition-colors focus-visible:ring-3 focus-visible:ring-ring/50 lg:p-5",
-      selected ? "border-foreground ring-1 ring-foreground" : "border-border hover:bg-muted/40",
-    );
-
   return (
-    <div className="grid grid-cols-1 gap-8 pb-16 lg:grid-cols-[minmax(0,380px)_minmax(0,1fr)] lg:gap-14">
-      <nav aria-label={t("sectionsLabel")} className={cn("flex flex-col gap-3 lg:sticky lg:top-6 lg:self-start", open && "max-lg:hidden")}>
-        {cards.map((item) => (
-          <button
-            aria-current={shown === item.part ? "true" : undefined}
-            className={card(shown === item.part)}
-            key={item.part}
-            onClick={() => setOpen(item.part)}
-            type="button"
-          >
-            <span className="text-sm font-medium text-muted-foreground lg:text-frame-meta">{item.title}</span>
-            {item.preview}
-          </button>
-        ))}
-        {[
-          { href: `/advisor/services/schedule?serviceId=${encodeURIComponent(record.id)}`, title: t("scheduleSection"), line: t("scheduleCard") },
-          { href: `/advisor/services/manage?serviceId=${encodeURIComponent(record.id)}`, title: t("moreSettings"), line: t("settingsCard") },
-        ].map((item) => (
-          <Link className={cn(card(false), "flex-row items-center gap-3")} href={item.href} key={item.href}>
-            <span className="flex min-w-0 flex-1 flex-col gap-1">
-              <span className="text-sm font-medium text-muted-foreground lg:text-frame-meta">{item.title}</span>
-              <span className="text-sm text-foreground lg:text-frame-meta">{item.line}</span>
-            </span>
-            <ChevronRight aria-hidden className="size-4 shrink-0 text-muted-foreground" />
-          </Link>
-        ))}
+    <div className="grid grid-cols-1 gap-8 pb-16 lg:grid-cols-[minmax(0,360px)_minmax(0,1fr)] lg:gap-12">
+      <nav aria-label={t("sectionsLabel")} className={cn("flex flex-col gap-4 lg:sticky lg:top-6 lg:self-start", open && "max-lg:hidden")}>
+        <ul className="flex flex-col divide-y divide-border overflow-hidden rounded-2xl border border-border">
+          {rows.map((row) => {
+            const selected = shown === row.part;
+            return (
+              <li key={row.part}>
+                <button
+                  aria-current={selected ? "true" : undefined}
+                  className={cn(
+                    "flex w-full items-center gap-3 px-4 py-3.5 text-left outline-none transition-colors focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:ring-inset lg:px-5",
+                    selected ? "bg-muted" : "hover:bg-muted/50",
+                  )}
+                  onClick={() => setOpen(row.part)}
+                  type="button"
+                >
+                  <span className="flex min-w-0 flex-1 flex-col gap-0.5">
+                    <span className="text-sm font-medium text-foreground lg:text-frame-meta">{row.title}</span>
+                    <span className="truncate text-sm text-muted-foreground lg:text-frame-meta">{row.value}</span>
+                  </span>
+                  {row.thumbs && row.thumbs.length > 0 ? (
+                    <span className="flex shrink-0 -space-x-2.5">
+                      {row.thumbs.map((src) => (
+                        <span className="block size-8 overflow-hidden rounded-lg bg-muted ring-2 ring-card" key={src}>
+                          {/* eslint-disable-next-line @next/next/no-img-element -- presigned storage URLs change per read */}
+                          <img alt="" className="size-full object-cover" src={src} />
+                        </span>
+                      ))}
+                    </span>
+                  ) : null}
+                  <ChevronRight aria-hidden className="size-4 shrink-0 text-muted-foreground lg:hidden" />
+                </button>
+              </li>
+            );
+          })}
+        </ul>
+        <Button
+          className="h-10 self-start px-2 text-sm font-medium text-muted-foreground hover:bg-transparent hover:text-destructive lg:text-frame-meta"
+          onClick={() => setDeleting(true)}
+          type="button"
+          variant="ghost"
+        >
+          <Trash2 aria-hidden className="size-4" />
+          {t("deleteService")}
+        </Button>
       </nav>
 
-      <div className={cn("min-w-0", !open && "max-lg:hidden")}>
+      <div className={cn("min-w-0 lg:mx-auto lg:w-full lg:max-w-2xl", !open && "max-lg:hidden")}>
         <Button className="-ml-2 mb-4 h-9 gap-1 px-2 text-sm lg:hidden" onClick={() => setOpen(null)} type="button" variant="ghost">
           <ChevronLeft aria-hidden className="size-5" />
           {t("allSections")}
         </Button>
         {/* Keyed by the part and the record's save, so each opening starts from what is stored. */}
         {shown === "photos" ? <Photos images={images} onChanged={onChanged} serviceId={record.id} /> : null}
-        {shown === "title" ? <TitlePart key={`title-${record.modifiedAt}`} onSaved={onChanged} record={record} /> : null}
-        {shown === "description" ? <DescriptionPart key={`description-${record.modifiedAt}`} onSaved={onChanged} record={record} /> : null}
-        {shown === "price" ? <PricePart hasPackages={packages.length > 0} key={`price-${record.modifiedAt}`} onSaved={onChanged} record={record} /> : null}
-        {shown === "packages" ? <PackagesPart onChanged={onChanged} packages={packages} serviceId={record.id} /> : null}
+        {shown === "text" ? <TextPart key={`text-${record.modifiedAt}`} onSaved={onChanged} record={record} /> : null}
+        {shown === "packages" ? <PackagesPart onChanged={onChanged} packages={packages} record={record} /> : null}
+        {shown === "category" ? (
+          <CategoryPart categories={categories.data?.items ?? null} key={`category-${record.modifiedAt}`} onSaved={onChanged} record={record} />
+        ) : null}
+        {shown === "schedule" ? (
+          <SchedulePart key={`schedule-${record.modifiedAt}`} onSaved={onChanged} profiles={profiles.data ?? null} record={record} />
+        ) : null}
+        {shown === "booking" ? <BookingPart key={`booking-${record.modifiedAt}`} onSaved={onChanged} record={record} /> : null}
         {shown === "related" ? <RelatedPart key={`related-${record.modifiedAt}`} onSaved={onChanged} record={record} /> : null}
       </div>
+
+      {deleting ? <DeleteServiceConfirm onClose={() => setDeleting(false)} record={record} /> : null}
     </div>
   );
 }
 
 /* ------------------------------------------------------------------ frame */
 
-/** A part opened: its name large, a line on it, what it holds, and (for a part that waits) its save. */
+/** A part opened: its name, a line on it, what it holds, and (for a part that waits) its save. */
 function Pane({ title, hint, children, footer }: {
   readonly title: string;
   readonly hint?: ReactNode;
@@ -238,10 +243,10 @@ function Pane({ title, hint, children, footer }: {
   readonly footer?: ReactNode;
 }) {
   return (
-    <section className="flex flex-col gap-6 lg:gap-8">
-      <div className="flex flex-col gap-2">
-        <h2 className="font-hero text-title-compact font-normal tracking-tight text-hero-ink lg:text-frame-title">{title}</h2>
-        {hint ? <p className="max-w-2xl text-sm text-muted-foreground lg:text-frame-meta">{hint}</p> : null}
+    <section className="flex flex-col gap-5 lg:gap-6">
+      <div className="flex flex-col gap-1.5">
+        <h2 className="text-xl font-semibold text-foreground lg:text-frame-heading">{title}</h2>
+        {hint ? <p className="text-sm text-muted-foreground lg:text-frame-meta">{hint}</p> : null}
       </div>
       {children}
       {footer}
@@ -311,27 +316,42 @@ function Counter({ count, max }: { readonly count: number; readonly max: number 
 
 /* ------------------------------------------------------------------ parts */
 
-function TitlePart({ record, onSaved }: { readonly record: AdvisorService; readonly onSaved: () => void }) {
+/** The name and what it covers, as one part: they are read together on the page. */
+function TextPart({ record, onSaved }: { readonly record: AdvisorService; readonly onSaved: () => void }) {
   const t = useTranslations("ownerService");
+  const storedDescription = record.description ?? "";
   const [name, setName] = useState(record.name);
+  const [description, setDescription] = useState(storedDescription);
   const save = useSave(onSaved);
-  const dirty = name !== record.name;
+  const dirty = name !== record.name || description !== storedDescription;
   return (
     <form
       noValidate
       onSubmit={(event) => {
         event.preventDefault();
         if (!name.trim()) return save.setProblem(t("nameRequired"));
-        save.run(() => updateAdvisorService(record.id, { name: name.trim() }));
+        save.run(() => updateAdvisorService(record.id, { name: name.trim(), description: description.trim() }));
       }}
     >
-      <Pane footer={<SaveRow dirty={dirty} onReset={() => setName(record.name)} {...save} />} hint={t("titleHint")} title={t("titleSection")}>
-        <div className="flex flex-col gap-2">
-          <label className="sr-only" htmlFor="listing-title">
+      <Pane
+        footer={
+          <SaveRow
+            dirty={dirty}
+            onReset={() => {
+              setName(record.name);
+              setDescription(storedDescription);
+            }}
+            {...save}
+          />
+        }
+        title={t("textSection")}
+      >
+        <div className="flex flex-col gap-1.5">
+          <label className="text-sm font-medium text-muted-foreground" htmlFor="listing-title">
             {t("titleSection")}
           </label>
           <Textarea
-            className="min-h-0 resize-none rounded-2xl border-accented px-5 py-4 font-hero text-3xl leading-tight tracking-tight text-hero-ink shadow-none md:text-4xl lg:text-frame-title"
+            className="min-h-0 resize-none rounded-xl border-accented bg-card px-4 py-3 text-lg font-semibold text-foreground shadow-none md:text-lg lg:text-frame-body"
             id="listing-title"
             maxLength={150}
             onChange={(event) => {
@@ -342,43 +362,24 @@ function TitlePart({ record, onSaved }: { readonly record: AdvisorService; reado
             rows={2}
             value={name}
           />
-          <Counter count={name.length} max={150} />
+          <div className="flex items-start justify-between gap-3">
+            <p className="text-sm text-muted-foreground">{t("titleHint")}</p>
+            <Counter count={name.length} max={150} />
+          </div>
         </div>
-      </Pane>
-    </form>
-  );
-}
-
-function DescriptionPart({ record, onSaved }: { readonly record: AdvisorService; readonly onSaved: () => void }) {
-  const t = useTranslations("ownerService");
-  const stored = record.description ?? "";
-  const [description, setDescription] = useState(stored);
-  const save = useSave(onSaved);
-  return (
-    <form
-      noValidate
-      onSubmit={(event) => {
-        event.preventDefault();
-        save.run(() => updateAdvisorService(record.id, { description: description.trim() }));
-      }}
-    >
-      <Pane
-        footer={<SaveRow dirty={description !== stored} onReset={() => setDescription(stored)} {...save} />}
-        hint={t("descriptionPlaceholder")}
-        title={t("descriptionLabel")}
-      >
-        <div className="flex flex-col gap-2">
-          <label className="sr-only" htmlFor="listing-description">
+        <div className="flex flex-col gap-1.5">
+          <label className="text-sm font-medium text-muted-foreground" htmlFor="listing-description">
             {t("descriptionLabel")}
           </label>
           <Textarea
-            className="min-h-72 resize-y rounded-2xl border-accented px-5 py-4 text-base leading-relaxed text-foreground shadow-none lg:text-frame-body"
+            className="min-h-56 resize-y rounded-xl border-accented bg-card px-4 py-3 text-base leading-relaxed text-foreground shadow-none md:text-base"
             id="listing-description"
             maxLength={5000}
             onChange={(event) => {
               setDescription(event.target.value);
               save.setSaved(false);
             }}
+            placeholder={t("descriptionPlaceholder")}
             value={description}
           />
           <Counter count={description.length} max={5000} />
@@ -388,11 +389,8 @@ function DescriptionPart({ record, onSaved }: { readonly record: AdvisorService;
   );
 }
 
-function PricePart({ record, hasPackages, onSaved }: {
-  readonly record: AdvisorService;
-  readonly hasPackages: boolean;
-  readonly onSaved: () => void;
-}) {
+/** The price and length a service is sold at when it has no packages: the pricing part's form before any. */
+function BasePrice({ record, onSaved }: { readonly record: AdvisorService; readonly onSaved: () => void }) {
   const t = useTranslations("ownerService");
   const storedPrice = String(record.priceSatang / 100);
   const storedMinutes = String(record.durationMinutes);
@@ -401,6 +399,7 @@ function PricePart({ record, hasPackages, onSaved }: {
   const save = useSave(onSaved);
   return (
     <form
+      className="flex flex-col gap-5"
       noValidate
       onSubmit={(event) => {
         event.preventDefault();
@@ -411,26 +410,326 @@ function PricePart({ record, hasPackages, onSaved }: {
         save.run(() => updateAdvisorService(record.id, { priceSatang: baht * 100, durationMinutes: length }));
       }}
     >
-      <Pane
-        footer={
-          <SaveRow
-            dirty={price !== storedPrice || minutes !== storedMinutes}
-            onReset={() => {
-              setPrice(storedPrice);
-              setMinutes(storedMinutes);
-            }}
-            {...save}
-          />
-        }
-        hint={hasPackages ? t("priceHintPackages") : t("priceHint")}
-        title={t("priceSection")}
-      >
-        <div className="grid max-w-xl grid-cols-2 gap-4">
-          <FieldWithUnit id="listing-price" label={t("priceLabel")} large onChange={(value) => { setPrice(value); save.setSaved(false); }} unit={t("bahtUnit")} value={price} />
-          <FieldWithUnit id="listing-minutes" label={t("minutesLabel")} large onChange={(value) => { setMinutes(value); save.setSaved(false); }} unit={t("minuteUnit")} value={minutes} />
-        </div>
+      <div className="grid grid-cols-2 gap-3">
+        <FieldWithUnit id="listing-price" label={t("priceLabel")} onChange={(value) => { setPrice(value); save.setSaved(false); }} unit={t("bahtUnit")} value={price} />
+        <FieldWithUnit id="listing-minutes" label={t("minutesLabel")} onChange={(value) => { setMinutes(value); save.setSaved(false); }} unit={t("minuteUnit")} value={minutes} />
+      </div>
+      <SaveRow
+        dirty={price !== storedPrice || minutes !== storedMinutes}
+        onReset={() => {
+          setPrice(storedPrice);
+          setMinutes(storedMinutes);
+        }}
+        {...save}
+      />
+    </form>
+  );
+}
+
+/** The category clients find the service under, as capsules. */
+function CategoryPart({ record, categories, onSaved }: {
+  readonly record: AdvisorService;
+  readonly categories: readonly ServiceCategory[] | null;
+  readonly onSaved: () => void;
+}) {
+  const t = useTranslations("ownerService");
+  const [chosen, setChosen] = useState(record.categoryId);
+  const save = useSave(onSaved);
+  return (
+    <form
+      noValidate
+      onSubmit={(event) => {
+        event.preventDefault();
+        save.run(() => updateAdvisorService(record.id, { categoryId: chosen }));
+      }}
+    >
+      <Pane footer={<SaveRow dirty={chosen !== record.categoryId} onReset={() => setChosen(record.categoryId)} {...save} />} hint={t("categoryHint")} title={t("categorySection")}>
+        {categories ? (
+          <div className="flex flex-wrap gap-2" role="radiogroup" aria-label={t("categorySection")}>
+            {categories.map((item) => (
+              <Button
+                aria-checked={chosen === item.id}
+                className={cn(
+                  "h-10 rounded-full px-4 text-sm font-medium shadow-none lg:h-11 lg:text-frame-meta",
+                  chosen === item.id ? "border-hero-action bg-hero-action text-hero-action-foreground hover:bg-hero-action/90" : "border-border bg-card",
+                )}
+                key={item.id}
+                onClick={() => {
+                  setChosen(item.id);
+                  save.setSaved(false);
+                }}
+                role="radio"
+                type="button"
+                variant="outline"
+              >
+                {item.name}
+              </Button>
+            ))}
+          </div>
+        ) : (
+          <div aria-busy className="flex flex-wrap gap-2">
+            {[0, 1, 2, 3].map((key) => (
+              <span className="block h-10 w-28 animate-pulse rounded-full bg-muted" key={key} />
+            ))}
+          </div>
+        )}
       </Pane>
     </form>
+  );
+}
+
+/** Which schedule the service is booked against: the schedules as rows with their weeks, one chosen. */
+function SchedulePart({ record, profiles, onSaved }: {
+  readonly record: AdvisorService;
+  readonly profiles: readonly AvailabilityProfile[] | null;
+  readonly onSaved: () => void;
+}) {
+  const t = useTranslations("ownerService");
+  const weekLine = useWeekLine();
+  const stored = record.availabilityProfileId ?? "";
+  const [chosen, setChosen] = useState(stored);
+  const save = useSave(onSaved);
+  return (
+    <form
+      noValidate
+      onSubmit={(event) => {
+        event.preventDefault();
+        if (chosen) save.run(() => updateAdvisorService(record.id, { availabilityProfileId: chosen }));
+      }}
+    >
+      <Pane footer={<SaveRow dirty={chosen !== stored} onReset={() => setChosen(stored)} {...save} />} hint={t("scheduleProfileHint")} title={t("scheduleProfileSection")}>
+        {profiles === null ? (
+          <span aria-busy className="block h-32 w-full animate-pulse rounded-2xl bg-muted" />
+        ) : (
+          <div className="flex flex-col gap-3">
+            {profiles.length > 0 ? (
+              <ul aria-label={t("scheduleProfileSection")} className="flex flex-col divide-y divide-border overflow-hidden rounded-2xl border border-border" role="radiogroup">
+                {profiles.map((item) => (
+                  <li key={item.id}>
+                    <button
+                      aria-checked={chosen === item.id}
+                      className={cn(
+                        "flex w-full items-center gap-3 px-4 py-3.5 text-left outline-none transition-colors focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:ring-inset lg:px-5",
+                        chosen === item.id ? "bg-muted" : "hover:bg-muted/50",
+                      )}
+                      onClick={() => {
+                        setChosen(item.id);
+                        save.setSaved(false);
+                      }}
+                      role="radio"
+                      type="button"
+                    >
+                      <span
+                        aria-hidden
+                        className={cn(
+                          "flex size-5 shrink-0 items-center justify-center rounded-full border",
+                          chosen === item.id ? "border-hero-action" : "border-accented",
+                        )}
+                      >
+                        {chosen === item.id ? <span className="size-2.5 rounded-full bg-hero-action" /> : null}
+                      </span>
+                      <span className="flex min-w-0 flex-1 flex-col gap-0.5">
+                        <span className="text-sm font-medium text-foreground lg:text-frame-meta">{item.name}</span>
+                        <span className="truncate text-sm text-muted-foreground lg:text-frame-meta">{weekLine(item) || t("scheduleEmptyWeek")}</span>
+                      </span>
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p className="text-sm text-muted-foreground lg:text-frame-meta">{t("noSchedules")}</p>
+            )}
+            <Button className={cn(authPill(false), PILL, "self-start")} nativeButton={false} render={<Link href="/availability/profiles/new" />} variant="outline">
+              <Plus aria-hidden />
+              {t("newSchedule")}
+            </Button>
+          </div>
+        )}
+      </Pane>
+    </form>
+  );
+}
+
+/** How the service may be booked: a daily ceiling, questions before booking, a free trial. Switch rows on hairlines. */
+function BookingPart({ record, onSaved }: { readonly record: AdvisorService; readonly onSaved: () => void }) {
+  const t = useTranslations("ownerService");
+  const global = useResource<GlobalAvailability>("availability/global", availabilityApi.getGlobal);
+  const ceilingHours = Math.floor((global.data?.dailyConsultationLimitMinutes ?? CUSTOM_BOUNDS.dailyLimitHours.max * 60) / 60);
+  const storedLimit = record.dailyConsultationLimitMinutes;
+  const [limit, setLimit] = useState<number | null>(storedLimit);
+  const [screening, setScreening] = useState(record.screeningRequired);
+  const [trial, setTrial] = useState<number | null>(record.trialEnabled ? record.trialDurationMinutes : null);
+  const save = useSave(onSaved);
+  const dirty =
+    limit !== storedLimit || screening !== record.screeningRequired || trial !== (record.trialEnabled ? record.trialDurationMinutes : null);
+  const reset = () => {
+    setLimit(storedLimit);
+    setScreening(record.screeningRequired);
+    setTrial(record.trialEnabled ? record.trialDurationMinutes : null);
+  };
+  const touch = () => save.setSaved(false);
+  const hours = Array.from({ length: Math.max(ceilingHours, 1) }, (_, index) => index + 1);
+
+  const row = (title: string, body: string, control: ReactNode, below?: ReactNode) => (
+    <li className="flex flex-col gap-3 py-4 first:pt-0 last:pb-0">
+      <div className="flex items-start justify-between gap-4">
+        <span className="flex min-w-0 flex-col gap-0.5">
+          <span className="text-sm font-medium text-foreground lg:text-frame-meta">{title}</span>
+          <span className="text-sm text-muted-foreground lg:text-frame-meta">{body}</span>
+        </span>
+        {control}
+      </div>
+      {below}
+    </li>
+  );
+
+  return (
+    <form
+      noValidate
+      onSubmit={(event) => {
+        event.preventDefault();
+        save.run(() =>
+          updateAdvisorService(record.id, {
+            dailyConsultationLimitMinutes: limit,
+            screeningRequired: screening,
+            trialEnabled: trial !== null,
+            ...(trial === null ? {} : { trialDurationMinutes: trial }),
+          }),
+        );
+      }}
+    >
+      <Pane footer={<SaveRow dirty={dirty} onReset={reset} {...save} />} hint={t("bookingHint")} title={t("bookingSection")}>
+        <ul className="flex flex-col divide-y divide-border">
+          {row(
+            t("limitTitle"),
+            t("limitBody"),
+            <Switch
+              aria-label={t("limitTitle")}
+              checked={limit !== null}
+              onCheckedChange={(on) => {
+                setLimit(on ? Math.min(4, ceilingHours) * 60 : null);
+                touch();
+              }}
+            />,
+            limit === null ? null : (
+              <Choice
+                label={t("limitTitle")}
+                onChange={(value) => {
+                  setLimit(Number(value) * 60);
+                  touch();
+                }}
+                options={hours.map((count) => ({ value: String(count), label: t("limitHours", { count }) }))}
+                value={String(limit / 60)}
+              />
+            ),
+          )}
+          {row(
+            t("screeningTitle"),
+            t("screeningBody"),
+            <Switch
+              aria-label={t("screeningTitle")}
+              checked={screening}
+              onCheckedChange={(on) => {
+                setScreening(on);
+                touch();
+              }}
+            />,
+            screening ? (
+              <Link className="self-start text-sm font-medium text-foreground underline underline-offset-4 lg:text-frame-meta" href="/screening/setup">
+                {t("screeningSetup")}
+              </Link>
+            ) : null,
+          )}
+          {row(
+            t("trialTitle"),
+            t("trialBody"),
+            <Switch
+              aria-label={t("trialTitle")}
+              checked={trial !== null}
+              onCheckedChange={(on) => {
+                setTrial(on ? 15 : null);
+                touch();
+              }}
+            />,
+            trial === null ? null : (
+              <Choice
+                label={t("trialTitle")}
+                onChange={(value) => {
+                  setTrial(Number(value));
+                  touch();
+                }}
+                options={[15, 30].map((count) => ({ value: String(count), label: t("trialMinutes", { count }) }))}
+                value={String(trial)}
+              />
+            ),
+          )}
+        </ul>
+      </Pane>
+    </form>
+  );
+}
+
+/** A small set of choices as capsules, one chosen. */
+function Choice({ label, value, options, onChange }: {
+  readonly label: string;
+  readonly value: string;
+  readonly options: readonly { readonly value: string; readonly label: string }[];
+  readonly onChange: (next: string) => void;
+}) {
+  return (
+    <div aria-label={label} className="flex flex-wrap gap-2" role="radiogroup">
+      {options.map((option) => (
+        <Button
+          aria-checked={value === option.value}
+          className={cn(
+            "h-9 rounded-full px-3.5 font-latin text-sm shadow-none lg:h-10 lg:text-frame-meta",
+            value === option.value ? "border-hero-action bg-hero-action text-hero-action-foreground hover:bg-hero-action/90" : "border-border bg-card",
+          )}
+          key={option.value}
+          onClick={() => onChange(option.value)}
+          role="radio"
+          type="button"
+          variant="outline"
+        >
+          {option.label}
+        </Button>
+      ))}
+    </div>
+  );
+}
+
+/** Deleting the service, after asking; the services list is where it ends. */
+function DeleteServiceConfirm({ record, onClose }: { readonly record: AdvisorService; readonly onClose: () => void }) {
+  const f = useTranslations("serviceForm");
+  const router = useRouter();
+  const [busy, setBusy] = useState(false);
+  const [problem, setProblem] = useState<string | null>(null);
+  return (
+    <EntryDialog
+      busy={busy}
+      onOpenChange={(next) => (next ? null : onClose())}
+      onSubmit={() => {
+        setBusy(true);
+        setProblem(null);
+        void (async () => {
+          try {
+            await deleteAdvisorService(record.id);
+            invalidate("advisors/me/services");
+            invalidate("services");
+            router.push("/advisor/services");
+          } catch (cause: unknown) {
+            setProblem(messageOf(cause));
+            setBusy(false);
+          }
+        })();
+      }}
+      open
+      problem={problem}
+      submitLabel={f("deleteConfirm")}
+      title={f("deleteDialogTitle")}
+    >
+      <p className="text-base text-muted-foreground">{f("deleteDialogBody", { name: record.name })}</p>
+    </EntryDialog>
   );
 }
 
@@ -473,12 +772,13 @@ function RelatedPart({ record, onSaved }: { readonly record: AdvisorService; rea
  * length, its order changed by its arrows, opened to edit or removed after
  * asking; a new one added from the same dialog.
  */
-function PackagesPart({ serviceId, packages, onChanged }: {
-  readonly serviceId: string;
+function PackagesPart({ record, packages, onChanged }: {
+  readonly record: AdvisorService;
   readonly packages: readonly ApiServicePackage[];
   readonly onChanged: () => void;
 }) {
   const t = useTranslations("ownerService");
+  const serviceId = record.id;
   const format = useFormatter();
   const [editing, setEditing] = useState<{ readonly id: string | null } | null>(null);
   const [removing, setRemoving] = useState<ApiServicePackage | null>(null);
@@ -508,7 +808,7 @@ function PackagesPart({ serviceId, packages, onChanged }: {
   };
 
   return (
-    <Pane hint={t("packagesHint")} title={t("packagesTitle")}>
+    <Pane hint={packages.length > 0 ? t("packagesHint") : t("pricingHintNone")} title={t("pricingSection")}>
       {packages.length > 0 ? (
         <ul className="flex flex-col gap-3">
           {packages.map((item, index) => (
@@ -544,7 +844,8 @@ function PackagesPart({ serviceId, packages, onChanged }: {
           ))}
         </ul>
       ) : (
-        <p className="text-sm text-muted-foreground lg:text-frame-meta">{t("noPackages")}</p>
+        // Without packages the service is sold as itself: its own price and length are the ones to set.
+        <BasePrice key={`price-${record.modifiedAt}`} onSaved={onChanged} record={record} />
       )}
       {problem ? (
         <p className="text-sm text-destructive" role="alert">
