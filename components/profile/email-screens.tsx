@@ -63,6 +63,7 @@ function ChangeEmailForm({ state = "default" }: { readonly state?: "default" | "
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (submitting) return;
     const next = email.trim().toLowerCase();
     if (!isEmail(next)) {
       setProblem("invalid-email");
@@ -94,42 +95,44 @@ function ChangeEmailForm({ state = "default" }: { readonly state?: "default" | "
       title={t("title")}
     >
       <form className="flex w-full flex-col" noValidate onSubmit={submit}>
-        {/* The address the account has now is on the settings row behind;
-            the dialog only asks for the new one. */}
-        <div className="flex w-full flex-col">
-          <Field
-            autoComplete="email"
-            error={emailError}
-            id="new-email"
-            invalid={emailError !== undefined}
-            label={t("newLabel")}
-            latin
-            onChange={(event) => {
-              setEmail(event.target.value);
-              setProblem(null);
-            }}
-            outline
-            placeholder={t("newPlaceholder")}
-            type="email"
-            value={email}
-          />
-        </div>
-        {/* A taken address is said under its field; a request that did not
-            go through, here, where the reader is about to press again. */}
-        {problem === "request-failed" ? (
-          <p className="mt-3 text-xs text-destructive md:text-sm" role="alert">
-            {t("requestFailed")}
-          </p>
-        ) : null}
+        <fieldset className="contents" disabled={submitting}>
+          {/* The address the account has now is on the settings row behind;
+              the dialog only asks for the new one. */}
+          <div className="flex w-full flex-col">
+            <Field
+              autoComplete="email"
+              error={emailError}
+              id="new-email"
+              invalid={emailError !== undefined}
+              label={t("newLabel")}
+              latin
+              onChange={(event) => {
+                setEmail(event.target.value);
+                setProblem(null);
+              }}
+              outline
+              placeholder={t("newPlaceholder")}
+              type="email"
+              value={email}
+            />
+          </div>
+          {/* A taken address is said under its field; a request that did not
+              go through, here, where the reader is about to press again. */}
+          {problem === "request-failed" ? (
+            <p className="mt-3 text-xs text-destructive md:text-sm" role="alert">
+              {t("requestFailed")}
+            </p>
+          ) : null}
 
-        <div className={SETTINGS_DIALOG_STACK}>
-          <Button className={settingsStackPill("solid")} disabled={!email.trim() || submitting} type="submit">
-            {t("submit")}
-          </Button>
-          <Button className={settingsStackPill("soft")} nativeButton={false} render={<Link href="/settings" />} variant="ghost">
-            {c("cancel")}
-          </Button>
-        </div>
+          <div className={SETTINGS_DIALOG_STACK}>
+            <Button className={settingsStackPill("solid")} disabled={!email.trim() || submitting} type="submit">
+              {t("submit")}
+            </Button>
+            <Button className={settingsStackPill("soft")} nativeButton={false} render={<Link href="/settings" />} variant="ghost">
+              {c("cancel")}
+            </Button>
+          </div>
+        </fieldset>
       </form>
     </SettingsDialog>
   );
