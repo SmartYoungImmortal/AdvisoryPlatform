@@ -49,7 +49,7 @@ for (const width of [1440, 390]) {
     page.on("pageerror", (error) => errors.push(error.message));
     try {
       await page.goto("/profile/edit");
-      const field = page.locator("#display-name");
+      const field = page.locator(width < 1024 ? "#phone-display-name" : "#display-name");
       await expect(field).toHaveValue(original.displayName);
       await field.fill(nextName);
       await page.route(profileUrl, (route) =>
@@ -63,6 +63,7 @@ for (const width of [1440, 390]) {
       await expect(page.getByRole("form").getByRole("alert")).toContainText(
         "บันทึกการเปลี่ยนแปลงไม่สำเร็จ",
       );
+      await expect(page.getByRole("form").getByRole("alert")).toContainText("The API could not be reached");
       await expect(field).toHaveValue(nextName);
       expect(
         names.parse(
@@ -90,7 +91,7 @@ for (const width of [1440, 390]) {
         .click();
       await requestStarted;
       await expect(field).toBeDisabled();
-      await expect(page.locator("#full-name")).toBeDisabled();
+      await expect(page.locator(width < 1024 ? "#phone-full-name" : "#full-name")).toBeDisabled();
       await expect(
         page.getByRole("button", { name: "กำลังบันทึก…", exact: true }),
       ).toBeDisabled();

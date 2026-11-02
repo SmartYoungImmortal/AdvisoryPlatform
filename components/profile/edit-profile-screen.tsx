@@ -52,7 +52,9 @@ function TextField({
   disabled,
   autoComplete,
   inputRef,
+  compact = false,
 }: {
+  readonly compact?: boolean;
   readonly id: string;
   readonly label: string;
   readonly hint?: string;
@@ -82,8 +84,8 @@ function TextField({
   }
 
   return (
-    <FieldRoot className="gap-1.5 lg:gap-2" data-invalid={error ? true : undefined}>
-      <FieldLabel className="text-sm font-medium text-muted-foreground md:text-base" htmlFor={id}>
+    <FieldRoot className={compact ? "gap-1" : "gap-1.5 lg:gap-2"} data-invalid={error ? true : undefined}>
+      <FieldLabel className={compact ? "text-sm font-medium text-foreground" : "text-sm font-medium text-muted-foreground md:text-base"} htmlFor={id}>
         {label}
       </FieldLabel>
       {loading ? (
@@ -93,7 +95,7 @@ function TextField({
           aria-describedby={footnote ? note : undefined}
           aria-invalid={error ? true : undefined}
           autoComplete={autoComplete}
-          className="h-11 rounded-xl border-accented bg-card px-4 text-base shadow-none md:h-12 md:text-base lg:px-[19px] lg:text-frame-body"
+          className={compact ? "h-9 min-h-9 rounded-md border-input bg-muted px-3 text-sm shadow-none" : "h-11 rounded-xl border-accented bg-card px-4 text-base shadow-none md:h-12 md:text-base lg:px-[19px] lg:text-frame-body"}
           id={id}
           disabled={disabled}
           onChange={(event) => onChange(event.target.value)}
@@ -227,36 +229,9 @@ function InlineAlert({ title, body }: { readonly title: string; readonly body: s
 }
 
 /**
- * `/profile/edit` and `/profile/edit/save-failed`: the profile's own frame
- * (`ProfileHero`: crumb, identity and cover) with its facts turned
- * into fields where they stand: the photo control is the portrait, the display
- * name is where the name is, the address stays locked on the handle line. The
- * cover is the profile's, unchanged, so the page reads as the profile being
- * edited rather than as a form somewhere else. Under the line where the
- * profile has its tabs, the rest of the details and the save bar.
- *
- * ## What it writes
- *
- * `PATCH /users/me` takes `displayName`, `fullName` and `timezone`, each optional
- * and each rejected empty (`@IsNotEmpty` after `@Trim`). Only the fields that
- * actually changed are sent, so saving an untouched form is not a write, and
- * an emptied field is caught here with its own message rather than sent for
- * the API to refuse.
- *
- * `POST /users/me/avatar` is multipart on the field name `file`, JPEG/PNG/WebP
- * up to 5 MB. The same two rules are checked before the upload, so a wrong
- * file is refused at once; anything else the API refuses comes back as its
- * own sentence.
- *
- * ## The failed save
- *
- * Said in place, above the save bar it is about, with the API's reason; the
- * edits stay in the fields and the button becomes "try again".
- * `/profile/edit/save-failed` forces that state open, with a body that says what
- * is true without an API error to quote.
- *
- * The email is shown locked: no route on this API changes an email, that is
- * better-auth's, behind the account settings the note links to.
+ * The phone follows the final edit-profile frame; desktop retains its profile
+ * hero. Both layouts share draft names, upload state and the same API save.
+ * Failed writes retain the draft and expose the returned error for retry.
  */
 export function EditProfileScreen({
   state = "default",
@@ -274,6 +249,8 @@ export function EditProfileScreen({
   const picker = useRef<HTMLInputElement>(null);
   const nameField = useRef<HTMLInputElement>(null);
   const fullField = useRef<HTMLInputElement>(null);
+  const phoneNameField = useRef<HTMLInputElement>(null);
+  const phoneFullField = useRef<HTMLInputElement>(null);
 
   const [displayName, setDisplayName] = useState<string | null>(null);
   const [fullName, setFullName] = useState<string | null>(null);
@@ -314,7 +291,8 @@ export function EditProfileScreen({
 
     const found = nameErrors(nextName, nextFull, profile.data, t);
     setErrors(found);
-    if (focusFirstError(found, nameField, fullField)) return;
+    const desktop = window.matchMedia("(min-width: 1024px)").matches;
+    if (focusFirstError(found, desktop ? nameField : phoneNameField, desktop ? fullField : phoneFullField)) return;
 
     const changes = nameChanges(nextName, nextFull, profile.data);
     if (Object.keys(changes).length === 0) {
@@ -343,12 +321,12 @@ export function EditProfileScreen({
   return (
     // White under the back chevron too, so the phone's top strip is the page
     // and not a grey band above it.
-    <MobileScreen className="bg-card pb-0" wide="md">
-      <ScreenTopBar className="lg:hidden" href="/profile" label={c("back")} />
+    <MobileScreen className="profile-edit-page bg-background pb-0 lg:bg-card" wide="md">
+      <ScreenTopBar className="pt-2 lg:hidden" href="/profile" label={c("back")} />
       <AppFrame active="profile">
-      <ScreenBody className="bg-card">
+      <ScreenBody className="bg-background lg:bg-card">
         <AccountShell active="profile">
-          <div className="flex w-full shrink-0 flex-col gap-4 px-4 pb-6 md:px-8 lg:gap-6 lg:p-0">
+          <div className="flex w-full shrink-0 flex-col gap-0 px-6 pb-0 lg:gap-6 lg:p-0">
             {/* The picker itself: `Input` rather than a bare <input>, so it
                 carries the primitive's states and clears the design guard. */}
             <Input
@@ -366,13 +344,55 @@ export function EditProfileScreen({
               type="file"
             />
 
-            <ProfileCrumb current={t("title")} />
-            <h1 className="sr-only">{t("title")}</h1>
+            <div className="hidden lg:block"><ProfileCrumb current={t("title")} /></div>
+            <h1 className="pt-4 text-heading font-semibold lg:sr-only">{t("title")}</h1>
+            <p className="pt-2 pb-2 text-sm text-muted-foreground lg:hidden">{t("subtitle")}</p>
 
             {profile.error ? (
               <ApiErrorCard error={profile.error} onRetry={profile.reload} title={t("loadFailedTitle")} />
             ) : (
               <form aria-label={t("title")} className="flex flex-col gap-4 lg:gap-6" noValidate onSubmit={(event) => void save(event)}>
+                <div className="flex min-h-[calc(100dvh-136px)] flex-col lg:hidden">
+                  {saveError ? (
+                    <div className="mt-2 flex items-start gap-3 rounded-xl border border-destructive bg-card px-3.5 py-3" role="alert">
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img alt="" className="shrink-0" src="/figma/profile-edit/bell-off.svg" width={18} height={18} />
+                      <div className="flex min-w-0 flex-col gap-0.5">
+                        <p className="text-sm font-medium">{t("saveFailedTitle")}</p>
+                        <p className="text-xs text-muted-foreground">{saveError}</p>
+                      </div>
+                    </div>
+                  ) : null}
+                  <div className="flex flex-col items-center gap-3 pt-2">
+                    <OwnAvatar className="size-24 text-3xl" fluid size={96} />
+                    <Button className="h-9 rounded-md bg-card px-4 text-sm shadow-none" disabled={photoBusy} onClick={pick} type="button" variant="outline">
+                      {uploading ? t("photoUploading") : t("changePhoto")}
+                    </Button>
+                    {photoError ? <InlineAlert title={t("photoRejectedTitle")} body={photoError} /> : null}
+                  </div>
+                  <div className="flex flex-col gap-4 pt-5">
+                    <TextField compact id="phone-display-name" label={t("displayNameLabel")} autoComplete="nickname" value={nameValue} onChange={(value) => { setDisplayName(value); setErrors({ ...errors, displayName: undefined }); }} error={errors.displayName} loading={!ready} disabled={saving} inputRef={phoneNameField} />
+                    <TextField compact id="phone-full-name" label={t("fullNameLabel")} autoComplete="name" value={fullValue} onChange={(value) => { setFullName(value); setErrors({ ...errors, fullName: undefined }); }} error={errors.fullName} loading={!ready} disabled={saving} inputRef={phoneFullField} />
+                  </div>
+                  <div className="flex flex-col gap-2 pt-4">
+                    <div className="flex items-center gap-2.5 rounded-xl bg-card p-3.5">
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img alt="" className="shrink-0" src="/figma/profile-edit/lock.svg" width={16} height={16} />
+                      <div className="flex min-w-0 flex-col gap-0.5">
+                        <span className="text-xs text-muted-foreground">{c("email")}</span>
+                        <span className="truncate font-latin text-sm font-medium">{email}</span>
+                      </div>
+                    </div>
+                    <p className="text-xs text-muted-foreground">{t.rich("emailNoteLinked", { link: settingsLink })}</p>
+                  </div>
+                  <div className="mt-auto flex flex-col gap-3 pt-12 pb-2">
+                    <Button aria-busy={saving || undefined} className="h-9 w-full rounded-md bg-info text-primary-foreground text-sm hover:bg-info/90" disabled={!ready || saving || uploading} type="submit">
+                      {saving ? <LoaderCircle aria-hidden className="animate-spin motion-reduce:animate-none" /> : null}{saveLabel}
+                    </Button>
+                    <Button className="h-9 w-full rounded-md bg-card text-sm shadow-none" nativeButton={false} render={<Link href="/profile" />} variant="outline">{c("cancel")}</Button>
+                  </div>
+                </div>
+                <div className="hidden lg:contents">
                 <ProfileHero
                     cover={<ProfileCover categories={history.categories} />}
                     identity={
@@ -533,6 +553,7 @@ export function EditProfileScreen({
                       {t("previewPrivate")}
                     </p>
                   </aside>
+                </div>
                 </div>
               </form>
             )}
