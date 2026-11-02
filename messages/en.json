@@ -65,6 +65,8 @@
     "onSale": "Open for booking",
     "hiddenShort": "Hidden",
     "publishSwitch": "Open for booking",
+    "saleOnBody": "Clients can see and book it",
+    "saleOffBody": "Hidden: clients can't see it yet",
     "schedule": "Schedule",
     "moreSettings": "More settings",
     "namePlaceholder": "A name customers understand at once",

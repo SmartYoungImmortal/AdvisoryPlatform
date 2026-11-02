@@ -1,6 +1,6 @@
 "use client";
 
-import { ArrowDown, ArrowUp, CalendarRange, ImagePlus, Pencil, Plus, Trash2, X } from "lucide-react";
+import { ArrowDown, ArrowUp, CalendarRange, Eye, ImagePlus, Pencil, Plus, Trash2, X } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useFormatter, useTranslations } from "next-intl";
@@ -341,11 +341,7 @@ export function ServiceEditor({
     ? {
         title: draft.name.trim() || record.name,
         backHref: "/advisor/services",
-        action: (
-          <div className="flex flex-wrap items-center gap-2 lg:shrink-0 lg:gap-3">
-            <OwnerControls mode={mode} onMode={setMode} onPublished={(next) => set("published", next)} published={draft.published} serviceId={record.id} />
-          </div>
-        ),
+        action: <ModeButton mode={mode} onMode={setMode} />,
       }
     : { title: e("createTitle"), backHref: "/advisor/services" };
 
@@ -468,14 +464,17 @@ export function ServiceEditor({
             chosen={draft.profileId}
             onChange={(next) => set("profileId", next)}
             profiles={profiles.data ?? null}
+            serviceId={record?.id}
           />
         </Pane>
         <Pane part="booking" title={t("bookingSection")}>
           <BookingRules
             limit={draft.limit}
             onLimit={(next) => set("limit", next)}
+            onPublished={record ? (next) => set("published", next) : undefined}
             onScreening={(next) => set("screening", next)}
             onTrial={(next) => set("trial", next)}
+            published={draft.published}
             screening={draft.screening}
             trial={draft.trial}
           />
@@ -510,52 +509,19 @@ export function NewServiceScreen() {
 /* ------------------------------------------------------------------ frame */
 
 /**
- * What a service that exists adds to the head: the two ways to see it as
- * the desk's capsules, its sale switch (held with the rest until the save),
- * and its schedule.
+ * The head's one action for a service that exists: the client's view of the
+ * page as it is being edited, and from there the way back to editing. The
+ * sale switch is the booking part's first rule, and the schedule is with the
+ * hours, so the head holds nothing else.
  */
-function OwnerControls({ serviceId, mode, onMode, published, onPublished }: {
-  readonly serviceId: string;
-  readonly mode: "edit" | "preview";
-  readonly onMode: (next: "edit" | "preview") => void;
-  readonly published: boolean;
-  readonly onPublished: (next: boolean) => void;
-}) {
+function ModeButton({ mode, onMode }: { readonly mode: "edit" | "preview"; readonly onMode: (next: "edit" | "preview") => void }) {
   const t = useTranslations("ownerService");
+  const editing = mode === "edit";
   return (
-    <>
-      <div aria-label={t("modeLabel")} className="flex gap-2 lg:gap-3" role="group">
-        {(["edit", "preview"] as const).map((option) => (
-          <button
-            aria-pressed={mode === option}
-            className={cn(
-              "flex h-9 shrink-0 items-center rounded-full border px-3.5 text-sm font-medium whitespace-nowrap outline-none transition-colors focus-visible:ring-3 focus-visible:ring-ring/50 lg:h-12 lg:px-5 lg:text-frame-meta",
-              mode === option
-                ? "border-hero-action bg-hero-action text-hero-action-foreground hover:bg-hero-action/90"
-                : "border-border bg-card text-foreground hover:bg-muted",
-            )}
-            key={option}
-            onClick={() => onMode(option)}
-            type="button"
-          >
-            {t(option === "edit" ? "modeEdit" : "modePreview")}
-          </button>
-        ))}
-      </div>
-      <label className="flex h-9 items-center gap-2.5 px-1 text-sm text-foreground lg:h-12 lg:text-frame-meta">
-        <span className={published ? "text-success" : "text-muted-foreground"}>{published ? t("onSale") : t("hiddenShort")}</span>
-        <Switch aria-label={t("publishSwitch")} checked={published} onCheckedChange={onPublished} />
-      </label>
-      <Button
-        className={cn(authPill(false), PILL)}
-        nativeButton={false}
-        render={<Link href={`/advisor/services/schedule?serviceId=${encodeURIComponent(serviceId)}`} />}
-        variant="outline"
-      >
-        <CalendarRange aria-hidden />
-        {t("schedule")}
-      </Button>
-    </>
+    <Button className={cn(authPill(false), PILL)} onClick={() => onMode(editing ? "preview" : "edit")} type="button" variant="outline">
+      {editing ? <Eye aria-hidden /> : <Pencil aria-hidden />}
+      {t(editing ? "modePreview" : "modeEdit")}
+    </Button>
   );
 }
 
@@ -991,12 +957,14 @@ function CategoryChoices({ categories, chosen, onChange }: {
 }
 
 /** The schedules as rows on hairlines, each its name over its week, one chosen; and the way to make another. */
-function ScheduleChoices({ profiles, chosen, onChange, back }: {
+function ScheduleChoices({ profiles, chosen, onChange, back, serviceId }: {
   readonly profiles: readonly AvailabilityProfile[] | null;
   readonly chosen: string;
   readonly onChange: (next: string) => void;
   /** This page, where the new schedule's editor comes back to once saved. */
   readonly back: string;
+  /** A service that exists: the way to its own schedule (`/advisor/services/schedule`) beside making one. */
+  readonly serviceId?: string;
 }) {
   const t = useTranslations("ownerService");
   const weekLine = useWeekLine();
@@ -1034,22 +1002,38 @@ function ScheduleChoices({ profiles, chosen, onChange, back }: {
       ) : (
         <p className="text-sm text-muted-foreground lg:text-frame-meta">{t("noSchedules")}</p>
       )}
-      <Button className={cn(authPill(false), PILL, "self-start")} nativeButton={false} render={<Link href={`/availability/profiles/new?back=${encodeURIComponent(back)}`} />} variant="outline">
-        <Plus aria-hidden />
-        {t("newSchedule")}
-      </Button>
+      <div className="flex flex-wrap gap-2 lg:gap-3">
+        <Button className={cn(authPill(false), PILL)} nativeButton={false} render={<Link href={`/availability/profiles/new?back=${encodeURIComponent(back)}`} />} variant="outline">
+          <Plus aria-hidden />
+          {t("newSchedule")}
+        </Button>
+        {serviceId ? (
+          <Button
+            className={cn(authPill(false), PILL)}
+            nativeButton={false}
+            render={<Link href={`/advisor/services/schedule?serviceId=${encodeURIComponent(serviceId)}`} />}
+            variant="outline"
+          >
+            <CalendarRange aria-hidden />
+            {t("schedule")}
+          </Button>
+        ) : null}
+      </div>
     </div>
   );
 }
 
-/** The booking rules as switch rows on hairlines: a daily ceiling, questions before booking, a free trial. */
-function BookingRules({ limit, screening, trial, onLimit, onScreening, onTrial }: {
+/** The booking rules as switch rows on hairlines: on sale (a service that exists), a daily ceiling, questions before booking, a free trial. */
+function BookingRules({ limit, screening, trial, onLimit, onScreening, onTrial, published, onPublished }: {
   readonly limit: number | null;
   readonly screening: boolean;
   readonly trial: number | null;
   readonly onLimit: (next: number | null) => void;
   readonly onScreening: (next: boolean) => void;
   readonly onTrial: (next: number | null) => void;
+  /** A service that exists: whether it is on sale, the first rule (held with the rest until the save). */
+  readonly published?: boolean;
+  readonly onPublished?: (next: boolean) => void;
 }) {
   const t = useTranslations("ownerService");
   const global = useResource<GlobalAvailability>("availability/global", availabilityApi.getGlobal);
@@ -1071,6 +1055,13 @@ function BookingRules({ limit, screening, trial, onLimit, onScreening, onTrial }
 
   return (
     <ul className="flex flex-col divide-y divide-border">
+      {onPublished
+        ? row(
+            t("onSale"),
+            published ? t("saleOnBody") : t("saleOffBody"),
+            <Switch aria-label={t("publishSwitch")} checked={Boolean(published)} onCheckedChange={onPublished} />,
+          )
+        : null}
       {row(
         t("limitTitle"),
         t("limitBody"),

@@ -3072,6 +3072,8 @@
     "onSale": "เปิดให้จอง",
     "hiddenShort": "ซ่อนอยู่",
     "publishSwitch": "เปิดให้จอง",
+    "saleOnBody": "ลูกค้าเห็นและจองได้",
+    "saleOffBody": "ซ่อนอยู่ ลูกค้ายังไม่เห็น",
     "schedule": "ตารางเวลา",
     "moreSettings": "ตั้งค่าเพิ่มเติม",
     "namePlaceholder": "ตั้งชื่อบริการให้ลูกค้าเข้าใจทันที",

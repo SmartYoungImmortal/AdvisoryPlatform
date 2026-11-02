@@ -40,7 +40,8 @@ import {
   type ScreeningErrorKey,
 } from "@/components/screening/screening-data";
 import { DayGroup } from "@/components/notifications/notification-center-screen";
-import { DESK_BOX, DESK_GLYPH, DESK_ROW } from "@/components/work/desk-page";
+import { DESK_GLYPH, DESK_ROW } from "@/components/work/desk-page";
+import { DeskEmpty, DeskFilter, DeskListSkeleton } from "@/components/work/desk-parts";
 import { WorkHub } from "@/components/work/work-hub";
 import { invalidate, useResource } from "@/lib/api/use-resource";
 import { cn } from "@/lib/utils";
@@ -99,13 +100,16 @@ function RequestRow({
 
 /**
  * `/screening/requests`: the answers advisees sent before booking a screened
- * service, on the desk's frame — the ones waiting on the advisor first, then
- * those already answered, each a row that opens its answers.
+ * service, as the transactions page lays out its history — the capsules
+ * (all, waiting, answered, each with how many), then the ones waiting on the
+ * advisor and those already answered, each a row that opens its answers.
  */
 export function LiveScreeningRequests() {
   const t = useTranslations("screening");
+  const w = useTranslations("workDesk");
   const now = useMountTime();
   const elapsed = useElapsedLabel(now);
+  const [shown, setShown] = useState<"all" | "pending" | "answered">("all");
   const requests = useResource(
     screeningKeys.requests,
     useCallback((signal: AbortSignal) => listScreeningRequests({ limit: 100 }, signal), []),
@@ -113,54 +117,52 @@ export function LiveScreeningRequests() {
 
   let body;
   if (requests.loading) {
-    body = <LoadingBlock />;
+    body = <DeskListSkeleton capsules={["w-22 lg:w-26", "w-30 lg:w-36", "w-24 lg:w-28"]} groups={1} label={w("loading")} rows={3} />;
   } else if (requests.error || !requests.data) {
     body = (
-      <ScreeningErrorNotice
-        errorKey={screeningErrorKey(requests.error)}
-        onRetry={requests.reload}
-      />
-    );
-  } else if (requests.data.items.length === 0) {
-    body = (
-      <div className={cn(DESK_BOX, "flex flex-col items-center gap-3 px-6 py-12 text-center lg:gap-5 lg:py-20")}>
-        <span className="flex size-11 items-center justify-center rounded-full bg-muted text-hero-ink/75 lg:size-14">
-          <Inbox aria-hidden className="size-5 lg:size-7" strokeWidth={1.5} />
-        </span>
-        <div className="flex flex-col items-center gap-1">
-          <h2 className="text-base font-semibold text-foreground lg:text-frame-figure">{t("requestsEmptyTitle")}</h2>
-          <p className="text-xs text-balance text-muted-foreground lg:text-frame-meta">{t("requestsEmptyBody")}</p>
-        </div>
+      <div className="mt-5 lg:mt-8">
+        <ScreeningErrorNotice errorKey={screeningErrorKey(requests.error)} onRetry={requests.reload} />
       </div>
     );
+  } else if (requests.data.items.length === 0) {
+    body = <DeskEmpty body={t("requestsEmptyBody")} icon={Inbox} title={t("requestsEmptyTitle")} />;
   } else {
     const pending = requests.data.items.filter((request) => request.status === "PENDING");
     const answered = requests.data.items.filter((request) => request.status !== "PENDING");
+    const groups = [
+      { key: "pending", label: t("pending"), rows: shown === "answered" ? [] : pending },
+      { key: "answered", label: t("answered"), rows: shown === "pending" ? [] : answered },
+    ].filter((group) => group.rows.length > 0);
     body = (
-      <div className="-mt-5 flex flex-col divide-y divide-border lg:-mt-8">
-        {pending.length > 0 ? (
-          <DayGroup label={t("pending")}>
-            {pending.map((request) => (
-              <RequestRow elapsed={elapsed} key={request.id} request={request} />
+      <>
+        <DeskFilter
+          label={t("requestsTitle")}
+          onChange={setShown}
+          options={[
+            { key: "all", label: w("filterAll"), note: requests.data.items.length },
+            { key: "pending", label: t("pending"), note: pending.length },
+            { key: "answered", label: t("answered"), note: answered.length },
+          ]}
+          value={shown}
+        />
+        {groups.length === 0 ? (
+          <p className="pt-8 text-sm text-muted-foreground lg:pt-12 lg:text-frame-body">{w("filteredEmpty")}</p>
+        ) : (
+          <div className="flex flex-col divide-y divide-border">
+            {groups.map((group) => (
+              <DayGroup key={group.key} label={group.label}>
+                {group.rows.map((request) => (
+                  <RequestRow elapsed={elapsed} key={request.id} request={request} />
+                ))}
+              </DayGroup>
             ))}
-          </DayGroup>
-        ) : null}
-        {answered.length > 0 ? (
-          <DayGroup label={t("answered")}>
-            {answered.map((request) => (
-              <RequestRow elapsed={elapsed} key={request.id} request={request} />
-            ))}
-          </DayGroup>
-        ) : null}
-      </div>
+          </div>
+        )}
+      </>
     );
   }
 
-  return (
-    <WorkHub tab="requests">
-      <div className="mt-5 flex flex-col lg:mt-8">{body}</div>
-    </WorkHub>
-  );
+  return <WorkHub tab="requests">{body}</WorkHub>;
 }
 
 /* ------------------------------------------------------------------- review */
