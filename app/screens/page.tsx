@@ -84,7 +84,6 @@ const SECTIONS: ReadonlyArray<{
     node: "995:11175",
     screens: [
       { href: "/matching", label: "Problem description" },
-      { href: "/matching/searching", label: "Matching in progress" },
       { href: "/matching/results", label: "Matched advisors" },
     ],
   },

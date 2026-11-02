@@ -453,6 +453,16 @@ function EmptyResults({
           {t("clearFilters")}
         </Button>
       ) : null}
+      {/* Words that find nothing are often the wrong words: matching asks for
+          the problem instead, starting from what was typed. */}
+      <Button
+        className={cn(authPill(!filtered), "w-auto")}
+        nativeButton={false}
+        render={<Link href={query ? `/matching?q=${encodeURIComponent(query)}` : "/matching"} />}
+        variant={filtered ? "outline" : "default"}
+      >
+        {t("matchingCta")}
+      </Button>
       <div className="flex flex-col items-center gap-2.5 pt-2">
         <p className="text-sm font-medium text-foreground">{t("tryTerms")}</p>
         <div className="flex flex-wrap justify-center gap-2">
