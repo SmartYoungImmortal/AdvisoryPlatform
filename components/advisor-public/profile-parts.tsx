@@ -18,12 +18,13 @@ import { useFormatter, useTranslations } from "next-intl";
 import { useCallback, useState, type MouseEvent, type ReactNode } from "react";
 
 import { initialsOf } from "@/components/advisor-public/headline";
+import { PortfolioGrid } from "@/components/advisor-public/portfolio-view";
 import { MobileScreen, ScreenBody, ScreenTopBar } from "@/components/mobile/screen";
 import { ResultCard } from "@/components/search/search-screen";
 import { ApiErrorCard } from "@/components/service/parts";
 import { TopBar } from "@/components/topbar";
 import { Button } from "@/components/ui/button";
-import type { ApiAdvisorBackground } from "@/lib/api/types";
+import type { ApiAdvisorBackground, ApiPortfolioItem } from "@/lib/api/types";
 import type { LiveService } from "@/lib/catalogue/live";
 import type { ProfileTab } from "@/lib/catalogue/profiles";
 import { cn } from "@/lib/utils";
@@ -1174,19 +1175,23 @@ export type AboutBackground = ApiAdvisorBackground | null | undefined;
 /**
  * The About tab, drawn after the same pages' own: the full column inset 38
  * at 1440, one section per subject, each only when there is something in it:
- * the introduction, work experience (the current job marked), education,
- * the skills an admin approved proof for, languages, and licences and
- * awards. The background is the advisor's own words
- * (`GET /advisors/:id/background`).
+ * the work they have done first, since that is what a client came to see
+ * (`GET /advisors/:id/portfolio`), then the introduction, work experience
+ * (the current job marked), education, the skills an admin approved proof
+ * for, languages, and licences and awards. The background is the advisor's
+ * own words (`GET /advisors/:id/background`).
  */
 export function AboutView({
   bio,
   skills,
   background,
+  portfolio = null,
 }: {
   readonly bio: string | null;
   readonly skills: readonly string[];
   readonly background: AboutBackground;
+  /** Undefined while it loads, null where there is none. */
+  readonly portfolio?: readonly ApiPortfolioItem[] | null;
 }) {
   const t = useTranslations("advisorProfile");
   const format = useFormatter();
@@ -1198,6 +1203,25 @@ export function AboutView({
 
   return (
     <div className="flex w-full flex-col pb-12 lg:px-[45.125px] lg:pb-[57px]">
+      {portfolio === undefined ? (
+        <AboutSection title={t("portfolioTitle")}>
+          <div aria-hidden className="grid grid-cols-2 gap-x-4 lg:grid-cols-3 lg:gap-x-[19px]">
+            {[0, 1, 2].map((key) => (
+              <span className={cn("flex flex-col gap-2.5 lg:gap-3", key === 2 && "max-lg:hidden")} key={key}>
+                <span className="block aspect-[4/3] w-full rounded-2xl bg-muted" />
+                <Pending className="h-4 w-2/3 lg:h-[19px]" />
+              </span>
+            ))}
+          </div>
+        </AboutSection>
+      ) : null}
+
+      {portfolio && portfolio.length > 0 ? (
+        <AboutSection title={t("portfolioTitle")}>
+          <PortfolioGrid items={portfolio} />
+        </AboutSection>
+      ) : null}
+
       {bio ? (
         <AboutSection title={t("introTitle")}>
           <p className="text-base leading-7 whitespace-pre-line text-foreground lg:text-frame-body lg:leading-[1.6]">{bio}</p>

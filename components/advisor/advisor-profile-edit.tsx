@@ -3,19 +3,16 @@
 import { ChevronRight, FileText, Pencil, Plus, Trash2 } from "lucide-react";
 import Link from "next/link";
 import { useLocale, useTranslations } from "next-intl";
-import { useCallback, useState, type FormEvent, type ReactNode } from "react";
+import { useCallback, useState, type ReactNode } from "react";
 
+import { EntryDialog, SelectField, TextAreaField, TextField } from "@/components/advisor/edit-fields";
+import { PortfolioSection } from "@/components/advisor/portfolio-editor";
 import { authPill } from "@/components/auth/auth-split";
 import { StatusToast, useStatusToast } from "@/components/mobile/toast";
 import { DESK_BOX, DESK_PILL, DeskPage } from "@/components/work/desk-page";
 import { ApiErrorCard } from "@/components/service/parts";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
-import { FieldDescription, FieldError, FieldLabel, Field as FieldRoot } from "@/components/ui/field";
-import { Input } from "@/components/ui/input";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Textarea } from "@/components/ui/textarea";
 import {
   getOwnAdvisorBackground,
   getOwnAdvisorProfile,
@@ -36,13 +33,16 @@ import { cn } from "@/lib/utils";
 
 /**
  * `/advisor/edit` — what a client reads about the advisor, as the advisor
- * keeps it: the line under their name and their introduction
+ * keeps it: the work they have done (`advisors/me/portfolio`, see
+ * `portfolio-editor.tsx`), the line under their name and their introduction
  * (`PATCH /advisors/me`), and the background their public profile's About
  * tab lists (`PUT /advisors/me/background`): work, education, languages,
  * licences and awards.
  *
  * Each list is edited here, an entry at a time in a small dialog, and the
  * whole page is saved at once, so nothing reaches the profile half done.
+ * The portfolio is the exception: a piece's pictures are uploaded to it, so
+ * each piece is saved from its own dialog.
  * Years are typed the way the page's language counts them: Buddhist Era in
  * Thai (2565), and stored as the common era.
  */
@@ -69,182 +69,6 @@ function storedYear(typed: string, thai: boolean): number | null {
 /** Whether a stored year is one the API takes (1950 to 2100). */
 function yearInRange(year: number | null): boolean {
   return year === null || (year >= 1950 && year <= 2100);
-}
-
-/* ----------------------------------------------------------------- fields */
-
-/** The box every field here wears: the sign-up form's white box on a hairline. */
-const FIELD_BOX = "h-11 rounded-xl border-accented bg-card px-4 text-base shadow-none md:h-12 md:text-base";
-
-function TextField({
-  id,
-  label,
-  value,
-  onChange,
-  hint,
-  error,
-  inputMode,
-  placeholder,
-  className,
-}: {
-  readonly id: string;
-  readonly label: string;
-  readonly value: string;
-  readonly onChange: (value: string) => void;
-  readonly hint?: string;
-  readonly error?: string;
-  readonly inputMode?: "numeric";
-  readonly placeholder?: string;
-  readonly className?: string;
-}) {
-  const note = `${id}-note`;
-  return (
-    <FieldRoot className={cn("gap-1.5", className)} data-invalid={error ? true : undefined}>
-      <FieldLabel className="text-sm font-medium text-muted-foreground" htmlFor={id}>
-        {label}
-      </FieldLabel>
-      <Input
-        aria-describedby={error || hint ? note : undefined}
-        aria-invalid={error ? true : undefined}
-        className={FIELD_BOX}
-        id={id}
-        inputMode={inputMode}
-        onChange={(event) => onChange(event.target.value)}
-        placeholder={placeholder}
-        value={value}
-      />
-      {error ? (
-        <FieldError className="text-sm" id={note}>
-          {error}
-        </FieldError>
-      ) : null}
-      {!error && hint ? (
-        <FieldDescription className="text-sm" id={note}>
-          {hint}
-        </FieldDescription>
-      ) : null}
-    </FieldRoot>
-  );
-}
-
-function TextAreaField({
-  id,
-  label,
-  value,
-  onChange,
-  hint,
-  rows = 4,
-}: {
-  readonly id: string;
-  readonly label: string;
-  readonly value: string;
-  readonly onChange: (value: string) => void;
-  readonly hint?: string;
-  readonly rows?: number;
-}) {
-  return (
-    <FieldRoot className="gap-1.5">
-      <FieldLabel className="text-sm font-medium text-muted-foreground" htmlFor={id}>
-        {label}
-      </FieldLabel>
-      <Textarea
-        className="min-h-24 rounded-xl border-accented bg-card px-4 py-3 text-base shadow-none field-sizing-content md:text-base"
-        id={id}
-        onChange={(event) => onChange(event.target.value)}
-        rows={rows}
-        value={value}
-      />
-      {hint ? <FieldDescription className="text-sm">{hint}</FieldDescription> : null}
-    </FieldRoot>
-  );
-}
-
-function SelectField<K extends string>({
-  id,
-  label,
-  value,
-  onChange,
-  items,
-  placeholder,
-}: {
-  readonly id: string;
-  readonly label: string;
-  readonly value: K | "";
-  readonly onChange: (value: K) => void;
-  readonly items: readonly { readonly value: K; readonly label: string }[];
-  readonly placeholder?: string;
-}) {
-  return (
-    <FieldRoot className="gap-1.5">
-      <FieldLabel className="text-sm font-medium text-muted-foreground" htmlFor={id}>
-        {label}
-      </FieldLabel>
-      <Select items={items} onValueChange={(next) => onChange(next as K)} value={value || null}>
-        <SelectTrigger className={cn(FIELD_BOX, "w-full justify-between data-[size=default]:h-11 md:data-[size=default]:h-12")} id={id}>
-          <SelectValue placeholder={placeholder} />
-        </SelectTrigger>
-        <SelectContent alignItemWithTrigger={false} sideOffset={6}>
-          {items.map((item) => (
-            <SelectItem key={item.value} value={item.value}>
-              {item.label}
-            </SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
-    </FieldRoot>
-  );
-}
-
-/* ----------------------------------------------------------------- dialog */
-
-/**
- * An entry's dialog, the settings' confirm card: its title in bold at the top
- * left, the fields flat on white, and the answers on one line at the right,
- * the way out as bare words and saving the entry as the capsule.
- */
-function EntryDialog({
-  open,
-  onOpenChange,
-  title,
-  onSubmit,
-  children,
-}: {
-  readonly open: boolean;
-  readonly onOpenChange: (open: boolean) => void;
-  readonly title: string;
-  readonly onSubmit: () => void;
-  readonly children: ReactNode;
-}) {
-  const t = useTranslations("advisorEdit");
-  return (
-    <Dialog onOpenChange={onOpenChange} open={open}>
-      <DialogContent
-        className="max-h-[calc(100dvh-2rem)] gap-0 overflow-y-auto rounded-2xl p-5 sm:max-w-[480px] md:p-6"
-        overlayClassName="bg-scrim/40 supports-backdrop-filter:backdrop-blur-none"
-        showCloseButton={false}
-      >
-        <form
-          className="flex flex-col"
-          noValidate
-          onSubmit={(event: FormEvent) => {
-            event.preventDefault();
-            onSubmit();
-          }}
-        >
-          <DialogTitle className="text-lg font-semibold text-foreground">{title}</DialogTitle>
-          <div className="mt-5 flex flex-col gap-4">{children}</div>
-          <div className="mt-6 flex items-center justify-end gap-3">
-            <Button className="h-11 px-4 text-sm font-medium" onClick={() => onOpenChange(false)} type="button" variant="ghost">
-              {t("cancel")}
-            </Button>
-            <Button className="h-11 rounded-full bg-foreground px-6 text-sm font-medium text-background hover:bg-foreground/85" type="submit">
-              {t("done")}
-            </Button>
-          </div>
-        </form>
-      </DialogContent>
-    </Dialog>
-  );
 }
 
 /* ---------------------------------------------------------------- entries */
@@ -675,16 +499,19 @@ function EditForm({ profile, initial }: { readonly profile: ApiOwnAdvisorProfile
   const dialogKey = editing ? `${editing.list}-${editing.index ?? "new"}` : "closed";
 
   return (
-    <>
+    <div className="mt-5 flex w-full max-w-200 flex-col gap-8 lg:mt-8 lg:gap-10">
+      {/* First, because it is what a client looks at first; it saves a piece at a time, so it sits outside the form. */}
+      <PortfolioSection advisorId={profile.id} onStatus={status.show} />
+
       <form
-        className="mt-5 flex w-full max-w-200 flex-col gap-8 lg:mt-8 lg:gap-10"
+        className="flex w-full flex-col gap-8 lg:gap-10"
         noValidate
         onSubmit={(event) => {
           event.preventDefault();
           save();
         }}
       >
-        <section className="flex flex-col gap-4 lg:gap-5">
+        <section className="flex flex-col gap-4 border-t border-border pt-8 lg:gap-5 lg:pt-10">
           <h2 className="text-lg font-semibold text-foreground lg:text-frame-heading">{p("introTitle")}</h2>
           <TextField
             error={headlineError}
@@ -814,7 +641,7 @@ function EditForm({ profile, initial }: { readonly profile: ApiOwnAdvisorProfile
         setPaused={status.setPaused}
         toast={status.toast}
       />
-    </>
+    </div>
   );
 }
 

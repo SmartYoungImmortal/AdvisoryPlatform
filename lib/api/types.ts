@@ -140,6 +140,21 @@ export interface ApiAdvisorBackground {
   readonly credentials: readonly ApiAdvisorCredential[];
 }
 
+/**
+ * `PortfolioItemResponseDto` — a piece of work on the advisor's profile:
+ * `GET /advisors/:id/portfolio`, and the advisor's own at
+ * `advisors/me/portfolio`, in the advisor's order.
+ */
+export interface ApiPortfolioItem {
+  readonly id: string;
+  readonly title: string;
+  readonly description: string | null;
+  readonly link: string | null;
+  /** URLs to show as they are; an uploaded one is signed for an hour. */
+  readonly images: readonly string[];
+  readonly createdAt: string;
+}
+
 /** `AvailabilitySlotResponseDto` — availability/dtos/availability.dto.ts:134 */
 export interface ApiSlot {
   readonly startTime: string;
