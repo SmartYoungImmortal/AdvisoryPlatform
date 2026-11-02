@@ -229,6 +229,7 @@ function RangeRow({
   readonly startName?: string;
   readonly endName?: string;
 }) {
+  const t = useTranslations("availability");
   const [start, setStart] = useState(range.start);
   const [end, setEnd] = useState(range.end);
   return (
@@ -246,7 +247,7 @@ function RangeRow({
         {picker ? <TimePickerPopover value={end} onSelect={setEnd} /> : null}
       </span>
       {removable ? (
-        <Button type="button" variant="ghost" size="icon-xs" aria-label="Remove time range" onClick={() => { setStart(""); setEnd(""); }} className="text-muted-foreground">×</Button>
+        <Button type="button" variant="ghost" size="icon-xs" aria-label={t("removeRange")} onClick={() => { setStart(""); setEnd(""); }} className="text-muted-foreground">×</Button>
       ) : null}
     </div>
   );
@@ -652,7 +653,7 @@ function BlockedTab({ mode, profile }: { readonly mode: EditorMode; readonly pro
       <EditorCard>
         <label className="grid w-full gap-1 text-sm font-medium">{t("addBlockedDate")}<Input name="newBlockedDate" type="date" /></label>
         <RangeRow range={{ start: "", end: "" }} startName="newBlockedStart" endName="newBlockedEnd" removable={false} />
-        <p className="text-xs text-muted-foreground">เว้นเวลาเริ่มและสิ้นสุดว่างไว้เพื่อปิดทั้งวัน</p>
+        <p className="text-xs text-muted-foreground">{t("blockedBlankHint")}</p>
       </EditorCard>
 
       <AddDashedRow href={href}>{t("addBlockedDate")}</AddDashedRow>
@@ -705,21 +706,21 @@ export function ProfileEditorScreen({
     void availabilityApi.getProfiles().then((profiles) => {
       if (!active) return;
       const current = queryId ? profiles.find((candidate) => candidate.id === queryId) : profiles[0];
-      if (!current) throw new Error("ยังไม่มีชุดเวลาว่าง กรุณาสร้างชุดใหม่ก่อน");
+      if (!current) throw new Error(t("profileMissing"));
       setProfile(current); setProfileId(current.id); setProfileName(current.name);
-    }).catch((cause: unknown) => { if (active) setError(cause instanceof Error ? cause.message : "โหลดชุดเวลาว่างไม่สำเร็จ"); });
+    }).catch((cause: unknown) => { if (active) setError(cause instanceof Error ? cause.message : t("profileLoadFailed")); });
     return () => { active = false; };
-  }, [create, queryId]);
+  }, [create, queryId, t]);
 
   const saveProfile = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault(); setBusy(true); setError(null); setSaved(false);
     const form = new FormData(event.currentTarget);
     const name = String(form.get("name") ?? profile?.name ?? "").trim();
-    if (!name) { setError("กรุณาตั้งชื่อชุดเวลาว่าง"); setBusy(false); return; }
+    if (!name) { setError(t("nameRequired")); setBusy(false); return; }
     const parseRange = (start: FormDataEntryValue | null, end: FormDataEntryValue | null) => {
       const from = typeof start === "string" ? start : ""; const to = typeof end === "string" ? end : "";
       if (!from && !to) return null;
-      if (!from || !to || from >= to) throw new Error("เวลาเริ่มต้องอยู่ก่อนเวลาสิ้นสุด และต้องกรอกทั้งสองช่อง");
+      if (!from || !to || from >= to) throw new Error(t("rangeInvalid"));
       return { startTime: from, endTime: to };
     };
     try {
@@ -741,7 +742,7 @@ export function ProfileEditorScreen({
         specificWindows = updated;
         const date = String(form.get("newSpecificDate") ?? ""); const range = parseRange(form.get("newSpecificStart"), form.get("newSpecificEnd"));
         if (date && range) specificWindows = [...specificWindows.filter((window) => window.availableDate !== date), { ...range, availableDate: date }];
-        if (Boolean(date) !== Boolean(range)) throw new Error("กรุณากรอกวันที่และช่วงเวลาให้ครบ");
+        if (Boolean(date) !== Boolean(range)) throw new Error(t("specificIncomplete"));
       }
       const removedBlocked = new Set(form.getAll("removeBlockedPeriod").filter((value): value is string => typeof value === "string").map(Number));
       let blockedPeriods: BlockedAvailabilityPeriod[] = [...(profile?.blockedPeriods ?? [])].filter((_, index) => !removedBlocked.has(index));
@@ -754,16 +755,16 @@ export function ProfileEditorScreen({
         });
         const date = String(form.get("newBlockedDate") ?? ""); const range = parseRange(form.get("newBlockedStart"), form.get("newBlockedEnd"));
         if (date) blockedPeriods.push({ blockedDate: date, ...(range ?? {}) });
-        if (!date && range) throw new Error("กรุณาเลือกวันที่ที่ต้องการปิด");
+        if (!date && range) throw new Error(t("blockedDateRequired"));
       }
       const ranges = [...weeklyWindows.map((window) => ({ key: `weekly-${window.dayOfWeek}`, ...window })), ...specificWindows.map((window) => ({ key: `date-${window.availableDate}`, startTime: window.startTime, endTime: window.endTime }))];
       const overlap = ranges.find((range, index) => ranges.slice(index + 1).some((other) => range.key === other.key && range.startTime < other.endTime && other.startTime < range.endTime));
-      if (overlap) throw new Error("ช่วงเวลาทับซ้อนกัน กรุณาปรับเวลาเริ่มหรือเวลาสิ้นสุด");
+      if (overlap) throw new Error(t("rangesOverlap"));
       const values: UpsertAvailabilityProfile = { name, weeklyWindows, specificWindows, blockedPeriods };
       const result = profileId ? await availabilityApi.updateProfile(profileId, values) : await availabilityApi.createProfile(values);
       setProfile(result); setProfileId(result.id); setProfileName(result.name); invalidate("availability/profiles"); invalidate("advisors/me/services"); invalidate("services/"); setSaved(true);
       window.history.replaceState(null, "", `${window.location.pathname}?id=${encodeURIComponent(result.id)}`);
-    } catch (cause) { setError(cause instanceof Error ? cause.message : "บันทึกชุดเวลาว่างไม่สำเร็จ"); }
+    } catch (cause) { setError(cause instanceof Error ? cause.message : t("profileSaveFailed")); }
     finally { setBusy(false); }
   };
 
@@ -776,11 +777,11 @@ export function ProfileEditorScreen({
       </NeutralButton>
       {/* Nothing can be saved while a range is invalid, which the frame shows by
           dimming the action rather than removing it. */}
-      <Button className="h-auto min-w-px flex-1 rounded-lg border-0 px-6 py-2 text-base lg:w-auto lg:flex-none lg:px-8" disabled={invalid || busy || (!create && !profileId)} form="availability-profile-form" type="submit">{busy ? "กำลังบันทึก…" : create && !profileId ? t("createProfile") : t("saveProfile")}</Button>
+      <Button className="h-auto min-w-px flex-1 rounded-lg border-0 px-6 py-2 text-base lg:w-auto lg:flex-none lg:px-8" disabled={invalid || busy || (!create && !profileId)} form="availability-profile-form" type="submit">{busy ? t("saving") : create && !profileId ? t("createProfile") : t("saveProfile")}</Button>
     </>
   );
 
-  if (loading) return <div className="mx-auto max-w-3xl p-8" role="status">กำลังโหลดชุดเวลาว่าง…</div>;
+  if (loading) return <div className="mx-auto max-w-3xl p-8" role="status">{t("profileLoading")}</div>;
   return (
     // Figma "Desktop / Availability - Profile / …" (1994:29171, 29651, 29917)
     // and the create variants (1994:28617, 28790, 28970, 29071): the heading
@@ -825,7 +826,7 @@ export function ProfileEditorScreen({
               type="text"
             />
             <p className="w-full text-xs font-normal text-muted-foreground">
-              <ThaiText>{create ? "ตั้งชื่อชุดเวลาว่างเพื่อบันทึก" : t("nameHint")}</ThaiText>
+              <ThaiText>{create ? t("nameCreateHint") : t("nameHint")}</ThaiText>
             </p>
           </div>
         ) : null}
@@ -853,7 +854,7 @@ export function ProfileEditorScreen({
                 : t("createNote.weeklyFromList")}
         </Note>
 
-        {error ? <p role="alert" className="text-sm text-destructive">{error}</p> : null}{saved ? <p role="status" className="text-sm text-primary">บันทึกชุดเวลาว่างแล้ว</p> : null}
+        {error ? <p role="alert" className="text-sm text-destructive">{error}</p> : null}{saved ? <p role="status" className="text-sm text-primary">{t("profileSaved")}</p> : null}
         <div className="hidden w-full shrink-0 items-center justify-end gap-3 lg:flex">
           {actions}
         </div>
