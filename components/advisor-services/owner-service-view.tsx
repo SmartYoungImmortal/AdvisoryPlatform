@@ -107,6 +107,7 @@ export function OwnerServiceScreen({ serviceId, initialPart = null }: {
         images={owned.images.data.images}
         initialPart={initialPart}
         onChanged={owned.reload}
+        onPreview={() => setMode("preview")}
         packages={owned.packages.data}
         record={owned.record.data}
       />

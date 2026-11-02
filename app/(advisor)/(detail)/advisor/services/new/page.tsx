@@ -1,5 +1,5 @@
-import { NewServiceFlow } from "@/components/advisor-services/new-service-flow";
+import { NewServiceScreen } from "@/components/advisor-services/service-editor";
 
 export default function CreateServicePage() {
-  return <NewServiceFlow />;
+  return <NewServiceScreen />;
 }

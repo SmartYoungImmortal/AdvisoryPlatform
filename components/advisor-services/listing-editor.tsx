@@ -94,12 +94,15 @@ export function ListingEditor({
   images,
   packages,
   onChanged,
+  onPreview,
   initialPart = null,
 }: {
   readonly record: AdvisorService;
   readonly images: readonly string[];
   readonly packages: readonly ApiServicePackage[];
   readonly onChanged: () => void;
+  /** Opens the page as a client sees it. */
+  readonly onPreview?: () => void;
   /** The part to open with (the settings route opens on the booking rules). */
   readonly initialPart?: Part | null;
 }) {
@@ -122,7 +125,7 @@ export function ListingEditor({
   const profile = profiles.data?.find((item) => item.id === record.availabilityProfileId);
   const packagePrices = packages.map((item) => item.priceSatang);
 
-  const rows: { readonly part: Part; readonly title: string; readonly value: ReactNode; readonly thumbs?: readonly string[] }[] = [
+  const rows: PartRow[] = [
     {
       part: "photos",
       title: t("photosSection"),
@@ -172,8 +175,78 @@ export function ListingEditor({
     },
   ];
 
+  const mainCategory = categories.data?.items.find((item) => item.id === record.categoryId)?.name ?? null;
   return (
-    <div className="grid grid-cols-1 gap-8 pb-16 lg:grid-cols-[minmax(0,360px)_minmax(0,1fr)] lg:gap-12">
+    <PartsLayout
+      aside={
+        <ClientCard
+          category={mainCategory}
+          cover={images[0] ?? null}
+          name={record.name}
+          onOpen={onPreview}
+          price={
+            packages.length > 0
+              ? t("fromPrice", { price: money(Math.min(...packagePrices)) })
+              : t("priceSummary", { price: money(record.priceSatang), minutes: record.durationMinutes })
+          }
+        />
+      }
+      below={
+        <Button
+          className="h-10 self-start px-2 text-sm font-medium text-muted-foreground hover:bg-transparent hover:text-destructive lg:text-frame-meta"
+          onClick={() => setDeleting(true)}
+          type="button"
+          variant="ghost"
+        >
+          <Trash2 aria-hidden className="size-4" />
+          {t("deleteService")}
+        </Button>
+      }
+      onOpen={setOpen}
+      open={open}
+      rows={rows}
+      shown={shown}
+    >
+        {/* Keyed by the part and the record's save, so each opening starts from what is stored. */}
+        {shown === "photos" ? <Photos images={images} onChanged={onChanged} serviceId={record.id} /> : null}
+        {shown === "text" ? <TextPart key={`text-${record.modifiedAt}`} onSaved={onChanged} record={record} /> : null}
+        {shown === "packages" ? <PackagesPart onChanged={onChanged} packages={packages} record={record} /> : null}
+        {shown === "category" ? (
+          <CategoryPart categories={categories.data?.items ?? null} key={`category-${record.modifiedAt}`} onSaved={onChanged} record={record} />
+        ) : null}
+        {shown === "schedule" ? (
+          <SchedulePart key={`schedule-${record.modifiedAt}`} onSaved={onChanged} profiles={profiles.data ?? null} record={record} />
+        ) : null}
+        {shown === "booking" ? <BookingPart key={`booking-${record.modifiedAt}`} onSaved={onChanged} record={record} /> : null}
+        {shown === "related" ? <RelatedPart key={`related-${record.modifiedAt}`} onSaved={onChanged} record={record} /> : null}
+      {deleting ? <DeleteServiceConfirm onClose={() => setDeleting(false)} record={record} /> : null}
+    </PartsLayout>
+  );
+}
+
+/** A row of the parts list: the part, its name, its value on one line, and small pictures where it has them. */
+export type PartRow = { readonly part: Part; readonly title: string; readonly value: ReactNode; readonly thumbs?: readonly string[] };
+
+/**
+ * The editor's frame, the same for a service that exists and one being made:
+ * the parts as one hairline list at the left (with what goes under it), the
+ * part open beside it, and from `lg` the client's card at the right, staying
+ * on screen. On the phone the list is the page and a part opens in its
+ * place, with the way back to the list above it; the card follows the part.
+ */
+export function PartsLayout({ rows, shown, open, onOpen, below, aside, children }: {
+  readonly rows: readonly PartRow[];
+  readonly shown: Part;
+  /** The part pressed; none on the phone shows the list. */
+  readonly open: Part | null;
+  readonly onOpen: (part: Part | null) => void;
+  readonly below?: ReactNode;
+  readonly aside?: ReactNode;
+  readonly children: ReactNode;
+}) {
+  const t = useTranslations("ownerService");
+  return (
+    <div className="grid grid-cols-1 gap-8 pb-16 lg:grid-cols-[minmax(0,340px)_minmax(0,1fr)_minmax(0,320px)] lg:gap-10">
       <nav aria-label={t("sectionsLabel")} className={cn("flex flex-col gap-4 lg:sticky lg:top-6 lg:self-start", open && "max-lg:hidden")}>
         <ul className="flex flex-col divide-y divide-border overflow-hidden rounded-2xl border border-border">
           {rows.map((row) => {
@@ -186,7 +259,7 @@ export function ListingEditor({
                     "flex w-full items-center gap-3 px-4 py-3.5 text-left outline-none transition-colors focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:ring-inset lg:px-5",
                     selected ? "bg-muted" : "hover:bg-muted/50",
                   )}
-                  onClick={() => setOpen(row.part)}
+                  onClick={() => onOpen(row.part)}
                   type="button"
                 >
                   <span className="flex min-w-0 flex-1 flex-col gap-0.5">
@@ -209,45 +282,70 @@ export function ListingEditor({
             );
           })}
         </ul>
-        <Button
-          className="h-10 self-start px-2 text-sm font-medium text-muted-foreground hover:bg-transparent hover:text-destructive lg:text-frame-meta"
-          onClick={() => setDeleting(true)}
-          type="button"
-          variant="ghost"
-        >
-          <Trash2 aria-hidden className="size-4" />
-          {t("deleteService")}
-        </Button>
+        {below}
       </nav>
 
-      <div className={cn("min-w-0 lg:mx-auto lg:w-full lg:max-w-2xl", !open && "max-lg:hidden")}>
-        <Button className="-ml-2 mb-4 h-9 gap-1 px-2 text-sm lg:hidden" onClick={() => setOpen(null)} type="button" variant="ghost">
+      <div className={cn("min-w-0", !open && "max-lg:hidden")}>
+        <Button className="-ml-2 mb-4 h-9 gap-1 px-2 text-sm lg:hidden" onClick={() => onOpen(null)} type="button" variant="ghost">
           <ChevronLeft aria-hidden className="size-5" />
           {t("allSections")}
         </Button>
-        {/* Keyed by the part and the record's save, so each opening starts from what is stored. */}
-        {shown === "photos" ? <Photos images={images} onChanged={onChanged} serviceId={record.id} /> : null}
-        {shown === "text" ? <TextPart key={`text-${record.modifiedAt}`} onSaved={onChanged} record={record} /> : null}
-        {shown === "packages" ? <PackagesPart onChanged={onChanged} packages={packages} record={record} /> : null}
-        {shown === "category" ? (
-          <CategoryPart categories={categories.data?.items ?? null} key={`category-${record.modifiedAt}`} onSaved={onChanged} record={record} />
-        ) : null}
-        {shown === "schedule" ? (
-          <SchedulePart key={`schedule-${record.modifiedAt}`} onSaved={onChanged} profiles={profiles.data ?? null} record={record} />
-        ) : null}
-        {shown === "booking" ? <BookingPart key={`booking-${record.modifiedAt}`} onSaved={onChanged} record={record} /> : null}
-        {shown === "related" ? <RelatedPart key={`related-${record.modifiedAt}`} onSaved={onChanged} record={record} /> : null}
+        {children}
       </div>
 
-      {deleting ? <DeleteServiceConfirm onClose={() => setDeleting(false)} record={record} /> : null}
+      {aside ? <aside className={cn("flex flex-col gap-3 lg:sticky lg:top-6 lg:self-start", !open && "max-lg:hidden")}>{aside}</aside> : null}
     </div>
+  );
+}
+
+/**
+ * The service as a client meets it in search, drawn from what the editor
+ * holds: its cover, its name, its main category and its price. `onOpen`
+ * opens the whole page as a client sees it.
+ */
+export function ClientCard({ cover, name, category, price, onOpen }: {
+  readonly cover: string | null;
+  readonly name: string;
+  readonly category: string | null;
+  readonly price: string | null;
+  readonly onOpen?: () => void;
+}) {
+  const t = useTranslations("ownerService");
+  return (
+    <>
+      <h2 className="text-sm font-medium text-muted-foreground lg:text-frame-meta">{t("previewTitle")}</h2>
+      <div className="flex flex-col gap-2.5">
+        <span className="block aspect-[4/3] w-full overflow-hidden rounded-2xl bg-muted">
+          {cover ? (
+            // eslint-disable-next-line @next/next/no-img-element -- a stored URL or a local preview
+            <img alt="" className="size-full object-cover" src={cover} />
+          ) : (
+            <span className="flex size-full items-center justify-center text-muted-foreground">
+              <ImagePlus aria-hidden className="size-6" strokeWidth={1.5} />
+            </span>
+          )}
+        </span>
+        <span className="flex flex-col gap-0.5 px-0.5">
+          <span className={cn("line-clamp-2 text-base font-medium lg:text-frame-body", name.trim() ? "text-foreground" : "text-muted-foreground")}>
+            {name.trim() || t("previewNoName")}
+          </span>
+          {category ? <span className="text-sm text-muted-foreground lg:text-frame-meta">{category}</span> : null}
+          {price ? <span className="font-latin text-sm text-foreground tabular-nums lg:text-frame-meta">{price}</span> : null}
+        </span>
+      </div>
+      {onOpen ? (
+        <Button className={cn(authPill(false), PILL, "w-full lg:w-full")} onClick={onOpen} type="button" variant="outline">
+          {t("openPreview")}
+        </Button>
+      ) : null}
+    </>
   );
 }
 
 /* ------------------------------------------------------------------ frame */
 
 /** A part opened: its name, a line on it, what it holds, and (for a part that waits) its save. */
-function Pane({ title, hint, children, footer }: {
+export function Pane({ title, hint, children, footer }: {
   readonly title: string;
   readonly hint?: ReactNode;
   readonly children: ReactNode;
@@ -613,8 +711,6 @@ export function ScheduleChoices({ profiles, chosen, onChange }: {
 /** How the service may be booked: a daily ceiling, questions before booking, a free trial. Switch rows on hairlines. */
 function BookingPart({ record, onSaved }: { readonly record: AdvisorService; readonly onSaved: () => void }) {
   const t = useTranslations("ownerService");
-  const global = useResource<GlobalAvailability>("availability/global", availabilityApi.getGlobal);
-  const ceilingHours = Math.floor((global.data?.dailyConsultationLimitMinutes ?? CUSTOM_BOUNDS.dailyLimitHours.max * 60) / 60);
   const storedLimit = record.dailyConsultationLimitMinutes;
   const [limit, setLimit] = useState<number | null>(storedLimit);
   const [screening, setScreening] = useState(record.screeningRequired);
@@ -628,20 +724,6 @@ function BookingPart({ record, onSaved }: { readonly record: AdvisorService; rea
     setTrial(record.trialEnabled ? record.trialDurationMinutes : null);
   };
   const touch = () => save.setSaved(false);
-  const hours = Array.from({ length: Math.max(ceilingHours, 1) }, (_, index) => index + 1);
-
-  const row = (title: string, body: string, control: ReactNode, below?: ReactNode) => (
-    <li className="flex flex-col gap-3 py-4 first:pt-0 last:pb-0">
-      <div className="flex items-start justify-between gap-4">
-        <span className="flex min-w-0 flex-col gap-0.5">
-          <span className="text-sm font-medium text-foreground lg:text-frame-meta">{title}</span>
-          <span className="text-sm text-muted-foreground lg:text-frame-meta">{body}</span>
-        </span>
-        {control}
-      </div>
-      {below}
-    </li>
-  );
 
   return (
     <form
@@ -659,73 +741,94 @@ function BookingPart({ record, onSaved }: { readonly record: AdvisorService; rea
       }}
     >
       <Pane footer={<SaveRow dirty={dirty} onReset={reset} {...save} />} hint={t("bookingHint")} title={t("bookingSection")}>
-        <ul className="flex flex-col divide-y divide-border">
-          {row(
-            t("limitTitle"),
-            t("limitBody"),
-            <Switch
-              aria-label={t("limitTitle")}
-              checked={limit !== null}
-              onCheckedChange={(on) => {
-                setLimit(on ? Math.min(4, ceilingHours) * 60 : null);
-                touch();
-              }}
-            />,
-            limit === null ? null : (
-              <Choice
-                label={t("limitTitle")}
-                onChange={(value) => {
-                  setLimit(Number(value) * 60);
-                  touch();
-                }}
-                options={hours.map((count) => ({ value: String(count), label: t("limitHours", { count }) }))}
-                value={String(limit / 60)}
-              />
-            ),
-          )}
-          {row(
-            t("screeningTitle"),
-            t("screeningBody"),
-            <Switch
-              aria-label={t("screeningTitle")}
-              checked={screening}
-              onCheckedChange={(on) => {
-                setScreening(on);
-                touch();
-              }}
-            />,
-            screening ? (
-              <Link className="self-start text-sm font-medium text-foreground underline underline-offset-4 lg:text-frame-meta" href="/screening/setup">
-                {t("screeningSetup")}
-              </Link>
-            ) : null,
-          )}
-          {row(
-            t("trialTitle"),
-            t("trialBody"),
-            <Switch
-              aria-label={t("trialTitle")}
-              checked={trial !== null}
-              onCheckedChange={(on) => {
-                setTrial(on ? 15 : null);
-                touch();
-              }}
-            />,
-            trial === null ? null : (
-              <Choice
-                label={t("trialTitle")}
-                onChange={(value) => {
-                  setTrial(Number(value));
-                  touch();
-                }}
-                options={[15, 30].map((count) => ({ value: String(count), label: t("trialMinutes", { count }) }))}
-                value={String(trial)}
-              />
-            ),
-          )}
-        </ul>
+        <BookingRules
+          limit={limit}
+          onLimit={(next) => {
+            setLimit(next);
+            touch();
+          }}
+          onScreening={(next) => {
+            setScreening(next);
+            touch();
+          }}
+          onTrial={(next) => {
+            setTrial(next);
+            touch();
+          }}
+          screening={screening}
+          trial={trial}
+        />
       </Pane>
     </form>
+  );
+}
+
+/** The booking rules as switch rows on hairlines: a daily ceiling, questions before booking, a free trial. */
+export function BookingRules({ limit, screening, trial, onLimit, onScreening, onTrial }: {
+  readonly limit: number | null;
+  readonly screening: boolean;
+  readonly trial: number | null;
+  readonly onLimit: (next: number | null) => void;
+  readonly onScreening: (next: boolean) => void;
+  readonly onTrial: (next: number | null) => void;
+}) {
+  const t = useTranslations("ownerService");
+  const global = useResource<GlobalAvailability>("availability/global", availabilityApi.getGlobal);
+  const ceilingHours = Math.floor((global.data?.dailyConsultationLimitMinutes ?? CUSTOM_BOUNDS.dailyLimitHours.max * 60) / 60);
+  const hours = Array.from({ length: Math.max(ceilingHours, 1) }, (_, index) => index + 1);
+
+  const row = (title: string, body: string, control: ReactNode, below?: ReactNode) => (
+    <li className="flex flex-col gap-3 py-4 first:pt-0 last:pb-0">
+      <div className="flex items-start justify-between gap-4">
+        <span className="flex min-w-0 flex-col gap-0.5">
+          <span className="text-sm font-medium text-foreground lg:text-frame-meta">{title}</span>
+          <span className="text-sm text-muted-foreground lg:text-frame-meta">{body}</span>
+        </span>
+        {control}
+      </div>
+      {below}
+    </li>
+  );
+
+  return (
+    <ul className="flex flex-col divide-y divide-border">
+      {row(
+        t("limitTitle"),
+        t("limitBody"),
+        <Switch aria-label={t("limitTitle")} checked={limit !== null} onCheckedChange={(on) => onLimit(on ? Math.min(4, ceilingHours) * 60 : null)} />,
+        limit === null ? null : (
+          <Choice
+            label={t("limitTitle")}
+            onChange={(value) => onLimit(Number(value) * 60)}
+            options={hours.map((count) => ({ value: String(count), label: t("limitHours", { count }) }))}
+            value={String(limit / 60)}
+          />
+        ),
+      )}
+      {row(
+        t("screeningTitle"),
+        t("screeningBody"),
+        <Switch aria-label={t("screeningTitle")} checked={screening} onCheckedChange={onScreening} />,
+        screening ? (
+          <Link className="self-start text-sm font-medium text-foreground underline underline-offset-4 lg:text-frame-meta" href="/screening/setup">
+            {t("screeningSetup")}
+          </Link>
+        ) : null,
+      )}
+      {row(
+        t("trialTitle"),
+        t("trialBody"),
+        <Switch aria-label={t("trialTitle")} checked={trial !== null} onCheckedChange={(on) => onTrial(on ? 15 : null)} />,
+        trial === null ? null : (
+          <Choice
+            label={t("trialTitle")}
+            onChange={(value) => onTrial(Number(value))}
+            options={[15, 30].map((count) => ({ value: String(count), label: t("trialMinutes", { count }) }))}
+            value={String(trial)}
+          />
+        ),
+      )}
+    </ul>
   );
 }
 
@@ -1150,7 +1253,7 @@ export function FieldWithUnit({ id, label, value, onChange, unit, error, large =
  * three. None chosen leaves the choice to the page (`relatedOf`). A hidden
  * service can be chosen and shows once it is on sale.
  */
-function RelatedPicker({ serviceId, chosen, onChange }: {
+export function RelatedPicker({ serviceId, chosen, onChange }: {
   readonly serviceId: string;
   readonly chosen: readonly string[];
   readonly onChange: (next: readonly string[]) => void;
