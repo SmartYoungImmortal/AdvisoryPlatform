@@ -235,9 +235,10 @@ export function FailedNotice({
 
 /**
  * What the panel shows instead of times, for each answer the slots route
- * gives other than a list. Signed out (401) asks to sign in and comes back
- * here afterwards, a screened service (400) points at its questions,
- * anything else is the API's own sentence with a retry.
+ * gives other than a list. The route is public, so a visitor sees the times
+ * like anyone; a 401 (an API from before it was) still asks to sign in and
+ * comes back here afterwards. A screened service (400) points at its
+ * questions, anything else is the API's own sentence with a retry.
  */
 function SlotsNotice({
   error,
@@ -300,14 +301,26 @@ function SlotsNotice({
 function useBook(serviceId: string, onRejected: () => void) {
   const t = useTranslations("service");
   const router = useRouter();
+  const session = useSession();
   const [booking, setBooking] = useState(false);
   const [failure, setFailure] = useState<string | null>(null);
+  // Anyone can look at the times; taking one needs an account. Signed out,
+  // the button goes to sign in and back to this service, not to a 401.
+  const signIn = () => router.push(`/login?next=${encodeURIComponent(liveServiceHref(serviceId))}`);
   const book = (time: string, packageId: string | null) => {
+    if (session.status === "anonymous") {
+      signIn();
+      return;
+    }
     setBooking(true);
     setFailure(null);
     void bookSlot({ serviceId, startTime: time, packageId: packageId ?? undefined })
       .then((created) => router.push(`/checkout/card?bookingId=${created.id}`))
       .catch((cause: unknown) => {
+        if (cause instanceof ApiError && cause.status === 401) {
+          signIn();
+          return;
+        }
         if (cause instanceof ApiError && cause.status === 409) {
           router.push(`/checkout/slot-taken?startTime=${encodeURIComponent(time)}&serviceId=${serviceId}`);
           return;
@@ -743,8 +756,15 @@ type Lane = {
  * Every package's open times from today to the route's limit, one request
  * per package (each cut to its own length), read together: the panel lists
  * them all for the day picked, and a day is open when any of them is.
+ *
+ * The read is keyed by who is looking as well. Anyone may read the times, but
+ * a screened service answers a visitor and an accepted account differently,
+ * and the cache outlives signing in: without the viewer in the key, someone
+ * who signs in and comes back would still be shown the visitor's answer.
  */
 function useServiceSlots(service: ApiPublicService, today: string, last: string) {
+  const session = useSession();
+  const viewer = session.status === "authenticated" ? session.account.id : "guest";
   const fetcher = useCallback(
     (signal: AbortSignal) => {
       const packs = service.packages && service.packages.length > 0 ? service.packages : [null];
@@ -756,7 +776,7 @@ function useServiceSlots(service: ApiPublicService, today: string, last: string)
   );
   const ids = (service.packages ?? []).map((item) => item.id).join(",");
   const slots = useResource<readonly (readonly ApiSlot[])[]>(
-    `services/${service.id}/slots?from=${today}&to=${last}&packages=${ids}`,
+    `services/${service.id}/slots?from=${today}&to=${last}&packages=${ids}&viewer=${viewer}`,
     fetcher,
   );
   const { lanes, openDays } = useMemo(() => {
