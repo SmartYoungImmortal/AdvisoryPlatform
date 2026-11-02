@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useEffect, useState, type FormEvent } from "react";
 import {
   CalendarOff,
@@ -66,50 +67,8 @@ const FORM_CARD = cn(
   READING_COLUMN,
 );
 
-/**
- * How long a range is, in minutes. Every time here is an Advisor-local
- * `HH:MM` wall-clock string, so this is arithmetic on the strings rather than on
- * dates — see the note at the top of `lib/availability/editor`.
- *
- * The error fixture's second range runs backwards on purpose, so a non-positive
- * length is a real case and the callers drop it.
- */
-function rangeMinutes(range: TimeRange): number {
-  const [startHour, startMinute] = range.start.split(":").map(Number);
-  const [endHour, endMinute] = range.end.split(":").map(Number);
-  return endHour * 60 + endMinute - (startHour * 60 + startMinute);
-}
-
 function timeInputValue(value: string): string {
   return value.slice(0, 5);
-}
-
-/**
- * How much time a day or a date actually offers.
- *
- * The frames put nothing here — an open day was its name, a switch, and rows of
- * start/end pairs the reader had to add up. The total is the number the Advisor
- * is deciding by, the same reasoning `TimePickerPopover` already follows for a
- * single range, so it is stated.
- */
-function RangesTotal({ ranges }: { readonly ranges: readonly TimeRange[] }) {
-  const t = useTranslations("availability");
-  const minutes = ranges.reduce(
-    (total, range) => total + Math.max(rangeMinutes(range), 0),
-    0,
-  );
-
-  if (minutes <= 0) return null;
-
-  return (
-    <span className="shrink-0 text-xs font-normal whitespace-nowrap text-muted-foreground">
-      {minutes < 60
-        ? t("minutes", { count: minutes })
-        : minutes % 60 === 0
-          ? t("hours", { count: minutes / 60 })
-          : t("hoursDecimal", { hours: minutes / 60 })}
-    </span>
-  );
 }
 
 const TAB_HREF: Record<EditorTab, string> = {
@@ -188,13 +147,13 @@ function EditorTabs({
 function TimeTrigger({
   value,
   invalid = false,
-  open = false,
+  trailing,
   name,
   valueChanged,
 }: {
   readonly value: string;
   readonly invalid?: boolean;
-  readonly open?: boolean;
+  readonly trailing?: ReactNode;
   readonly name?: string;
   readonly valueChanged?: (value: string) => void;
 }) {
@@ -203,12 +162,11 @@ function TimeTrigger({
       className={cn(
         "flex min-w-px flex-1 items-center gap-1 overflow-clip rounded-md border bg-muted py-2 pr-2.5 pl-3",
         invalid && "border-destructive",
-        open && "border-primary",
-        !invalid && !open && "border-border",
+        !invalid && "border-border focus-within:border-primary",
       )}
     >
       {name ? <Input aria-label={name} aria-invalid={invalid || undefined} className="h-auto min-w-px flex-1 rounded-none border-0 bg-transparent p-0 font-latin text-sm font-medium text-foreground shadow-none dark:bg-transparent" name={name} type="time" value={value} onChange={(event) => valueChanged?.(event.currentTarget.value)} /> : <span className="min-w-px flex-1 font-latin text-sm font-medium text-foreground">{value}</span>}
-      <ChevronDown className="size-3.5 shrink-0 text-muted-foreground" />
+      {trailing ?? <ChevronDown className="size-3.5 shrink-0 text-muted-foreground" />}
     </span>
   );
 }
@@ -242,8 +200,7 @@ function RangeRow({
       {/* The popover anchors to the end trigger, so that half of the row — and only
           that half — becomes the positioning context. */}
       <span className="relative flex min-w-px flex-1 items-center">
-        <TimeTrigger invalid={invalid} name={endName} open={picker} value={end} valueChanged={setEnd} />
-        {picker ? <TimePickerPopover value={end} onSelect={setEnd} /> : null}
+        <TimeTrigger invalid={invalid} name={endName} value={end} valueChanged={setEnd} trailing={<TimePickerPopover start={start} value={end} onSelect={setEnd} defaultOpen={picker} />} />
       </span>
       {removable ? (
         <Button type="button" variant="ghost" size="icon-xs" aria-label="Remove time range" onClick={() => { setStart(""); setEnd(""); }} className="text-muted-foreground">×</Button>
@@ -488,13 +445,7 @@ function WeeklyTab({
               <p className="min-w-px flex-1 text-base font-medium text-foreground">
                 {t(`weekday.${day}`)}
               </p>
-              {/* An open day states how long it is; a closed one says so in a pill
-                  rather than as 12px grey text that read as a hint. */}
-              {isOpen ? (
-                dayInvalid ? null : <RangesTotal ranges={shown} />
-              ) : (
-                <StatusPill tone="neutral">{t("dayClosed")}</StatusPill>
-              )}
+              {!isOpen ? <StatusPill tone="neutral">{t("dayClosed")}</StatusPill> : null}
               <Switch
                 aria-label={t(`weekday.${day}`)}
                 className="shrink-0"
@@ -673,8 +624,8 @@ function BlockedTab({ mode, profile }: { readonly mode: EditorMode; readonly pro
  * drawn and it reads as deliberate — the name is edited where the week is — so it is
  * reproduced rather than normalised.
  *
- * Every control is presentational. The tabs are sibling routes and the two overlays
- * are routes of their own, so this screen needs no client boundary.
+ * Tabs and the add-date dialog have their own routes. Form values are saved
+ * together through the advisor's availability API.
  */
 export function ProfileEditorScreen({
   tab = "weekly",
@@ -688,6 +639,7 @@ export function ProfileEditorScreen({
   const t = useTranslations("availability");
   const c = useTranslations("common");
   const queryId = new URLSearchParams(useLocationSearch()).get("id") ?? "";
+  const router = useRouter();
   const create = isCreate(mode) && !queryId;
   const editorMode = create ? mode : "edit";
   const invalid = state === "error";
@@ -712,7 +664,9 @@ export function ProfileEditorScreen({
   }, [create, queryId]);
 
   const saveProfile = async (event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault(); setBusy(true); setError(null); setSaved(false);
+    event.preventDefault();
+    if (busy) return;
+    setBusy(true); setError(null); setSaved(false);
     const form = new FormData(event.currentTarget);
     const name = String(form.get("name") ?? profile?.name ?? "").trim();
     if (!name) { setError("กรุณาตั้งชื่อชุดเวลาว่าง"); setBusy(false); return; }
@@ -739,9 +693,11 @@ export function ProfileEditorScreen({
           ranges.forEach((range, index) => { const edited = parseRange(form.get(`specificStart-${date}-${index}`), form.get(`specificEnd-${date}-${index}`)); if (edited) updated.push({ ...edited, availableDate: date }); });
         }
         specificWindows = updated;
-        const date = String(form.get("newSpecificDate") ?? ""); const range = parseRange(form.get("newSpecificStart"), form.get("newSpecificEnd"));
-        if (date && range) specificWindows = [...specificWindows.filter((window) => window.availableDate !== date), { ...range, availableDate: date }];
-        if (Boolean(date) !== Boolean(range)) throw new Error("กรุณากรอกวันที่และช่วงเวลาให้ครบ");
+        const date = String(form.get("newSpecificDate") ?? "");
+        const ends = form.getAll("newSpecificEnd");
+        const newRanges = form.getAll("newSpecificStart").map((start, index) => parseRange(start, ends[index] ?? null)).filter((range) => range !== null);
+        if (Boolean(date) !== Boolean(newRanges.length)) throw new Error("กรุณากรอกวันที่และช่วงเวลาให้ครบ");
+        if (date) specificWindows.push(...newRanges.map((range) => ({ ...range, availableDate: date })));
       }
       const removedBlocked = new Set(form.getAll("removeBlockedPeriod").filter((value): value is string => typeof value === "string").map(Number));
       let blockedPeriods: BlockedAvailabilityPeriod[] = [...(profile?.blockedPeriods ?? [])].filter((_, index) => !removedBlocked.has(index));
@@ -763,6 +719,7 @@ export function ProfileEditorScreen({
       const result = profileId ? await availabilityApi.updateProfile(profileId, values) : await availabilityApi.createProfile(values);
       setProfile(result); setProfileId(result.id); setProfileName(result.name); invalidate("availability/profiles"); invalidate("advisors/me/services"); invalidate("services/"); setSaved(true);
       window.history.replaceState(null, "", `${window.location.pathname}?id=${encodeURIComponent(result.id)}`);
+      if (state === "add-date") router.push(`/availability/profiles/edit/specific?id=${encodeURIComponent(result.id)}`);
     } catch (cause) { setError(cause instanceof Error ? cause.message : "บันทึกชุดเวลาว่างไม่สำเร็จ"); }
     finally { setBusy(false); }
   };
@@ -810,7 +767,7 @@ export function ProfileEditorScreen({
           </div>
         </div>
 
-        <form id="availability-profile-form" className={FORM_CARD} onSubmit={saveProfile}>
+        <form id="availability-profile-form" className={FORM_CARD} onChange={() => { setError(null); setSaved(false); }} onSubmit={saveProfile}>
         {create || tab === "weekly" ? (
           <div className="flex w-full shrink-0 flex-col items-start gap-1 overflow-clip px-6 lg:px-0">
             <p className="w-full text-sm font-medium text-foreground">
@@ -853,11 +810,11 @@ export function ProfileEditorScreen({
                 : t("createNote.weeklyFromList")}
         </Note>
 
-        {error ? <p role="alert" className="text-sm text-destructive">{error}</p> : null}{saved ? <p role="status" className="text-sm text-primary">บันทึกชุดเวลาว่างแล้ว</p> : null}
+        {error && state !== "add-date" ? <p role="alert" className="text-sm text-destructive">{error}</p> : null}{saved ? <p role="status" className="text-sm text-primary">บันทึกชุดเวลาว่างแล้ว</p> : null}
         <div className="hidden w-full shrink-0 items-center justify-end gap-3 lg:flex">
           {actions}
         </div>
-        {state === "add-date" ? <AddDateSheet profileId={profileId} /> : null}
+        {state === "add-date" ? <AddDateSheet profileId={profileId} busy={busy} error={error} /> : null}
         </form>
 
         <SiteFooter className="mt-auto hidden lg:flex" />
