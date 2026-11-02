@@ -144,7 +144,7 @@ function OwnerBar({ record, mode, onMode, onChanged }: {
   }
 
   return (
-    <div className="mb-6 flex flex-col gap-3 rounded-2xl border border-border px-4 py-3.5 md:flex-row md:items-center md:justify-between md:gap-5 lg:mb-9 lg:px-6 lg:py-4">
+    <div className="mb-6 flex flex-col gap-3 md:flex-row md:items-center md:justify-between md:gap-5 lg:mb-9">
       <div className="flex min-w-0 items-center gap-3">
         <Link
           aria-label={t("back")}
@@ -171,7 +171,7 @@ function OwnerBar({ record, mode, onMode, onChanged }: {
         </div>
       </div>
       <div className="flex flex-wrap items-center gap-2 md:justify-end lg:gap-3">
-        <label className="flex h-10 items-center gap-2.5 rounded-full border border-border px-4 text-sm text-foreground lg:h-12 lg:px-5 lg:text-frame-meta">
+        <label className="flex h-10 items-center gap-2.5 px-1 text-sm text-foreground lg:h-12 lg:text-frame-meta">
           <span className={record.isPublished ? "text-success" : "text-muted-foreground"}>
             {record.isPublished ? t("onSale") : t("hiddenShort")}
           </span>
