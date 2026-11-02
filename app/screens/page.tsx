@@ -145,7 +145,6 @@ const SECTIONS: ReadonlyArray<{
     title: "Advisor profile & payouts",
     node: "995:8632",
     screens: [
-      { href: "/advisor/profile", label: "Advisor profile – View" },
       { href: "/advisor/edit", label: "Advisor profile – Edit" },
       { href: "/advisor/skills", label: "Skill management" },
       { href: "/earnings", label: "Advisor – Earnings" },

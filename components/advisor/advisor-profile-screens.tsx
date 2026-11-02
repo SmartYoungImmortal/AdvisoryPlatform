@@ -2,38 +2,17 @@
 
 import Link from "next/link";
 import {
-  BadgeCheck,
-  Briefcase,
-  CalendarDays,
   ChevronRight,
   ChevronsUpDown,
   CircleAlert,
   CircleCheck,
-  CircleHelp,
   Clock,
-  CreditCard,
   FileText,
   Landmark,
-  LogOut,
-  MessageSquare,
-  Settings,
-  ShieldCheck,
-  Star,
   UserRoundCog,
-  Wallet,
 } from "lucide-react";
 import { useTranslations } from "next-intl";
 
-import { advisor } from "@/lib/assets/r2";
-import { advisorLevel } from "@/lib/catalogue/profiles";
-import { getAdvisor } from "@/lib/catalogue/services";
-import { LevelBadge } from "@/components/advisor-public/level-badge";
-import {
-  AccountAvatar,
-  AccountLevelBadge,
-  AccountName,
-} from "@/components/session/account-bits";
-import { Badge } from "@/components/ui/badge";
 import { NeutralButton, PrimaryButton } from "@/components/mobile/buttons";
 import { Field } from "@/components/mobile/field";
 import {
@@ -44,163 +23,10 @@ import {
   ScreenSpacer,
   ScreenTopBar,
 } from "@/components/mobile/screen";
-import {
-  AddRow,
-  SettingsCard,
-  SettingsDivider,
-  SettingsRow,
-  SettingsSection,
-} from "@/components/mobile/settings-list";
+import { AddRow } from "@/components/mobile/settings-list";
 import { StatusPill, type StatusTone } from "@/components/mobile/status-pill";
 import { Surface, SurfaceList } from "@/components/mobile/surface";
-import { QuickActions } from "@/components/profile/quick-actions";
 import { WorkEarningsScreen } from "@/components/work/work-screens";
-import { BottomBar } from "@/components/bottombar";
-import { TopBar } from "@/components/topbar";
-
-/**
- * Figma "Advisor profile - View (Light)" — 995:8633, updated to 1390:25505: the
- * level badge replaces the plain role line, and the tiles and rows that had no
- * destination now open the service list and the "งานของฉัน" hub.
- */
-/** The prototype's signed-in Advisor, as the catalogue records her. */
-const ME = getAdvisor("sarah-jenskins");
-
-export function AdvisorProfileScreen() {
-  const t = useTranslations("advisor");
-  // The prototype's signed-in advisor.
-  const level = advisorLevel("sarah-jenskins");
-
-  return (
-    <MobileScreen className="pb-0" wide>
-      <ScreenBody className="pb-19.5 lg:[&>*:not(.sticky)]:mx-auto lg:[&>*:not(.sticky)]:w-full lg:[&>*:not(.sticky)]:max-w-[880px]">
-        <TopBar unreadNotifications />
-        {/* Figma "Identity Card": verified name, role, then rating/booking/review stats. */}
-        <div className="flex w-full shrink-0 flex-col items-start px-6 pt-4">
-          <Surface className="flex w-full flex-col items-start gap-3 p-3.5 lg:p-4">
-            <div className="flex w-full shrink-0 items-center gap-3 overflow-clip">
-              <AccountAvatar className="size-14" fallback={advisor} size={56} />
-              <div className="flex min-w-px flex-1 flex-col items-start gap-1 overflow-clip">
-                <p className="font-latin flex w-full items-center gap-1 text-base font-medium text-foreground">
-                  <AccountName fallback={t("name")} />
-                  <BadgeCheck className="size-4 shrink-0 text-primary" />
-                </p>
-                <AccountLevelBadge
-                  fallback={
-                    level ? (
-                      <LevelBadge level={level} />
-                    ) : (
-                      <p className="w-full text-xs font-normal text-muted-foreground">
-                        {t("role")}
-                      </p>
-                    )
-                  }
-                  none={
-                    <p className="w-full text-xs font-normal text-muted-foreground">
-                      {t("role")}
-                    </p>
-                  }
-                />
-              </div>
-              <span className="flex size-9 shrink-0 items-center justify-center overflow-clip rounded-md bg-muted">
-                <UserRoundCog className="size-4.5 text-muted-foreground" />
-              </span>
-            </div>
-            <div className="h-px w-full shrink-0 bg-border" />
-            {/* The three figures were typed into this file as "4.9 / 47 / 32" while
-                the catalogue — the record the public profile and every service card
-                read — said 4.9, 124 consultations and 124 ratings. Two numbers for
-                one advisor is one number too many, so these are the catalogue's. */}
-            <div className="flex w-full shrink-0 items-start text-center">
-              {[
-                { value: ME?.rating ?? "—", label: t("statRating"), star: true },
-                { value: ME?.consultations ?? 0, label: t("statBookings"), star: false },
-                { value: ME?.reviews ?? 0, label: t("statReviews"), star: false },
-              ].map((s) => (
-                <div
-                  className="flex min-w-px flex-1 flex-col items-center gap-0.5 overflow-clip"
-                  key={s.label}
-                >
-                  <p className="font-latin flex w-full items-center justify-center gap-1 text-base font-medium tabular-nums text-foreground lg:text-lg">
-                    {s.star ? (
-                      <Star className="size-3.5 shrink-0 fill-primary text-primary" />
-                    ) : null}
-                    {s.value}
-                  </p>
-                  <p className="w-full text-xs font-normal text-muted-foreground">
-                    {s.label}
-                  </p>
-                </div>
-              ))}
-            </div>
-          </Surface>
-        </div>
-
-        <div className="flex w-full shrink-0 flex-col items-start overflow-clip px-6 pt-4">
-          <QuickActions
-            actions={[
-              { icon: Briefcase, label: t("tileServices"), href: "/advisor/services" },
-              { icon: CalendarDays, label: t("tileBookings"), href: "/work/calendar" },
-              { icon: Wallet, label: t("tileEarnings"), href: "/work/earnings" },
-              { icon: MessageSquare, label: t("tileChat"), href: "/chat" },
-            ]}
-          />
-        </div>
-
-        <SettingsSection label={t("sectionAdvisor")}>
-          <SettingsCard>
-            <SettingsRow
-              href="/screening/requests"
-              icon={FileText}
-              label={t("requests")}
-              value={<Badge className="size-5 p-0">3</Badge>}
-            />
-            <SettingsDivider />
-            <SettingsRow href="/work/calendar" icon={CalendarDays} label={t("myBookings")} />
-            <SettingsDivider />
-            <SettingsRow href="/advisor/edit" icon={UserRoundCog} label={t("editAdvisor")} />
-            <SettingsDivider />
-            <SettingsRow href="/reviews" icon={Star} label={t("myReviews")} />
-          </SettingsCard>
-        </SettingsSection>
-
-        <SettingsSection label={t("sectionAccount")}>
-          <SettingsCard>
-            <SettingsRow href="/profile/edit" icon={UserRoundCog} label={t("editProfile")} />
-            <SettingsDivider />
-            <SettingsRow href="/settings" icon={Settings} label={t("accountSettings")} />
-            <SettingsDivider />
-            <SettingsRow href="/transactions" icon={CreditCard} label={t("paymentMethods")} />
-            <SettingsDivider />
-            <SettingsRow href="/earnings/payout-account" icon={Wallet} label={t("withdraw")} />
-          </SettingsCard>
-        </SettingsSection>
-
-        <SettingsSection>
-          <SettingsCard>
-            <SettingsRow icon={CircleHelp} label={t("helpCentre")} />
-            <SettingsDivider />
-            <SettingsRow href="/terms" icon={ShieldCheck} label={t("termsPrivacy")} />
-          </SettingsCard>
-        </SettingsSection>
-
-        <SettingsSection>
-          <SettingsCard>
-            <SettingsRow
-              href="/settings/logout"
-              icon={LogOut}
-              iconClassName="text-destructive"
-              label={t("logOut")}
-              labelClassName="text-destructive"
-              showChevron={false}
-            />
-          </SettingsCard>
-        </SettingsSection>
-      </ScreenBody>
-      <BottomBar className="lg:hidden" role="advisor" selected="user" />
-    </MobileScreen>
-  );
-}
 
 /** Figma "Skill management (Light)" — 995:8768. */
 export function SkillManagementScreen() {

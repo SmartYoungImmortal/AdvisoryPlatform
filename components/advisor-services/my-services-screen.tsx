@@ -152,7 +152,7 @@ export function MyServicesScreen() {
       <div className="hidden w-full lg:block">
         <TopBar unreadNotifications />
       </div>
-      <ScreenTopBar className={BACK_BAR} href="/advisor/profile" label={c("back")} />
+      <ScreenTopBar className={BACK_BAR} href="/work" label={c("back")} />
 
       <ScreenBody className="gap-4 pb-6 lg:gap-0 lg:pb-0">
         <div className={HEAD_BAND}>

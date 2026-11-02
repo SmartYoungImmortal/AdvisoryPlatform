@@ -290,7 +290,7 @@ export function GlobalAvailabilityScreen({
   };
   const actions = (
     <>
-      <NeutralButton className="w-30 shrink-0 lg:w-auto lg:px-6" href="/advisor/profile">
+      <NeutralButton className="w-30 shrink-0 lg:w-auto lg:px-6" href="/work">
         {c("cancel")}
       </NeutralButton>
       <Button disabled={saving} className="h-auto min-w-px flex-1 rounded-lg border-0 px-6 py-2 text-base lg:w-auto lg:flex-none lg:px-8" type="submit">{saving ? "กำลังบันทึก…" : t("save")}</Button>
@@ -310,7 +310,7 @@ export function GlobalAvailabilityScreen({
       <div className="hidden w-full lg:block">
         <TopBar unreadNotifications />
       </div>
-      <ScreenTopBar className={BACK_BAR} href="/advisor/profile" label={c("back")} />
+      <ScreenTopBar className={BACK_BAR} href="/work" label={c("back")} />
 
       <ScreenBody className="gap-4 pb-6 lg:gap-0 lg:pb-0">
         {/* Figma "Heading" — 24/34 Thai semibold over a 14/20 muted line. The 6px

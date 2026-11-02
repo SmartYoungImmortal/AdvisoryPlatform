@@ -5,11 +5,9 @@ import { ChevronLeft, ChevronRight, RotateCw } from "lucide-react";
 import { useLocale, useTranslations } from "next-intl";
 import { useCallback, useState } from "react";
 import { useMountTime } from "@/components/bookings/booking-flow";
-import { useStanding } from "@/components/bookings/booking-sheet";
-import { Surface, SurfaceList } from "@/components/mobile/surface";
 import { Button } from "@/components/ui/button";
+import { SessionRow } from "@/components/work/session-row";
 import { WorkHub } from "@/components/work/work-hub";
-import { WorkSectionHead } from "@/components/work/section-head";
 import {
   listAllAdvisorBookings,
   type AdvisorBooking,
@@ -21,7 +19,7 @@ import { WEEKDAY_KEYS, monthGrid } from "@/lib/calendar";
 import { bookingDay, moveMonth } from "@/lib/work/booking-calendar";
 import { cn } from "@/lib/utils";
 
-const BLOCK = "flex w-full flex-col items-start gap-3 px-6 pt-2 pb-1 lg:px-0";
+const BLOCK = "flex w-full min-w-0 flex-col items-start gap-3 lg:gap-4";
 
 export function AdvisorBookingReadState({
   failed = false,
@@ -53,7 +51,7 @@ export function AdvisorCalendarScreen() {
   const t = useTranslations("work");
   const profile = useResource<ApiOwnProfile>("users/me", getOwnProfile);
   return (
-    <WorkHub showStats={false} subtitle={t("calendarSubtitle")} tab="calendar">
+    <WorkHub subtitle={t("calendarSubtitle")} tab="calendar">
       {profile.error ? (
         <AdvisorBookingReadState failed retry={profile.reload} />
       ) : profile.data ? (
@@ -118,7 +116,7 @@ function CalendarData({ profile }: { readonly profile: ApiOwnProfile }) {
   }
 
   return (
-    <div className="grid w-full gap-6 lg:grid-cols-[minmax(0,1.2fr)_minmax(0,1fr)] lg:gap-8">
+    <div className="mt-5 grid w-full gap-8 lg:mt-8 lg:grid-cols-[minmax(0,1.2fr)_minmax(0,1fr)]">
       <section className={BLOCK}>
         <div className="flex w-full items-center justify-between gap-3">
           <Button
@@ -130,7 +128,7 @@ function CalendarData({ profile }: { readonly profile: ApiOwnProfile }) {
           >
             <ChevronLeft aria-hidden />
           </Button>
-          <h2 className="text-sm font-semibold" aria-live="polite">
+          <h2 className="text-lg font-semibold text-foreground lg:text-frame-heading" aria-live="polite">
             {monthLabel}
           </h2>
           <Button
@@ -143,10 +141,10 @@ function CalendarData({ profile }: { readonly profile: ApiOwnProfile }) {
             <ChevronRight aria-hidden />
           </Button>
         </div>
-        <p className="text-xs text-muted-foreground">
+        <p className="text-xs text-muted-foreground lg:text-frame-label">
           {t("timezone", { zone: profile.timezone })}
         </p>
-        <Surface className="w-full overflow-hidden">
+        <div className="w-full overflow-hidden rounded-2xl border border-border">
           <div className="grid grid-cols-7">
             {WEEKDAY_KEYS.map((key) => (
               <span
@@ -168,7 +166,7 @@ function CalendarData({ profile }: { readonly profile: ApiOwnProfile }) {
                     !cell.inMonth && "text-muted-foreground/40",
                     cell.inMonth &&
                       key === day &&
-                      "bg-primary text-primary-foreground",
+                      "bg-hero-action text-hero-action-foreground",
                   )}
                   disabled={!cell.inMonth}
                   key={`${index}-${cell.day}`}
@@ -188,7 +186,7 @@ function CalendarData({ profile }: { readonly profile: ApiOwnProfile }) {
                       aria-hidden
                       className={cn(
                         "size-1.5 rounded-full",
-                        key === day ? "bg-primary-foreground" : "bg-primary",
+                        key === day ? "bg-hero-action-foreground" : "bg-hero-action",
                       )}
                     />
                   ) : null}
@@ -196,7 +194,7 @@ function CalendarData({ profile }: { readonly profile: ApiOwnProfile }) {
               );
             })}
           </div>
-        </Surface>
+        </div>
         <div className="flex w-full items-center justify-between gap-2 text-xs text-muted-foreground">
           <span>
             {resource.data
@@ -215,29 +213,31 @@ function CalendarData({ profile }: { readonly profile: ApiOwnProfile }) {
         </div>
       </section>
       <section className={BLOCK}>
-        <WorkSectionHead title={dayLabel} />
+        <h2 className="flex min-h-11 items-center text-lg font-semibold text-foreground lg:text-frame-heading">
+          {dayLabel}
+        </h2>
         {resource.error ? (
           <AdvisorBookingReadState failed retry={resource.reload} />
         ) : !resource.data ? (
           <AdvisorBookingReadState />
         ) : selected.length ? (
-          <SurfaceList>
+          <ul className="flex w-full flex-col">
             {selected.map((booking) => (
-              <LiveSessionRow
+              <SessionRow
                 booking={booking}
                 key={booking.id}
                 now={now}
                 timeZone={profile.timezone}
               />
             ))}
-          </SurfaceList>
+          </ul>
         ) : (
-          <Surface className="w-full p-5 text-sm text-muted-foreground">
+          <p className="w-full rounded-2xl border border-border p-5 text-sm text-muted-foreground lg:text-frame-meta">
             {t("emptyDay")}
-          </Surface>
+          </p>
         )}
         <Link
-          className="flex w-full items-center justify-between gap-3 rounded-card bg-muted p-4 text-sm"
+          className="flex h-14 w-full items-center justify-between gap-3 rounded-2xl border border-border px-5 text-base text-foreground outline-none transition-colors hover:bg-muted/60 focus-visible:ring-3 focus-visible:ring-ring/50 lg:text-frame-body"
           href="/availability/profiles"
         >
           {t("manageAvailability")}
@@ -245,51 +245,5 @@ function CalendarData({ profile }: { readonly profile: ApiOwnProfile }) {
         </Link>
       </section>
     </div>
-  );
-}
-
-function LiveSessionRow({
-  booking,
-  now,
-  timeZone,
-}: {
-  readonly booking: AdvisorBooking;
-  readonly now: number;
-  readonly timeZone: string;
-}) {
-  const locale = useLocale();
-  const standing = useStanding()(booking, now);
-  const clock = new Intl.DateTimeFormat(locale, {
-    timeZone,
-    hour: "2-digit",
-    minute: "2-digit",
-    hourCycle: "h23",
-  });
-  return (
-    <Link
-      className="flex w-full items-center gap-3 p-3.5 hover:bg-muted/50"
-      href={`/work/session?id=${booking.id}`}
-    >
-      <span
-        aria-hidden
-        className="flex size-10 shrink-0 items-center justify-center rounded-full bg-muted text-sm"
-      >
-        {booking.adviseeName.trim().slice(0, 1)}
-      </span>
-      <span className="flex min-w-0 flex-1 flex-col gap-0.5">
-        <span className="truncate text-sm font-semibold">
-          {booking.adviseeName}
-        </span>
-        <span className="truncate text-xs text-muted-foreground">
-          {booking.serviceName}
-        </span>
-        <span className={cn("text-xs", standing.ink)}>{standing.label}</span>
-      </span>
-      <span className="shrink-0 font-latin text-xs tabular-nums">
-        {clock.format(new Date(booking.startTime))}–
-        {clock.format(new Date(booking.endTime))}
-      </span>
-      <ChevronRight aria-hidden className="size-4 shrink-0" />
-    </Link>
   );
 }

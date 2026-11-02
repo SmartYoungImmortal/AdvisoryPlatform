@@ -1,159 +1,91 @@
-import { CalendarDays, FileText, Star, Wallet } from "lucide-react";
+import Link from "next/link";
 import { useTranslations } from "next-intl";
 import type { ReactNode } from "react";
 
+import { AccountShell } from "@/components/account/account-shell";
+import { AppFrame } from "@/components/account/app-frame";
 import { BottomBar } from "@/components/bottombar";
-import {
-  MobileScreen,
-  ScreenBody,
-  ScreenHeading,
-} from "@/components/mobile/screen";
-import { SegmentedTabs } from "@/components/mobile/segmented-tabs";
-import { StatTile } from "@/components/mobile/stat-tile";
-import { SiteFooter } from "@/components/marketing/site-footer";
-import { TopBar } from "@/components/topbar";
-import { buddhistYear } from "@/lib/calendar";
-import { getAdvisor } from "@/lib/catalogue/services";
-import { PAGE } from "@/lib/layout";
+import { MobileScreen, ScreenBody } from "@/components/mobile/screen";
+import { FEED_COLUMN } from "@/components/notifications/notification-center-screen";
 import { cn } from "@/lib/utils";
-import {
-  PENDING_TOTAL,
-  TODAY,
-  TODAY_SESSIONS,
-  TODAY_WEEKDAY,
-  WORK_TAB_HREF,
-  type WorkTab,
-} from "@/lib/work";
+import { WORK_TAB_HREF, type WorkTab } from "@/lib/work";
 
 const TABS: readonly WorkTab[] = ["today", "calendar", "earnings"];
 
-/** The prototype's signed-in Advisor — the same record the public profile reads. */
-const ME = getAdvisor("sarah-jenskins");
+/** The page's inset on a phone and an upright tablet; from `lg` the shell's. */
+export const WORK_GUTTER = "px-5 md:px-10 lg:px-0";
 
-/** "อา. 16 ส.ค. 2569" — built from the real weekday, never a typed one. */
-export function useTodayLabel(): string {
-  const t = useTranslations("work");
-  return t("dateLabel", {
-    weekday: t(`weekdayAbbr.${TODAY_WEEKDAY}`),
-    day: TODAY.day,
-    month: t("monthAbbr"),
-    year: buddhistYear(TODAY.year),
-  });
-}
-
+/**
+ * The desk's three views as capsules, the current one filled in ink — the
+ * same capsules the notification centre and the transactions filter by. They
+ * are links, not a filter: each view is its own address.
+ */
 function WorkTabs({ current }: { readonly current: WorkTab }) {
   const t = useTranslations("work");
 
   return (
-    <SegmentedTabs
-      className="pt-1 pb-2 lg:px-0"
-      current={current}
-      items={TABS.map((tab) => ({
-        key: tab,
-        label: t(`tab.${tab}`),
-        href: WORK_TAB_HREF[tab],
-      }))}
-      label={t("title")}
-    />
+    <nav
+      aria-label={t("title")}
+      className="-mx-5 mt-5 flex min-w-0 gap-2 overflow-x-auto px-5 md:-mx-10 md:px-10 lg:mx-0 lg:mt-8 lg:gap-3 lg:px-0"
+    >
+      {TABS.map((tab) => {
+        const active = tab === current;
+        return (
+          <Link
+            aria-current={active ? "page" : undefined}
+            className={cn(
+              "flex h-9 shrink-0 items-center rounded-full border px-3.5 text-sm font-medium whitespace-nowrap outline-none transition-colors focus-visible:ring-3 focus-visible:ring-ring/50 lg:h-12 lg:px-5 lg:text-frame-meta",
+              active
+                ? "border-hero-action bg-hero-action text-hero-action-foreground hover:bg-hero-action/90"
+                : "border-border bg-card text-foreground hover:bg-muted",
+            )}
+            href={WORK_TAB_HREF[tab]}
+            key={tab}
+          >
+            {t(`tab.${tab}`)}
+          </Link>
+        );
+      })}
+    </nav>
   );
 }
 
 /**
- * The desk's four figures, the way the admin console leads with its counts.
- *
- * Desktop only, and on purpose: at 1440 the hub had a heading, three tabs and then
- * a phone's worth of cards, so nothing told the reader how the day was going before
- * they started reading rows. The phone frame has no room to say it twice, and these
- * numbers are all repeated further down the same screen.
- *
- * Every figure is read from the fixtures the rest of the hub renders — the session
- * count is `TODAY_SESSIONS`, the pending count is the pending desk's own rows, the
- * score and the review count are the catalogue's, not a typed pair.
- */
-function WorkStats() {
-  const t = useTranslations("work");
-  const a = useTranslations("advisor");
-  const p = useTranslations("advisorProfile");
-  const today = useTodayLabel();
-
-  return (
-    <div className="hidden w-full shrink-0 lg:grid lg:grid-cols-4 lg:gap-4">
-      <StatTile
-        hint={today}
-        icon={CalendarDays}
-        label={t("todaySessions")}
-        tone="accent"
-        value={TODAY_SESSIONS.length}
-      />
-      <StatTile
-        icon={FileText}
-        label={t("pendingTitle")}
-        value={PENDING_TOTAL}
-      />
-      <StatTile
-        hint={a("withdrawnMeta")}
-        icon={Wallet}
-        label={a("available")}
-        value={a("availableAmount")}
-      />
-      <StatTile
-        hint={ME ? p("reviewCount", { count: ME.reviews }) : undefined}
-        icon={Star}
-        label={a("statRating")}
-        value={ME?.rating ?? "—"}
-      />
-    </div>
-  );
-}
-
-/**
- * The frame every "งานของฉัน" view shares: the app bar, the hub heading, the three
- * view tabs and the Advisor tab bar with this hub selected.
- *
- * Built the way `EarningsScreen` already is — the bar scrolls with the content and
- * the tab bar overlays the bottom, so the body reserves its height.
+ * `/work`, `/work/calendar`, `/work/earnings`: the advisor's desk, inside the
+ * account frame like every other page an account owns — the rail (where the
+ * desk has its own "งาน" place), the white panel, the title in the hero's
+ * face, the three views as capsules, then the view. The phone keeps the
+ * advisor's tab bar with the desk selected.
  */
 export function WorkHub({
   tab,
   subtitle,
   children,
-  showStats = true,
 }: {
   readonly tab: WorkTab;
-  readonly subtitle: ReactNode;
+  readonly subtitle?: ReactNode;
   readonly children: ReactNode;
-  readonly showStats?: boolean;
 }) {
   const t = useTranslations("work");
 
   return (
-    // Figma "Desktop / Advisor dashboard (Light)" (1787:26587): the same hub —
-    // heading, the three tabs, the tab's own content — inside the 1200 column,
-    // with the app nav above it and the site footer under it.
-    //
-    // The inset is `PAGE`, the one every peer workspace screen uses; this file
-    // carried its own `lg:px-4 xl:px-24` and then let each block keep its 24px
-    // too, which is how the two-column split ended up with 72px of gutter.
-    <MobileScreen className="pb-0" wide>
-      <ScreenBody className="gap-1.5 pb-19.5 lg:gap-0 lg:pb-0">
-        <TopBar unreadNotifications />
-        <div
-          className={cn(
-            "contents lg:flex lg:flex-col lg:gap-5 lg:pt-4 lg:pb-14",
-            PAGE,
-          )}
-        >
-          <ScreenHeading
-            className="gap-1 lg:px-0"
-            subtitle={subtitle}
-            title={t("title")}
-          />
-          <WorkTabs current={tab} />
-          {showStats ? <WorkStats /> : null}
-          {children}
-        </div>
-        <SiteFooter className="hidden lg:flex" />
-      </ScreenBody>
+    <MobileScreen className="bg-card pb-0" wide="md">
+      <AppFrame active="work">
+        <ScreenBody className="bg-card pb-19.5 lg:pb-0">
+          <AccountShell>
+            <div className={cn("flex w-full min-w-0 flex-col pt-6 pb-12 lg:flex-1 lg:pt-0 lg:pb-0", FEED_COLUMN, WORK_GUTTER)}>
+              <header className="flex flex-col gap-1 lg:gap-2">
+                <h1 className="font-hero text-title-compact font-normal tracking-tight text-hero-ink lg:text-frame-title">
+                  {t("title")}
+                </h1>
+                {subtitle ? <p className="text-sm text-muted-foreground lg:text-frame-meta">{subtitle}</p> : null}
+              </header>
+              <WorkTabs current={tab} />
+              {children}
+            </div>
+          </AccountShell>
+        </ScreenBody>
+      </AppFrame>
       <BottomBar className="lg:hidden" role="advisor" selected="work" />
     </MobileScreen>
   );

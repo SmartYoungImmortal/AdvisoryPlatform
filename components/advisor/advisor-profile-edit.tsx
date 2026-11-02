@@ -783,7 +783,7 @@ function EditForm({ profile, initial }: { readonly profile: ApiOwnAdvisorProfile
           <PrimaryButton disabled={saving} type="submit">
             {saving ? t("saving") : a("save")}
           </PrimaryButton>
-          <NeutralButton href="/advisor/profile">{a("cancel")}</NeutralButton>
+          <NeutralButton href="/profile">{a("cancel")}</NeutralButton>
         </ScreenActions>
       </form>
 
@@ -863,7 +863,7 @@ export function AdvisorProfileEditScreen() {
 
   return (
     <MobileScreen wide>
-      <ScreenTopBar href="/advisor/profile" label={c("back")} />
+      <ScreenTopBar href="/profile" label={c("back")} />
       <ScreenBody className="lg:[&>*:not(.sticky)]:mx-auto lg:[&>*:not(.sticky)]:w-full lg:[&>*:not(.sticky)]:max-w-[880px]">
         <ScreenHeading className="gap-2 pt-4" subtitle={t("editSubtitle")} title={t("editTitle")} />
         {body}
