@@ -1,6 +1,6 @@
 "use client";
 
-import { RotateCw, SearchX, Sparkles } from "lucide-react";
+import { ArrowUp, Check, ChevronDown, RotateCw, SearchX, Sparkles } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useFormatter, useTranslations } from "next-intl";
@@ -14,35 +14,42 @@ import { MobileScreen, ScreenBody } from "@/components/mobile/screen";
 import { ResultCard } from "@/components/search/search-screen";
 import { TopBar } from "@/components/topbar";
 import { Button } from "@/components/ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { Textarea } from "@/components/ui/textarea";
+import { getMatchingStatus, matchServices, type ApiMatching } from "@/lib/api/matching";
 import { listServiceSlots } from "@/lib/api/resources";
 import { useResource } from "@/lib/api/use-resource";
 import { useLiveCatalogue, type LiveService } from "@/lib/catalogue/live";
 import { cn } from "@/lib/utils";
 
 /**
- * Matching: a guided search for someone who does not know what to type. Two
- * steps — say what it is about, in a sentence or a topic, with a budget and
- * how soon — then the services that fit, each with its earliest open time.
+ * Matching: ask in your own words, the way you would ask a person. The first
+ * step is one composer — the problem, and optionally a topic, a budget and how
+ * soon — and the second the services that fit, each with why it fits and when
+ * it is first free.
  *
- * It runs on what the catalogue already offers: every listed service with its
- * advisor and rating (`useLiveCatalogue`, the search page's read), and each
- * candidate's open times (`GET /services/:id/slots`, public). There is no
- * matching route on the API and none is needed for this: the ranking is done
- * here, from the words of the problem against each service's own words.
+ * `POST /matching` does the choosing. With a model key on the API, Claude
+ * reads the problem against the published catalogue and says why each service
+ * fits; without one the API matches the problem's words, and if the route
+ * cannot be reached at all the same word matching runs here (`rank`). The
+ * page only says "AI" when `GET /matching/status` says a model is reading.
  *
  * ## Where the answers live
  *
- * In `sessionStorage`, not the address: a problem can be private ("my
- * divorce", "my debts"), and a URL ends up in history, in referrers and in
- * shared links. The answers stay on the device for the tab's life and nothing
- * sends them anywhere; the results page reads them back.
+ * In `sessionStorage`, not the address: a problem can be private, and a URL
+ * ends up in history, in referrers and in shared links. The request is a POST
+ * for the same reason.
  */
 
 const STORE_KEY = "advisory.matching";
 
 const BUDGETS = ["any", "500", "1000", "2000"] as const;
-const WHENS = ["soon", "week", "any"] as const;
+const WHENS = ["any", "soon", "week"] as const;
 type Budget = (typeof BUDGETS)[number];
 type When = (typeof WHENS)[number];
 
@@ -56,8 +63,10 @@ type Answers = {
 /** How many days ahead each answer to "when" looks for an open time. */
 const WINDOW_DAYS: Record<When, number> = { soon: 3, week: 7, any: 30 };
 
-/** How many of the best candidates have their open times read. */
+/** How many candidates have their open times read. */
 const CANDIDATES = 12;
+
+const PROBLEM_MAX = 1000;
 
 /* ------------------------------------------------------------- the answers */
 
@@ -107,7 +116,16 @@ function useAnswers(): Answers | null | undefined {
   return useMemo(() => (raw === SERVER ? undefined : parseAnswers(raw)), [raw]);
 }
 
-/* ---------------------------------------------------------------- matching */
+/** Whether a model reads problems; false until the API says otherwise. */
+function useAiOn(): boolean {
+  const status = useResource<{ readonly ai: boolean }>(
+    "matching/status",
+    useCallback((signal: AbortSignal) => getMatchingStatus(signal), []),
+  );
+  return status.data?.ai ?? false;
+}
+
+/* -------------------------------------------------- matching, done locally */
 
 /** Words that say nothing about the problem, in either language. */
 const STOPWORDS = new Set([
@@ -133,15 +151,18 @@ function piecesOf(text: string): readonly string[] {
 /**
  * The problem's words found in a service's words: runs of one to three
  * neighbouring pieces, rejoined, so "ฟรีแลนซ์" is found whole; a run is kept
- * only if no longer found run contains it, and none is a stopword or shorter
- * than three characters.
+ * only if no longer found run contains it, and none is filler or shorter than
+ * three characters. The API matches the same way.
  */
 function matchedIn(pieces: readonly string[], haystack: string): readonly string[] {
   const found = new Set<string>();
   for (let start = 0; start < pieces.length; start++) {
     for (let length = 1; length <= 3 && start + length <= pieces.length; length++) {
-      const run = pieces.slice(start, start + length).join("");
-      if (run.length >= 3 && !STOPWORDS.has(run) && haystack.includes(run)) found.add(run);
+      const parts = pieces.slice(start, start + length);
+      const run = parts.join("");
+      // A run of nothing but filler ("แบบ" + "ไหน") says no more than its pieces.
+      const filler = parts.every((part) => STOPWORDS.has(part));
+      if (run.length >= 3 && !filler && !STOPWORDS.has(run) && haystack.includes(run)) found.add(run);
     }
   }
   const runs = [...found];
@@ -150,15 +171,11 @@ function matchedIn(pieces: readonly string[], haystack: string): readonly string
 
 type Candidate = {
   readonly item: LiveService;
-  readonly score: number;
+  readonly reason: string | null;
   readonly matched: readonly string[];
 };
 
-/**
- * The services that fit, best first: the chosen topic and budget filter;
- * the problem's words found in a service's title, description, topic and its
- * advisor's line of work score it, and its rating breaks ties.
- */
+/** Done here only when the API cannot be reached: the topic and budget filter, the problem's words rank. */
 function rank(items: readonly LiveService[], answers: Answers): readonly Candidate[] {
   const pieces = piecesOf(answers.problem);
   const ceiling = answers.budget === "any" ? Infinity : Number(answers.budget);
@@ -168,13 +185,12 @@ function rank(items: readonly LiveService[], answers: Answers): readonly Candida
     .map((item) => {
       const haystack = `${item.title} ${item.description} ${item.category} ${item.advisorHeadline}`.toLowerCase();
       const matched = matchedIn(pieces, haystack);
-      const rating = item.rating ?? 0;
-      // A longer word found is a stronger sign than a short one.
       const weight = matched.reduce((sum, word) => sum + Math.min(word.length, 8), 0);
-      return { item, matched, score: weight + rating / 5 + Math.min(item.reviews, 50) / 100 };
+      return { item, matched, reason: null, weight: weight + (item.rating ?? 0) / 5 };
     })
     .filter((candidate) => pieces.length === 0 || answers.categoryId !== null || candidate.matched.length > 0)
-    .toSorted((a, b) => b.score - a.score);
+    .toSorted((a, b) => b.weight - a.weight)
+    .map(({ item, matched, reason }) => ({ item, matched, reason }));
 }
 
 /** `YYYY-MM-DD` in the reader's own zone. */
@@ -200,83 +216,84 @@ function MatchingFrame({ children }: { readonly children: ReactNode }) {
   );
 }
 
-/** A choice as a capsule, the chosen one filled in ink. */
-function Capsule({ selected, onClick, children }: {
-  readonly selected: boolean;
-  readonly onClick: () => void;
-  readonly children: ReactNode;
-}) {
+/** "AI ช่วยหา" — only while a model is actually reading problems. */
+function AiBadge() {
+  const t = useTranslations("matching");
   return (
-    <Button
-      aria-pressed={selected}
-      className={cn(
-        "h-10 shrink-0 rounded-full border px-4 text-sm font-medium whitespace-nowrap md:h-11 md:px-5 md:text-base",
-        selected
-          ? "border-hero-action bg-hero-action text-hero-action-foreground hover:bg-hero-action/90 hover:text-hero-action-foreground"
-          : "border-border bg-card text-foreground hover:bg-muted",
-      )}
-      onClick={onClick}
-      type="button"
-      variant="ghost"
-    >
-      {children}
-    </Button>
+    <span className="inline-flex h-8 items-center gap-1.5 rounded-full bg-muted px-3 text-xs font-medium text-foreground md:h-9 md:px-4 md:text-sm">
+      <Sparkles aria-hidden className="size-3.5 md:size-4" />
+      {t("aiBadge")}
+    </span>
   );
 }
 
-/** A question: its label, and its answers under it. */
-function Question({ label, children, htmlFor }: { readonly label: string; readonly children: ReactNode; readonly htmlFor?: string }) {
+/** A small choice in the composer: its value in a capsule, the options in a menu. */
+function Choice<T extends string>({ label, value, options, onChange }: {
+  readonly label: string;
+  readonly value: T;
+  readonly options: readonly { readonly value: T; readonly label: string }[];
+  readonly onChange: (next: T) => void;
+}) {
+  const current = options.find((option) => option.value === value)?.label ?? "";
   return (
-    <div className="flex flex-col gap-3">
-      {htmlFor ? (
-        <label className="text-base font-semibold text-foreground md:text-lg" htmlFor={htmlFor}>
-          {label}
-        </label>
-      ) : (
-        <p className="text-base font-semibold text-foreground md:text-lg">{label}</p>
-      )}
-      {children}
-    </div>
+    <DropdownMenu>
+      <DropdownMenuTrigger
+        aria-label={`${label}: ${current}`}
+        className="flex h-9 shrink-0 items-center gap-1.5 rounded-full border border-border bg-card px-3.5 text-sm text-foreground outline-none transition-colors hover:bg-muted focus-visible:ring-3 focus-visible:ring-ring/50"
+      >
+        <span className="text-muted-foreground">{label}</span>
+        <span className="max-w-40 truncate font-medium">{current}</span>
+        <ChevronDown aria-hidden className="size-3.5 text-muted-foreground" />
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="start" className="max-h-80 min-w-48 overflow-y-auto rounded-2xl p-1.5">
+        {options.map((option) => (
+          <DropdownMenuItem className="h-10 gap-2 rounded-xl px-3 text-sm" key={option.value} onClick={() => onChange(option.value)}>
+            <Check aria-hidden className={cn("size-4", option.value === value ? "opacity-100" : "opacity-0")} />
+            {option.label}
+          </DropdownMenuItem>
+        ))}
+      </DropdownMenuContent>
+    </DropdownMenu>
   );
 }
 
 /* --------------------------------------------------------------- step one */
 
 /**
- * `/matching`: the problem, in a topic or a sentence (either is enough), the
- * budget and how soon. Opened from the search's empty result it starts with
- * what was searched for (`?q=`).
+ * `/matching`: one composer, as a chat asks — the problem in your own words,
+ * with the topic, budget and how soon as small choices under it, and examples
+ * to start from. Opened from the search's empty result it starts with what was
+ * searched for (`?q=`).
  */
 export function ProblemDescriptionScreen() {
   const answers = useAnswers();
   const query = useQueryValue("q");
+  const aiOn = useAiOn();
   const t = useTranslations("matching");
 
   return (
     <MatchingFrame>
-      <header className="mx-auto flex w-full max-w-170 flex-col items-center gap-3 text-center">
-        <h1 className="font-hero text-2xl font-normal tracking-tight text-hero-ink md:text-hero">{t("problemTitle")}</h1>
-        <p className="max-w-xl text-sm text-balance text-muted-foreground md:text-base">{t("problemSubtitle")}</p>
+      <header className="mx-auto flex w-full max-w-200 flex-col items-center gap-4 pt-4 text-center md:pt-10 lg:pt-14">
+        {aiOn ? <AiBadge /> : null}
+        <h1 className="font-hero text-3xl font-normal tracking-tight text-balance text-hero-ink md:text-hero">{t("problemTitle")}</h1>
+        <p className="max-w-xl text-sm text-balance text-muted-foreground md:text-base">{aiOn ? t("problemSubtitleAi") : t("problemSubtitle")}</p>
       </header>
       {answers === undefined ? (
-        <div aria-hidden className="mx-auto mt-10 flex w-full max-w-170 flex-col gap-6">
-          <span className="h-10 w-2/3 animate-pulse rounded-full bg-muted motion-reduce:animate-none" />
-          <span className="h-32 w-full animate-pulse rounded-2xl bg-muted motion-reduce:animate-none" />
-        </div>
+        <div aria-hidden className="mx-auto mt-8 h-48 w-full max-w-200 animate-pulse rounded-3xl bg-muted motion-reduce:animate-none md:mt-10" />
       ) : (
-        <ProblemForm initial={answers ?? { categoryId: null, problem: query ?? "", budget: "any", when: "any" }} />
+        <Composer initial={answers ?? { categoryId: null, problem: query ?? "", budget: "any", when: "any" }} />
       )}
     </MatchingFrame>
   );
 }
 
-function ProblemForm({ initial }: { readonly initial: Answers }) {
+function Composer({ initial }: { readonly initial: Answers }) {
   const t = useTranslations("matching");
   const format = useFormatter();
   const router = useRouter();
   const catalogue = useLiveCatalogue();
-  const [categoryId, setCategoryId] = useState(initial.categoryId);
   const [problem, setProblem] = useState(initial.problem);
+  const [categoryId, setCategoryId] = useState(initial.categoryId ?? "all");
   const [budget, setBudget] = useState<Budget>(initial.budget);
   const [when, setWhen] = useState<When>(initial.when);
   const [missing, setMissing] = useState(false);
@@ -284,99 +301,114 @@ function ProblemForm({ initial }: { readonly initial: Answers }) {
   const categories = useMemo(() => {
     const seen = new Map<string, string>();
     for (const item of catalogue.items) if (!seen.has(item.categoryId)) seen.set(item.categoryId, item.category);
-    return [...seen].map(([id, name]) => ({ id, name })).toSorted((a, b) => a.name.localeCompare(b.name));
+    return [...seen].map(([id, name]) => ({ value: id, label: name })).toSorted((a, b) => a.label.localeCompare(b.label));
   }, [catalogue.items]);
-
   const baht = (amount: number) => format.number(amount, { style: "currency", currency: "THB", maximumFractionDigits: 0 });
+  const examples = [t("example1"), t("example2"), t("example3")];
+
+  const submit = () => {
+    if (problem.trim().length < 3 && categoryId === "all") {
+      setMissing(true);
+      return;
+    }
+    saveAnswers({ categoryId: categoryId === "all" ? null : categoryId, problem: problem.trim(), budget, when });
+    router.push("/matching/results");
+  };
 
   return (
-    <form
-      className="mx-auto mt-10 flex w-full max-w-170 flex-col gap-8 md:mt-12 md:gap-10"
-      noValidate
-      onSubmit={(event) => {
-        event.preventDefault();
-        if (!categoryId && problem.trim().length < 3) {
-          setMissing(true);
-          return;
-        }
-        saveAnswers({ categoryId, problem: problem.trim(), budget, when });
-        router.push("/matching/results");
-      }}
-    >
-      <Question label={t("topicLabel")}>
-        <div className="flex flex-wrap gap-2 md:gap-2.5">
-          <Capsule onClick={() => setCategoryId(null)} selected={categoryId === null}>
-            {t("topicAny")}
-          </Capsule>
-          {catalogue.loading && categories.length === 0
-            ? [0, 1, 2, 3].map((i) => (
-                <span aria-hidden className="h-10 w-24 animate-pulse rounded-full bg-muted motion-reduce:animate-none md:h-11" key={i} />
-              ))
-            : categories.map((category) => (
-                <Capsule
-                  key={category.id}
-                  onClick={() => {
-                    setCategoryId(category.id);
-                    setMissing(false);
-                  }}
-                  selected={categoryId === category.id}
-                >
-                  {category.name}
-                </Capsule>
-              ))}
-        </div>
-      </Question>
-
-      <Question htmlFor="matching-problem" label={t("detailLabel")}>
+    <div className="mx-auto mt-8 flex w-full max-w-200 flex-col gap-6 md:mt-10">
+      <form
+        className="flex flex-col gap-2 rounded-3xl bg-card p-3 shadow-hero-card ring-1 ring-hero-card-border transition-shadow focus-within:shadow-hero-card-hover md:p-4"
+        noValidate
+        onSubmit={(event) => {
+          event.preventDefault();
+          submit();
+        }}
+      >
+        <label className="sr-only" htmlFor="matching-problem">
+          {t("detailLabel")}
+        </label>
         <Textarea
           aria-describedby="matching-problem-hint"
-          className="min-h-32 resize-y rounded-2xl border-accented bg-card px-4 py-3 text-base shadow-none md:min-h-36"
+          aria-invalid={missing || undefined}
+          className="min-h-28 resize-none border-0 bg-transparent px-2 py-2 text-base shadow-none focus-visible:ring-0 md:min-h-32 md:px-3 md:text-lg"
           id="matching-problem"
-          maxLength={1000}
+          maxLength={PROBLEM_MAX}
           onChange={(event) => {
             setProblem(event.target.value);
             setMissing(false);
           }}
+          onKeyDown={(event) => {
+            // Enter sends, as a chat does; Shift+Enter starts a new line.
+            if (event.key === "Enter" && !event.shiftKey && !event.nativeEvent.isComposing) {
+              event.preventDefault();
+              submit();
+            }
+          }}
           placeholder={t("detailPlaceholder")}
           value={problem}
         />
-        <p className="text-xs text-muted-foreground md:text-sm" id="matching-problem-hint">
-          {t("detailHint")}
-        </p>
-      </Question>
+        <div className="flex items-end justify-between gap-3">
+          <div className="flex min-w-0 flex-wrap gap-2">
+            <Choice
+              label={t("topicLabel")}
+              onChange={setCategoryId}
+              options={[{ value: "all", label: t("topicAny") }, ...categories]}
+              value={categoryId}
+            />
+            <Choice
+              label={t("budgetLabel")}
+              onChange={setBudget}
+              options={BUDGETS.map((option) => ({
+                value: option,
+                label: option === "any" ? t("budgetAny") : t("budgetUpTo", { amount: baht(Number(option)) }),
+              }))}
+              value={budget}
+            />
+            <Choice
+              label={t("whenLabel")}
+              onChange={setWhen}
+              options={WHENS.map((option) => ({
+                value: option,
+                label: t(option === "soon" ? "whenSoon" : option === "week" ? "whenWeek" : "whenAny"),
+              }))}
+              value={when}
+            />
+          </div>
+          <Button
+            aria-label={t("search")}
+            className="size-11 shrink-0 rounded-full bg-hero-action p-0 text-hero-action-foreground hover:bg-hero-action/85 md:size-12"
+            type="submit"
+          >
+            <ArrowUp aria-hidden className="size-5" />
+          </Button>
+        </div>
+      </form>
 
-      <Question label={t("budgetLabel")}>
-        <div className="flex flex-wrap gap-2 md:gap-2.5">
-          {BUDGETS.map((option) => (
-            <Capsule key={option} onClick={() => setBudget(option)} selected={budget === option}>
-              {option === "any" ? t("budgetAny") : t("budgetUpTo", { amount: baht(Number(option)) })}
-            </Capsule>
+      <p className={cn("px-2 text-xs md:text-sm", missing ? "text-destructive" : "text-muted-foreground")} id="matching-problem-hint" role={missing ? "alert" : undefined}>
+        {missing ? t("needSomething") : t("detailHint")}
+      </p>
+
+      <div className="flex flex-col gap-3">
+        <p className="px-2 text-sm font-medium text-foreground">{t("examplesTitle")}</p>
+        <div className="flex flex-col gap-2 md:flex-row md:flex-wrap">
+          {examples.map((example) => (
+            <button
+              className="rounded-2xl border border-border px-4 py-3 text-start text-sm text-foreground outline-none transition-colors hover:bg-muted focus-visible:ring-3 focus-visible:ring-ring/50 md:max-w-[calc(50%-0.25rem)]"
+              key={example}
+              onClick={() => {
+                setProblem(example);
+                setMissing(false);
+                document.getElementById("matching-problem")?.focus();
+              }}
+              type="button"
+            >
+              {example}
+            </button>
           ))}
         </div>
-      </Question>
-
-      <Question label={t("whenLabel")}>
-        <div className="flex flex-wrap gap-2 md:gap-2.5">
-          {WHENS.map((option) => (
-            <Capsule key={option} onClick={() => setWhen(option)} selected={when === option}>
-              {t(option === "soon" ? "whenSoon" : option === "week" ? "whenWeek" : "whenAny")}
-            </Capsule>
-          ))}
-        </div>
-      </Question>
-
-      <div className="flex flex-col items-stretch gap-3 md:items-start">
-        {missing ? (
-          <p className="text-sm text-destructive" role="alert">
-            {t("needSomething")}
-          </p>
-        ) : null}
-        <Button className={cn(authPill(true), "md:w-auto md:px-8")} type="submit">
-          <Sparkles aria-hidden />
-          {t("search")}
-        </Button>
       </div>
-    </form>
+    </div>
   );
 }
 
@@ -386,10 +418,9 @@ const GRID =
   "grid grid-cols-2 gap-x-4 gap-y-8 md:gap-x-8 md:gap-y-12 lg:grid-cols-4 lg:gap-x-10 lg:gap-y-14";
 
 /**
- * `/matching/results`: the services that fit the stored answers, best first,
- * each the search page's card with its earliest open time under it. A topic
- * or budget that leaves nothing says so, with the way back to the answers and
- * to everything.
+ * `/matching/results`: the question as asked, what was understood of it, and
+ * the services that fit, best first — each the search page's card with why it
+ * fits (or the words it matched) and its earliest open time under it.
  */
 export function MatchedAdvisorsScreen() {
   const answers = useAnswers();
@@ -415,14 +446,39 @@ function Results({ answers }: { readonly answers: Answers }) {
   const format = useFormatter();
   const now = useMountTime();
   const catalogue = useLiveCatalogue();
-  const ranked = useMemo(() => rank(catalogue.items, answers), [catalogue.items, answers]);
-  const top = ranked.slice(0, CANDIDATES);
+
+  const request = useMemo(
+    () => ({
+      problem: answers.problem || catalogue.items.find((item) => item.categoryId === answers.categoryId)?.category || "-",
+      categoryId: answers.categoryId ?? undefined,
+      maxPriceSatang: answers.budget === "any" ? undefined : Number(answers.budget) * 100,
+    }),
+    [answers, catalogue.items],
+  );
+  const requestKey = JSON.stringify(request);
+  const matching = useResource<ApiMatching>(
+    `matching:${requestKey}`,
+    useCallback((signal: AbortSignal) => matchServices(JSON.parse(requestKey) as typeof request, signal), [requestKey]),
+  );
+
+  // The API's choice, held to the catalogue the cards are drawn from; the
+  // local ranking only when the API could not be reached.
+  const candidates: readonly Candidate[] = useMemo(() => {
+    if (matching.data) {
+      const byId = new Map(catalogue.items.map((item) => [item.id, item]));
+      return matching.data.matches.flatMap((match) => {
+        const item = byId.get(match.serviceId);
+        return item ? [{ item, reason: match.reason, matched: match.matched }] : [];
+      });
+    }
+    if (matching.error) return rank(catalogue.items, answers).slice(0, CANDIDATES);
+    return [];
+  }, [matching.data, matching.error, catalogue.items, answers]);
 
   const days = WINDOW_DAYS[answers.when];
   const from = localDay(new Date(now));
   const to = localDay(new Date(now + (days - 1) * 86_400_000));
-  const ids = top.map((candidate) => candidate.item.id);
-  const idKey = ids.join(",");
+  const idKey = candidates.map((candidate) => candidate.item.id).join(",");
   const slots = useResource<ReadonlyMap<string, string | null>>(
     idKey ? `matching/slots?ids=${idKey}&from=${from}&to=${to}` : "matching/slots:none",
     useCallback(
@@ -436,8 +492,7 @@ function Results({ answers }: { readonly answers: Answers }) {
         idKey.split(",").filter(Boolean).forEach((id, index) => {
           const answer = settled[index];
           const list = answer?.status === "fulfilled" ? answer.value : [];
-          const first = list.map((slot) => slot.startTime).toSorted()[0];
-          earliest.set(id, first ?? null);
+          earliest.set(id, list.map((slot) => slot.startTime).toSorted()[0] ?? null);
         });
         return earliest;
       },
@@ -446,26 +501,10 @@ function Results({ answers }: { readonly answers: Answers }) {
   );
 
   const ordered = useMemo(() => {
-    if (!slots.data) return top;
-    const at = (id: string) => slots.data?.get(id) ?? null;
-    return top.toSorted((a, b) => {
-      if (answers.when !== "any") {
-        const open = Number(at(b.item.id) !== null) - Number(at(a.item.id) !== null);
-        if (open !== 0) return open;
-      }
-      if (b.score !== a.score) return b.score - a.score;
-      return (at(a.item.id) ?? "~").localeCompare(at(b.item.id) ?? "~");
-    });
-  }, [top, slots.data, answers.when]);
-
-  const category = catalogue.items.find((item) => item.categoryId === answers.categoryId)?.category;
-  const summary = [
-    category ?? t("topicAny"),
-    answers.budget === "any"
-      ? t("budgetAny")
-      : t("budgetUpTo", { amount: format.number(Number(answers.budget), { style: "currency", currency: "THB", maximumFractionDigits: 0 }) }),
-    t(answers.when === "soon" ? "whenSoon" : answers.when === "week" ? "whenWeek" : "whenAny"),
-  ];
+    if (!slots.data || answers.when === "any") return candidates;
+    const open = (id: string) => (slots.data?.get(id) ? 1 : 0);
+    return candidates.toSorted((a, b) => open(b.item.id) - open(a.item.id));
+  }, [candidates, slots.data, answers.when]);
 
   const today = localDay(new Date(now));
   const tomorrow = localDay(new Date(now + 86_400_000));
@@ -478,31 +517,57 @@ function Results({ answers }: { readonly answers: Answers }) {
     return format.dateTime(date, { weekday: "short", day: "numeric", month: "short", hour: "2-digit", minute: "2-digit", hourCycle: "h23" });
   };
 
+  const thinking = matching.loading || catalogue.loading;
+  const ai = matching.data?.mode === "ai";
+
   return (
     <>
-      <header className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
-        <div className="flex flex-col gap-2">
-          <h1 className="font-hero text-2xl font-normal tracking-tight text-hero-ink md:text-4xl">{t("resultsTitle")}</h1>
-          <p className="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-muted-foreground md:text-base">
-            {summary.map((part, index) => (
-              <span className="flex items-center gap-2" key={part}>
-                {index > 0 ? <span aria-hidden>·</span> : null}
-                {part}
-              </span>
-            ))}
-          </p>
+      <header className="mx-auto flex w-full max-w-200 flex-col gap-4">
+        <div className="flex items-start justify-between gap-3">
+          <p className="text-sm font-medium text-muted-foreground">{t("yourQuestion")}</p>
+          <Button
+            className={cn(authPill(false), "h-9 w-auto px-4 text-sm md:h-10 md:px-4 md:text-sm")}
+            nativeButton={false}
+            render={<Link href="/matching" />}
+            variant="outline"
+          >
+            {t("editAnswers")}
+          </Button>
         </div>
-        <Button
-          className={cn(authPill(false), "h-10 w-auto px-4 text-sm md:h-11 md:px-5 md:text-base")}
-          nativeButton={false}
-          render={<Link href="/matching" />}
-          variant="outline"
-        >
-          {t("editAnswers")}
-        </Button>
+        <blockquote className="line-clamp-4 rounded-3xl rounded-tl-lg bg-muted px-5 py-4 text-base text-foreground md:text-lg">
+          {answers.problem || request.problem}
+        </blockquote>
+
+        {/* What was understood, or the word matching it fell back to. */}
+        {thinking ? (
+          <div aria-live="polite" className="flex items-start gap-3 rounded-2xl border border-border p-4 md:p-5">
+            <Sparkles aria-hidden className="mt-0.5 size-5 shrink-0 animate-pulse text-foreground motion-reduce:animate-none" />
+            <div className="flex w-full flex-col gap-2">
+              <p className="text-sm font-medium text-foreground md:text-base">{t("thinking")}</p>
+              <span aria-hidden className="h-3 w-4/5 animate-pulse rounded bg-muted motion-reduce:animate-none" />
+              <span aria-hidden className="h-3 w-3/5 animate-pulse rounded bg-muted motion-reduce:animate-none" />
+            </div>
+          </div>
+        ) : ai && matching.data?.understanding ? (
+          <div className="flex items-start gap-3 rounded-2xl border border-border p-4 md:p-5">
+            <Sparkles aria-hidden className="mt-0.5 size-5 shrink-0 text-foreground" />
+            <div className="flex flex-col gap-3">
+              <p className="text-sm text-foreground md:text-base">{matching.data.understanding}</p>
+              {matching.data.topics.length > 0 ? (
+                <div className="flex flex-wrap gap-2">
+                  {matching.data.topics.map((topic) => (
+                    <span className="flex h-8 items-center rounded-full bg-muted px-3 text-xs font-medium text-foreground md:text-sm" key={topic}>
+                      {topic}
+                    </span>
+                  ))}
+                </div>
+              ) : null}
+            </div>
+          </div>
+        ) : null}
       </header>
 
-      <section aria-live="polite" className="mt-8 flex flex-col gap-4 md:mt-10">
+      <section aria-live="polite" className="mt-10 flex flex-col gap-4 md:mt-12">
         {catalogue.error ? (
           <div className="flex flex-col items-center gap-4 px-6 py-16 text-center">
             <h2 className="text-xl font-bold text-foreground">{t("loadFailed")}</h2>
@@ -512,7 +577,7 @@ function Results({ answers }: { readonly answers: Answers }) {
               {s("retry")}
             </Button>
           </div>
-        ) : catalogue.loading ? (
+        ) : thinking ? (
           <ResultsBones />
         ) : ordered.length === 0 ? (
           <Notice
@@ -523,13 +588,21 @@ function Results({ answers }: { readonly answers: Answers }) {
           />
         ) : (
           <>
-            <p className="text-sm font-medium text-foreground">{t("resultsCount", { count: ordered.length })}</p>
+            <h2 className="text-lg font-semibold text-foreground md:text-xl">{t("resultsTitle")}</h2>
             <div className={GRID}>
-              {ordered.map(({ item, matched }) => {
+              {ordered.map(({ item, matched, reason }) => {
                 const earliest = slots.data?.get(item.id);
                 return (
-                  <div className="flex flex-col gap-2" key={item.id}>
+                  <div className="flex flex-col gap-2.5" key={item.id}>
                     <ResultCard item={item} />
+                    {reason ? (
+                      <p className="flex gap-1.5 rounded-xl bg-muted/70 px-3 py-2 text-xs text-foreground md:text-sm">
+                        <Sparkles aria-hidden className="mt-0.5 size-3.5 shrink-0" />
+                        <span>{reason}</span>
+                      </p>
+                    ) : matched.length > 0 ? (
+                      <p className="truncate px-0.5 text-xs text-muted-foreground">{t("matchedOn", { words: matched.slice(0, 3).join(", ") })}</p>
+                    ) : null}
                     <p className="px-0.5 text-xs md:text-sm">
                       {slots.data === undefined ? (
                         <span className="text-muted-foreground">{t("checkingSlots")}</span>
@@ -539,11 +612,6 @@ function Results({ answers }: { readonly answers: Answers }) {
                         <span className="text-muted-foreground">{t("noSlotInWindow")}</span>
                       )}
                     </p>
-                    {matched.length > 0 ? (
-                      <p className="truncate px-0.5 text-xs text-muted-foreground">
-                        {t("matchedOn", { words: matched.slice(0, 3).join(", ") })}
-                      </p>
-                    ) : null}
                   </div>
                 );
               })}
@@ -555,11 +623,11 @@ function Results({ answers }: { readonly answers: Answers }) {
   );
 }
 
-/** The grid's own shape while the catalogue loads. */
+/** The grid's own shape while the answer is on its way. */
 function ResultsBones() {
   return (
     <div aria-hidden className={GRID}>
-      {Array.from({ length: 8 }, (_, i) => (
+      {Array.from({ length: 4 }, (_, i) => (
         <div className="flex flex-col gap-3" key={i}>
           <span className="aspect-[4/3] w-full animate-pulse rounded-2xl bg-muted motion-reduce:animate-none" />
           <span className="h-4 w-1/2 animate-pulse rounded-md bg-muted motion-reduce:animate-none" />
