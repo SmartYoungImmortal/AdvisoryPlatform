@@ -1403,17 +1403,18 @@ function TimesDialog({ service, advisorName, selection, picker, photos }: LayerP
             sizes={WIDE}
             Title={DialogTitle}
           />
+          {/* On the title's line, not a row above it: centred on its first line (61.75 down, 35.6 tall). */}
           <DialogClose
             render={
               <Button
                 aria-label={c("close")}
-                className="absolute top-[19px] right-[19px] z-20 size-9.5 rounded-full"
+                className="absolute top-[57px] right-[23.75px] z-20 size-[45px] rounded-full"
                 size="icon"
                 variant="ghost"
               />
             }
           >
-            <X aria-hidden className="size-[19px]" />
+            <X aria-hidden className="size-6" />
           </DialogClose>
         </div>
       </DialogContent>
@@ -1439,17 +1440,18 @@ function TimesSheet({ service, advisorName, selection, picker, photos }: LayerPr
           sizes={NARROW}
           Title={SheetTitle}
         />
+        {/* On the title's line: centred on its first line (52 down, 39 tall). */}
         <SheetClose
           render={
             <Button
               aria-label={c("close")}
-              className="absolute top-6 right-4 z-20 size-10 rounded-full"
+              className="absolute top-[49.5px] right-3 z-20 size-11 rounded-full"
               size="icon"
               variant="ghost"
             />
           }
         >
-          <X aria-hidden className="size-5" />
+          <X aria-hidden className="size-6" />
         </SheetClose>
       </SheetContent>
     </Sheet>
