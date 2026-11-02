@@ -81,7 +81,7 @@ const COLUMNS =
  * since a viewport length here is zoomed with everything else.
  */
 const INTRO_COLUMN =
-  "flex min-w-0 flex-col md:mx-auto md:w-full md:max-w-xl lg:sticky lg:top-(--intro-top) lg:mx-0 lg:min-h-[calc(var(--intro-screen,100dvh)_/_var(--app-zoom)_-_var(--intro-top))] lg:max-w-none";
+  "flex min-w-0 flex-col md:mx-auto md:w-full md:max-w-xl lg:sticky lg:top-(--intro-top) lg:mx-0 lg:min-h-[calc(100dvh_/_var(--app-zoom)_-_var(--intro-top))] lg:max-w-none";
 
 const INTRO_VARS = {
   "--app-zoom": "tan(atan2(min(100vw, 1440px), 1710px))",
@@ -99,18 +99,12 @@ export type DeskHead = {
 };
 
 /**
- * Where the owner's page starts from `lg`, under the desk's band held at the
- * top (its 88, then the page's 32), and so where what rides beside it sticks:
- * there, it never moves.
+ * The intro in the owner's view (the desk's frame) scrolls with the page
+ * rather than being held: under the desk's band a short screen has less room
+ * than the column is tall, and a held column taller than its room is pushed
+ * up all at once where the page ends.
  */
-const OWNER_PAGE_TOP = "120px";
-
-/** The intro's start in the desk's frame: under the band; the screen's height less the panel's 6 above and below. */
-const OWNER_INTRO_VARS = {
-  "--app-zoom": "tan(atan2(min(100vw, 1440px), 1710px))",
-  "--intro-top": OWNER_PAGE_TOP,
-  "--intro-screen": "calc(100dvh - 12px)",
-} as CSSProperties;
+const OWNER_INTRO = "lg:static lg:min-h-0";
 
 /**
  * The advisor's score, or undefined when nothing has been scored: `average`
@@ -451,7 +445,7 @@ export function ServiceView({ service, owner }: { readonly service: ApiPublicSer
       />
       <div className={COLUMNS}>
         {/* `items-start` on the grid is what lets the column ride. */}
-        <aside aria-label={t("panelLabel")} className={INTRO_COLUMN} style={owner ? OWNER_INTRO_VARS : INTRO_VARS}>
+        <aside aria-label={t("panelLabel")} className={cn(INTRO_COLUMN, owner && OWNER_INTRO)} style={INTRO_VARS}>
           {owner ? <div className="mb-4 flex flex-wrap gap-2 lg:mb-6">{owner.intro}</div> : null}
           <ServiceIntro
             booking={<BookingCard picker={picker} selection={selection} service={service} />}

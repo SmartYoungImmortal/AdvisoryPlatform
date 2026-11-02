@@ -1,6 +1,6 @@
 "use client";
 
-import { CalendarDays, ChevronLeft, Clock, House, Inbox, Package, Wallet, type LucideIcon } from "lucide-react";
+import { CalendarDays, ChevronLeft, ChevronRight, Clock, House, Inbox, Package, Wallet, type LucideIcon } from "lucide-react";
 import Link from "next/link";
 import { useTranslations } from "next-intl";
 import type { ReactNode } from "react";
@@ -154,6 +154,7 @@ export function WorkFrame({
   readonly children: ReactNode;
 }) {
   const c = useTranslations("common");
+  const t = useTranslations("work");
   const isPlace = place !== null && backHref === undefined;
   const PlaceIcon = place === null ? null : PLACE_ICON[place];
 
@@ -179,10 +180,15 @@ export function WorkFrame({
                     stickyBand && "lg:sticky lg:top-0 lg:z-30 lg:bg-card",
                   )}
                 >
+                  {/* The chevron is the phone's way back; from `lg` a page of a place has the
+                      place's name before its title instead, and the menu beside it. */}
                   {backHref ? (
                     <Button
                       aria-label={c("back")}
-                      className="relative -ml-1.5 size-8 shrink-0 text-foreground before:absolute before:-inset-1.5 before:content-['']"
+                      className={cn(
+                        "relative -ml-1.5 size-8 shrink-0 text-foreground before:absolute before:-inset-1.5 before:content-['']",
+                        place !== null && "lg:hidden",
+                      )}
                       nativeButton={false}
                       render={<Link href={backHref} />}
                       size="icon"
@@ -197,6 +203,18 @@ export function WorkFrame({
                       {PlaceIcon ? (
                         <span className="hidden size-12 shrink-0 items-center justify-center rounded-xl bg-muted text-foreground lg:flex">
                           <PlaceIcon aria-hidden className={cn("size-6", SOLID_GLYPH)} strokeWidth={1.75} />
+                        </span>
+                      ) : null}
+                      {/* From `lg`, a page a place opened is named under it: the place, muted and the way back, then a chevron. */}
+                      {backHref && place !== null ? (
+                        <span className="hidden shrink-0 items-center gap-2 lg:flex">
+                          <Link
+                            className="rounded-md text-frame-heading font-semibold text-muted-foreground outline-none transition-colors hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/50"
+                            href={backHref}
+                          >
+                            {t(`tab.${place}`)}
+                          </Link>
+                          <ChevronRight aria-hidden className="size-5 text-muted-foreground" />
                         </span>
                       ) : null}
                       <h1 className="min-w-0 font-hero text-title-compact font-normal tracking-tight text-hero-ink lg:truncate lg:font-sans lg:text-frame-heading lg:font-semibold lg:tracking-normal lg:text-foreground">

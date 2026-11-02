@@ -32,6 +32,7 @@ import {
   uploadServicePackageImage,
   type AdvisorService,
   type AdvisorServicesPage,
+  type ContentLocale,
   type ServiceCategory,
 } from "@/lib/advisor-services/api";
 import type { Paginated } from "@/lib/api/client";
@@ -85,12 +86,19 @@ function minutesOf(typed: string): number | null {
 /** A photograph as the page holds it: one stored (its place in the carousel) or a file not yet uploaded. */
 type DraftPhoto = { readonly key: string; readonly src: string; readonly index?: number; readonly file?: File };
 
+/** Words in English: empty where none are written yet (the page then shows the Thai). */
+type EnglishText = { readonly name: string; readonly description: string };
+
+const NO_ENGLISH: EnglishText = { name: "", description: "" };
+
 /** A package as the page holds it; its picture stored (no `file`), new (a `file`), or none. */
 type DraftPackage = {
   readonly key: string;
   readonly id?: string;
+  /** In Thai, the source. */
   readonly name: string;
   readonly description: string;
+  readonly en: EnglishText;
   readonly durationMinutes: number;
   readonly priceSatang: number;
   readonly picture: { readonly src: string; readonly file?: File } | null;
@@ -99,8 +107,10 @@ type DraftPackage = {
 
 type Draft = {
   readonly photos: readonly DraftPhoto[];
+  /** In Thai, the source; `en` beside it. */
   readonly name: string;
   readonly description: string;
+  readonly en: EnglishText;
   readonly price: string;
   readonly minutes: string;
   readonly packages: readonly DraftPackage[];
@@ -116,11 +126,30 @@ type Draft = {
 let keys = 0;
 const nextKey = () => `k${(keys += 1)}`;
 
-function draftOf(record: AdvisorService | null, images: readonly string[], packages: readonly ApiServicePackage[]): Draft {
+/**
+ * The service's words as the English read gives them. Where no English is
+ * written the API answers the Thai instead, so words that read the same as
+ * the Thai are taken as none written yet.
+ */
+function englishOf(thai: { readonly name: string; readonly description?: string | null }, english?: { readonly name: string; readonly description?: string | null }): EnglishText {
+  if (!english) return NO_ENGLISH;
+  return {
+    name: english.name === thai.name ? "" : english.name,
+    description: (english.description ?? "") === (thai.description ?? "") ? "" : (english.description ?? ""),
+  };
+}
+
+function draftOf(
+  record: AdvisorService | null,
+  images: readonly string[],
+  packages: readonly ApiServicePackage[],
+  english: EnglishWords | null,
+): Draft {
   return {
     photos: images.map((src, index) => ({ key: src, src, index })),
     name: record?.name ?? "",
     description: record?.description ?? "",
+    en: record ? englishOf(record, english ?? undefined) : NO_ENGLISH,
     price: record ? String(record.priceSatang / 100) : "",
     minutes: record ? String(record.durationMinutes) : "60",
     packages: packages.map((item) => ({
@@ -128,6 +157,7 @@ function draftOf(record: AdvisorService | null, images: readonly string[], packa
       id: item.id,
       name: item.name,
       description: item.description ?? "",
+      en: englishOf(item, english?.packages.find((entry) => entry.id === item.id)),
       durationMinutes: item.durationMinutes,
       priceSatang: item.priceSatang,
       picture: item.image ? { src: item.image } : null,
@@ -153,19 +183,25 @@ function signature(draft: Draft): string {
   return JSON.stringify({ ...draft, photos: draft.photos.map((photo) => photo.key), packages: packagesOf(draft) });
 }
 
+/** The English read of a service that exists: its words and its packages', as the API answers them in English. */
+export type EnglishWords = { readonly name: string; readonly description: string; readonly packages: readonly ApiServicePackage[] };
+
 /* ----------------------------------------------------------------- editor */
 
 export function ServiceEditor({
   record = null,
   images = [],
   packages = [],
+  english = null,
   initialPart = null,
   onSaved,
 }: {
-  /** The service as stored; none for a new one. */
+  /** The service as stored (read in Thai); none for a new one. */
   readonly record?: AdvisorService | null;
   readonly images?: readonly string[];
   readonly packages?: readonly ApiServicePackage[];
+  /** The same service read in English. */
+  readonly english?: EnglishWords | null;
   /** The part to open with; the old settings route opens on the booking rules. */
   readonly initialPart?: Part | null;
   /** After a save of a service that exists: read it again. */
@@ -178,9 +214,11 @@ export function ServiceEditor({
   const profiles = useResource<AvailabilityProfile[]>("advisors/me/availability/profiles", availabilityApi.getProfiles);
 
   const creating = record === null;
-  const [initial, setInitial] = useState<Draft>(() => draftOf(record, images, packages));
+  const [initial, setInitial] = useState<Draft>(() => draftOf(record, images, packages, english));
   const [draft, setDraft] = useState<Draft>(initial);
   const [mode, setMode] = useState<"edit" | "preview">("edit");
+  /** The language the words are being written in: the fields, the packages' words and the client's view follow it. */
+  const [lang, setLang] = useState<ContentLocale>("th");
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [problem, setProblem] = useState<string | null>(null);
@@ -198,11 +236,18 @@ export function ServiceEditor({
   };
 
   // What is stored again, once the page reads the service anew after a save: the draft starts over from it.
-  const stamp = record ? `${record.modifiedAt}|${images.join(",")}|${packages.map((item) => `${item.id}:${item.image ?? ""}`).join(",")}` : "new";
+  const stamp = record
+    ? [
+        record.modifiedAt,
+        images.join(","),
+        packages.map((item) => `${item.id}:${item.image ?? ""}`).join(","),
+        JSON.stringify(english ? [english.name, english.description, english.packages.map((item) => [item.name, item.description])] : null),
+      ].join("|")
+    : "new";
   const [seen, setSeen] = useState(stamp);
   if (stamp !== seen) {
     setSeen(stamp);
-    const fresh = draftOf(record, images, packages);
+    const fresh = draftOf(record, images, packages, english);
     setInitial(fresh);
     setDraft(fresh);
   }
@@ -238,7 +283,8 @@ export function ServiceEditor({
     { label: e("checkPhotoToSell"), done: !draft.published || draft.photos.length > 0 },
   ].filter((item) => !item.done);
 
-  async function writePackages(serviceId: string) {
+  /** The packages as they now stand, in Thai; answers them as stored, in the order sent. */
+  async function writePackages(serviceId: string): Promise<readonly ApiServicePackage[]> {
     const stored = await replaceMyServicePackages(
       serviceId,
       draft.packages.map((item) => ({
@@ -248,6 +294,8 @@ export function ServiceEditor({
         durationMinutes: item.durationMinutes,
         priceSatang: item.priceSatang,
       })),
+      undefined,
+      "th",
     );
     // The list comes back in the order sent, so a new package is the one at its place.
     for (const [at, item] of draft.packages.entries()) {
@@ -256,6 +304,43 @@ export function ServiceEditor({
       if (item.picture?.file) await uploadServicePackageImage(serviceId, id, item.picture.file);
       else if (item.hadImage && !item.picture) await removeServicePackageImage(serviceId, id);
     }
+    return stored;
+  }
+
+  /**
+   * The English, after the Thai: the service's words, then the packages'
+   * (by the ids `stored` gave the new ones), each only when it changed and
+   * has any. A word left empty is sent as its Thai, which is what an English
+   * reader would see in its place anyway; there is no way to take English out.
+   */
+  async function writeEnglish(serviceId: string, stored: readonly ApiServicePackage[] | null) {
+    const said = (text: EnglishText) => Boolean(text.name.trim() || text.description.trim());
+    if (JSON.stringify(draft.en) !== JSON.stringify(initial.en) && said(draft.en)) {
+      await updateAdvisorService(
+        serviceId,
+        { name: draft.en.name.trim() || draft.name.trim(), description: draft.en.description.trim() || draft.description.trim() },
+        undefined,
+        "en",
+      );
+    }
+    const before = new Map(initial.packages.map((item) => [item.key, JSON.stringify(item.en)]));
+    const changed = draft.packages.some((item) => before.get(item.key) !== JSON.stringify(item.en) && said(item.en));
+    if (!changed) return;
+    const ids = draft.packages.map((item, at) => item.id ?? stored?.[at]?.id);
+    // Never a package without its id: in English that would make a new one.
+    if (ids.some((id) => !id)) return;
+    await replaceMyServicePackages(
+      serviceId,
+      draft.packages.map((item, at) => ({
+        id: ids[at],
+        name: item.en.name.trim() || item.name,
+        description: item.en.description.trim() || item.description || undefined,
+        durationMinutes: item.durationMinutes,
+        priceSatang: item.priceSatang,
+      })),
+      undefined,
+      "en",
+    );
   }
 
   const save = (publishNew: boolean) => {
@@ -279,9 +364,11 @@ export function ServiceEditor({
     void (async () => {
       try {
         if (!record) {
-          const made = await createAdvisorService({ ...fields, isPublished: false });
+          // Made in Thai, the source, whatever language the page is read in.
+          const made = await createAdvisorService({ ...fields, isPublished: false }, undefined, "th");
           for (const photo of draft.photos) if (photo.file) await uploadAdvisorServiceImage(made.id, photo.file);
-          if (draft.packages.length > 0) await writePackages(made.id);
+          const stored = draft.packages.length > 0 ? await writePackages(made.id) : [];
+          await writeEnglish(made.id, stored);
           if (publishNew) await updateAdvisorService(made.id, { isPublished: true });
           invalidate("advisors/me/services");
           invalidate("services");
@@ -290,13 +377,14 @@ export function ServiceEditor({
         }
         // Taken off sale first and put on sale last, so the photos in between never leave it bare.
         if (initial.published && !draft.published) await updateAdvisorService(record.id, { isPublished: false });
-        await updateAdvisorService(record.id, fields);
+        await updateAdvisorService(record.id, fields, undefined, "th");
         // New photos first, then the ones taken out, highest place first: the places still to go do not move.
         for (const photo of draft.photos) if (photo.file) await uploadAdvisorServiceImage(record.id, photo.file);
         const kept = new Set(draft.photos.flatMap((photo) => (photo.index === undefined ? [] : [photo.index])));
         const gone = initial.photos.flatMap((photo) => (photo.index !== undefined && !kept.has(photo.index) ? [photo.index] : []));
         for (const index of gone.toSorted((a, b) => b - a)) await removeAdvisorServiceImage(record.id, index);
-        if (packagesOf(draft) !== packagesOf(initial)) await writePackages(record.id);
+        const stored = packagesOf(draft) !== packagesOf(initial) ? await writePackages(record.id) : null;
+        await writeEnglish(record.id, stored);
         if (!initial.published && draft.published) await updateAdvisorService(record.id, { isPublished: true });
         setSaved(true);
         onSaved?.();
@@ -308,15 +396,18 @@ export function ServiceEditor({
     })();
   };
 
-  /** The service as the page now holds it, for the client's view. */
+  /** Words in the language being written, the Thai standing in where the English has none. */
+  const wordsOf = (thai: { readonly name: string; readonly description: string }, en: EnglishText) =>
+    lang === "en" ? { name: en.name.trim() || thai.name, description: en.description.trim() || thai.description } : thai;
+
+  /** The service as the page now holds it, in the language being written, for the client's view. */
   const previewed: ApiPublicService | null = record
     ? {
         id: record.id,
         advisorId: record.advisorId,
         categoryId: draft.categories[0] ?? record.categoryId,
         extraCategoryIds: draft.categories.slice(1),
-        name: draft.name,
-        description: draft.description,
+        ...wordsOf(draft, draft.en),
         priceSatang: basePrice ?? record.priceSatang,
         durationMinutes: baseMinutes ?? record.durationMinutes,
         screeningRequired: draft.screening,
@@ -327,8 +418,8 @@ export function ServiceEditor({
         images: draft.photos.map((photo) => photo.src),
         packages: draft.packages.map((item) => ({
           id: item.id ?? item.key,
-          name: item.name,
-          description: item.description || null,
+          name: wordsOf(item, item.en).name,
+          description: wordsOf(item, item.en).description || null,
           durationMinutes: item.durationMinutes,
           priceSatang: item.priceSatang,
           image: item.picture?.src ?? null,
@@ -336,14 +427,13 @@ export function ServiceEditor({
       }
     : null;
 
-  // The desk's band over both modes: back to the services, the service's name (as it is being typed), what it does.
-  const head: DeskHead = record
-    ? {
-        title: draft.name.trim() || record.name,
-        backHref: "/advisor/services",
-        action: <ModeButton mode={mode} onMode={setMode} />,
-      }
-    : { title: e("createTitle"), backHref: "/advisor/services" };
+  // The desk's band over both modes: back to the services, the service's name (as it is being typed), and at
+  // its right how the page is seen and which language its words are written in.
+  const head: DeskHead = {
+    title: record ? draft.name.trim() || record.name : e("createTitle"),
+    backHref: "/advisor/services",
+    action: <HeadControls lang={lang} mode={record ? mode : null} onLang={setLang} onMode={setMode} />,
+  };
 
   // The one save: for a new service always there; for one that exists once something changed (or just saved).
   const footer =
@@ -402,6 +492,11 @@ export function ServiceEditor({
     );
   }
 
+  const inEnglish = lang === "en";
+  const words = inEnglish ? draft.en : { name: draft.name, description: draft.description };
+  const write = (key: "name" | "description", value: string) =>
+    inEnglish ? set("en", { ...draft.en, [key]: value }) : set(key, value);
+
   return (
     <ServiceFrame desk={head} footer={footer}>
       <div className={EDITOR_COLUMN}>
@@ -420,15 +515,17 @@ export function ServiceEditor({
               <Textarea
                 className="min-h-0 resize-none rounded-xl border-accented bg-card px-4 py-3 text-lg font-semibold text-foreground shadow-none md:text-lg lg:text-frame-body"
                 id="service-name"
+                lang={lang}
                 maxLength={150}
-                onChange={(event) => set("name", event.target.value)}
-                placeholder={t("namePlaceholder")}
+                onChange={(event) => write("name", event.target.value)}
+                // In English the Thai shows through until it is written over, as an English reader would see it.
+                placeholder={inEnglish ? draft.name || t("namePlaceholder") : t("namePlaceholder")}
                 rows={2}
-                value={draft.name}
+                value={words.name}
               />
               <div className="flex items-start justify-between gap-3">
                 <p className="text-sm text-muted-foreground">{t("titleHint")}</p>
-                <Counter count={draft.name.length} max={150} />
+                <Counter count={words.name.length} max={150} />
               </div>
             </div>
             <div className="flex flex-col gap-1.5">
@@ -438,12 +535,13 @@ export function ServiceEditor({
               <Textarea
                 className="min-h-56 resize-y rounded-xl border-accented bg-card px-4 py-3 text-base leading-relaxed text-foreground shadow-none md:text-base"
                 id="service-description"
+                lang={lang}
                 maxLength={5000}
-                onChange={(event) => set("description", event.target.value)}
-                placeholder={t("descriptionPlaceholder")}
-                value={draft.description}
+                onChange={(event) => write("description", event.target.value)}
+                placeholder={inEnglish ? draft.description || t("descriptionPlaceholder") : t("descriptionPlaceholder")}
+                value={words.description}
               />
-              <Counter count={draft.description.length} max={5000} />
+              <Counter count={words.description.length} max={5000} />
             </div>
         </Pane>
         <Pane part="packages" title={t("pricingSection")}>
@@ -453,7 +551,7 @@ export function ServiceEditor({
               <FieldWithUnit id="service-minutes" label={t("minutesLabel")} onChange={(value) => set("minutes", value)} unit={t("minuteUnit")} value={draft.minutes} />
             </div>
           ) : null}
-          <PackageList onChange={(next) => set("packages", next)} packages={draft.packages} preview={preview} />
+          <PackageList lang={lang} onChange={(next) => set("packages", next)} packages={draft.packages} preview={preview} />
         </Pane>
         <Pane part="category" title={t("categorySection")}>
           <CategoryChoices categories={categories.data?.items ?? null} chosen={draft.categories} onChange={(next) => set("categories", next)} />
@@ -509,24 +607,65 @@ export function NewServiceScreen() {
 /* ------------------------------------------------------------------ frame */
 
 /**
- * The head's one action for a service that exists: the client's view of the
- * page as it is being edited, and from there the way back to editing. The
- * sale switch is the booking part's first rule, and the schedule is with the
- * hours, so the head holds nothing else.
+ * The band's right side: the one button to the other view (a new service
+ * has only the editing one, so none), and which language the words are
+ * written in, a pair of the desk's capsules with the chosen one in ink. The
+ * words, the packages' words and the client's view follow the language;
+ * everything else is the same in both. The sale switch is the booking part's
+ * first rule and the schedule is with the hours, so the band holds nothing
+ * else.
  */
-function ModeButton({ mode, onMode }: { readonly mode: "edit" | "preview"; readonly onMode: (next: "edit" | "preview") => void }) {
+function HeadControls({ lang, mode, onLang, onMode }: {
+  readonly lang: ContentLocale;
+  readonly mode: "edit" | "preview" | null;
+  readonly onLang: (next: ContentLocale) => void;
+  readonly onMode: (next: "edit" | "preview") => void;
+}) {
   const t = useTranslations("ownerService");
   const editing = mode === "edit";
+  // The navbar's TH / EN (`LanguageSwitch`), as it looks there: the one in use in full ink, the other muted.
+  const language = (value: ContentLocale, label: string) => (
+    <button
+      aria-pressed={lang === value}
+      className={cn(
+        "rounded-sm px-0.5 outline-none transition-colors focus-visible:ring-3 focus-visible:ring-ring/50",
+        lang === value ? "text-foreground" : "text-muted-foreground/60 hover:text-foreground",
+      )}
+      onClick={() => onLang(value)}
+      type="button"
+    >
+      {label}
+    </button>
+  );
   return (
-    <Button className={cn(authPill(false), PILL)} onClick={() => onMode(editing ? "preview" : "edit")} type="button" variant="outline">
-      {editing ? <Eye aria-hidden /> : <Pencil aria-hidden />}
-      {t(editing ? "modePreview" : "modeEdit")}
-    </Button>
+    <div className="flex flex-wrap items-center gap-3 lg:gap-5">
+      {/* One button that goes to the other view: the client's while editing, back to editing from there. */}
+      {mode ? (
+        <Button className={cn(authPill(false), PILL)} onClick={() => onMode(editing ? "preview" : "edit")} type="button" variant="outline">
+          {editing ? <Eye aria-hidden /> : <Pencil aria-hidden />}
+          {t(editing ? "modePreview" : "modeEdit")}
+        </Button>
+      ) : null}
+      <span aria-label={t("langLabel")} className="inline-flex h-10 shrink-0 items-center gap-1.5 px-1 font-latin text-xs font-bold lg:h-12 lg:text-frame-label" role="group">
+        {language("th", "TH")}
+        <span aria-hidden className="text-muted-foreground/60">/</span>
+        {language("en", "EN")}
+      </span>
+    </div>
   );
 }
 
-/** The parts' column: one measure for all of them, so every part ends on the same right edge. */
-const EDITOR_COLUMN = "flex w-full max-w-220 flex-col divide-y divide-border";
+/** The parts, one under the other on hairlines, in one column 1024 wide from `lg` (the panel's is about 1190). */
+const EDITOR_COLUMN = "flex w-full min-w-0 flex-col divide-y divide-border lg:max-w-256";
+
+/**
+ * The photographs' grid: the cover large at the left over three rows, the
+ * rest two to a row beside it. The rows take the small tiles' height (the
+ * cover is laid absolutely, so it adds none), which keeps the cover as tall
+ * as the rows whatever few photos there are.
+ */
+const PHOTO_GRID = "grid-cols-[minmax(0,3fr)_minmax(0,1fr)_minmax(0,1fr)] grid-rows-3";
+const PHOTO_COVER = "row-span-3";
 
 /**
  * The editor's own shape while the service is read, so nothing shifts when
@@ -538,14 +677,21 @@ export function ServiceEditorSkeleton() {
   const t = useTranslations("ownerService");
   const bone = "animate-pulse bg-muted motion-reduce:animate-none";
   return (
-    <ServiceFrame desk={{ backHref: "/advisor/services", title: <span aria-hidden className={cn(bone, "block h-6 w-56 rounded-md lg:h-7")} /> }}>
+    <ServiceFrame
+      desk={{
+        backHref: "/advisor/services",
+        title: <span aria-hidden className={cn(bone, "block h-6 w-56 rounded-md lg:h-7")} />,
+        // The band's own controls, at their place and size: they hold nothing that waits on the service.
+        action: <HeadControls lang="th" mode="edit" onLang={() => {}} onMode={() => {}} />,
+      }}
+    >
       <div aria-busy className={EDITOR_COLUMN}>
         <section aria-hidden className="flex flex-col gap-4 py-8 first:pt-0 lg:gap-5 lg:py-10">
           <span className="flex h-lh items-center text-base lg:text-frame-body">
             <span className={cn(bone, "h-4 w-16 rounded")} />
           </span>
-          <div className="grid grid-cols-[minmax(0,3fr)_minmax(0,1fr)_minmax(0,1fr)] grid-rows-3 gap-2 lg:gap-3">
-            <span className={cn(bone, "row-span-3 rounded-2xl")} />
+          <div className={cn("grid gap-2 lg:gap-3", PHOTO_GRID)}>
+            <span className={cn(bone, PHOTO_COVER, "rounded-2xl")} />
             {[0, 1, 2, 3, 4].map((tile) => (
               <span className={cn(bone, "aspect-[4/3] rounded-2xl")} key={tile} />
             ))}
@@ -665,16 +811,10 @@ function PhotoGrid({ photos, onAdd, onRemove }: {
 
   return (
     <>
-      {/*
-        The cover large at the left over three rows, the rest two to a row
-        beside it. The rows take the small tiles' height (the cover is laid
-        absolutely, so it adds none), which keeps the cover as tall as the
-        three rows whatever few photos are there.
-      */}
-      <div className={cn("grid gap-2 lg:gap-3", photos.length > 0 && "grid-cols-[minmax(0,3fr)_minmax(0,1fr)_minmax(0,1fr)] grid-rows-3")}>
+      <div className={cn("grid gap-2 lg:gap-3", photos.length > 0 && PHOTO_GRID)}>
         {photos.map((photo, index) => (
           <div
-            className={cn("group relative overflow-hidden rounded-2xl bg-muted", index === 0 ? "row-span-3" : "aspect-[4/3]")}
+            className={cn("group relative overflow-hidden rounded-2xl bg-muted", index === 0 ? PHOTO_COVER : "aspect-[4/3]")}
             key={photo.key}
           >
             {/* eslint-disable-next-line @next/next/no-img-element -- a stored URL or a local preview */}
@@ -702,6 +842,7 @@ function PhotoGrid({ photos, onAdd, onRemove }: {
           <button
             className={cn(
               "flex flex-col items-center justify-center gap-2 rounded-2xl border border-dashed border-accented text-sm font-medium text-foreground outline-none transition-colors hover:bg-muted/60 focus-visible:ring-3 focus-visible:ring-ring/50",
+              // With none yet it stands as tall as the grid's three rows will.
               photos.length === 0 ? "aspect-[16/7]" : "aspect-[4/3]",
             )}
             onClick={() => picker.current?.click()}
@@ -721,14 +862,21 @@ function PhotoGrid({ photos, onAdd, onRemove }: {
 }
 
 /** The packages as cards (picture, name, line, price and length), moved by arrows, opened in a dialog, taken out, or added. */
-function PackageList({ packages, onChange, preview }: {
+function PackageList({ packages, onChange, preview, lang }: {
   readonly packages: readonly DraftPackage[];
   readonly onChange: (next: readonly DraftPackage[]) => void;
   readonly preview: (file: File) => { readonly src: string; readonly file: File };
+  /**
+   * The language being written: in English a card shows its English (the
+   * Thai muted where there is none) and opens only its words; making,
+   * ordering and taking out packages are the Thai's.
+   */
+  readonly lang: ContentLocale;
 }) {
   const t = useTranslations("ownerService");
   const format = useFormatter();
   const [editing, setEditing] = useState<{ readonly key: string | null } | null>(null);
+  const inEnglish = lang === "en";
 
   const move = (index: number, offset: number) => {
     const next = [...packages];
@@ -750,38 +898,56 @@ function PackageList({ packages, onChange, preview }: {
                 ) : null}
               </span>
               <span className="flex min-w-0 flex-1 flex-col gap-1">
-                <span className="truncate text-base font-semibold text-foreground lg:text-frame-body">{item.name}</span>
-                {item.description ? <span className="line-clamp-2 text-sm text-muted-foreground lg:text-frame-meta">{item.description}</span> : null}
+                <span
+                  className={cn(
+                    "truncate text-base font-semibold lg:text-frame-body",
+                    inEnglish && !item.en.name.trim() ? "text-muted-foreground" : "text-foreground",
+                  )}
+                  lang={inEnglish && item.en.name.trim() ? "en" : undefined}
+                >
+                  {inEnglish ? item.en.name.trim() || item.name : item.name}
+                </span>
+                {(inEnglish ? item.en.description.trim() || item.description : item.description) ? (
+                  <span className="line-clamp-2 text-sm text-muted-foreground lg:text-frame-meta">
+                    {inEnglish ? item.en.description.trim() || item.description : item.description}
+                  </span>
+                ) : null}
                 <span className="font-latin text-sm text-foreground tabular-nums lg:text-frame-meta">
                   {t("priceSummary", { price: format.number(item.priceSatang / 100, "baht"), minutes: item.durationMinutes })}
                 </span>
               </span>
               <span className="flex shrink-0 items-center gap-0.5">
-                <Button aria-label={t("moveUp", { name: item.name })} className="size-9 rounded-full" disabled={index === 0} onClick={() => move(index, -1)} size="icon" type="button" variant="ghost">
-                  <ArrowUp aria-hidden className="size-4" />
-                </Button>
-                <Button aria-label={t("moveDown", { name: item.name })} className="size-9 rounded-full" disabled={index === packages.length - 1} onClick={() => move(index, 1)} size="icon" type="button" variant="ghost">
-                  <ArrowDown aria-hidden className="size-4" />
-                </Button>
+                {inEnglish ? null : (
+                  <>
+                    <Button aria-label={t("moveUp", { name: item.name })} className="size-9 rounded-full" disabled={index === 0} onClick={() => move(index, -1)} size="icon" type="button" variant="ghost">
+                      <ArrowUp aria-hidden className="size-4" />
+                    </Button>
+                    <Button aria-label={t("moveDown", { name: item.name })} className="size-9 rounded-full" disabled={index === packages.length - 1} onClick={() => move(index, 1)} size="icon" type="button" variant="ghost">
+                      <ArrowDown aria-hidden className="size-4" />
+                    </Button>
+                  </>
+                )}
                 <Button aria-label={t("editPackageNamed", { name: item.name })} className="size-9 rounded-full" onClick={() => setEditing({ key: item.key })} size="icon" type="button" variant="ghost">
                   <Pencil aria-hidden className="size-4" />
                 </Button>
-                <Button
-                  aria-label={t("removePackage", { number: index + 1 })}
-                  className="size-9 rounded-full text-muted-foreground hover:text-destructive"
-                  onClick={() => onChange(packages.filter((entry) => entry.key !== item.key))}
-                  size="icon"
-                  type="button"
-                  variant="ghost"
-                >
-                  <Trash2 aria-hidden className="size-4" />
-                </Button>
+                {inEnglish ? null : (
+                  <Button
+                    aria-label={t("removePackage", { number: index + 1 })}
+                    className="size-9 rounded-full text-muted-foreground hover:text-destructive"
+                    onClick={() => onChange(packages.filter((entry) => entry.key !== item.key))}
+                    size="icon"
+                    type="button"
+                    variant="ghost"
+                  >
+                    <Trash2 aria-hidden className="size-4" />
+                  </Button>
+                )}
               </span>
             </li>
           ))}
         </ul>
       ) : null}
-      {packages.length < MAX_SERVICE_PACKAGES ? (
+      {packages.length < MAX_SERVICE_PACKAGES && !inEnglish ? (
         <Button className={cn(authPill(false), PILL, "self-start")} onClick={() => setEditing({ key: null })} type="button" variant="outline">
           <Plus aria-hidden />
           {t("addPackage")}
@@ -791,6 +957,7 @@ function PackageList({ packages, onChange, preview }: {
         <PackageDialog
           entry={editing.key ? (packages.find((item) => item.key === editing.key) ?? null) : null}
           key={editing.key ?? "new"}
+          lang={lang}
           onClose={() => setEditing(null)}
           onSubmit={(item) => {
             onChange(packages.some((entry) => entry.key === item.key) ? packages.map((entry) => (entry.key === item.key ? item : entry)) : [...packages, item]);
@@ -804,16 +971,19 @@ function PackageList({ packages, onChange, preview }: {
 }
 
 /** One package's dialog: its own picture (or none, to wear the service's), its name and line, its price and length. */
-function PackageDialog({ entry, onClose, onSubmit, preview }: {
+function PackageDialog({ entry, onClose, onSubmit, preview, lang }: {
   readonly entry: DraftPackage | null;
   readonly onClose: () => void;
   readonly onSubmit: (item: DraftPackage) => void;
   readonly preview: (file: File) => { readonly src: string; readonly file: File };
+  /** In English only the words, with the Thai showing through where none are written; the rest is the Thai's. */
+  readonly lang: ContentLocale;
 }) {
   const t = useTranslations("ownerService");
   const picker = useRef<HTMLInputElement>(null);
-  const [name, setName] = useState(entry?.name ?? "");
-  const [description, setDescription] = useState(entry?.description ?? "");
+  const inEnglish = lang === "en" && entry !== null;
+  const [name, setName] = useState((inEnglish ? entry?.en.name : entry?.name) ?? "");
+  const [description, setDescription] = useState((inEnglish ? entry?.en.description : entry?.description) ?? "");
   const [price, setPrice] = useState(entry ? String(entry.priceSatang / 100) : "");
   const [minutes, setMinutes] = useState(entry ? String(entry.durationMinutes) : "60");
   const [picture, setPicture] = useState(entry?.picture ?? null);
@@ -830,6 +1000,10 @@ function PackageDialog({ entry, onClose, onSubmit, preview }: {
   };
 
   const submit = () => {
+    if (inEnglish && entry) {
+      onSubmit({ ...entry, en: { name: name.trim(), description: description.trim() } });
+      return;
+    }
     const baht = bahtOf(price);
     const length = minutesOf(minutes);
     const found: typeof errors = {};
@@ -843,12 +1017,29 @@ function PackageDialog({ entry, onClose, onSubmit, preview }: {
       id: entry?.id,
       name: name.trim(),
       description: description.trim(),
+      en: entry?.en ?? NO_ENGLISH,
       durationMinutes: length,
       priceSatang: baht * 100,
       picture,
       hadImage: entry?.hadImage ?? false,
     });
   };
+
+  if (inEnglish && entry) {
+    return (
+      <EntryDialog
+        focusId="package-name"
+        onOpenChange={(next) => (next ? null : onClose())}
+        onSubmit={submit}
+        open
+        submitLabel={t("savePackage")}
+        title={t("editPackageEnglish")}
+      >
+        <TextField id="package-name" label={t("nameLabel")} onChange={setName} placeholder={entry.name} value={name} />
+        <TextAreaField id="package-description" label={t("descriptionLabel")} onChange={setDescription} rows={3} value={description} />
+      </EntryDialog>
+    );
+  }
 
   return (
     <EntryDialog

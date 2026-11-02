@@ -1,6 +1,9 @@
 import { api, type Paginated } from "@/lib/api/client";
 import type { ApiServicePackage } from "@/lib/api/types";
 
+/** The languages a service's words are kept in: Thai, its source, and English. */
+export type ContentLocale = "th" | "en";
+
 /** Advisor-owned service DTO from GET /advisors/me/services. */
 export interface AdvisorService {
   readonly id: string;
@@ -58,8 +61,9 @@ export function listMyAdvisorServices(signal?: AbortSignal): Promise<AdvisorServ
   return api.get("advisors/me/services", { query: { page: 1, limit: 100 }, signal });
 }
 
-export function getMyAdvisorService(id: string, signal?: AbortSignal): Promise<AdvisorService> {
-  return api.get(`advisors/me/services/${id}`, { signal });
+/** A service's words come back in `locale` when given (each language's own, or the Thai where it has none), else the reader's. */
+export function getMyAdvisorService(id: string, signal?: AbortSignal, locale?: ContentLocale): Promise<AdvisorService> {
+  return api.get(`advisors/me/services/${id}`, { signal, locale });
 }
 
 export function createAdvisorService(input: {
@@ -76,12 +80,18 @@ export function createAdvisorService(input: {
   readonly trialEnabled?: boolean;
   readonly trialDurationMinutes?: number;
   readonly relatedServiceIds?: readonly string[];
-}, signal?: AbortSignal): Promise<AdvisorService> {
-  return api.post("advisors/me/services", { body: input, signal });
+}, signal?: AbortSignal, locale?: ContentLocale): Promise<AdvisorService> {
+  return api.post("advisors/me/services", { body: input, signal, locale });
 }
 
-export function updateAdvisorService(id: string, changes: Partial<Parameters<typeof createAdvisorService>[0]>, signal?: AbortSignal): Promise<AdvisorService> {
-  return api.patch(`advisors/me/services/${id}`, { body: changes, signal });
+/** The name and description change in `locale` when given (Thai also changes the service's own columns), else the reader's. */
+export function updateAdvisorService(
+  id: string,
+  changes: Partial<Parameters<typeof createAdvisorService>[0]>,
+  signal?: AbortSignal,
+  locale?: ContentLocale,
+): Promise<AdvisorService> {
+  return api.patch(`advisors/me/services/${id}`, { body: changes, signal, locale });
 }
 
 export function deleteAdvisorService(id: string, signal?: AbortSignal): Promise<AdvisorService> {
@@ -130,8 +140,8 @@ export interface ServicePackageInput {
 export const MAX_SERVICE_PACKAGES = 5;
 
 /** `GET /advisors/me/services/:id/packages` — the owner's packages, published or not. */
-export function listMyServicePackages(id: string, signal?: AbortSignal): Promise<ApiServicePackage[]> {
-  return api.get(`advisors/me/services/${encodeURIComponent(id)}/packages`, { signal });
+export function listMyServicePackages(id: string, signal?: AbortSignal, locale?: ContentLocale): Promise<ApiServicePackage[]> {
+  return api.get(`advisors/me/services/${encodeURIComponent(id)}/packages`, { signal, locale });
 }
 
 /** Puts a picture on one package, in place of the one it had; answers the packages. */
@@ -151,6 +161,7 @@ export function replaceMyServicePackages(
   id: string,
   packages: readonly ServicePackageInput[],
   signal?: AbortSignal,
+  locale?: ContentLocale,
 ): Promise<ApiServicePackage[]> {
-  return api.put(`advisors/me/services/${encodeURIComponent(id)}/packages`, { body: { packages }, signal });
+  return api.put(`advisors/me/services/${encodeURIComponent(id)}/packages`, { body: { packages }, signal, locale });
 }

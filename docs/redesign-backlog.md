@@ -3,7 +3,7 @@
 รายการหน้าที่ยังต้อง redesign เรียงตามลำดับที่ควรทำ แต่ละข้อเป็นหนึ่ง ticket
 ติ๊ก `[x]` เมื่อพี่ดูแล้ว **ผ่าน** ไม่ใช่แค่เขียนโค้ดเสร็จ
 
-อัปเดตล่าสุด: 1 พฤศจิกายน 2569
+อัปเดตล่าสุด: 2 พฤศจิกายน 2569
 
 ## หลักที่ใช้กับทุกหน้า
 
@@ -69,7 +69,34 @@
 - [ ] `/advisor-onboarding/stage-1`, `/stage-2`, `/stage-3`: กรอบเดียวกับ login ขนาดตัวอักษรเท่าหน้า login
 - [ ] `/advisor-onboarding/thank-you`, `/pending`, `/failed`
 
+### งาน (RD-05 ถึง RD-08) · กรอบเดียวทั้งหมด (2 พ.ย.)
+ทุกหน้าในงานอยู่ใน `components/work/work-frame.tsx`: เมนู "งานของฉัน" ซ้าย (วันนี้ ปฏิทิน บริการ เวลาว่าง คำขอปรึกษา รายได้)
+อยู่ทุกหน้าและไฮไลต์หมวดของหน้า, หัวหน้ามีไอคอนในกรอบเทาแบบหน้าตั้งค่า ไม่มีบรรทัดคำอธิบาย, หน้าย่อยใช้ breadcrumb
+"หมวด › ชื่อหน้า" แทน `<` บน desktop, มือถือเป็นแคปซูลใต้หัว + ลูกศรย้อนกลับในหน้าย่อย, เนื้อหาใช้ชิ้นของหน้า
+ธุรกรรม (แคปซูลกรอง กล่องว่าง skeleton) และแถวของหน้าตั้งค่า (`components/work/desk-parts.tsx`)
+- [ ] RD-05 `/work` (วันนี้: นัดถัดไป + รายการ + แผงภาพรวมขวา), `/work/calendar`, `/work/earnings`, `/work/session`
+  ยังเหลือ: skeleton ของวันนี้กับปฏิทินให้ตรงหน้าจริง, ตัวอักษรหัวข้อในเนื้อหาให้เข้าชุด
+- [ ] RD-05 `/advisor/edit`: อยู่ใต้ "โปรไฟล์" แล้ว (ไม่ใช่งาน) มีผลงาน (portfolio)
+- [ ] RD-06 `/advisor/services`: แคปซูล ทั้งหมด / เปิดให้จอง / ซ่อนอยู่ + การ์ดรูป 4 คอลัมน์
+- [ ] RD-06 `/advisor/services/new` และ `/advisor/services/view` (แก้ไข): หน้ายาวหน้าเดียว ไม่ยิง API จนกดบันทึก,
+  รูปปกใหญ่ซ้ายรูปอื่นข้างๆ, หัวเหลือชื่อบริการ, เปิดให้จองอยู่ในส่วนการจอง, ตารางเวลาอยู่ในส่วนชุดเวลาว่าง
+  กำลังทำ: กล่องขวาสลับ แก้ไข / ดูแบบลูกค้า และภาษาที่แก้ ไทย / English
+- [ ] RD-06 `/advisor/services/schedule`: ในกรอบงานแล้ว
+- [ ] RD-07 `/availability` (และ `/availability/configured`, `/custom` ซึ่งเป็นหน้าเดียวกันกับค่าตัวอย่าง): แถวแบบหน้าตั้งค่า กติกาการจองแต่ละข้อเปิด popup (ยังไม่ commit)
+- [ ] RD-07 `/availability/profiles/new`, `/availability/profiles/edit`: ในกรอบงานแล้ว ย้อนกลับไปเวลาว่าง
+- [ ] RD-08 `/work/earnings` (`/earnings`): แคปซูลกรองพร้อมยอดเงิน + รายการแบ่งตามเดือน
+- [ ] RD-08 `/earnings/payout-account` + ตั้งบัญชีเป็น popup (`/setup` เปิดหน้าเดียวกันพร้อม popup) ยังบันทึกจริงไม่ได้ เพราะ API ไม่มี route
+- [ ] RD-08 `/screening/requests`: แคปซูล ทั้งหมด / รอตอบกลับ / ตอบแล้ว
+
 ## ยังไม่ได้ทำ
+
+### งาน · หน้าเก่าที่ยังไม่อยู่ในกรอบงาน
+- [ ] `/advisor/skills`, `/earnings/payout-history`, `/earnings/payout-history/failed`, `/screening/setup`
+- [ ] `/screening/questions`, `/screening/review`, `/screening/review/decline`
+- [ ] หน้าสถานะคัดกรองฝั่งลูกค้า: `/screening/submitted`, `/screening/accepted`, `/screening/declined`, `/screening/trial`
+- [ ] `/availability/profiles` (รายการเก่า ไม่มีลิงก์ไปแล้ว รายการอยู่ใน `/availability`), `/add-date`, `/delete`, `/new/blocked`, `/new/from-list`, `/new/specific`, `/edit/blocked`, `/edit/picker`, `/edit/specific` (`/edit/error` เก็บไว้ให้เทส e2e)
+- [ ] `/advisor/services/manage`, `/manage/delete`, `/new/limit`, `/new/no-profile`, `/[serviceId]/*` (ของเก่าก่อน editor ใหม่)
+- [ ] `/advisor/profile`: โหมดผู้ให้คำปรึกษารวมเข้า `/profile` แล้ว ยังไม่ได้ตัดสินว่าจะเก็บ route นี้ไหม
 
 ### RD-03 · จับคู่ผู้เชี่ยวชาญ
 - [ ] `/matching`, `/matching/searching`, `/matching/results`
@@ -77,28 +104,6 @@
 ### RD-04 · จองและชำระเงิน (ที่เหลือ)
 - [ ] ข้างในของ `/bookings` (กรอบทำแล้ว ดู RD-01)
 - [ ] `/bookings/refund`: หน้าใหม่ที่ Taj ทำใน #91 (ขอยกเลิก/คืนเงินพร้อมหลักฐาน) อยู่บน `dev` ยังไม่ได้ redesign
-
-### RD-05 · โปรไฟล์และหน้าทำงานของผู้ให้คำปรึกษา ⭐
-- [ ] `/advisor/profile` (ควรเป็น dashboard: สวิตช์รับงาน นัดวันนี้ คำขอที่รอตอบ รายได้ สถานะยืนยันตัวตน)
-- [ ] `/advisor/edit`
-- [ ] `/advisor/skills`
-- [ ] `/work`, `/work/calendar`, `/work/earnings`, `/work/session`
-
-### RD-06 · บริการของผู้ให้คำปรึกษา
-- [ ] `/advisor/services`, `/advisor/services/view`, `/advisor/services/manage`, `/advisor/services/manage/delete`
-- [ ] `/advisor/services/new`, `/advisor/services/new/limit`, `/advisor/services/new/no-profile`
-- [ ] `/advisor/services/[serviceId]`, `/advisor/services/[serviceId]/edit`, `/advisor/services/[serviceId]/edit/delete`, `/advisor/services/[serviceId]/schedule`
-
-### RD-07 · ตารางเวลาว่าง
-- [ ] `/availability`, `/availability/configured`, `/availability/custom`
-- [ ] `/availability/profiles`, `/availability/profiles/add-date`, `/availability/profiles/delete`
-- [ ] `/availability/profiles/new`, `/availability/profiles/new/blocked`, `/availability/profiles/new/from-list`, `/availability/profiles/new/specific`
-- [ ] `/availability/profiles/edit`, `/availability/profiles/edit/blocked`, `/availability/profiles/edit/error`, `/availability/profiles/edit/picker`, `/availability/profiles/edit/specific`
-
-### RD-08 · รายได้และการคัดกรอง
-- [ ] `/earnings`, `/earnings/payout-account`, `/earnings/payout-account/setup`, `/earnings/payout-history`, `/earnings/payout-history/failed`
-- [ ] `/screening/setup`, `/screening/questions`, `/screening/requests`, `/screening/review`, `/screening/review/decline`
-- [ ] `/screening/submitted`, `/screening/accepted`, `/screening/declined`, `/screening/trial`
 
 ### RD-09 · รีวิวของผู้ให้คำปรึกษา
 - [ ] `/reviews`, `/reviews/empty`, `/reviews/replying`, `/reviews/reply-failed`

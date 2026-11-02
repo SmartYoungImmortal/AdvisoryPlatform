@@ -26,19 +26,32 @@ import { cn } from "@/lib/utils";
 
 const PILL = "h-10 w-auto px-4 text-sm md:h-10 md:px-5 md:text-sm lg:h-12 lg:px-6 lg:text-frame-body";
 
-/** The owner's records for one service. */
+/**
+ * The owner's records for one service, its words read in each language by
+ * name (Thai, the source, and English) rather than the reader's, under keys
+ * of their own (`#th`, `#en`) so the pages that read in the reader's language
+ * never share them.
+ */
 function useOwnedService(serviceId: string) {
   const record = useResource<AdvisorService>(
-    `advisors/me/services/${serviceId}`,
-    useCallback((signal: AbortSignal) => getMyAdvisorService(serviceId, signal), [serviceId]),
+    `advisors/me/services/${serviceId}#th`,
+    useCallback((signal: AbortSignal) => getMyAdvisorService(serviceId, signal, "th"), [serviceId]),
+  );
+  const english = useResource<AdvisorService>(
+    `advisors/me/services/${serviceId}#en`,
+    useCallback((signal: AbortSignal) => getMyAdvisorService(serviceId, signal, "en"), [serviceId]),
   );
   const images = useResource<{ images: string[] }>(
     `advisors/me/services/${serviceId}/images`,
     useCallback((signal: AbortSignal) => getAdvisorServiceImages(serviceId, signal), [serviceId]),
   );
   const packages = useResource<ApiServicePackage[]>(
-    `advisors/me/services/${serviceId}/packages`,
-    useCallback((signal: AbortSignal) => listMyServicePackages(serviceId, signal), [serviceId]),
+    `advisors/me/services/${serviceId}/packages#th`,
+    useCallback((signal: AbortSignal) => listMyServicePackages(serviceId, signal, "th"), [serviceId]),
+  );
+  const englishPackages = useResource<ApiServicePackage[]>(
+    `advisors/me/services/${serviceId}/packages#en`,
+    useCallback((signal: AbortSignal) => listMyServicePackages(serviceId, signal, "en"), [serviceId]),
   );
   const reload = () => {
     // The public page and the lists read the same service under their own keys.
@@ -46,10 +59,20 @@ function useOwnedService(serviceId: string) {
     invalidate("advisors/me/services");
     invalidate("services?");
     record.reload();
+    english.reload();
     images.reload();
     packages.reload();
+    englishPackages.reload();
   };
-  return { record, images, packages, reload, error: record.error ?? images.error ?? packages.error };
+  return {
+    record,
+    english,
+    images,
+    packages,
+    englishPackages,
+    reload,
+    error: record.error ?? english.error ?? images.error ?? packages.error ?? englishPackages.error,
+  };
 }
 
 export function OwnerServiceScreen({ serviceId, initialPart = null }: {
@@ -61,8 +84,10 @@ export function OwnerServiceScreen({ serviceId, initialPart = null }: {
   const owned = useOwnedService(serviceId);
   // Read again after a save, the editor stays (and keeps its note and its open part).
   const record = useLastAnswer(owned.record);
+  const english = useLastAnswer(owned.english);
   const images = useLastAnswer(owned.images);
   const packages = useLastAnswer(owned.packages);
+  const englishPackages = useLastAnswer(owned.englishPackages);
 
   if (owned.error) {
     return (
@@ -74,9 +99,16 @@ export function OwnerServiceScreen({ serviceId, initialPart = null }: {
       </div>
     );
   }
-  if (!record || !images || !packages) return <ServiceEditorSkeleton />;
+  if (!record || !english || !images || !packages || !englishPackages) return <ServiceEditorSkeleton />;
 
   return (
-    <ServiceEditor images={images.images} initialPart={initialPart} onSaved={owned.reload} packages={packages} record={record} />
+    <ServiceEditor
+      english={{ name: english.name, description: english.description ?? "", packages: englishPackages }}
+      images={images.images}
+      initialPart={initialPart}
+      onSaved={owned.reload}
+      packages={packages}
+      record={record}
+    />
   );
 }

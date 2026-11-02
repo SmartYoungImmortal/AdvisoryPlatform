@@ -107,6 +107,12 @@ export interface RequestOptions {
   readonly signal?: AbortSignal;
   /** Prefixed with `/api/v1` unless this is set — better-auth lives outside it. */
   readonly unprefixed?: boolean;
+  /**
+   * The language to read or write translated content in, in place of the
+   * reader's (`setRequestLocale`): an editor of a service's own words in each
+   * language asks for each one by name.
+   */
+  readonly locale?: "th" | "en";
 }
 
 function buildUrl(path: string, query?: Query, unprefixed = false): string {
@@ -240,7 +246,7 @@ async function request<T>(
       // replace the boundary with nothing and the upload would arrive unparseable.
       headers: {
         Accept: "application/json",
-        "Accept-Language": requestLocale,
+        "Accept-Language": options.locale ?? requestLocale,
         ...(options.body !== undefined && !isFormData
           ? { "Content-Type": "application/json" }
           : {}),
