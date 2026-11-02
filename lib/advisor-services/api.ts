@@ -6,6 +6,8 @@ export interface AdvisorService {
   readonly id: string;
   readonly advisorId: string;
   readonly categoryId: string;
+  /** The categories it is also found under, beside `categoryId` (at most two). */
+  readonly extraCategoryIds?: readonly string[];
   readonly availabilityProfileId: string | null;
   readonly name: string;
   readonly description: string | null;
@@ -62,6 +64,7 @@ export function getMyAdvisorService(id: string, signal?: AbortSignal): Promise<A
 
 export function createAdvisorService(input: {
   readonly categoryId: string;
+  readonly extraCategoryIds?: readonly string[];
   readonly availabilityProfileId: string;
   readonly name: string;
   readonly description?: string;

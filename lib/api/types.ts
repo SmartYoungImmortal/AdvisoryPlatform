@@ -23,6 +23,8 @@ export interface ApiPublicService {
   readonly id: string;
   readonly advisorId: string;
   readonly categoryId: string;
+  /** The categories it is also found under, beside `categoryId`; absent from an older API. */
+  readonly extraCategoryIds?: readonly string[];
   readonly name: string;
   readonly description: string;
   readonly priceSatang: number;

@@ -41,6 +41,8 @@ export type Filterable = {
   readonly listedAt: number;
   readonly category: string;
   readonly categoryId: string;
+  /** The categories it is also found under, beside `categoryId`. */
+  readonly extraCategoryIds?: readonly string[];
   /** Baht. */
   readonly price: number;
   readonly minutes: number;
@@ -73,7 +75,10 @@ function matches(
     // While today's answer is still loading the list is left as it is, rather
     // than emptied and then refilled.
     (!filters.today || openToday === null || openToday.has(item.id)) &&
-    (filters.category === null || item.categoryId === filters.category) &&
+    // Its own category, or one it is also found under.
+    (filters.category === null ||
+      item.categoryId === filters.category ||
+      (item.extraCategoryIds ?? []).includes(filters.category)) &&
     PRICE[filters.price](item.price) &&
     LENGTH[filters.length](item.minutes) &&
     (filters.rating === "any" || (item.rating ?? 0) >= Number(filters.rating))

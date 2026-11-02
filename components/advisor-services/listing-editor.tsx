@@ -9,6 +9,7 @@ import { useCallback, useEffect, useRef, useState, type ReactNode } from "react"
 import { EntryDialog, TextAreaField, TextField } from "@/components/advisor/edit-fields";
 import { authPill } from "@/components/auth/auth-split";
 import { useWeekLine } from "@/components/availability/profiles-screen";
+import { SETTINGS_DIALOG_ACTIONS, SettingsDialog, settingsPill } from "@/components/profile/settings-dialog";
 import { ApiErrorCard } from "@/components/service/parts";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -57,6 +58,8 @@ export type Part = "photos" | "text" | "packages" | "category" | "schedule" | "b
 const PILL = "h-10 w-auto px-4 text-sm md:h-10 md:px-5 md:text-sm lg:h-12 lg:px-6 lg:text-frame-body";
 const FIELD = "h-11 rounded-xl border-accented bg-card px-4 text-base shadow-none md:h-12 md:text-base";
 const PICTURE_TYPES = "image/jpeg,image/png,image/webp";
+/** The main category and up to two more (`MAX_EXTRA_CATEGORIES`). */
+const MAX_CATEGORIES = 3;
 const PICTURE_BYTES = 5 * 1024 * 1024;
 
 function messageOf(cause: unknown): string {
@@ -117,7 +120,6 @@ export function ListingEditor({
   const related = record.relatedServiceIds ?? [];
   const money = (satang: number) => format.number(satang / 100, "baht");
   const profile = profiles.data?.find((item) => item.id === record.availabilityProfileId);
-  const category = categories.data?.items.find((item) => item.id === record.categoryId);
   const packagePrices = packages.map((item) => item.priceSatang);
 
   const rows: { readonly part: Part; readonly title: string; readonly value: ReactNode; readonly thumbs?: readonly string[] }[] = [
@@ -137,7 +139,16 @@ export function ListingEditor({
           : t("priceSummary", { price: money(record.priceSatang), minutes: record.durationMinutes }),
       thumbs: packages.flatMap((item) => (item.image ? [item.image] : [])).slice(0, 3),
     },
-    { part: "category", title: t("categorySection"), value: category?.name ?? "…" },
+    {
+      part: "category",
+      title: t("categorySection"),
+      value: categories.data
+        ? [record.categoryId, ...(record.extraCategoryIds ?? [])]
+            .map((id) => categories.data?.items.find((item) => item.id === id)?.name)
+            .filter(Boolean)
+            .join(" · ")
+        : "…",
+    },
     {
       part: "schedule",
       title: t("scheduleProfileSection"),
@@ -433,38 +444,55 @@ function CategoryPart({ record, categories, onSaved }: {
   readonly onSaved: () => void;
 }) {
   const t = useTranslations("ownerService");
-  const [chosen, setChosen] = useState(record.categoryId);
+  /** Main first: the one the service is shown as, then the ones it is also found under. */
+  const stored = [record.categoryId, ...(record.extraCategoryIds ?? [])];
+  const [chosen, setChosen] = useState<readonly string[]>(stored);
   const save = useSave(onSaved);
+  const dirty = chosen.length !== stored.length || chosen.some((id, at) => id !== stored[at]);
+  const full = chosen.length >= MAX_CATEGORIES;
+  const toggle = (id: string) => {
+    // One stays chosen: a service always has its main category.
+    if (chosen.includes(id)) {
+      if (chosen.length > 1) setChosen(chosen.filter((entry) => entry !== id));
+    } else if (!full) setChosen([...chosen, id]);
+    save.setSaved(false);
+  };
   return (
     <form
       noValidate
       onSubmit={(event) => {
         event.preventDefault();
-        save.run(() => updateAdvisorService(record.id, { categoryId: chosen }));
+        save.run(() => updateAdvisorService(record.id, { categoryId: chosen[0], extraCategoryIds: chosen.slice(1) }));
       }}
     >
-      <Pane footer={<SaveRow dirty={chosen !== record.categoryId} onReset={() => setChosen(record.categoryId)} {...save} />} hint={t("categoryHint")} title={t("categorySection")}>
+      <Pane
+        footer={<SaveRow dirty={dirty} onReset={() => setChosen(stored)} {...save} />}
+        hint={t("categoryHint", { max: MAX_CATEGORIES })}
+        title={t("categorySection")}
+      >
         {categories ? (
-          <div className="flex flex-wrap gap-2" role="radiogroup" aria-label={t("categorySection")}>
-            {categories.map((item) => (
-              <Button
-                aria-checked={chosen === item.id}
-                className={cn(
-                  "h-10 rounded-full px-4 text-sm font-medium shadow-none lg:h-11 lg:text-frame-meta",
-                  chosen === item.id ? "border-hero-action bg-hero-action text-hero-action-foreground hover:bg-hero-action/90" : "border-border bg-card",
-                )}
-                key={item.id}
-                onClick={() => {
-                  setChosen(item.id);
-                  save.setSaved(false);
-                }}
-                role="radio"
-                type="button"
-                variant="outline"
-              >
-                {item.name}
-              </Button>
-            ))}
+          <div aria-label={t("categorySection")} className="flex flex-wrap gap-2" role="group">
+            {categories.map((item) => {
+              const place = chosen.indexOf(item.id);
+              const picked = place !== -1;
+              return (
+                <Button
+                  aria-pressed={picked}
+                  className={cn(
+                    "h-10 rounded-full px-4 text-sm font-medium shadow-none lg:h-11 lg:text-frame-meta",
+                    picked ? "border-hero-action bg-hero-action text-hero-action-foreground hover:bg-hero-action/90" : "border-border bg-card",
+                  )}
+                  disabled={!picked && full}
+                  key={item.id}
+                  onClick={() => toggle(item.id)}
+                  type="button"
+                  variant="outline"
+                >
+                  {item.name}
+                  {place === 0 ? <span className="text-xs font-normal opacity-80 lg:text-frame-label">· {t("categoryMain")}</span> : null}
+                </Button>
+              );
+            })}
           </div>
         ) : (
           <div aria-busy className="flex flex-wrap gap-2">
@@ -699,37 +727,52 @@ function Choice({ label, value, options, onChange }: {
 }
 
 /** Deleting the service, after asking; the services list is where it ends. */
+/** Deleting the service, asked the way signing out is (`LogOutDialog`); the services list is where it ends. */
 function DeleteServiceConfirm({ record, onClose }: { readonly record: AdvisorService; readonly onClose: () => void }) {
-  const f = useTranslations("serviceForm");
+  const t = useTranslations("ownerService");
   const router = useRouter();
   const [busy, setBusy] = useState(false);
-  const [problem, setProblem] = useState<string | null>(null);
+  const [failed, setFailed] = useState(false);
+
+  const remove = () => {
+    setBusy(true);
+    setFailed(false);
+    void (async () => {
+      try {
+        await deleteAdvisorService(record.id);
+        invalidate("advisors/me/services");
+        invalidate("services");
+        router.push("/advisor/services");
+      } catch {
+        setFailed(true);
+        setBusy(false);
+      }
+    })();
+  };
+
   return (
-    <EntryDialog
-      busy={busy}
-      onOpenChange={(next) => (next ? null : onClose())}
-      onSubmit={() => {
-        setBusy(true);
-        setProblem(null);
-        void (async () => {
-          try {
-            await deleteAdvisorService(record.id);
-            invalidate("advisors/me/services");
-            invalidate("services");
-            router.push("/advisor/services");
-          } catch (cause: unknown) {
-            setProblem(messageOf(cause));
-            setBusy(false);
-          }
-        })();
+    <SettingsDialog
+      description={t("deleteBody")}
+      onOpenChange={(next) => {
+        if (!next && !busy) onClose();
       }}
       open
-      problem={problem}
-      submitLabel={f("deleteConfirm")}
-      title={f("deleteDialogTitle")}
+      title={t("deleteTitle", { name: record.name })}
     >
-      <p className="text-base text-muted-foreground">{f("deleteDialogBody", { name: record.name })}</p>
-    </EntryDialog>
+      {failed ? (
+        <p className="mb-3 text-xs text-destructive md:mb-4 md:text-sm" role="alert">
+          {t("deleteFailed")}
+        </p>
+      ) : null}
+      <div className={cn(SETTINGS_DIALOG_ACTIONS, "mt-0 md:mt-0")}>
+        <Button className={settingsPill("ghost")} disabled={busy} onClick={onClose} type="button" variant="ghost">
+          {t("deleteCancel")}
+        </Button>
+        <Button className={settingsPill("danger")} disabled={busy} onClick={remove} type="button" variant="ghost">
+          {busy ? t("deletePending") : t("deleteYes")}
+        </Button>
+      </div>
+    </SettingsDialog>
   );
 }
 
@@ -872,18 +915,36 @@ function PackagesPart({ record, packages, onChanged }: {
           serviceId={serviceId}
         />
       ) : null}
+      {/* Asked the way deleting the service is: the sign-out dialog's card. */}
       {removing ? (
-        <EntryDialog
-          busy={busy}
-          onOpenChange={(next) => (next ? null : setRemoving(null))}
-          onSubmit={() => write(packages.filter((item) => item.id !== removing.id).map(packageInput))}
+        <SettingsDialog
+          description={t("removePackageBody")}
+          onOpenChange={(next) => {
+            if (!next && !busy) setRemoving(null);
+          }}
           open
-          problem={problem}
-          submitLabel={t("removePackageYes")}
-          title={t("removePackageTitle")}
+          title={t("removePackageConfirm", { name: removing.name })}
         >
-          <p className="text-base text-muted-foreground">{t("removePackageConfirm", { name: removing.name })}</p>
-        </EntryDialog>
+          {problem ? (
+            <p className="mb-3 text-xs text-destructive md:mb-4 md:text-sm" role="alert">
+              {problem}
+            </p>
+          ) : null}
+          <div className={cn(SETTINGS_DIALOG_ACTIONS, "mt-0 md:mt-0")}>
+            <Button className={settingsPill("ghost")} disabled={busy} onClick={() => setRemoving(null)} type="button" variant="ghost">
+              {t("deleteCancel")}
+            </Button>
+            <Button
+              className={settingsPill("danger")}
+              disabled={busy}
+              onClick={() => write(packages.filter((item) => item.id !== removing.id).map(packageInput))}
+              type="button"
+              variant="ghost"
+            >
+              {busy ? t("deletePending") : t("removePackageYes")}
+            </Button>
+          </div>
+        </SettingsDialog>
       ) : null}
     </Pane>
   );

@@ -69,6 +69,8 @@ export type LiveService = {
   readonly category: string;
   /** The category's id; its name above is in the page's language. */
   readonly categoryId: string;
+  /** The categories it is also found under, beside `categoryId`. */
+  readonly extraCategoryIds?: readonly string[];
   /** Baht, from the API's satang. */
   readonly price: number;
   readonly minutes: number;
@@ -221,6 +223,7 @@ function join(
     description: service.description,
     category,
     categoryId: service.categoryId,
+    extraCategoryIds: service.extraCategoryIds ?? [],
     price: service.priceSatang / 100,
     minutes: service.durationMinutes,
     advisorId: advisor.id,
