@@ -3,7 +3,6 @@
 import Link from "next/link";
 import {
   ChevronRight,
-  ChevronsUpDown,
   CircleAlert,
   CircleCheck,
   Clock,
@@ -11,10 +10,12 @@ import {
   Landmark,
   UserRoundCog,
 } from "lucide-react";
+import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
+import { useState } from "react";
 
+import { EntryDialog, SelectField, TextField } from "@/components/advisor/edit-fields";
 import { NeutralButton, PrimaryButton } from "@/components/mobile/buttons";
-import { Field } from "@/components/mobile/field";
 import {
   MobileScreen,
   ScreenActions,
@@ -103,54 +104,106 @@ export function SkillManagementScreen() {
   );
 }
 
-/** Figma "Payout account - Setup (Light)" — 995:8874. */
+/**
+ * `/earnings/payout-account/setup`: the payout account page with its popup
+ * open, so the addresses that led here (a failed payout's "fix the
+ * details") still land on the form.
+ */
 export function PayoutSetupScreen() {
+  return <PayoutAccountScreen setup />;
+}
+
+const BANKS = ["BBL", "KBANK", "SCB", "KTB", "BAY", "TTB", "GSB", "BAAC", "UOB", "CIMBT", "KKP", "LHB"] as const;
+type Bank = (typeof BANKS)[number];
+
+/**
+ * The account payouts go to, as a popup over the payout account page: the
+ * bank from the list, the number (10 to 12 digits, spaces and dashes
+ * allowed), and the name as the passbook has it.
+ *
+ * Nothing is stored yet: the API has a table for an advisor's payout
+ * account but no route that writes it, so a valid form only closes.
+ */
+function PayoutAccountDialog({ adding, onClose }: { readonly adding: boolean; readonly onClose: () => void }) {
   const t = useTranslations("advisor");
-  const c = useTranslations("common");
+  const [bank, setBank] = useState<Bank | "">("");
+  const [number, setNumber] = useState("");
+  const [name, setName] = useState("");
+  const [errors, setErrors] = useState<{ bank?: string; number?: string; name?: string }>({});
+
+  const submit = () => {
+    const digits = number.replace(/[\s-]/g, "");
+    const found: typeof errors = {};
+    if (!bank) found.bank = t("bankRequired");
+    if (!/^\d{10,12}$/.test(digits)) found.number = t("accountNoInvalid");
+    if (!name.trim()) found.name = t("accountNameRequired");
+    setErrors(found);
+    if (Object.keys(found).length === 0) onClose();
+  };
 
   return (
-    <MobileScreen wide>
-      <ScreenTopBar href="/earnings" label={c("back")} />
-      <ScreenBody className="lg:[&>*:not(.sticky)]:mx-auto lg:[&>*:not(.sticky)]:w-full lg:[&>*:not(.sticky)]:max-w-[880px]">
-        <ScreenHeading className="pt-4" title={t("payoutSetupTitle")} />
-        <div className="flex w-full shrink-0 flex-col items-start gap-4 px-6 pt-2">
-          <Field
-            icon={Landmark}
-            id="payout-bank"
-            label={t("bankLabel")}
-            placeholder={t("bankPlaceholder")}
-            trailing={<ChevronsUpDown className="size-4" />}
-          />
-          <Field
-            id="payout-number"
-            label={t("accountNoLabel")}
-            placeholder={t("accountNoPlaceholder")}
-          />
-          <Field
-            id="payout-name"
-            label={t("accountNameLabel")}
-            placeholder={t("accountNamePlaceholder")}
-          />
-        </div>
-        <ScreenSpacer />
-        <div className="flex w-full shrink-0 flex-col items-center px-6 pb-2">
-          <PrimaryButton href="/earnings/payout-account">{t("saveAccount")}</PrimaryButton>
-        </div>
-      </ScreenBody>
-    </MobileScreen>
+    <EntryDialog
+      focusId="payout-bank"
+      onOpenChange={(next) => (next ? null : onClose())}
+      onSubmit={submit}
+      open
+      submitLabel={t("saveAccount")}
+      title={adding ? t("payoutSetupTitle") : t("payoutChangeTitle")}
+    >
+      <SelectField
+        id="payout-bank"
+        items={BANKS.map((code) => ({ value: code, label: t(`banks.${code}`) }))}
+        label={t("bankLabel")}
+        onChange={setBank}
+        placeholder={t("bankPlaceholder")}
+        value={bank}
+      />
+      {errors.bank ? (
+        <p className="-mt-2 text-sm text-destructive" role="alert">
+          {errors.bank}
+        </p>
+      ) : null}
+      <TextField
+        error={errors.number}
+        id="payout-number"
+        inputMode="numeric"
+        label={t("accountNoLabel")}
+        onChange={setNumber}
+        placeholder={t("accountNoPlaceholder")}
+        value={number}
+      />
+      <TextField
+        error={errors.name}
+        hint={t("accountNameHint")}
+        id="payout-name"
+        label={t("accountNameLabel")}
+        onChange={setName}
+        placeholder={t("accountNamePlaceholder")}
+        value={name}
+      />
+    </EntryDialog>
   );
 }
 
 /**
  * `/earnings/payout-account`: the account payouts go to, on the desk's frame —
  * the bank and the masked number with whether it is verified, the account's
- * name and how it is paid, then changing it.
+ * name and how it is paid, then changing it in a popup over the page
+ * (`PayoutAccountDialog`); `setup` opens with it up.
  *
  * The figures are still the prototype's: the API has a table for an advisor's
  * payout account but no route that reads or writes it yet.
  */
-export function PayoutAccountScreen() {
+export function PayoutAccountScreen({ setup = false }: { readonly setup?: boolean }) {
   const t = useTranslations("advisor");
+  const router = useRouter();
+  const [changing, setChanging] = useState(setup);
+
+  const close = () => {
+    setChanging(false);
+    // Opened by its own address: the address goes back to the page's.
+    if (setup) router.replace("/earnings/payout-account");
+  };
 
   return (
     <DeskPage backHref="/work/earnings" title={t("payoutTitle")}>
@@ -186,11 +239,12 @@ export function PayoutAccountScreen() {
           <Button className={cn(authPill(false), DESK_PILL, "flex-1 lg:flex-none")} nativeButton={false} render={<Link href="/work/earnings" />} variant="outline">
             {t("deleteAccount")}
           </Button>
-          <Button className={cn(authPill(true), DESK_PILL, "flex-1 lg:flex-none")} nativeButton={false} render={<Link href="/earnings/payout-account/setup" />}>
+          <Button className={cn(authPill(true), DESK_PILL, "flex-1 lg:flex-none")} onClick={() => setChanging(true)} type="button">
             {t("changeAccount")}
           </Button>
         </div>
       </div>
+      {changing ? <PayoutAccountDialog adding={false} onClose={close} /> : null}
     </DeskPage>
   );
 }
