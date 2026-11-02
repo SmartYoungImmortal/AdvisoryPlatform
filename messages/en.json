@@ -948,7 +948,8 @@
     "wrongCurrentTitle": "Current password is incorrect",
     "wrongCurrentBody": "3 more tries before sign-in is paused for 15 minutes",
     "wrongCurrentFieldError": "Doesn't match your current password",
-    "invalid": "Check the new password and its confirmation again"
+    "invalid": "Check the new password and its confirmation again",
+    "requestFailed": "Could not change your password. Please try again."
   },
   "changeEmail": {
     "title": "Change email",
