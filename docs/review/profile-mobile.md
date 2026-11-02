@@ -1,6 +1,6 @@
 # Review the mobile profile editor
 
-The phone editor follows the [final save-failed frame](https://www.figma.com/design/pddSCcCJ1hmYHAZO1GW13b?node-id=995-7586): heading, error banner, centered avatar, name fields, locked email card and stacked actions. The desktop retains its existing profile hero. Both layouts use the same draft state and API write.
+The phone editor follows the [final save-failed frame](https://www.figma.com/design/pddSCcCJ1hmYHAZO1GW13b?node-id=995-7586): heading, error banner, centered avatar, name fields, locked email card and stacked actions. The subsequent [desktop editor follow-up](profile-desktop.md) replaces the desktop profile hero with the final form card. Both layouts use the same draft state and API write.
 
 Open [local profile editing](http://localhost:3001/profile/edit) as a signed-in advisee. This requires the disposable API on port 3200 and frontend on 3001; it is not a deployed preview. Start the frontend with `NEXT_PUBLIC_API_URL=http://localhost:3200 pnpm dev --port 3001` after starting the API against the named local proof database.
 
