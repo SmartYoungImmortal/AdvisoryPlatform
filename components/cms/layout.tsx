@@ -334,15 +334,6 @@ function NavEntry({
   );
 }
 
-/**
- * The account menu's rows, as the site's notification rows read: a 44 row in
- * body type, its glyph in a soft grey circle that turns white under the
- * pointer so it still shows on the row's own grey.
- */
-const MENU_ITEM = "h-11 gap-3 rounded-xl px-2 text-base text-foreground focus:bg-muted";
-const MENU_GLYPH =
-  "flex size-8 shrink-0 items-center justify-center rounded-full bg-muted text-muted-foreground group-focus/dropdown-menu-item:bg-card";
-
 /** The signed-in admin at the sidebar's foot, opening upward: the site, and signing out. */
 function UserMenu() {
   const t = useTranslations("cms.userMenu");
@@ -392,40 +383,36 @@ function UserMenu() {
       </DropdownMenuTrigger>
       <DropdownMenuContent
         align="start"
-        className="w-(--anchor-width) rounded-2xl bg-card p-2 shadow-hero-card-hover ring-1 ring-hero-card-border"
+        className="min-w-60 rounded-xl bg-popover p-1 shadow-panel ring-1 ring-border"
         side="top"
         sideOffset={8}
       >
         {account ? (
           <DropdownMenuGroup>
-            <DropdownMenuLabel className="flex items-center gap-3 px-2 py-2">
-              <CmsAvatar account={account} size="lg" />
-              <span className="flex min-w-0 flex-col">
-                <span className="truncate text-base font-semibold text-foreground">{account.name}</span>
-                <span className="truncate font-latin text-sm font-normal text-muted-foreground">
-                  {account.email}
-                </span>
+            <DropdownMenuLabel className="flex flex-col px-2.5 py-2">
+              <span className="truncate text-sm font-medium text-foreground">{account.name}</span>
+              <span className="truncate font-latin text-xs font-normal text-muted-foreground">
+                {account.email}
               </span>
             </DropdownMenuLabel>
           </DropdownMenuGroup>
         ) : null}
-        <DropdownMenuSeparator className="mx-2 my-1.5" />
+        <DropdownMenuSeparator />
         <DropdownMenuGroup>
-          <DropdownMenuItem className={MENU_ITEM} onClick={() => window.open("/", "_blank", "noopener")}>
-            <span className={MENU_GLYPH}>
-              <ExternalLink aria-hidden className="size-4" />
-            </span>
+          <DropdownMenuItem
+            className="h-9 gap-2.5 rounded-lg px-2.5 text-sm text-foreground"
+            onClick={() => window.open("/", "_blank", "noopener")}
+          >
+            <ExternalLink aria-hidden className="size-4 text-muted-foreground" />
             {t("openSite")}
           </DropdownMenuItem>
           <DropdownMenuItem
-            className={cn(MENU_ITEM, "data-[variant=destructive]:focus:bg-destructive/10")}
+            className="h-9 gap-2.5 rounded-lg px-2.5 text-sm"
             disabled={saving}
             onClick={leave}
             variant="destructive"
           >
-            <span className={cn(MENU_GLYPH, "bg-destructive/10 text-destructive")}>
-              <LogOut aria-hidden className="size-4" />
-            </span>
+            <LogOut aria-hidden className="size-4" />
             {saving ? logout("pending") : t("signOut")}
           </DropdownMenuItem>
         </DropdownMenuGroup>
