@@ -23,7 +23,7 @@ const DAYS = ["mon", "tue", "wed", "thu", "fri", "sat", "sun"] as const;
  * A week in a line: neighbouring days with the same hours run together —
  * "จ.–ศ. 09:00–17:00 · ส. 10:00–12:00" — so a schedule reads at a glance.
  */
-function useWeekLine(): (profile: AvailabilityProfile) => string {
+export function useWeekLine(): (profile: AvailabilityProfile) => string {
   const t = useTranslations("schedule");
   return (profile) => {
     const hours = DAYS.map((_, index) =>

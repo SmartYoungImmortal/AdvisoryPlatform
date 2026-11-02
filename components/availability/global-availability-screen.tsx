@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { CalendarRange, ChevronRight, Info } from "lucide-react";
+import { CalendarRange, ChevronRight, Info, Plus } from "lucide-react";
 import { useTranslations } from "next-intl";
 import type { ReactNode } from "react";
 import { useState, type FormEvent } from "react";
@@ -11,6 +11,7 @@ import { ThaiText } from "@/components/mobile/thai-text";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
+import { useWeekLine } from "@/components/availability/profiles-screen";
 import { DESK_BOX, DESK_PILL, DeskPage } from "@/components/work/desk-page";
 import { cn } from "@/lib/utils";
 import { availabilityApi, type AvailabilityProfile, type GlobalAvailability } from "@/lib/availability/api";
@@ -135,7 +136,9 @@ export function GlobalAvailabilityScreen({
   readonly state?: GlobalAvailabilityState;
 }) {
   const t = useTranslations("availability");
+  const s = useTranslations("schedule");
   const c = useTranslations("common");
+  const weekLine = useWeekLine();
   const resource = useResource<GlobalAvailability>("availability/global", () => availabilityApi.getGlobal());
   const profiles = useResource<AvailabilityProfile[]>("availability/profiles", () => availabilityApi.getProfiles());
   const [saving, setSaving] = useState(false);
@@ -206,25 +209,39 @@ export function GlobalAvailabilityScreen({
           </dl>
 
           <div className="flex flex-col divide-y divide-border">
-            <Group label={t("profilesLabel")}>
-              <Link
-                className={cn(
-                  DESK_BOX,
-                  "flex h-16 w-full items-center gap-3 px-4 outline-none transition-colors hover:bg-muted/60 focus-visible:ring-3 focus-visible:ring-ring/50 lg:h-18 lg:px-5",
-                )}
-                href="/availability/profiles"
-              >
-                <span className="flex size-9 shrink-0 items-center justify-center rounded-full bg-muted lg:size-10">
-                  <CalendarRange aria-hidden className="size-4.5 lg:size-5" />
-                </span>
-                <span className="flex min-w-0 flex-1 flex-col gap-0.5">
-                  <span className="truncate text-base text-foreground lg:text-frame-body">{t("profilesAction")}</span>
-                  {profiles.data ? (
-                    <span className="truncate text-xs text-muted-foreground lg:text-frame-label">{`${profiles.data.length} ชุดเวลาว่าง`}</span>
-                  ) : null}
-                </span>
-                <ChevronRight aria-hidden className="size-4 shrink-0 text-muted-foreground" />
-              </Link>
+            {/* The schedules themselves, each its week in a line and the way into
+                its editor: the hours are what an advisor comes here to change. */}
+            <Group hint={s("listSubtitle")} label={t("profilesLabel")}>
+              <ul className={cn(DESK_BOX, "flex w-full flex-col divide-y divide-border")}>
+                {(profiles.data ?? []).map((profile) => (
+                  <li key={profile.id}>
+                    <Link
+                      className="flex w-full items-center gap-3 px-4 py-3.5 outline-none transition-colors hover:bg-muted/60 focus-visible:ring-3 focus-visible:ring-ring/50 lg:px-5 lg:py-4"
+                      href={`/availability/profiles/edit?id=${encodeURIComponent(profile.id)}`}
+                    >
+                      <span className="flex size-9 shrink-0 items-center justify-center rounded-full bg-muted lg:size-10">
+                        <CalendarRange aria-hidden className="size-4.5 lg:size-5" />
+                      </span>
+                      <span className="flex min-w-0 flex-1 flex-col gap-0.5">
+                        <span className="truncate text-base text-foreground lg:text-frame-body">{profile.name}</span>
+                        <span className="truncate font-latin text-xs text-muted-foreground tabular-nums lg:text-frame-label">{weekLine(profile)}</span>
+                      </span>
+                      <ChevronRight aria-hidden className="size-4 shrink-0 text-muted-foreground" />
+                    </Link>
+                  </li>
+                ))}
+                <li>
+                  <Link
+                    className="flex w-full items-center gap-3 px-4 py-3.5 text-base text-foreground outline-none transition-colors hover:bg-muted/60 focus-visible:ring-3 focus-visible:ring-ring/50 lg:px-5 lg:py-4 lg:text-frame-body"
+                    href="/availability/profiles/new"
+                  >
+                    <span className="flex size-9 shrink-0 items-center justify-center rounded-full bg-muted lg:size-10">
+                      <Plus aria-hidden className="size-4.5 lg:size-5" />
+                    </span>
+                    {s("createTitle")}
+                  </Link>
+                </li>
+              </ul>
             </Group>
 
             <Group
