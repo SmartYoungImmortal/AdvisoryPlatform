@@ -12,9 +12,7 @@ import {
 } from "lucide-react";
 import { useTranslations } from "next-intl";
 
-import { Textarea } from "@/components/ui/textarea";
 import { NeutralButton, PrimaryButton } from "@/components/mobile/buttons";
-import { Field } from "@/components/mobile/field";
 import {
   MobileScreen,
   ScreenActions,
@@ -33,56 +31,6 @@ import {
   StackRow,
   StatusHero,
 } from "@/components/screening/parts";
-
-/** Figma "Advisee - Screening questions (Light)" — 995:11631. */
-export function ScreeningQuestionsScreen() {
-  const t = useTranslations("screening");
-  const c = useTranslations("common");
-
-  return (
-    // No desktop frame was drawn for this flow, so it follows the rule the
-    // drawn ones set: the canvas opens up and the blocks hold a readable
-    // column rather than a 448px strip stranded on a 1440 page.
-    <MobileScreen wide>
-      <ScreenTopBar href="/matching/results" label={c("back")} />
-      <ScreenBody className="lg:[&>*]:mx-auto lg:[&>*]:w-full lg:[&>*]:max-w-[720px]">
-        {/* Figma "Stage Header": 8px top padding, 10px gap, 20px subtitle. */}
-        <div className="flex w-full shrink-0 flex-col items-start gap-2.5 overflow-clip px-6 pt-2">
-          <h1 className="w-full text-heading font-semibold text-foreground">
-            {t("answerTitle")}
-          </h1>
-          <p className="w-full text-sm font-normal text-muted-foreground">
-            {t("answerSubtitle")}
-          </p>
-        </div>
-
-        {/* Figma "Form Fields": 8px top padding, 16px between rows. */}
-        <div className="flex w-full shrink-0 flex-col items-start gap-4 px-6 pt-2">
-          <Field id="screen-q1" label={t("answerQ1")} placeholder={t("answerPlaceholder")} />
-          <Field id="screen-q2" label={t("answerQ2")} placeholder={t("answerPlaceholder")} />
-          <div className="flex w-full shrink-0 flex-col items-start gap-1.5">
-            <label
-              className="w-full text-sm font-medium text-foreground"
-              htmlFor="screen-q3"
-            >
-              {t("answerQ3")}
-            </label>
-            <Textarea
-              className="h-21 resize-none bg-muted px-3 text-sm shadow-none field-sizing-fixed"
-              id="screen-q3"
-              placeholder={t("answerLongPlaceholder")}
-            />
-          </div>
-        </div>
-
-        <ScreenSpacer />
-        <div className="flex w-full shrink-0 flex-col items-center px-6 pb-2">
-          <PrimaryButton href="/screening/submitted">{t("submitAnswers")}</PrimaryButton>
-        </div>
-      </ScreenBody>
-    </MobileScreen>
-  );
-}
 
 /** Figma "Advisee - Screening submitted (Light)" — 995:11668. */
 export function ScreeningSubmittedScreen() {

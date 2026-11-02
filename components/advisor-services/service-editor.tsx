@@ -571,6 +571,7 @@ export function ServiceEditor({
             limit={draft.limit}
             onLimit={(next) => set("limit", next)}
             onPublished={record ? (next) => set("published", next) : undefined}
+            serviceId={record?.id}
             onScreening={(next) => set("screening", next)}
             onTrial={(next) => set("trial", next)}
             published={draft.published}
@@ -1216,7 +1217,7 @@ function ScheduleChoices({ profiles, chosen, onChange, back, serviceId }: {
 }
 
 /** The booking rules as switch rows on hairlines: on sale (a service that exists), a daily ceiling, questions before booking, a free trial. */
-function BookingRules({ limit, screening, trial, onLimit, onScreening, onTrial, published, onPublished }: {
+function BookingRules({ limit, screening, trial, onLimit, onScreening, onTrial, published, onPublished, serviceId }: {
   readonly limit: number | null;
   readonly screening: boolean;
   readonly trial: number | null;
@@ -1226,6 +1227,8 @@ function BookingRules({ limit, screening, trial, onLimit, onScreening, onTrial, 
   /** A service that exists: whether it is on sale, the first rule (held with the rest until the save). */
   readonly published?: boolean;
   readonly onPublished?: (next: boolean) => void;
+  /** A service that exists: its questions open straight away; a new one picks its service there. */
+  readonly serviceId?: string;
 }) {
   const t = useTranslations("ownerService");
   const global = useResource<GlobalAvailability>("availability/global", availabilityApi.getGlobal);
@@ -1272,7 +1275,10 @@ function BookingRules({ limit, screening, trial, onLimit, onScreening, onTrial, 
         t("screeningBody"),
         <Switch aria-label={t("screeningTitle")} checked={screening} onCheckedChange={onScreening} />,
         screening ? (
-          <Link className="self-start text-sm font-medium text-foreground underline underline-offset-4 lg:text-frame-meta" href="/screening/setup">
+          <Link
+            className="self-start text-sm font-medium text-foreground underline underline-offset-4 lg:text-frame-meta"
+            href={serviceId ? `/screening/setup?serviceId=${encodeURIComponent(serviceId)}` : "/screening/setup"}
+          >
             {t("screeningSetup")}
           </Link>
         ) : null,

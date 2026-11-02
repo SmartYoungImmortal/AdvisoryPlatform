@@ -1,5 +1,5 @@
-import { ApiError, api } from "@/lib/api/client";
-import type { ApiAdvisorBackground, ApiPortfolioItem } from "@/lib/api/types";
+import { ApiError, api, type Paginated } from "@/lib/api/client";
+import type { ApiAdvisorBackground, ApiNamedRecord, ApiPortfolioItem } from "@/lib/api/types";
 
 /**
  * Becoming an advisor, against `AdvisoryPlatformAPI` (docs/api-spec.md,
@@ -139,4 +139,33 @@ export function submitSkillProof(skillId: string, file: File): Promise<unknown> 
   body.append("skillId", skillId);
   body.append("file", file);
   return api.post("advisors/me/skill-proofs", { body });
+}
+
+/** `skillProofReviewStatusEnum`: a document waits for one review, and that review is final. */
+export type SkillProofReviewStatus = "PENDING" | "APPROVED" | "REJECTED";
+
+/** `OwnSkillProofResponseDto`: a document the caller sent for a skill, and how its review went. */
+export interface ApiOwnSkillProof {
+  readonly id: string;
+  readonly skillId: string;
+  readonly skillName: string;
+  readonly originalFileName: string;
+  readonly reviewStatus: SkillProofReviewStatus;
+  readonly rejectionReason: string | null;
+  readonly reviewedAt: string | null;
+  readonly createdAt: string;
+}
+
+/**
+ * `GET /advisors/me/skill-proofs` — every document the caller has sent, oldest
+ * first, one page of up to 100. Sending one is what claims its skill, so these
+ * are the advisor's skills too.
+ */
+export function listOwnSkillProofs(signal?: AbortSignal): Promise<Paginated<ApiOwnSkillProof>> {
+  return api.get("advisors/me/skill-proofs", { query: { page: 1, limit: 100 }, signal });
+}
+
+/** `GET /skills` in one page of up to 100: the API's default page is 20, which a picker would cut short. */
+export function listSkillCatalogue(signal?: AbortSignal): Promise<Paginated<ApiNamedRecord>> {
+  return api.get("skills", { query: { page: 1, limit: 100 }, signal });
 }
