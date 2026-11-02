@@ -10,7 +10,6 @@ import { EntryDialog, TextAreaField, TextField } from "@/components/advisor/edit
 import {
   BookingRules,
   CategoryChoices,
-  ClientCard,
   Counter,
   FieldWithUnit,
   Pane,
@@ -243,26 +242,7 @@ export function NewServiceScreen() {
         <h1 className="text-xl font-semibold text-foreground lg:text-frame-heading">{e("createTitle")}</h1>
       </div>
 
-      <PartsLayout
-        aside={
-          <ClientCard
-            category={categories.data?.items.find((item) => item.id === chosenCategories[0])?.name ?? null}
-            cover={photos[0]?.src ?? null}
-            name={name}
-            price={
-              packages.length > 0
-                ? t("fromPrice", { price: money(Math.min(...packagePrices)) })
-                : basePrice !== null && baseMinutes !== null
-                  ? t("priceSummary", { price: money(basePrice), minutes: baseMinutes })
-                  : null
-            }
-          />
-        }
-        onOpen={setOpen}
-        open={open}
-        rows={rows}
-        shown={shown}
-      >
+      <PartsLayout onOpen={setOpen} open={open} rows={rows} shown={shown}>
         {shown === "photos" ? (
           <Pane hint={t("photosHint")} title={t("photosSection")}>
             <PhotoGrid

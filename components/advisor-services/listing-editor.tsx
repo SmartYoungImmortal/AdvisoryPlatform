@@ -172,21 +172,8 @@ export function ListingEditor({
     },
   ];
 
-  const mainCategory = categories.data?.items.find((item) => item.id === record.categoryId)?.name ?? null;
   return (
     <PartsLayout
-      aside={
-        <ClientCard
-          category={mainCategory}
-          cover={images[0] ?? null}
-          name={record.name}
-          price={
-            packages.length > 0
-              ? t("fromPrice", { price: money(Math.min(...packagePrices)) })
-              : t("priceSummary", { price: money(record.priceSatang), minutes: record.durationMinutes })
-          }
-        />
-      }
       below={
         <Button
           className="h-10 self-start px-2 text-sm font-medium text-muted-foreground hover:bg-transparent hover:text-destructive lg:text-frame-meta"
@@ -225,24 +212,22 @@ export type PartRow = { readonly part: Part; readonly title: string; readonly va
 
 /**
  * The editor's frame, the same for a service that exists and one being made:
- * the parts as one hairline list at the left (with what goes under it), the
- * part open beside it, and from `lg` the client's card at the right, staying
- * on screen. On the phone the list is the page and a part opens in its
- * place, with the way back to the list above it; the card follows the part.
+ * the parts as one hairline list at the left (with what goes under it), and
+ * the part open beside it. On the phone the list is the page and a part
+ * opens in its place, with the way back to the list above it.
  */
-export function PartsLayout({ rows, shown, open, onOpen, below, aside, children }: {
+export function PartsLayout({ rows, shown, open, onOpen, below, children }: {
   readonly rows: readonly PartRow[];
   readonly shown: Part;
   /** The part pressed; none on the phone shows the list. */
   readonly open: Part | null;
   readonly onOpen: (part: Part | null) => void;
   readonly below?: ReactNode;
-  readonly aside?: ReactNode;
   readonly children: ReactNode;
 }) {
   const t = useTranslations("ownerService");
   return (
-    <div className="grid grid-cols-1 gap-8 pb-16 lg:grid-cols-[minmax(0,340px)_minmax(0,1fr)_minmax(0,320px)] lg:gap-10">
+    <div className="grid grid-cols-1 gap-8 pb-16 lg:grid-cols-[minmax(0,340px)_minmax(0,1fr)] lg:gap-10">
       <nav aria-label={t("sectionsLabel")} className={cn("flex flex-col gap-4 lg:sticky lg:top-6 lg:self-start", open && "max-lg:hidden")}>
         <ul className="flex flex-col divide-y divide-border overflow-hidden rounded-2xl border border-border">
           {rows.map((row) => {
@@ -288,47 +273,7 @@ export function PartsLayout({ rows, shown, open, onOpen, below, aside, children 
         </Button>
         {children}
       </div>
-
-      {aside ? <aside className={cn("flex flex-col gap-3 lg:sticky lg:top-6 lg:self-start", !open && "max-lg:hidden")}>{aside}</aside> : null}
     </div>
-  );
-}
-
-/**
- * The service as a client meets it in search, drawn from what the editor
- * holds: its cover, its name, its main category and its price. The whole
- * page as a client sees it is the owner's bar's other mode.
- */
-export function ClientCard({ cover, name, category, price }: {
-  readonly cover: string | null;
-  readonly name: string;
-  readonly category: string | null;
-  readonly price: string | null;
-}) {
-  const t = useTranslations("ownerService");
-  return (
-    <>
-      <h2 className="text-sm font-medium text-muted-foreground lg:text-frame-meta">{t("previewTitle")}</h2>
-      <div className="flex flex-col gap-2.5">
-        <span className="block aspect-[4/3] w-full overflow-hidden rounded-2xl bg-muted">
-          {cover ? (
-            // eslint-disable-next-line @next/next/no-img-element -- a stored URL or a local preview
-            <img alt="" className="size-full object-cover" src={cover} />
-          ) : (
-            <span className="flex size-full items-center justify-center text-muted-foreground">
-              <ImagePlus aria-hidden className="size-6" strokeWidth={1.5} />
-            </span>
-          )}
-        </span>
-        <span className="flex flex-col gap-0.5 px-0.5">
-          <span className={cn("line-clamp-2 text-base font-medium lg:text-frame-body", name.trim() ? "text-foreground" : "text-muted-foreground")}>
-            {name.trim() || t("previewNoName")}
-          </span>
-          {category ? <span className="text-sm text-muted-foreground lg:text-frame-meta">{category}</span> : null}
-          {price ? <span className="font-latin text-sm text-foreground tabular-nums lg:text-frame-meta">{price}</span> : null}
-        </span>
-      </div>
-    </>
   );
 }
 
