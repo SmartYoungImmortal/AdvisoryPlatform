@@ -5,10 +5,9 @@ import Link from "next/link";
 import { useLocale, useTranslations } from "next-intl";
 import { useCallback, useState, type FormEvent, type ReactNode } from "react";
 
-import { NeutralButton, PrimaryButton } from "@/components/mobile/buttons";
-import { MobileScreen, ScreenActions, ScreenBody, ScreenHeading, ScreenTopBar } from "@/components/mobile/screen";
-import { surfaceClass } from "@/components/mobile/surface";
+import { authPill } from "@/components/auth/auth-split";
 import { StatusToast, useStatusToast } from "@/components/mobile/toast";
+import { DESK_BOX, DESK_PILL, DeskPage } from "@/components/work/desk-page";
 import { ApiErrorCard } from "@/components/service/parts";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -559,10 +558,10 @@ function EntryRow({
 }) {
   const t = useTranslations("advisorEdit");
   return (
-    <li className="flex items-center gap-3 py-3">
-      <span className="flex min-w-0 flex-1 flex-col gap-0.5">
-        <span className="text-base font-medium text-foreground">{head}</span>
-        {line ? <span className="text-sm text-muted-foreground">{line}</span> : null}
+    <li className="flex items-center gap-3 py-3 lg:py-4">
+      <span className="flex min-w-0 flex-1 flex-col gap-0.5 lg:gap-1">
+        <span className="text-base font-medium text-foreground lg:text-frame-body">{head}</span>
+        {line ? <span className="text-sm text-muted-foreground lg:text-frame-meta">{line}</span> : null}
       </span>
       <Button aria-label={t("editEntry", { name: head })} className="size-10 rounded-full" onClick={onEdit} size="icon" type="button" variant="ghost">
         <Pencil aria-hidden className="size-4" />
@@ -590,14 +589,14 @@ function ListSection({
 }) {
   const hasEntries = Array.isArray(children) ? children.length > 0 : Boolean(children);
   return (
-    <section className="flex flex-col border-t border-border pt-6">
-      <h2 className="text-lg font-semibold text-foreground">{title}</h2>
+    <section className="flex flex-col border-t border-border pt-8 lg:pt-10">
+      <h2 className="text-lg font-semibold text-foreground lg:text-frame-heading">{title}</h2>
       {hasEntries ? (
         <ul className="mt-2 flex flex-col divide-y divide-border">{children}</ul>
       ) : (
-        <p className="mt-2 text-sm text-muted-foreground">{empty}</p>
+        <p className="mt-2 text-sm text-muted-foreground lg:text-frame-meta">{empty}</p>
       )}
-      <Button className="mt-3 h-10 self-start rounded-full border-accented px-4 text-sm font-medium" onClick={onAdd} type="button" variant="outline">
+      <Button className="mt-4 h-10 self-start rounded-full border-border px-4 text-sm font-medium lg:h-12 lg:px-5 lg:text-frame-meta" onClick={onAdd} type="button" variant="outline">
         <Plus aria-hidden className="size-4" />
         {addLabel}
       </Button>
@@ -678,15 +677,15 @@ function EditForm({ profile, initial }: { readonly profile: ApiOwnAdvisorProfile
   return (
     <>
       <form
-        className="flex w-full flex-col gap-6 px-6 pt-3 pb-6"
+        className="mt-5 flex w-full max-w-200 flex-col gap-8 lg:mt-8 lg:gap-10"
         noValidate
         onSubmit={(event) => {
           event.preventDefault();
           save();
         }}
       >
-        <section className="flex flex-col gap-4">
-          <h2 className="text-lg font-semibold text-foreground">{p("introTitle")}</h2>
+        <section className="flex flex-col gap-4 lg:gap-5">
+          <h2 className="text-lg font-semibold text-foreground lg:text-frame-heading">{p("introTitle")}</h2>
           <TextField
             error={headlineError}
             hint={t("headlineHint")}
@@ -770,21 +769,28 @@ function EditForm({ profile, initial }: { readonly profile: ApiOwnAdvisorProfile
         </ListSection>
 
         {/* The skills are proved, not typed: their own page sends the proof. */}
-        <section className="flex flex-col gap-3 border-t border-border pt-6">
-          <h2 className="text-lg font-semibold text-foreground">{a("skillsLabel")}</h2>
-          <Link className={cn(surfaceClass({ tier: "raised", interactive: true }), "flex w-full items-center gap-3 p-3.5")} href="/advisor/skills">
-            <FileText aria-hidden className="size-4 shrink-0 text-muted-foreground" />
-            <span className="min-w-px flex-1 text-sm text-foreground">{t("skillsLink")}</span>
+        <section className="flex flex-col gap-4 border-t border-border pt-8 lg:pt-10">
+          <h2 className="text-lg font-semibold text-foreground lg:text-frame-heading">{a("skillsLabel")}</h2>
+          <Link
+            className={cn(DESK_BOX, "flex h-16 w-full items-center gap-3 px-4 outline-none transition-colors hover:bg-muted/60 focus-visible:ring-3 focus-visible:ring-ring/50 lg:h-18 lg:px-5")}
+            href="/advisor/skills"
+          >
+            <span className="flex size-9 shrink-0 items-center justify-center rounded-full bg-muted lg:size-10">
+              <FileText aria-hidden className="size-4.5 lg:size-5" />
+            </span>
+            <span className="min-w-0 flex-1 text-base text-foreground lg:text-frame-body">{t("skillsLink")}</span>
             <ChevronRight aria-hidden className="size-4 shrink-0 text-muted-foreground" />
           </Link>
         </section>
 
-        <ScreenActions className="px-0">
-          <PrimaryButton disabled={saving} type="submit">
+        <div className="flex w-full items-center gap-3 lg:justify-end">
+          <Button className={cn(authPill(false), DESK_PILL, "flex-1 lg:flex-none")} nativeButton={false} render={<Link href="/profile" />} variant="outline">
+            {a("cancel")}
+          </Button>
+          <Button className={cn(authPill(true), DESK_PILL, "flex-[2] lg:flex-none")} disabled={saving} type="submit">
             {saving ? t("saving") : a("save")}
-          </PrimaryButton>
-          <NeutralButton href="/profile">{a("cancel")}</NeutralButton>
-        </ScreenActions>
+          </Button>
+        </div>
       </form>
 
       {/* Keyed by the entry, so each opening starts from that entry's own values. */}
@@ -816,7 +822,6 @@ function EditForm({ profile, initial }: { readonly profile: ApiOwnAdvisorProfile
 export function AdvisorProfileEditScreen() {
   const t = useTranslations("advisor");
   const e = useTranslations("advisorEdit");
-  const c = useTranslations("common");
   const profile = useResource<ApiOwnAdvisorProfile | null>(
     "advisors/me",
     useCallback((signal: AbortSignal) => getOwnAdvisorProfile(signal), []),
@@ -828,7 +833,7 @@ export function AdvisorProfileEditScreen() {
   let body: ReactNode;
   if (profile.loading || background.loading) {
     body = (
-      <div aria-busy className="flex w-full flex-col gap-4 px-6 pt-3">
+      <div aria-busy className="mt-5 flex w-full max-w-200 flex-col gap-4 lg:mt-8">
         <span className="h-11 w-full animate-pulse rounded-xl bg-muted" />
         <span className="h-24 w-full animate-pulse rounded-xl bg-muted" />
         <span className="h-16 w-full animate-pulse rounded-xl bg-muted" />
@@ -836,7 +841,7 @@ export function AdvisorProfileEditScreen() {
     );
   } else if (profile.error || background.error) {
     body = (
-      <div className="px-6 pt-3">
+      <div className="mt-5 lg:mt-8">
         <ApiErrorCard
           error={profile.error ?? background.error ?? new Error(e("loadFailed"))}
           onRetry={() => {
@@ -850,11 +855,11 @@ export function AdvisorProfileEditScreen() {
   } else if (!profile.data) {
     // No application yet: nothing to edit until there is a profile.
     body = (
-      <div className="flex flex-col items-start gap-3 px-6 pt-3">
-        <p className="text-sm text-muted-foreground">{e("noProfile")}</p>
-        <PrimaryButton className="w-auto" href="/advisor/apply">
+      <div className="mt-5 flex flex-col items-start gap-4 lg:mt-8">
+        <p className="text-sm text-muted-foreground lg:text-frame-meta">{e("noProfile")}</p>
+        <Button className={cn(authPill(true), DESK_PILL)} nativeButton={false} render={<Link href="/advisor/apply" />}>
           {e("apply")}
-        </PrimaryButton>
+        </Button>
       </div>
     );
   } else {
@@ -862,12 +867,8 @@ export function AdvisorProfileEditScreen() {
   }
 
   return (
-    <MobileScreen wide>
-      <ScreenTopBar href="/profile" label={c("back")} />
-      <ScreenBody className="lg:[&>*:not(.sticky)]:mx-auto lg:[&>*:not(.sticky)]:w-full lg:[&>*:not(.sticky)]:max-w-[880px]">
-        <ScreenHeading className="gap-2 pt-4" subtitle={t("editSubtitle")} title={t("editTitle")} />
-        {body}
-      </ScreenBody>
-    </MobileScreen>
+    <DeskPage subtitle={t("editSubtitle")} title={t("editTitle")}>
+      {body}
+    </DeskPage>
   );
 }

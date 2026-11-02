@@ -26,7 +26,11 @@ import {
 import { AddRow } from "@/components/mobile/settings-list";
 import { StatusPill, type StatusTone } from "@/components/mobile/status-pill";
 import { Surface, SurfaceList } from "@/components/mobile/surface";
+import { authPill } from "@/components/auth/auth-split";
+import { Button } from "@/components/ui/button";
+import { DESK_BOX, DESK_GLYPH, DESK_PILL, DeskPage } from "@/components/work/desk-page";
 import { WorkEarningsScreen } from "@/components/work/work-screens";
+import { cn } from "@/lib/utils";
 
 /** Figma "Skill management (Light)" — 995:8768. */
 export function SkillManagementScreen() {
@@ -137,62 +141,57 @@ export function PayoutSetupScreen() {
   );
 }
 
-/** Figma "Payout account - Status (Light)" — 995:8909. */
+/**
+ * `/earnings/payout-account`: the account payouts go to, on the desk's frame —
+ * the bank and the masked number with whether it is verified, the account's
+ * name and how it is paid, then changing it.
+ *
+ * The figures are still the prototype's: the API has a table for an advisor's
+ * payout account but no route that reads or writes it yet.
+ */
 export function PayoutAccountScreen() {
   const t = useTranslations("advisor");
-  const c = useTranslations("common");
 
   return (
-    <MobileScreen wide>
-      <ScreenTopBar href="/earnings" label={c("back")} />
-      <ScreenBody className="lg:[&>*:not(.sticky)]:mx-auto lg:[&>*:not(.sticky)]:w-full lg:[&>*:not(.sticky)]:max-w-[880px]">
-        <ScreenHeading className="pt-4" title={t("payoutTitle")} />
-
-        <div className="flex w-full shrink-0 flex-col items-start px-6 pt-2">
-          <Surface className="flex w-full flex-col items-start gap-3 p-3.5 lg:p-4">
-            <div className="flex w-full shrink-0 items-center gap-3">
-              <Landmark className="size-4 shrink-0 text-muted-foreground" />
-              <div className="flex min-w-px flex-1 flex-col items-start gap-0.5">
-                <p className="w-full text-sm font-medium text-foreground">
-                  {t("bankName")}
-                </p>
-                <p className="w-full font-latin text-xs font-normal tabular-nums text-muted-foreground">
-                  {t("bankAccount")}
-                </p>
+    <DeskPage backHref="/work/earnings" title={t("payoutTitle")}>
+      <div className="mt-5 flex w-full max-w-200 flex-col gap-8 lg:mt-8 lg:gap-10">
+        <div className={cn(DESK_BOX, "flex flex-col px-4 py-2 lg:px-6 lg:py-3")}>
+          <div className="flex items-center gap-3 py-3 lg:gap-5 lg:py-4">
+            <span className={DESK_GLYPH}>
+              <Landmark aria-hidden className="size-4 lg:size-6" strokeWidth={1.75} />
+            </span>
+            <span className="flex min-w-0 flex-1 flex-col gap-0.5 lg:gap-1">
+              <span className="truncate text-sm font-medium text-foreground lg:text-frame-body">{t("bankName")}</span>
+              <span className="truncate font-latin text-xs text-muted-foreground tabular-nums lg:text-frame-meta">{t("bankAccount")}</span>
+            </span>
+            <span className="flex shrink-0 items-center gap-1 text-xs text-success lg:text-frame-label">
+              <CircleCheck aria-hidden className="size-3.5" />
+              {t("verified")}
+            </span>
+          </div>
+          <dl className="flex flex-col border-t border-border">
+            {[
+              { label: t("accountNameLabel"), value: <span className="font-latin">{t("accountNameValue")}</span> },
+              { label: t("payoutTypeLabel"), value: t("payoutTypeValue") },
+            ].map((row) => (
+              <div className="flex items-baseline justify-between gap-4 border-b border-border py-3.5 last:border-b-0 lg:py-4" key={row.label}>
+                <dt className="text-sm text-muted-foreground lg:text-frame-meta">{row.label}</dt>
+                <dd className="text-sm font-medium text-foreground lg:text-frame-body">{row.value}</dd>
               </div>
-              {/* A verified account is a status, and this is the one status vocabulary
-                  the product has — the badge was a hand-tinted `bg-primary/10`. */}
-              <StatusPill icon={CircleCheck} tone="success">
-                {t("verified")}
-              </StatusPill>
-            </div>
-            <div className="h-px w-full shrink-0 bg-border" />
-            <div className="flex h-5 w-full items-center gap-2.5">
-              <span className="min-w-px flex-1 text-sm font-normal text-muted-foreground">
-                {t("accountNameLabel")}
-              </span>
-              <span className="font-latin shrink-0 text-sm font-medium text-foreground">
-                {t("accountNameValue")}
-              </span>
-            </div>
-            <div className="flex h-5 w-full items-center gap-2.5">
-              <span className="min-w-px flex-1 text-sm font-normal text-muted-foreground">
-                {t("payoutTypeLabel")}
-              </span>
-              <span className="shrink-0 text-sm font-medium text-foreground">
-                {t("payoutTypeValue")}
-              </span>
-            </div>
-          </Surface>
+            ))}
+          </dl>
         </div>
 
-        <ScreenSpacer />
-        <ScreenActions>
-          <NeutralButton href="/earnings/payout-account/setup">{t("changeAccount")}</NeutralButton>
-          <NeutralButton href="/earnings">{t("deleteAccount")}</NeutralButton>
-        </ScreenActions>
-      </ScreenBody>
-    </MobileScreen>
+        <div className="flex w-full items-center gap-3 lg:justify-end">
+          <Button className={cn(authPill(false), DESK_PILL, "flex-1 lg:flex-none")} nativeButton={false} render={<Link href="/work/earnings" />} variant="outline">
+            {t("deleteAccount")}
+          </Button>
+          <Button className={cn(authPill(true), DESK_PILL, "flex-1 lg:flex-none")} nativeButton={false} render={<Link href="/earnings/payout-account/setup" />}>
+            {t("changeAccount")}
+          </Button>
+        </div>
+      </div>
+    </DeskPage>
   );
 }
 

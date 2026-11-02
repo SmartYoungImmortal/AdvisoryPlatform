@@ -1,32 +1,17 @@
 "use client";
 
 import Link from "next/link";
-import {
-  CalendarRange,
-  ChevronRight,
-  Hourglass,
-  Info,
-  Timer,
-} from "lucide-react";
+import { CalendarRange, ChevronRight, Info } from "lucide-react";
 import { useTranslations } from "next-intl";
 import type { ReactNode } from "react";
 import { useState, type FormEvent } from "react";
 
-import { SiteFooter } from "@/components/marketing/site-footer";
-import {
-  MobileScreen,
-  ScreenBody,
-  ScreenTopBar,
-} from "@/components/mobile/screen";
-import { StatTile } from "@/components/mobile/stat-tile";
-import { surfaceClass } from "@/components/mobile/surface";
+import { authPill } from "@/components/auth/auth-split";
 import { ThaiText } from "@/components/mobile/thai-text";
-import { NeutralButton } from "@/components/mobile/buttons";
 import { Button } from "@/components/ui/button";
-import { TopBar } from "@/components/topbar";
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
-import { READING_COLUMN } from "@/lib/layout";
+import { DESK_BOX, DESK_PILL, DeskPage } from "@/components/work/desk-page";
 import { cn } from "@/lib/utils";
 import { availabilityApi, type AvailabilityProfile, type GlobalAvailability } from "@/lib/availability/api";
 import { invalidate, useResource } from "@/lib/api/use-resource";
@@ -40,42 +25,10 @@ import {
 } from "@/lib/availability";
 
 /**
- * Figma "Back Bar" (1994:27895) — the 52px row under the app's nav, at the
- * 120px page inset, and the white "Head Band" the heading sits in above the
- * grey form band.
- */
-const BACK_BAR = "lg:h-13 lg:bg-card lg:pt-0 lg:pb-0 lg:pl-10 xl:pl-30";
-const HEAD_BAND = "w-full shrink-0 lg:border-b lg:border-border lg:bg-card";
-
-/**
- * Figma "Heading" (1994:27899) — the same 800px column the form card uses, which
- * is `READING_COLUMN`; it was spelled out here as `lg:w-[800px]`.
- */
-const COLUMN = cn(READING_COLUMN, "lg:px-0");
-
-/**
- * Figma "Card" — the 800px panel the whole form becomes at 1440: a 40px inset
- * on the card surface, 48px clear of the band above it. On the phone the form
- * is the screen, so this is a set of `lg:` classes rather than a second layout.
- *
- * `shadow-panel` is the token for exactly this — a desktop panel floating over
- * the page ground — and it only exists from `lg`, where the panel does.
- */
-const FORM_CARD = cn(
-  "flex w-full shrink-0 flex-col gap-4 lg:my-12 lg:gap-5 lg:rounded-2xl lg:border lg:border-border lg:bg-card lg:p-10 lg:shadow-panel",
-  READING_COLUMN,
-);
-
-/** Figma "Actions" — the pair stops filling the width and holds the card's end. */
-const CARD_ACTIONS = "lg:justify-end lg:border-0 lg:bg-transparent lg:px-0 lg:py-0";
-
-/**
- * Figma "Chip" — a 14/20 medium label in a pill. The selected one takes the accent
- * fill and drops the hairline; the rest are surface with a border.
- *
- * Not `FilterChip` from the home screen: that one is the 12/18 badge used to filter
- * a result list, and these are 14/20 options on a form. Same shape, different type
- * ramp and different job.
+ * An option as a capsule, the chosen one filled in ink — the capsules the
+ * notification centre and the work desk filter and switch with. A radio
+ * underneath, so the form posts the choice and the keyboard moves through
+ * the group.
  */
 function OptionChip({
   selected = false,
@@ -84,56 +37,25 @@ function OptionChip({
   children,
 }: {
   readonly selected?: boolean;
-  readonly name?: string;
-  readonly value?: string | number;
+  readonly name: string;
+  readonly value: string | number;
   readonly children: ReactNode;
 }) {
-  if (name !== undefined) return (
-    <label className={cn(
-      "has-[:checked]:border-transparent has-[:checked]:bg-primary has-[:checked]:text-primary-foreground flex shrink-0 cursor-pointer items-center rounded-full border border-border bg-card px-3.5 py-[7px] text-sm font-medium text-foreground",
-    )}>
-      <Input className="sr-only size-px border-0 p-0 shadow-none" type="radio" name={name} value={value} defaultChecked={selected} />{children}
-    </label>
-  );
   return (
-    <span
+    <label
       className={cn(
-        "flex shrink-0 items-center rounded-full px-3.5 py-[7px] text-sm font-medium",
-        selected
-          ? "bg-primary text-primary-foreground"
-          : "border border-border bg-card text-foreground",
+        "flex h-9 shrink-0 cursor-pointer items-center rounded-full border border-border bg-card px-3.5 text-sm font-medium text-foreground transition-colors hover:bg-muted",
+        "has-[:checked]:border-hero-action has-[:checked]:bg-hero-action has-[:checked]:text-hero-action-foreground",
+        "has-[:focus-visible]:ring-3 has-[:focus-visible]:ring-ring/50 lg:h-12 lg:px-5 lg:text-frame-meta",
       )}
     >
+      <Input className="sr-only size-px border-0 p-0 shadow-none" defaultChecked={selected} name={name} type="radio" value={value} />
       {children}
-    </span>
+    </label>
   );
 }
 
-/**
- * Figma "Row" — the surface every group's control sits on, at the 12px step
- * `rounded-card` now names.
- *
- * Two tiers in one row, because the row is two different objects at the two
- * widths: on the phone the form *is* the screen, so each row is a card on the grey
- * page ground and takes `raised`; inside the 800px desktop panel it is a block
- * within a card, so the shadow comes off and it reads `flat`.
- */
-const GROUP_SURFACE = cn(
-  surfaceClass(),
-  "flex w-full shrink-0 overflow-clip px-3.5 py-3 lg:shadow-none",
-);
-
-function GroupSurface({
-  children,
-  className,
-}: {
-  readonly children: ReactNode;
-  readonly className?: string;
-}) {
-  return <div className={cn(GROUP_SURFACE, className)}>{children}</div>;
-}
-
-/** Figma "Group" — a 14/20 label, an optional 12/18 hint, then the control. */
+/** A setting: its name, what it does, the control, and a line under it when the control needs one. */
 function Group({
   label,
   hint,
@@ -141,24 +63,24 @@ function Group({
   footnote,
 }: {
   readonly label: ReactNode;
-  /** String, not ReactNode: `ThaiText` reproduces Figma's break points on the raw copy. */
+  /** String, not ReactNode: `ThaiText` reproduces the break points on the raw copy. */
   readonly hint?: string;
   readonly children: ReactNode;
   readonly footnote?: string;
 }) {
   return (
-    // The page inset is the phone's; inside the desktop card the panel's own
-    // 40px padding is already holding the same edge.
-    <section className="flex w-full shrink-0 flex-col items-start gap-2 overflow-clip px-6 lg:px-0">
-      <p className="w-full text-sm font-medium text-foreground">{label}</p>
-      {hint ? (
-        <p className="w-full text-xs font-normal text-muted-foreground">
-          <ThaiText>{hint}</ThaiText>
-        </p>
-      ) : null}
+    <section className="flex w-full flex-col items-start gap-3 py-6 first:pt-0 lg:gap-4 lg:py-8">
+      <div className="flex flex-col gap-1">
+        <h2 className="text-base font-semibold text-foreground lg:text-frame-body">{label}</h2>
+        {hint ? (
+          <p className="text-sm text-muted-foreground lg:text-frame-meta">
+            <ThaiText>{hint}</ThaiText>
+          </p>
+        ) : null}
+      </div>
       {children}
       {footnote ? (
-        <p className="w-full text-xs font-normal text-muted-foreground">
+        <p className="text-xs text-muted-foreground lg:text-frame-label">
           <ThaiText>{footnote}</ThaiText>
         </p>
       ) : null}
@@ -166,75 +88,46 @@ function Group({
   );
 }
 
-/**
- * Figma "Custom input" — the numeric field a `กำหนดเอง` chip reveals, with its unit
- * trailing. The bound line underneath is the group's footnote, not part of the row.
- */
-function CustomValueRow({
-  value,
-  unit,
-  name,
-}: {
-  readonly value: number;
-  readonly unit: ReactNode;
-  readonly name?: string;
-}) {
+/** The capsules of one setting, wrapping. */
+function Options({ children }: { readonly children: ReactNode }) {
+  return <div className="flex w-full flex-wrap gap-2 lg:gap-3">{children}</div>;
+}
+
+/** The number a "กำหนดเอง" capsule asks for, with its unit after it. */
+function CustomValueRow({ value, unit, name }: { readonly value: number; readonly unit: ReactNode; readonly name: string }) {
   return (
-    <GroupSurface className="items-center gap-3">
+    <div className="flex items-center gap-3">
       <Input
-        className="h-9 w-24 shrink-0 font-latin"
+        className="h-11 w-28 shrink-0 rounded-xl border-accented bg-card px-4 font-latin text-base shadow-none lg:h-12"
         defaultValue={value}
-        name={name}
         inputMode="numeric"
+        name={name}
         type="text"
       />
-      <span className="text-sm font-normal text-muted-foreground">{unit}</span>
-    </GroupSurface>
+      <span className="text-sm text-muted-foreground lg:text-frame-meta">{unit}</span>
+    </div>
   );
 }
 
-/**
- * A figure and its unit, for the `StatTile` row.
- *
- * `StatTile` sets its value in `font-latin tabular-nums` — Geist, which has no Thai
- * glyphs — so the unit cannot ride inside the numeral's span or it falls back to
- * whatever the machine has. The numeral keeps the Latin face and the unit steps
- * down into the Thai one, which is the right typographic split anyway.
- */
-function Figure({
-  value,
-  unit,
-}: {
-  readonly value: number;
-  readonly unit: string;
-}) {
+/** A figure and its unit; the numeral in the Latin face, the unit a step down in the Thai one. */
+function Figure({ value, unit }: { readonly value: number; readonly unit: string }) {
   return (
     <>
       {value}
-      <span className="font-sans text-sm font-normal text-muted-foreground">
-        {" "}
-        {unit}
-      </span>
+      <span className="font-sans text-sm font-normal text-muted-foreground lg:text-frame-label"> {unit}</span>
     </>
   );
 }
 
-/** A `StatTile` value that is a word rather than a number — "ไม่เว้น", "ไม่จำกัด". */
-function FigureWord({ children }: { readonly children: string }) {
-  return <span className="font-sans text-base">{children}</span>;
-}
-
 /**
- * Figma "Availability - Global" (1594:30833 / 31442 / 31959) — the Advisor's one
- * Global Availability record: which profiles are in play, how far ahead bookings
- * open, the recovery gap between appointments, and an optional daily ceiling.
+ * `/availability`: the advisor's one global availability record — which
+ * profiles are in play, how far ahead bookings open, the gap between
+ * appointments, and an optional daily ceiling — on the desk's frame. The
+ * three figures say what is set now; each setting is its capsules, and the
+ * pair at the foot saves or goes back to the desk.
  *
- * The three states are the same screen at three settings, so they are one component:
- * `default` has no buffer and no ceiling, `configured` has both, and `custom` puts
- * every row on its own numeric input.
- *
- * The 30-minute slot interval is fixed by the scheduling rules, so it is stated as a
- * note rather than offered as a choice.
+ * The 30-minute slot interval is fixed by the scheduling rules, so it is
+ * stated as a note rather than offered as a choice.
  */
 export function GlobalAvailabilityScreen({
   state = "default",
@@ -267,8 +160,6 @@ export function GlobalAvailabilityScreen({
   const dailyLimitHours =
     fixture.dailyLimitHours ?? fixture.customDailyLimitHours ?? 0;
 
-  // The phone pins these to its bottom edge over a hairline; the desktop frame
-  // parks the same pair at the end of the card. Written once, placed twice.
   const onSave = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault(); setSaving(true); setSaveError(null); setSaved(false);
     const form = new FormData(event.currentTarget);
@@ -288,268 +179,175 @@ export function GlobalAvailabilityScreen({
     } catch (cause) { setSaveError(cause instanceof Error ? cause.message : "บันทึกเวลาว่างไม่สำเร็จ"); }
     finally { setSaving(false); }
   };
-  const actions = (
-    <>
-      <NeutralButton className="w-30 shrink-0 lg:w-auto lg:px-6" href="/work">
-        {c("cancel")}
-      </NeutralButton>
-      <Button disabled={saving} className="h-auto min-w-px flex-1 rounded-lg border-0 px-6 py-2 text-base lg:w-auto lg:flex-none lg:px-8" type="submit">{saving ? "กำลังบันทึก…" : t("save")}</Button>
-    </>
-  );
 
   return (
-    // Figma "Desktop / Availability - Global (Light)" (1994:27872 / 27993 /
-    // 28129): the heading becomes a white band and the whole form becomes one
-    // 800px card on the grey ground, with its actions inside it.
     <form key={data ? JSON.stringify(data) : state} onSubmit={onSave} onChange={(event) => {
       const input = event.target;
       if (input instanceof HTMLInputElement && (input.name === "horizon" || input.name === "buffer" || input.name === "dailyLimit")) {
         setCustomSelection((current) => ({ ...current, [input.name]: input.value === "custom" }));
       }
-    }} className="contents"><MobileScreen className="pb-0" wide>
-      <div className="hidden w-full lg:block">
-        <TopBar unreadNotifications />
-      </div>
-      <ScreenTopBar className={BACK_BAR} href="/work" label={c("back")} />
-
-      <ScreenBody className="gap-4 pb-6 lg:gap-0 lg:pb-0">
-        {/* Figma "Heading" — 24/34 Thai semibold over a 14/20 muted line. The 6px
-            gap is tighter than ScreenHeading's, and the title is a step smaller.
-            The desktop band takes it to 40/60 in the 800px column. */}
-        <div className={HEAD_BAND}>
-          <div className={cn("flex w-full shrink-0 flex-col items-start gap-1.5 overflow-clip px-6", COLUMN, "lg:gap-2 lg:py-5")}>
-            <h1 className="w-full text-2xl font-semibold text-foreground lg:text-display">
-              {t("title")}
-            </h1>
-            <p className="text-sm font-normal text-muted-foreground">
-              <ThaiText>{t("subtitle")}</ThaiText>
-            </p>
-          </div>
-
-          {/* The record, as the three numbers it actually is. At 1440 this band was
-              a full-width white slab carrying two lines of text, and the settings
-              below it were only legible by reading which chip was filled. `lg:`
-              only — on the phone the form is the screen and the chips are right
-              there, so nothing is added to it. */}
-          <div
-            className={cn("hidden px-6", COLUMN, "lg:grid lg:grid-cols-3 lg:gap-3 lg:pb-6")}
-          >
-            <StatTile
-              icon={CalendarRange}
-              label={t("horizonLabel")}
-              tone="accent"
-              value={
-                <Figure
-                  unit={t("dayUnit")}
-                  value={fixture.horizonDays ?? fixture.customHorizonDays ?? 0}
-                />
-              }
-            />
-            <StatTile
-              icon={Timer}
-              label={t("bufferLabel")}
-              value={
-                bufferMinutes === 0 ? (
-                  <FigureWord>{t("noBuffer")}</FigureWord>
-                ) : (
-                  <Figure unit={t("minuteUnit")} value={bufferMinutes} />
-                )
-              }
-            />
-            <StatTile
-              icon={Hourglass}
-              label={t("limitLabel")}
-              value={
-                limitOn ? (
-                  <Figure unit={t("hourUnit")} value={dailyLimitHours} />
-                ) : (
-                  <FigureWord>{t("limitOffTitle")}</FigureWord>
-                )
-              }
-            />
-          </div>
-        </div>
-
-        <div className={FORM_CARD}>
-        <Group label={t("profilesLabel")}>
-          {/* The whole row is the target now, not the four words inside it: it has
-              a chevron at its end and it navigates, so the surface is the link and
-              takes the row hover. */}
-          <Link
-            className={cn(
-              GROUP_SURFACE,
-              "items-center gap-3 transition-colors hover:bg-muted/50",
-            )}
-            href="/availability/profiles"
-          >
-            <span className="flex min-w-px flex-1 flex-col items-start gap-0.5 overflow-clip">
-              <span className="w-full text-base font-medium text-foreground">
-                {t("profilesAction")}
-              </span>
-              <span className="w-full text-xs font-normal text-muted-foreground">
-                {profiles.data ? `${profiles.data.length} ชุดเวลาว่าง` : t("profilesAction")}
-              </span>
-            </span>
-            <ChevronRight className="size-4 shrink-0 text-muted-foreground" />
-          </Link>
-        </Group>
-
-        <Group
-          hint={t("horizonHint")}
-          label={t("horizonLabel")}
-          footnote={
-            fixture.horizonDays === null
-              ? t("horizonBounds", CUSTOM_BOUNDS.horizonDays)
-              : undefined
-          }
-        >
-          <GroupSurface className="flex-wrap content-start items-start gap-2">
-            {HORIZON_DAY_OPTIONS.map((days) => (
-              <OptionChip key={days} name="horizon" value={days} selected={fixture.horizonDays === days}>
-                {t("days", { count: days })}
-              </OptionChip>
+    }} className="contents">
+      <DeskPage subtitle={<ThaiText>{t("subtitle")}</ThaiText>} title={t("title")}>
+        <div className="mt-5 flex max-w-200 flex-col lg:mt-8">
+          {/* The record as the three numbers it is. */}
+          <dl className="mb-8 flex w-full max-w-xl rounded-2xl border border-border py-1 md:w-fit lg:mb-10 lg:py-1.5">
+            {[
+              { label: t("horizonLabel"), value: <Figure unit={t("dayUnit")} value={fixture.horizonDays ?? fixture.customHorizonDays ?? 0} /> },
+              { label: t("bufferLabel"), value: bufferMinutes === 0 ? <span className="font-sans text-base">{t("noBuffer")}</span> : <Figure unit={t("minuteUnit")} value={bufferMinutes} /> },
+              { label: t("limitLabel"), value: limitOn ? <Figure unit={t("hourUnit")} value={dailyLimitHours} /> : <span className="font-sans text-base">{t("limitOffTitle")}</span> },
+            ].map((figure) => (
+              <div className="flex flex-1 flex-col items-center px-3 py-2 md:flex-none md:px-5 lg:px-6" key={figure.label}>
+                <dt className="order-2 text-xs whitespace-nowrap text-muted-foreground md:text-sm lg:text-frame-label">{figure.label}</dt>
+                <dd className="order-1 font-latin text-xl leading-tight font-semibold whitespace-nowrap text-foreground tabular-nums md:text-2xl lg:text-frame-figure">
+                  {figure.value}
+                </dd>
+              </div>
             ))}
-            <OptionChip name="horizon" value="custom" selected={fixture.horizonDays === null}>
-              {t("custom")}
-            </OptionChip>
-          </GroupSurface>
-          {customHorizon ? (
-            <CustomValueRow
-              unit={t("dayUnit")}
-              name="customHorizon" value={fixture.customHorizonDays ?? 60}
-            />
-          ) : null}
-        </Group>
+          </dl>
 
-        <Group
-          hint={t("bufferHint")}
-          label={t("bufferLabel")}
-          footnote={
-            fixture.bufferMinutes === null
-              ? t("bufferBounds", CUSTOM_BOUNDS.bufferMinutes)
-              : undefined
-          }
-        >
-          <GroupSurface className="flex-wrap content-start items-start gap-2">
-            {BUFFER_MINUTE_OPTIONS.map((minutes) => (
-              <OptionChip
-                key={minutes}
-                name="buffer"
-                value={minutes}
-                selected={fixture.bufferMinutes === minutes}
+          <div className="flex flex-col divide-y divide-border">
+            <Group label={t("profilesLabel")}>
+              <Link
+                className={cn(
+                  DESK_BOX,
+                  "flex h-16 w-full items-center gap-3 px-4 outline-none transition-colors hover:bg-muted/60 focus-visible:ring-3 focus-visible:ring-ring/50 lg:h-18 lg:px-5",
+                )}
+                href="/availability/profiles"
               >
-                {minutes === 0 ? t("noBuffer") : t("minutes", { count: minutes })}
-              </OptionChip>
-            ))}
-            <OptionChip name="buffer" value="custom" selected={fixture.bufferMinutes === null}>
-              {t("custom")}
-            </OptionChip>
-          </GroupSurface>
-          {customBuffer ? (
-            <CustomValueRow
-              unit={t("minuteUnit")}
-              name="customBuffer" value={fixture.customBufferMinutes ?? 0}
-            />
-          ) : null}
-        </Group>
+                <span className="flex size-9 shrink-0 items-center justify-center rounded-full bg-muted lg:size-10">
+                  <CalendarRange aria-hidden className="size-4.5 lg:size-5" />
+                </span>
+                <span className="flex min-w-0 flex-1 flex-col gap-0.5">
+                  <span className="truncate text-base text-foreground lg:text-frame-body">{t("profilesAction")}</span>
+                  {profiles.data ? (
+                    <span className="truncate text-xs text-muted-foreground lg:text-frame-label">{`${profiles.data.length} ชุดเวลาว่าง`}</span>
+                  ) : null}
+                </span>
+                <ChevronRight aria-hidden className="size-4 shrink-0 text-muted-foreground" />
+              </Link>
+            </Group>
 
-        <Group
-          hint={t("limitHint")}
-          label={t("limitLabel")}
-          footnote={
-            limitOn
-              ? state === "custom"
-                ? t("limitBoundsCustom", {
-                    ...CUSTOM_BOUNDS.dailyLimitHours,
-                    hours: fixture.customDailyLimitHours ?? 0,
-                  })
-                : t("limitCeiling", { hours: fixture.dailyLimitHours ?? 0 })
-              : t("limitOffFootnote")
-          }
-        >
-          <GroupSurface className="items-center gap-3">
-            <div className="flex min-w-px flex-1 flex-col items-start gap-0.5 overflow-clip">
-              <p className="w-full text-base font-medium text-foreground">
-                {limitOn
-                  ? t("limitOnTitle", {
-                      hours:
-                        fixture.dailyLimitHours ??
-                        fixture.customDailyLimitHours ??
-                        0,
-                    })
-                  : t("limitOffTitle")}
-              </p>
-              <p className="w-full text-xs font-normal text-muted-foreground">
-                <ThaiText>
-                  {limitOn ? t("limitOnCaption") : t("limitOffCaption")}
-                </ThaiText>
-              </p>
-            </div>
-            {/* Uncontrolled, like every other control in this prototype — `disabled`
-                would grey it out, which is not the state the frame draws. */}
-            <Switch
-              aria-label={t("limitLabel")}
-              className="shrink-0"
-              name="limitEnabled"
-              checked={limitOn}
-              onCheckedChange={(checked) => {
-                setLimitEnabled(checked);
-                setCustomSelection((current) => ({ ...current, dailyLimit: fixture.dailyLimitHours === null }));
-              }}
-            />
-          </GroupSurface>
-
-          {limitOn ? (
-            <GroupSurface className="flex-wrap content-start items-start gap-2">
-              {DAILY_LIMIT_HOUR_OPTIONS.map((hours) => (
-                <OptionChip
-                  key={hours}
-                  name="dailyLimit"
-                  value={hours}
-                  selected={fixture.dailyLimitHours === hours}
-                >
-                  {t("hours", { count: hours })}
+            <Group
+              footnote={fixture.horizonDays === null ? t("horizonBounds", CUSTOM_BOUNDS.horizonDays) : undefined}
+              hint={t("horizonHint")}
+              label={t("horizonLabel")}
+            >
+              <Options>
+                {HORIZON_DAY_OPTIONS.map((days) => (
+                  <OptionChip key={days} name="horizon" selected={fixture.horizonDays === days} value={days}>
+                    {t("days", { count: days })}
+                  </OptionChip>
+                ))}
+                <OptionChip name="horizon" selected={fixture.horizonDays === null} value="custom">
+                  {t("custom")}
                 </OptionChip>
-              ))}
-              <OptionChip name="dailyLimit" value="custom" selected={fixture.dailyLimitHours === null}>
-                {t("custom")}
-              </OptionChip>
-            </GroupSurface>
-          ) : null}
+              </Options>
+              {customHorizon ? <CustomValueRow name="customHorizon" unit={t("dayUnit")} value={fixture.customHorizonDays ?? 60} /> : null}
+            </Group>
 
-          {limitOn && customDailyLimit ? (
-            <CustomValueRow
-              unit={t("hourUnit")}
-              name="customDailyLimit" value={fixture.customDailyLimitHours ?? 3}
-            />
-          ) : null}
-        </Group>
+            <Group
+              footnote={fixture.bufferMinutes === null ? t("bufferBounds", CUSTOM_BOUNDS.bufferMinutes) : undefined}
+              hint={t("bufferHint")}
+              label={t("bufferLabel")}
+            >
+              <Options>
+                {BUFFER_MINUTE_OPTIONS.map((minutes) => (
+                  <OptionChip key={minutes} name="buffer" selected={fixture.bufferMinutes === minutes} value={minutes}>
+                    {minutes === 0 ? t("noBuffer") : t("minutes", { count: minutes })}
+                  </OptionChip>
+                ))}
+                <OptionChip name="buffer" selected={fixture.bufferMinutes === null} value="custom">
+                  {t("custom")}
+                </OptionChip>
+              </Options>
+              {customBuffer ? <CustomValueRow name="customBuffer" unit={t("minuteUnit")} value={fixture.customBufferMinutes ?? 0} /> : null}
+            </Group>
 
-        {/* Figma "Slot Note" — the fixed 30-minute interval, stated not offered. */}
-        <div className="flex w-full shrink-0 flex-col items-start gap-2 overflow-clip px-6 lg:px-0">
-          <div className="flex w-full shrink-0 items-start gap-2 overflow-clip rounded-lg bg-accent-surface px-3 py-2.5">
-            <Info className="mt-px size-4 shrink-0 text-muted-foreground" />
-            <p className="min-w-px flex-1 text-xs font-normal text-muted-foreground">
+            <Group
+              footnote={
+                limitOn
+                  ? state === "custom"
+                    ? t("limitBoundsCustom", { ...CUSTOM_BOUNDS.dailyLimitHours, hours: fixture.customDailyLimitHours ?? 0 })
+                    : t("limitCeiling", { hours: fixture.dailyLimitHours ?? 0 })
+                  : t("limitOffFootnote")
+              }
+              hint={t("limitHint")}
+              label={t("limitLabel")}
+            >
+              <div className={cn(DESK_BOX, "flex w-full items-center gap-3 px-4 py-3.5 lg:px-5 lg:py-4")}>
+                <div className="flex min-w-0 flex-1 flex-col gap-0.5">
+                  <p className="text-base text-foreground lg:text-frame-body">
+                    {limitOn
+                      ? t("limitOnTitle", { hours: fixture.dailyLimitHours ?? fixture.customDailyLimitHours ?? 0 })
+                      : t("limitOffTitle")}
+                  </p>
+                  <p className="text-xs text-muted-foreground lg:text-frame-label">
+                    <ThaiText>{limitOn ? t("limitOnCaption") : t("limitOffCaption")}</ThaiText>
+                  </p>
+                </div>
+                <Switch
+                  aria-label={t("limitLabel")}
+                  checked={limitOn}
+                  className="shrink-0"
+                  name="limitEnabled"
+                  onCheckedChange={(checked) => {
+                    setLimitEnabled(checked);
+                    setCustomSelection((current) => ({ ...current, dailyLimit: fixture.dailyLimitHours === null }));
+                  }}
+                />
+              </div>
+
+              {limitOn ? (
+                <Options>
+                  {DAILY_LIMIT_HOUR_OPTIONS.map((hours) => (
+                    <OptionChip key={hours} name="dailyLimit" selected={fixture.dailyLimitHours === hours} value={hours}>
+                      {t("hours", { count: hours })}
+                    </OptionChip>
+                  ))}
+                  <OptionChip name="dailyLimit" selected={fixture.dailyLimitHours === null} value="custom">
+                    {t("custom")}
+                  </OptionChip>
+                </Options>
+              ) : null}
+
+              {limitOn && customDailyLimit ? (
+                <CustomValueRow name="customDailyLimit" unit={t("hourUnit")} value={fixture.customDailyLimitHours ?? 3} />
+              ) : null}
+            </Group>
+          </div>
+
+          {/* The fixed 30-minute interval, stated not offered. */}
+          <div className="mt-2 flex w-full items-start gap-2.5 rounded-2xl bg-muted/60 px-4 py-3.5 lg:px-5 lg:py-4">
+            <Info aria-hidden className="mt-0.5 size-4 shrink-0 text-muted-foreground" />
+            <p className="min-w-0 flex-1 text-sm text-muted-foreground lg:text-frame-meta">
               <ThaiText>{t("slotNote")}</ThaiText>
             </p>
           </div>
-        </div>
 
-        {saveError || saved || resource.error ? <p role={saveError || resource.error ? "alert" : "status"} className={cn("px-6 text-sm lg:px-0", saveError || resource.error ? "text-destructive" : "text-primary")}>{saveError ?? (resource.error ? "โหลดข้อมูลเดิมไม่สำเร็จ ระบบจะแสดงค่าเริ่มต้นให้บันทึกใหม่ได้" : "บันทึกข้อมูลแล้ว")}</p> : null}
-        <div className={cn("hidden w-full shrink-0 items-center gap-3", CARD_ACTIONS, "lg:flex")}>
-          {actions}
-        </div>
-        </div>
+          {saveError || saved || resource.error ? (
+            <p
+              className={cn("mt-5 text-sm lg:text-frame-meta", saveError || resource.error ? "text-destructive" : "text-success")}
+              role={saveError || resource.error ? "alert" : "status"}
+            >
+              {saveError ?? (resource.error ? "โหลดข้อมูลเดิมไม่สำเร็จ ระบบจะแสดงค่าเริ่มต้นให้บันทึกใหม่ได้" : "บันทึกข้อมูลแล้ว")}
+            </p>
+          ) : null}
 
-        <SiteFooter className="mt-auto hidden lg:flex" />
-      </ScreenBody>
-
-      {/* Figma "Actions" — a fixed 120px cancel beside a filling save, over a
-          top hairline. Not ScreenActions: that stacks its buttons vertically.
-          The desktop card holds the same pair, so the bar stops at `lg`. */}
-      <div className="flex w-full shrink-0 items-start gap-3 overflow-clip border-t border-border bg-card px-6 py-3 lg:hidden">
-        {actions}
-      </div>
-    </MobileScreen></form>
+          <div className="mt-8 flex w-full items-center gap-3 lg:mt-10 lg:justify-end">
+            <Button
+              className={cn(authPill(false), DESK_PILL, "flex-1 lg:flex-none")}
+              nativeButton={false}
+              render={<Link href="/work" />}
+              variant="outline"
+            >
+              {c("cancel")}
+            </Button>
+            <Button className={cn(authPill(true), DESK_PILL, "flex-[2] lg:flex-none")} disabled={saving} type="submit">
+              {saving ? "กำลังบันทึก…" : t("save")}
+            </Button>
+          </div>
+        </div>
+      </DeskPage>
+    </form>
   );
 }

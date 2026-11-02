@@ -2967,6 +2967,7 @@
     }
   },
   "advisorServices": {
+    "loadFailed": "โหลดบริการไม่สำเร็จ",
     "profileUnavailable": "ไม่พบชุดเวลาว่าง",
     "ceilingMinutes": "{minutes} นาทีต่อวัน",
     "noBookings": "ยังไม่มีการจองบริการนี้",

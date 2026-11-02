@@ -1,16 +1,16 @@
 "use client";
 
 import { Check, CircleHelp, FileText, Inbox, Plus, ShieldCheck, Trash2 } from "lucide-react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
-import { useCallback, useEffect, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useState } from "react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
 import { useMountTime } from "@/components/bookings/booking-flow";
 import { NeutralButton, PrimaryButton } from "@/components/mobile/buttons";
-import { EmptyState } from "@/components/mobile/empty-state";
 import {
   MobileScreen,
   ScreenActions,
@@ -23,7 +23,7 @@ import { StatusPill } from "@/components/mobile/status-pill";
 import { DeclineScreeningDialog } from "@/components/screening/decline-dialog";
 import { LoadingBlock, useElapsedLabel } from "@/components/mobile/live-state";
 import { ScreeningErrorNotice, useSentLabel } from "@/components/screening/live-parts";
-import { Card, FootNote, StackRow, TimeMeta } from "@/components/screening/parts";
+import { Card, FootNote } from "@/components/screening/parts";
 import {
   acceptScreeningRequest,
   declineScreeningRequest,
@@ -39,7 +39,10 @@ import {
   type ApiScreeningQuestion,
   type ScreeningErrorKey,
 } from "@/components/screening/screening-data";
+import { DayGroup } from "@/components/notifications/notification-center-screen";
+import { DESK_BOX, DESK_GLYPH, DESK_ROW, DeskPage } from "@/components/work/desk-page";
 import { invalidate, useResource } from "@/lib/api/use-resource";
+import { cn } from "@/lib/utils";
 
 /**
  * The advisor's screening screens, connected to the API. They use the same Figma
@@ -50,7 +53,11 @@ const COLUMN = "lg:[&>*]:mx-auto lg:[&>*]:w-full lg:[&>*]:max-w-[720px]";
 
 /* ----------------------------------------------------------------- requests */
 
-/** One row: the advisee's name, the service name, the time and the unread dot. */
+/**
+ * One request, the desk's row: the form in a soft circle, who over which
+ * service, and at the right when it came — with a dot while it is unread —
+ * or, once answered, how it was answered.
+ */
 function RequestRow({
   request,
   elapsed,
@@ -59,46 +66,43 @@ function RequestRow({
   readonly elapsed: (iso: string) => string;
 }) {
   const t = useTranslations("screening");
-  const href = `/screening/review?requestId=${request.id}`;
-
-  if (request.status === "PENDING") {
-    return (
-      <StackRow
-        body={request.serviceName}
-        href={href}
-        icon={FileText}
-        iconClassName="bg-warning/15 text-warning"
-        title={request.adviseeDisplayName}
-        trailing={<TimeMeta time={elapsed(request.createdAt)} unread={!request.viewedAt} />}
-      />
-    );
-  }
-
-  const accepted = request.status === "ACCEPTED";
-  const declined = request.status === "DECLINED";
-  let body: ReactNode = request.serviceName;
-  if (accepted) body = <StatusPill tone="success">{t("req4Body")}</StatusPill>;
-  if (declined) body = <StatusPill tone="danger">{t("req5Body")}</StatusPill>;
-  let iconClassName: string | undefined;
-  if (accepted) iconClassName = "bg-success/12 text-success";
-  if (declined) iconClassName = "bg-destructive/10 text-destructive";
+  const pending = request.status === "PENDING";
+  const unread = pending && !request.viewedAt;
+  let outcome: { readonly label: string; readonly ink: string } | null = null;
+  if (request.status === "ACCEPTED") outcome = { label: t("req4Body"), ink: "text-success" };
+  if (request.status === "DECLINED") outcome = { label: t("req5Body"), ink: "text-destructive" };
 
   return (
-    <StackRow
-      body={body}
-      href={href}
-      icon={FileText}
-      iconClassName={iconClassName}
-      title={request.adviseeDisplayName}
-      trailing={<TimeMeta time={elapsed(request.decidedAt ?? request.createdAt)} />}
-    />
+    <li>
+      <Link className={DESK_ROW} href={`/screening/review?requestId=${request.id}`}>
+        <span className={cn(DESK_GLYPH, "relative")}>
+          <FileText aria-hidden className="size-4 lg:size-6" strokeWidth={1.75} />
+          {unread ? <span aria-hidden className="absolute top-0 right-0 size-2.5 rounded-full bg-hero-action ring-2 ring-card" /> : null}
+        </span>
+        <span className="flex min-w-0 flex-1 flex-col gap-0.5 lg:gap-1">
+          <span className={cn("truncate text-sm text-foreground lg:text-frame-body", unread ? "font-semibold" : "font-medium")}>
+            {request.adviseeDisplayName}
+          </span>
+          <span className="truncate text-xs text-muted-foreground lg:text-frame-meta">{request.serviceName}</span>
+        </span>
+        <span className="flex shrink-0 flex-col items-end gap-0.5 lg:gap-1">
+          <span className="text-xs whitespace-nowrap text-muted-foreground lg:text-frame-label">
+            {elapsed(request.decidedAt ?? request.createdAt)}
+          </span>
+          {outcome ? <span className={cn("text-xs whitespace-nowrap lg:text-frame-label", outcome.ink)}>{outcome.label}</span> : null}
+        </span>
+      </Link>
+    </li>
   );
 }
 
-/** Figma "Advisor - Screening requests (Light)" — 995:11505. */
+/**
+ * `/screening/requests`: the answers advisees sent before booking a screened
+ * service, on the desk's frame — the ones waiting on the advisor first, then
+ * those already answered, each a row that opens its answers.
+ */
 export function LiveScreeningRequests() {
   const t = useTranslations("screening");
-  const c = useTranslations("common");
   const now = useMountTime();
   const elapsed = useElapsedLabel(now);
   const requests = useResource(
@@ -118,50 +122,43 @@ export function LiveScreeningRequests() {
     );
   } else if (requests.data.items.length === 0) {
     body = (
-      <EmptyState body={t("requestsEmptyBody")} icon={Inbox} title={t("requestsEmptyTitle")} />
+      <div className={cn(DESK_BOX, "flex flex-col items-center gap-3 px-6 py-12 text-center lg:gap-5 lg:py-20")}>
+        <span className="flex size-11 items-center justify-center rounded-full bg-muted text-hero-ink/75 lg:size-14">
+          <Inbox aria-hidden className="size-5 lg:size-7" strokeWidth={1.5} />
+        </span>
+        <div className="flex flex-col items-center gap-1">
+          <h2 className="text-base font-semibold text-foreground lg:text-frame-figure">{t("requestsEmptyTitle")}</h2>
+          <p className="text-xs text-balance text-muted-foreground lg:text-frame-meta">{t("requestsEmptyBody")}</p>
+        </div>
+      </div>
     );
   } else {
     const pending = requests.data.items.filter((request) => request.status === "PENDING");
     const answered = requests.data.items.filter((request) => request.status !== "PENDING");
     body = (
-      <>
+      <div className="-mt-5 flex flex-col divide-y divide-border lg:-mt-8">
         {pending.length > 0 ? (
-          <div className="flex w-full shrink-0 flex-col items-start gap-2 px-6 pt-5">
-            <p className="w-full text-base font-semibold text-foreground lg:text-lg">
-              {t("pending")}
-            </p>
-            <Card>
-              {pending.map((request) => (
-                <RequestRow elapsed={elapsed} key={request.id} request={request} />
-              ))}
-            </Card>
-          </div>
+          <DayGroup label={t("pending")}>
+            {pending.map((request) => (
+              <RequestRow elapsed={elapsed} key={request.id} request={request} />
+            ))}
+          </DayGroup>
         ) : null}
         {answered.length > 0 ? (
-          <div className="flex w-full shrink-0 flex-col items-start gap-2 px-6 pt-5">
-            <p className="w-full text-base font-semibold text-foreground lg:text-lg">
-              {t("answered")}
-            </p>
-            <Card>
-              {answered.map((request) => (
-                <RequestRow elapsed={elapsed} key={request.id} request={request} />
-              ))}
-            </Card>
-          </div>
+          <DayGroup label={t("answered")}>
+            {answered.map((request) => (
+              <RequestRow elapsed={elapsed} key={request.id} request={request} />
+            ))}
+          </DayGroup>
         ) : null}
-      </>
+      </div>
     );
   }
 
   return (
-    <MobileScreen wide>
-      <ScreenTopBar href="/work" label={c("back")} />
-      <ScreenBody className={COLUMN}>
-        <ScreenHeading className="pt-4" title={t("requestsTitle")} />
-        {body}
-        <ScreenSpacer />
-      </ScreenBody>
-    </MobileScreen>
+    <DeskPage title={t("requestsTitle")}>
+      <div className="mt-5 flex flex-col lg:mt-8">{body}</div>
+    </DeskPage>
   );
 }
 
