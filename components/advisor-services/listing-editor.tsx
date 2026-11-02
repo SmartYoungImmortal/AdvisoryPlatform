@@ -94,15 +94,12 @@ export function ListingEditor({
   images,
   packages,
   onChanged,
-  onPreview,
   initialPart = null,
 }: {
   readonly record: AdvisorService;
   readonly images: readonly string[];
   readonly packages: readonly ApiServicePackage[];
   readonly onChanged: () => void;
-  /** Opens the page as a client sees it. */
-  readonly onPreview?: () => void;
   /** The part to open with (the settings route opens on the booking rules). */
   readonly initialPart?: Part | null;
 }) {
@@ -183,7 +180,6 @@ export function ListingEditor({
           category={mainCategory}
           cover={images[0] ?? null}
           name={record.name}
-          onOpen={onPreview}
           price={
             packages.length > 0
               ? t("fromPrice", { price: money(Math.min(...packagePrices)) })
@@ -300,15 +296,14 @@ export function PartsLayout({ rows, shown, open, onOpen, below, aside, children 
 
 /**
  * The service as a client meets it in search, drawn from what the editor
- * holds: its cover, its name, its main category and its price. `onOpen`
- * opens the whole page as a client sees it.
+ * holds: its cover, its name, its main category and its price. The whole
+ * page as a client sees it is the owner's bar's other mode.
  */
-export function ClientCard({ cover, name, category, price, onOpen }: {
+export function ClientCard({ cover, name, category, price }: {
   readonly cover: string | null;
   readonly name: string;
   readonly category: string | null;
   readonly price: string | null;
-  readonly onOpen?: () => void;
 }) {
   const t = useTranslations("ownerService");
   return (
@@ -333,11 +328,6 @@ export function ClientCard({ cover, name, category, price, onOpen }: {
           {price ? <span className="font-latin text-sm text-foreground tabular-nums lg:text-frame-meta">{price}</span> : null}
         </span>
       </div>
-      {onOpen ? (
-        <Button className={cn(authPill(false), PILL, "w-full lg:w-full")} onClick={onOpen} type="button" variant="outline">
-          {t("openPreview")}
-        </Button>
-      ) : null}
     </>
   );
 }
