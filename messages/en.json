@@ -1,5 +1,18 @@
 {
   "serviceSchedule": {
+    "subtitleNoProfile": "{service} · no schedule chosen yet",
+    "monthOpen": "{days, plural, one {# day} other {# days}} open to book this month",
+    "openTimes": "Times clients can book",
+    "noOpenTimes": "Nothing open to book this day",
+    "hiddenNote": "This service is hidden, so nobody can book it yet. Once it is on sale, its open times show here.",
+    "dayBookings": "Sessions this day",
+    "noDayBookings": "No sessions this day yet",
+    "whyTitle": "Where this day's times come from",
+    "scheduleRow": "Schedule",
+    "weeklyToday": "Usual hours this day",
+    "closedDay": "Closed",
+    "extraToday": "Extra hours this day",
+    "blockedToday": "Closed hours this day",
     "sourceRulesNote": "These are your saved rules. Free slots come from the scheduling API; unavailable-slot reasons and total opened-slot statistics are not supplied.",
     "specificWindows": "Extra windows for this date",
     "blockedPeriods": "Blocked periods for this date",
