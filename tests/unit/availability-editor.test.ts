@@ -2,8 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   BLOCKED_DATES,
   EDITED_PROFILE_NAME,
-  END_TIME_OPTIONS,
-  PICKED_END_TIME,
+  endTimeOptions,
   PRESET_WEEKLY_DAYS,
   SPECIFIC_DATES,
   WEEKLY_DAYS,
@@ -31,8 +30,13 @@ describe("availability editor data", () => {
     expect(PRESET_WEEKLY_DAYS).toHaveLength(7);
     expect(PRESET_WEEKLY_DAYS.slice(0, 5).every((day) => day.ranges.length === 1)).toBe(true);
     expect(PRESET_WEEKLY_DAYS.slice(5).every((day) => day.ranges.length === 0)).toBe(true);
-    expect(END_TIME_OPTIONS[0].minutes).toBe(30);
-    expect(END_TIME_OPTIONS.at(-1)?.time).toBe("13:00");
-    expect(PICKED_END_TIME).toBe("12:00");
+  });
+
+  it("offers later times with durations from the actual start without crossing midnight", () => {
+    expect(endTimeOptions("14:00")).toContainEqual({ time: "15:30", minutes: 90 });
+    expect(endTimeOptions("23:00")).toEqual([{ time: "23:30", minutes: 30 }]);
+    expect(endTimeOptions("23:45")).toEqual([]);
+    expect(endTimeOptions("")).toEqual([]);
+    expect(endTimeOptions("24:00")).toEqual([]);
   });
 });
