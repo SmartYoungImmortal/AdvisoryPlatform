@@ -217,7 +217,7 @@ test("real registration, verification, desktop/mobile profile, password reset an
     await page.screenshot({ path: `${output}/desktop-profile.png`, fullPage: true });
     await page.setViewportSize({ width: 390, height: 844 });
     await page.reload();
-    await expect(page.locator("#phone-display-name")).toHaveValue("Verified Profile");
+    await expect(page.locator("#display-name")).toHaveValue("Verified Profile");
     await page.screenshot({ path: `${output}/phone-profile.png`, fullPage: true });
   });
   await test.step("Reject wrong current password, then persist password change", async () => {

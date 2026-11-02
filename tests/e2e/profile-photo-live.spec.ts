@@ -33,7 +33,7 @@ for (const width of [1440, 390]) {
     }
     try {
       await page.goto("/profile/edit");
-      await expect(page.locator(width < 1024 ? "#phone-display-name" : "#display-name")).toBeEnabled();
+      await expect(page.locator("#display-name")).toBeEnabled();
       await choose({ name: "unsupported.txt", mimeType: "text/plain", buffer: Buffer.from("not a photo") });
       await expect(page.getByRole("form").getByRole("alert")).toContainText("ใช้ได้เฉพาะไฟล์ JPG, PNG หรือ WebP");
       await choose({ name: "oversize.png", mimeType: "image/png", buffer: Buffer.alloc(5 * 1024 * 1024 + 1) });
@@ -58,8 +58,8 @@ for (const width of [1440, 390]) {
       await choose(photo);
       await stored;
       await expect(page.getByRole("button", { name: "บันทึกการเปลี่ยนแปลง", exact: true })).toBeDisabled();
-      const controls = page.getByRole("button", { name: width < 1024 ? "กำลังอัปโหลดรูป…" : "เปลี่ยนรูป", exact: true });
-      await expect(controls).toHaveCount(width < 1024 ? 1 : 2);
+      const controls = page.getByRole("button", { name: "กำลังอัปโหลดรูป…", exact: true });
+      await expect(controls).toHaveCount(1);
       for (const control of await controls.all()) {
         await expect(control).toBeDisabled();
       }
