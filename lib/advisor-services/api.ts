@@ -18,6 +18,8 @@ export interface AdvisorService {
   readonly trialDurationMinutes: number | null;
   /** The other services this one's page shows, in order; empty lets the page choose. */
   readonly relatedServiceIds?: readonly string[];
+  /** The first photograph, fetchable, on the owner's routes; null without one. */
+  readonly coverImage?: string | null;
   readonly createdAt: string;
   readonly modifiedAt: string;
 }
@@ -127,6 +129,18 @@ export const MAX_SERVICE_PACKAGES = 5;
 /** `GET /advisors/me/services/:id/packages` — the owner's packages, published or not. */
 export function listMyServicePackages(id: string, signal?: AbortSignal): Promise<ApiServicePackage[]> {
   return api.get(`advisors/me/services/${encodeURIComponent(id)}/packages`, { signal });
+}
+
+/** Puts a picture on one package, in place of the one it had; answers the packages. */
+export function uploadServicePackageImage(id: string, packageId: string, file: File): Promise<ApiServicePackage[]> {
+  const body = new FormData();
+  body.append("file", file);
+  return api.post(`advisors/me/services/${encodeURIComponent(id)}/packages/${encodeURIComponent(packageId)}/image`, { body });
+}
+
+/** Takes one package's picture off; answers the packages. */
+export function removeServicePackageImage(id: string, packageId: string): Promise<ApiServicePackage[]> {
+  return api.delete(`advisors/me/services/${encodeURIComponent(id)}/packages/${encodeURIComponent(packageId)}/image`);
 }
 
 /** `PUT /advisors/me/services/:id/packages` — the whole list, in order; one left out is removed. */

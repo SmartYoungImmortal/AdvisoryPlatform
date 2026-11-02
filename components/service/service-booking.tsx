@@ -100,8 +100,12 @@ function quote(service: ApiPublicService, selection: Selection) {
   return { priceSatang: service.priceSatang, durationMinutes: service.durationMinutes, from: false };
 }
 
-/** The photograph a package wears: the service's photographs dealt out to the packages in turn. */
+/**
+ * The photograph a package wears: its own, where the advisor gave it one;
+ * otherwise the service's photographs dealt out to the packages in turn.
+ */
 function packagePhoto(service: ApiPublicService, photos: readonly string[], pack: ApiServicePackage): string | null {
+  if (pack.image) return pack.image;
   if (photos.length === 0) return null;
   const index = (service.packages ?? []).findIndex((item) => item.id === pack.id);
   return photos[Math.max(index, 0) % photos.length];

@@ -61,6 +61,8 @@ export interface ApiServicePackage {
   readonly description: string | null;
   readonly durationMinutes: number;
   readonly priceSatang: number;
+  /** The package's own picture, apart from the service's photographs; null (or absent, from an older API) without one. */
+  readonly image?: string | null;
 }
 
 /** `PublicServiceQueryDto` — the filters `GET /services` accepts. */
