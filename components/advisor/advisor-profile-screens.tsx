@@ -390,11 +390,12 @@ function BankField({ value, error, onChange }: {
             }
           </SelectValue>
         </SelectTrigger>
-        {/* Each bank a 40 row with its mark, so the twelve read as banks rather than a list of names. */}
-        <SelectContent alignItemWithTrigger={false} className="max-h-96 rounded-xl p-1" sideOffset={6}>
+        {/* Each bank a 44 row with its mark, so the twelve read as banks rather than a list of names;
+            the name's line is the mark's height, so the two share one centre. */}
+        <SelectContent alignItemWithTrigger={false} className="max-h-96 rounded-xl p-1.5" sideOffset={6}>
           {PAYOUT_BANKS.map((code) => (
-            <SelectItem className="h-10 gap-2.5 rounded-lg pl-2 text-sm" key={code} value={code}>
-              <BankLogo bank={code} className="size-6" />
+            <SelectItem className="h-11 gap-3 rounded-lg pl-2 text-base leading-7" key={code} value={code}>
+              <BankLogo bank={code} className="size-7" />
               {t(`banks.${code}`)}
             </SelectItem>
           ))}
