@@ -3387,6 +3387,20 @@
     "earningsEmptyBody": "เมื่อปรึกษาเสร็จ รายได้จะโอนเข้าบัญชีรับเงินที่ตั้งไว้",
     "earningsEmptyAction": "ตั้งบัญชีรับเงิน"
   },
+  "session": {
+    "reference": "รหัสการจอง {code}",
+    "opensAt": "ห้องเปิดให้เข้า {time}",
+    "advisee": "ผู้รับคำปรึกษา",
+    "firstTime": "นัดแรกกับคุณ",
+    "nthTime": "นัดครั้งที่ {n} กับคุณ",
+    "booked": "สิ่งที่จองไว้",
+    "noScreening": "บริการนี้ไม่ได้ให้ตอบคำถามก่อนจอง",
+    "details": "รายละเอียดการจอง",
+    "referenceLabel": "รหัสการจอง",
+    "bookedAt": "จองเมื่อ",
+    "standing": "สถานะ",
+    "timeZone": "เขตเวลา"
+  },
   "work": {
     "title": "งานของฉัน",
     "tab": {

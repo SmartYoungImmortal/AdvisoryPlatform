@@ -27,6 +27,20 @@
       "NO_SHOW": "No show"
     }
   },
+  "session": {
+    "reference": "Booking {code}",
+    "opensAt": "The room opens at {time}",
+    "advisee": "Client",
+    "firstTime": "Their first session with you",
+    "nthTime": "Session {n} with you",
+    "booked": "What they booked",
+    "noScreening": "This service asks no questions before booking",
+    "details": "Booking details",
+    "referenceLabel": "Booking reference",
+    "bookedAt": "Booked",
+    "standing": "Status",
+    "timeZone": "Time zone"
+  },
   "newService": {
     "stepOf": "Step {n} of {total}",
     "categoryQ": "Which category is this service in?",
