@@ -3,7 +3,7 @@
 import type { StaticImageData } from "next/image";
 import Link from "next/link";
 import { SearchX } from "lucide-react";
-import { useCallback, useEffect, useRef, useState, type CSSProperties, type ReactNode } from "react";
+import { useCallback, useEffect, type CSSProperties, type ReactNode } from "react";
 import { useTranslations } from "next-intl";
 
 import { ApiError } from "@/lib/api/client";
@@ -79,27 +79,13 @@ const COLUMNS =
  * page's zoom, plus 38. The screen's height is `100dvh` over the same zoom,
  * since a viewport length here is zoomed with everything else.
  *
- * On a screen too short for the column (`--intro-height`, measured), it is
- * held where its foot meets the screen's instead: it goes up with the page
- * only until the price card shows, and stays there, rather than being held
- * at its start and pushed up all at once where the page ends.
+ * It is exactly that height, never more: on a screen too short for all of
+ * it the cover gives way (`ServiceIntro`), so the column is never taller than
+ * its room and never pushed up where the page ends. `--intro-foot` is room
+ * under the page the column cannot reach (the desk's frame keeps some).
  */
 const INTRO_COLUMN =
-  "flex min-w-0 flex-col md:mx-auto md:w-full md:max-w-xl lg:sticky lg:top-[min(var(--intro-top),calc(var(--intro-screen,100dvh)_/_var(--app-zoom)_-_var(--intro-height,0px)_-_var(--intro-foot,0px)))] lg:mx-0 lg:min-h-[calc(var(--intro-screen,100dvh)_/_var(--app-zoom)_-_var(--intro-top))] lg:max-w-none";
-
-/** The intro column's height in its own lengths (`offsetHeight`, not zoomed), as `--intro-height`. */
-function useIntroHeight(): [React.RefObject<HTMLElement | null>, CSSProperties] {
-  const ref = useRef<HTMLElement>(null);
-  const [height, setHeight] = useState<number | null>(null);
-  useEffect(() => {
-    const element = ref.current;
-    if (!element) return;
-    const observer = new ResizeObserver(() => setHeight(element.offsetHeight));
-    observer.observe(element);
-    return () => observer.disconnect();
-  }, []);
-  return [ref, height === null ? {} : ({ "--intro-height": `${height}px` } as CSSProperties)];
-}
+  "flex min-w-0 flex-col md:mx-auto md:w-full md:max-w-xl lg:sticky lg:top-(--intro-top) lg:mx-0 lg:h-[calc(var(--intro-screen,100dvh)_/_var(--app-zoom)_-_var(--intro-top)_-_var(--intro-foot,0px))] lg:max-w-none";
 
 const INTRO_VARS = {
   "--app-zoom": "tan(atan2(min(100vw, 1440px), 1710px))",
@@ -433,7 +419,6 @@ export function ServiceView({ service, owner }: { readonly service: ApiPublicSer
   const rating = useRatingSummary(service.advisorId);
   const selection = useSelection();
   const picker = usePicker();
-  const [introRef, introHeight] = useIntroHeight();
 
   const item = catalogue.items.find((entry) => entry.id === service.id);
   const name = item?.advisorName ?? advisor?.displayName ?? "";
@@ -460,7 +445,7 @@ export function ServiceView({ service, owner }: { readonly service: ApiPublicSer
       />
       <div className={COLUMNS}>
         {/* `items-start` on the grid is what lets the column ride. */}
-        <aside aria-label={t("panelLabel")} className={INTRO_COLUMN} ref={introRef} style={{ ...(owner ? OWNER_INTRO_VARS : INTRO_VARS), ...introHeight }}>
+        <aside aria-label={t("panelLabel")} className={INTRO_COLUMN} style={owner ? OWNER_INTRO_VARS : INTRO_VARS}>
           {owner ? <div className="mb-4 flex flex-wrap gap-2 lg:mb-6">{owner.intro}</div> : null}
           <ServiceIntro
             booking={<BookingCard picker={picker} selection={selection} service={service} />}

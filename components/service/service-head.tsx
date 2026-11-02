@@ -126,7 +126,8 @@ export function ServiceIntro({
   if (category) facts.push({ key: "category", node: category });
 
   return (
-    <div className="flex flex-col items-center text-center lg:flex-1">
+    // From `lg` as tall as the column and no taller (`min-h-0`), so on a short screen the cover gives way.
+    <div className="flex flex-col items-center text-center lg:min-h-0 lg:flex-1">
       {/* On the phone the cover runs edge to edge from the top of the
           screen, 4:3, the bar floating over it; the rest of the intro is a
           white sheet lapping its foot by 32, round at its top corners, the
@@ -135,8 +136,10 @@ export function ServiceIntro({
           lifted over the cover (`z-1`) and no higher: at the bar's own `z-10`
           it came later in the page and was drawn over the bar while it
           scrolled under it. */}
+      {/* From `lg` the one part of the column that gives way on a short screen (down to 160), so the
+          name, the words and the price card always fit the column and the column never moves. */}
       <CoverPhoto
-        className="-mx-6 -mt-2 aspect-[4/3] self-stretch rounded-none md:mx-0 md:mt-0 md:aspect-[493/241] md:rounded-2xl lg:rounded-[28.5px]"
+        className="-mx-6 -mt-2 aspect-[4/3] self-stretch rounded-none md:mx-0 md:mt-0 md:aspect-[493/241] md:rounded-2xl lg:min-h-40 lg:shrink lg:rounded-[28.5px]"
         photos={photos}
         title={service.name}
       />
