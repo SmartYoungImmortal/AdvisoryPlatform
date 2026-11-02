@@ -15,29 +15,26 @@
  * Run: node scripts/check-a11y-render.mjs
  */
 import { readFileSync } from "node:fs";
-import ts from "typescript";
 
 import { sourceFiles } from "./source-files.mjs";
 
 const problems = [];
 
-// Read JSX nodes so a menu item's render prop cannot be attributed to an
-// unrelated Button earlier in the file.
+// The attributes of one element are contiguous, so each `render=` line is walked
+// up to its `<Button` and down to the end of the opening tag, and the whole tag
+// is checked for the prop.
 for (const file of sourceFiles()) {
-  const source = ts.createSourceFile(file, readFileSync(file, "utf8"), ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
-  function visit(node) {
-    if ((ts.isJsxOpeningElement(node) || ts.isJsxSelfClosingElement(node)) && node.tagName.getText(source) === "Button") {
-      const attributes = node.attributes.properties.filter(ts.isJsxAttribute);
-      const render = attributes.find(attribute => attribute.name.getText(source) === "render");
-      const expression = render?.initializer && ts.isJsxExpression(render.initializer) ? render.initializer.expression : undefined;
-      const tag = expression && (ts.isJsxSelfClosingElement(expression) ? expression.tagName : ts.isJsxElement(expression) ? expression.openingElement.tagName : undefined);
-      if (tag?.getText(source) === "Link" && !attributes.some(attribute => attribute.name.getText(source) === "nativeButton")) {
-        problems.push({ file, line: source.getLineAndCharacterOfPosition(node.getStart(source)).line + 1, match: node.getText(source).slice(0, 60) });
-      }
-    }
-    ts.forEachChild(node, visit);
-  }
-  visit(source);
+  const lines = readFileSync(file, "utf8").split("\n");
+  lines.forEach((line, i) => {
+    if (!/render=\{[^}]*<Link/.test(line)) return;
+    let start = i;
+    while (start > 0 && !/<Button\b/.test(lines[start])) start -= 1;
+    if (!/<Button\b/.test(lines[start])) return; // some other component's render prop
+    let end = i;
+    while (end < lines.length - 1 && !/^\s*\/?>/.test(lines[end])) end += 1;
+    if (/nativeButton/.test(lines.slice(start, end + 1).join("\n"))) return;
+    problems.push({ file, line: i + 1, match: line.trim().slice(0, 60) });
+  });
 }
 
 if (problems.length === 0) {

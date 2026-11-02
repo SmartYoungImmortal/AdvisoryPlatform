@@ -492,7 +492,7 @@ function Results({ answers }: { readonly answers: Answers }) {
         idKey.split(",").filter(Boolean).forEach((id, index) => {
           const answer = settled[index];
           const list = answer?.status === "fulfilled" ? answer.value : [];
-          earliest.set(id, list.map((slot) => slot.startTime).toSorted((a, b) => a.localeCompare(b))[0] ?? null);
+          earliest.set(id, list.map((slot) => slot.startTime).toSorted()[0] ?? null);
         });
         return earliest;
       },
