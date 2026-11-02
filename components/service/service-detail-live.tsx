@@ -323,8 +323,19 @@ function Unavailable({ error, onRetry }: { readonly error: Error; readonly onRet
   );
 }
 
-/** The loaded service, with everything around it. */
-function ServiceView({ service }: { readonly service: ApiPublicService }) {
+/**
+ * What the owner's view of their own service adds to the page a customer
+ * sees (`/advisor/services/view`): a bar above it, and the way to change the
+ * details and the packages where they stand.
+ */
+export type OwnerSlots = {
+  readonly bar: ReactNode;
+  readonly intro: ReactNode;
+  readonly packages: ReactNode;
+};
+
+/** The loaded service, with everything around it; with `owner`, the owner's view of it. */
+export function ServiceView({ service, owner }: { readonly service: ApiPublicService; readonly owner?: OwnerSlots }) {
   const t = useTranslations("service");
   const catalogue = useLiveCatalogue();
   const advisor = useAdvisor(service.advisorId);
@@ -348,6 +359,7 @@ function ServiceView({ service }: { readonly service: ApiPublicService }) {
 
   return (
     <Frame bar={<BookingBar picker={picker} selection={selection} service={service} />}>
+      {owner?.bar}
       <BookingPicker
         advisorName={name}
         photos={settled ? photos : []}
@@ -358,6 +370,7 @@ function ServiceView({ service }: { readonly service: ApiPublicService }) {
       <div className={COLUMNS}>
         {/* `items-start` on the grid is what lets the column ride. */}
         <aside aria-label={t("panelLabel")} className={INTRO_COLUMN} style={INTRO_VARS}>
+          {owner ? <div className="mb-4 flex flex-wrap gap-2 lg:mb-6">{owner.intro}</div> : null}
           <ServiceIntro
             booking={<BookingCard picker={picker} selection={selection} service={service} />}
             category={category}
@@ -378,8 +391,11 @@ function ServiceView({ service }: { readonly service: ApiPublicService }) {
               first, and with no head, as theirs has none. */}
           {service.packages && service.packages.length > 0 ? (
             <div className="border-b border-border pb-9 lg:pb-[57px]">
+              {owner ? <div className="mb-4 flex justify-end lg:mb-6">{owner.packages}</div> : null}
               <PackageCards photos={settled ? photos : []} picker={picker} selection={selection} service={service} />
             </div>
+          ) : owner ? (
+            <div className="border-b border-border pb-9 lg:pb-[57px]">{owner.packages}</div>
           ) : null}
           <ReviewsSection
             advisorName={name}

@@ -6,7 +6,7 @@ import { useTranslations } from "next-intl";
 
 import { ServiceFormScreen } from "@/components/advisor-services/service-form-screen";
 import { ServiceScheduleScreen } from "@/components/advisor-services/service-schedule-screen";
-import { AdvisorServiceDetailScreen } from "@/components/advisor-services/advisor-service-detail-screen";
+import { OwnerServiceScreen } from "@/components/advisor-services/owner-service-view";
 
 function RouteContent({
   mode,
@@ -30,7 +30,8 @@ function RouteContent({
     );
   if (mode === "schedule")
     return <ServiceScheduleScreen serviceId={serviceId} />;
-  return <AdvisorServiceDetailScreen serviceId={serviceId} />;
+  // The owner's own service, shown as the page customers see, editable in place.
+  return <OwnerServiceScreen serviceId={serviceId} />;
 }
 
 export function LiveServiceRoute({

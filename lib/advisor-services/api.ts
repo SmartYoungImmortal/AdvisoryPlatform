@@ -1,4 +1,5 @@
 import { api, type Paginated } from "@/lib/api/client";
+import type { ApiServicePackage } from "@/lib/api/types";
 
 /** Advisor-owned service DTO from GET /advisors/me/services. */
 export interface AdvisorService {
@@ -95,4 +96,30 @@ export function uploadAdvisorServiceImage(id: string, file: File): Promise<{ ima
   const body = new FormData();
   body.append("file", file);
   return api.post(`advisors/me/services/${encodeURIComponent(id)}/images`, { body });
+}
+
+/** A package as `PUT .../packages` takes it: an `id` keeps an existing one, none adds one. */
+export interface ServicePackageInput {
+  readonly id?: string;
+  readonly name: string;
+  readonly description?: string;
+  readonly durationMinutes: number;
+  readonly priceSatang: number;
+}
+
+/** The most packages a service may be sold in (`MAX_SERVICE_PACKAGES`). */
+export const MAX_SERVICE_PACKAGES = 5;
+
+/** `GET /advisors/me/services/:id/packages` — the owner's packages, published or not. */
+export function listMyServicePackages(id: string, signal?: AbortSignal): Promise<ApiServicePackage[]> {
+  return api.get(`advisors/me/services/${encodeURIComponent(id)}/packages`, { signal });
+}
+
+/** `PUT /advisors/me/services/:id/packages` — the whole list, in order; one left out is removed. */
+export function replaceMyServicePackages(
+  id: string,
+  packages: readonly ServicePackageInput[],
+  signal?: AbortSignal,
+): Promise<ApiServicePackage[]> {
+  return api.put(`advisors/me/services/${encodeURIComponent(id)}/packages`, { body: { packages }, signal });
 }
