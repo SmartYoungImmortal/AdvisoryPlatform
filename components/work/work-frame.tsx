@@ -133,6 +133,7 @@ export function WorkFrame({
   footer,
   overlay,
   bodyClassName,
+  flushFoot = false,
   children,
 }: {
   readonly place: WorkTab | null;
@@ -151,6 +152,8 @@ export function WorkFrame({
   readonly overlay?: ReactNode;
   /** Classes for the scroller (a page's own greys). */
   readonly bodyClassName?: string;
+  /** No room under the page from `lg`: it ends on the panel's foot (a service's client view, its price card there). */
+  readonly flushFoot?: boolean;
   readonly children: ReactNode;
 }) {
   const c = useTranslations("common");
@@ -227,7 +230,7 @@ export function WorkFrame({
                 </header>
                 {isPlace ? <WorkTabs current={place} /> : null}
                 {isPlace && action ? <div className="mt-4 lg:hidden">{action}</div> : null}
-                <div className="flex min-w-0 flex-1 flex-col lg:px-12 lg:pb-16">{children}</div>
+                <div className={cn("flex min-w-0 flex-1 flex-col lg:px-12", !flushFoot && "lg:pb-16")}>{children}</div>
                 {/* Under the page in its own column, so it never runs under the menu beside it. */}
                 {footer}
               </div>

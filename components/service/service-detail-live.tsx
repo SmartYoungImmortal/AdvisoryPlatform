@@ -81,11 +81,10 @@ const COLUMNS =
  *
  * It is exactly that height, never more: on a screen too short for all of
  * it the cover gives way (`ServiceIntro`), so the column is never taller than
- * its room and never pushed up where the page ends. `--intro-foot` is room
- * under the page the column cannot reach (the desk's frame keeps some).
+ * its room and never pushed up where the page ends.
  */
 const INTRO_COLUMN =
-  "flex min-w-0 flex-col md:mx-auto md:w-full md:max-w-xl lg:sticky lg:top-(--intro-top) lg:mx-0 lg:h-[calc(var(--intro-screen,100dvh)_/_var(--app-zoom)_-_var(--intro-top)_-_var(--intro-foot,0px))] lg:max-w-none";
+  "flex min-w-0 flex-col md:mx-auto md:w-full md:max-w-xl lg:sticky lg:top-(--intro-top) lg:mx-0 lg:h-[calc(var(--intro-screen,100dvh)_/_var(--app-zoom)_-_var(--intro-top))] lg:max-w-none";
 
 const INTRO_VARS = {
   "--app-zoom": "tan(atan2(min(100vw, 1440px), 1710px))",
@@ -104,15 +103,14 @@ export type DeskHead = {
 
 /**
  * The intro in the owner's view (the desk's frame): it starts under the
- * desk's band held at the top (its 88, then the page's 32), its screen is the
- * panel's, 6 in from the window's top and bottom, and the frame keeps 64
- * under the page (`--intro-foot`) that the column can never reach.
+ * desk's band held at the top (its 88, then the page's 32), and its screen
+ * is the panel's, 6 in from the window's top and bottom. The view ends on the
+ * panel's foot (`flushFoot`), so the price card sits on it.
  */
 const OWNER_INTRO_VARS = {
   "--app-zoom": "tan(atan2(min(100vw, 1440px), 1710px))",
   "--intro-top": "120px",
   "--intro-screen": "calc(100dvh - 12px)",
-  "--intro-foot": "64px",
 } as CSSProperties;
 
 /**
@@ -210,9 +208,11 @@ function similarTo(
  * account pages are drawn at `app-scale`, and the same `frame-*` step has to
  * read the same size here as there.
  */
-export function ServiceFrame({ children, bar, desk, footer }: {
+export function ServiceFrame({ children, bar, desk, footer, flushFoot = false }: {
   readonly children: ReactNode;
   readonly bar?: ReactNode;
+  /** In the desk's frame, no room under the page: the client's view ends on the panel's foot, as the page itself does. */
+  readonly flushFoot?: boolean;
   /**
    * The advisor's own service (its editor, and the client's view of it): in
    * the work desk's frame (`WorkFrame`) under this head, with the desk's menu
@@ -239,6 +239,7 @@ export function ServiceFrame({ children, bar, desk, footer }: {
         action={desk.action}
         backHref={desk.backHref}
         bodyClassName="neutral-greys"
+        flushFoot={flushFoot}
         footer={footer}
         overlay={bar}
         place="services"
@@ -435,7 +436,7 @@ export function ServiceView({ service, owner }: { readonly service: ApiPublicSer
   const settled = !(catalogue.loading && !item);
 
   return (
-    <ServiceFrame bar={<BookingBar picker={picker} selection={selection} service={service} />} desk={owner?.head} footer={owner?.footer}>
+    <ServiceFrame bar={<BookingBar picker={picker} selection={selection} service={service} />} desk={owner?.head} flushFoot footer={owner?.footer}>
       <BookingPicker
         advisorName={name}
         photos={settled ? photos : []}
@@ -462,7 +463,8 @@ export function ServiceView({ service, owner }: { readonly service: ApiPublicSer
         {/* The page's foot padding is this column's, not the frame's: the
             grid then ends where the page does, and the intro beside it stays
             put to the last pixel of the scroll. */}
-        <div className="flex min-w-0 flex-col lg:pb-28">
+        {/* In the owner's view a shorter foot: it ends on the desk's panel, with nothing floating over it. */}
+        <div className={cn("flex min-w-0 flex-col", owner ? "lg:pb-12" : "lg:pb-28")}>
           {/* The packages, where the listing pages list a host's offerings:
               first, and with no head, as theirs has none. */}
           {service.packages && service.packages.length > 0 ? (
