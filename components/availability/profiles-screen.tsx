@@ -2,248 +2,172 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
-import { CalendarClock, Globe, Info } from "lucide-react";
+import { useCallback, useState } from "react";
+import { CalendarClock, Plus } from "lucide-react";
 import { useTranslations } from "next-intl";
-import type { ReactNode } from "react";
 
+import { authPill } from "@/components/auth/auth-split";
 import { DeleteProfileDialog } from "@/components/availability/delete-profile-dialog";
-import { WeekTable } from "@/components/availability/week-table";
-import { SiteFooter } from "@/components/marketing/site-footer";
-import { EmptyState } from "@/components/mobile/empty-state";
-import {
-  MobileScreen,
-  ScreenBody,
-  ScreenTopBar,
-} from "@/components/mobile/screen";
-import { Surface, surfaceClass } from "@/components/mobile/surface";
-import { ThaiText } from "@/components/mobile/thai-text";
-import { TopBar } from "@/components/topbar";
+import { useQueryValue } from "@/components/bookings/booking-flow";
+import { ApiErrorCard } from "@/components/service/parts";
 import { Button } from "@/components/ui/button";
-import { READING_COLUMN, SPLIT_WITH_ASIDE } from "@/lib/layout";
+import { DESK_BOX, DESK_GLYPH, DESK_PILL, DeskPage } from "@/components/work/desk-page";
 import { cn } from "@/lib/utils";
 import { availabilityApi, type AvailabilityProfile } from "@/lib/availability/api";
 import { invalidate, useResource } from "@/lib/api/use-resource";
-import type { AvailabilityProfileFixture, ProfilesScreenState, Weekday } from "@/lib/availability/profiles";
+import type { ProfilesScreenState } from "@/lib/availability/profiles";
+
+const DAYS = ["mon", "tue", "wed", "thu", "fri", "sat", "sun"] as const;
 
 /**
- * Figma "Back Bar" (1994:28375) and "Head Band" (1994:28378) — the 52px row
- * under the app's nav and the white band the heading sits in, both at the
- * measure the 800px content column sets — which is `READING_COLUMN`, so it is
- * imported rather than spelled out again.
+ * A week in a line: neighbouring days with the same hours run together —
+ * "จ.–ศ. 09:00–17:00 · ส. 10:00–12:00" — so a schedule reads at a glance.
  */
-const BACK_BAR = "lg:h-13 lg:bg-card lg:pt-0 lg:pb-0 lg:pl-10 xl:pl-30";
-const HEAD_BAND = "w-full shrink-0 lg:border-b lg:border-border lg:bg-card";
-const COLUMN = cn(READING_COLUMN, "lg:px-0");
-
-/** How many Services point at a profile at all — the sum the list itself states. */
-/** Figma "Note" — the tinted accent strip both states close on. */
-function Note({ children }: { readonly children: string }) {
-  return (
-    <div className={cn("flex w-full shrink-0 flex-col items-start overflow-clip px-6", COLUMN, "lg:pt-4 lg:pb-16")}>
-      <div className="flex w-full shrink-0 items-start gap-2 overflow-clip rounded-lg bg-accent-surface px-3 py-2.5">
-        <Info className="mt-px size-4 shrink-0 text-muted-foreground" />
-        <p className="min-w-px flex-1 text-xs font-normal text-muted-foreground">
-          <ThaiText>{children}</ThaiText>
-        </p>
-      </div>
-    </div>
-  );
-}
-
-/**
- * Figma "Add profile" — a dashed, muted-ground button on its own row.
- *
- * `hover:bg-muted/50` is the row hover everywhere else, but this row's rest state
- * already *is* the muted ground, so it takes the accent tint instead: on a dashed
- * "create" affordance the pointer should say accent, not grey.
- */
-function AddProfileButton({ label }: { readonly label: ReactNode }) {
-  return (
-    <Link
-      className="flex w-full shrink-0 items-center justify-center gap-2 overflow-clip rounded-card border border-dashed border-border bg-muted p-3.5 text-sm font-medium text-primary transition-colors hover:bg-accent-surface"
-      href="/availability/profiles/new/from-list"
-    >
-      {label}
-    </Link>
-  );
-}
-
-/**
- * Figma "Profile" — one card per Availability Profile, `raised`: it is an object
- * on the page ground, not a block inside another card.
- *
- * At `lg` the card is 800 wide, and stacked it spent two of its five blocks on
- * air — the timezone row held "Asia/Bangkok" across the full measure and the week
- * put its day 800px from its window. The week moves into the 360px aside from
- * `SPLIT_WITH_ASIDE` and the three text rows keep the main column; the placement
- * is explicit so the phone's reading order (timezone, week, dates, services) is
- * the DOM order at both widths.
- */
-function ProfileCard({ profile }: {
-  readonly profile: Omit<AvailabilityProfileFixture, "isDefault">;
-}) {
-  const t = useTranslations("availability");
-
-  return (
-    // `surfaceClass` rather than `<Surface>`: the card is an <article>, and the
-    // helper is exactly what the component wraps for that case.
-    <article
-      className={cn(
-        surfaceClass(),
-        "flex w-full shrink-0 flex-col items-start gap-2.5 overflow-clip p-3.5",
-      )}
-    >
-      <div className="flex w-full shrink-0 items-center gap-2 overflow-clip">
-        <h2 className="min-w-px flex-1 text-base font-medium text-foreground">
-          {profile.name}
-        </h2>
-        <Link
-          className="shrink-0 text-sm font-medium whitespace-nowrap text-primary transition-colors hover:underline"
-          href={`/availability/profiles/edit?id=${encodeURIComponent(profile.id)}`}
-        >
-          {t("edit")}
-        </Link>
-        {profile.serviceCount === 0 ? (
-          <Link
-            className="shrink-0 text-sm font-medium whitespace-nowrap text-destructive transition-colors hover:underline"
-            href={`/availability/profiles/delete?id=${encodeURIComponent(profile.id)}`}
-          >
-            {t("delete")}
-          </Link>
-        ) : null}
-      </div>
-
-      {/* Three auto rows plus a filling one: the week spans them all, and without
-          the `1fr` the grid would share the week's extra height out between the
-          left column's rows and pull them apart. */}
-      <div
-        className={cn(
-          "flex w-full shrink-0 flex-col items-start gap-2.5",
-          SPLIT_WITH_ASIDE,
-          "lg:grid-rows-[auto_auto_1fr]",
-        )}
-      >
-        <Surface
-          className="flex w-full shrink-0 items-center gap-2 overflow-clip px-3 py-2.5 lg:col-start-1 lg:row-start-1"
-          tier="well"
-        >
-          <Globe className="size-4 shrink-0 text-muted-foreground" />
-          <p className="min-w-px flex-1 font-latin text-sm font-normal text-foreground">
-            เขตเวลาของอุปกรณ์ · {profile.timezone}
-          </p>
-        </Surface>
-
-        <WeekTable
-          className="lg:col-start-2 lg:row-start-1 lg:row-end-4"
-          windows={profile.windows}
-        />
-
-        <Link
-          className="w-full text-sm font-medium text-primary transition-colors hover:underline lg:col-start-1 lg:row-start-2"
-          href={`/availability/profiles/add-date?id=${encodeURIComponent(profile.id)}`}
-        >
-          {t("addSpecificDate")}
-        </Link>
-        <p className="w-full text-xs font-normal text-muted-foreground lg:col-start-1 lg:row-start-3">{t("usedByServices", { count: profile.serviceCount })}</p>
-      </div>
-    </article>
-  );
-}
-
-/**
- * Figma "Availability - Profiles" (1594:30909), its empty state (1594:31533) and the
- * delete confirmation over it (1594:31904).
- *
- * The delete frame draws the cards condensed to a one-line summary. That is the only
- * place in the section they appear that way, so the cards keep one density here and
- * the dialog simply opens over them — a second card layout for one frame would be a
- * product decision this prototype has no basis for making.
- */
-export function ProfilesScreen({
-  state = "default",
-}: {
-  readonly state?: ProfilesScreenState;
-}) {
-  const t = useTranslations("availability");
-  const c = useTranslations("common");
-  const router = useRouter();
-  const resource = useResource<AvailabilityProfile[]>("availability/profiles", (signal) => availabilityApi.getProfiles(signal));
-  const usageResource = useResource<Map<string, number>>("advisors/me/services", (signal) => availabilityApi.getProfileServiceUsage(signal));
-  const [deleteError, setDeleteError] = useState<string | null>(null);
-  const selectedId = typeof window === "undefined" ? "" : new URLSearchParams(window.location.search).get("id") ?? "";
-  const profiles = resource.data ?? [];
-  const isEmpty = !resource.loading && !usageResource.loading && !resource.error && !usageResource.error && profiles.length === 0;
-  const selected = profiles.find((profile) => profile.id === selectedId);
-  const profileWindows = (profile: AvailabilityProfile): Partial<Record<Weekday, string>> => {
-    const days = ["mon", "tue", "wed", "thu", "fri", "sat", "sun"] as const;
-    const windows: Partial<Record<Weekday, string>> = {};
-    days.forEach((day, index) => {
-      const ranges = profile.weeklyWindows.filter((window) => window.dayOfWeek === index + 1);
-      if (ranges.length) windows[day] = ranges.map((window) => `${window.startTime}–${window.endTime}`).join(", ");
-    });
-    return windows;
+function useWeekLine(): (profile: AvailabilityProfile) => string {
+  const t = useTranslations("schedule");
+  return (profile) => {
+    const hours = DAYS.map((_, index) =>
+      profile.weeklyWindows
+        .filter((window) => window.dayOfWeek === index + 1)
+        .toSorted((a, b) => a.startTime.localeCompare(b.startTime))
+        .map((window) => `${window.startTime.slice(0, 5)}–${window.endTime.slice(0, 5)}`)
+        .join(", "),
+    );
+    const parts: string[] = [];
+    let start = 0;
+    while (start < DAYS.length) {
+      let end = start;
+      while (end + 1 < DAYS.length && hours[end + 1] === hours[start]) end += 1;
+      if (hours[start]) {
+        const days = start === end ? t(`short.${DAYS[start]}`) : `${t(`short.${DAYS[start]}`)}–${t(`short.${DAYS[end]}`)}`;
+        parts.push(`${days} ${hours[start]}`);
+      }
+      start = end + 1;
+    }
+    return parts.length > 0 ? parts.join(" · ") : t("noWeeklyHours");
   };
+}
+
+/**
+ * `/availability/profiles`: the advisor's schedules, on the desk's frame —
+ * each a row with its week in a line and how many services book from it,
+ * opening its editor; a schedule no service uses can be deleted. The way to
+ * make another is in the heading.
+ */
+export function ProfilesScreen({ state = "default" }: { readonly state?: ProfilesScreenState }) {
+  const t = useTranslations("schedule");
+  const a = useTranslations("availability");
+  const router = useRouter();
+  const weekLine = useWeekLine();
+  const profiles = useResource<AvailabilityProfile[]>(
+    "availability/profiles",
+    useCallback((signal: AbortSignal) => availabilityApi.getProfiles(signal), []),
+  );
+  const usage = useResource<Map<string, number>>(
+    "advisors/me/services",
+    useCallback((signal: AbortSignal) => availabilityApi.getProfileServiceUsage(signal), []),
+  );
+  const [deleteError, setDeleteError] = useState<string | null>(null);
+  const selectedId = useQueryValue("id") ?? "";
+  const rows = profiles.data ?? [];
+  const selected = rows.find((profile) => profile.id === selectedId);
+  const failure = profiles.error ?? usage.error;
+
   const remove = async () => {
     if (!selected) return;
     setDeleteError(null);
-    try { await availabilityApi.deleteProfile(selected.id); invalidate("availability/profiles"); invalidate("advisors/me/services"); invalidate("services/"); resource.reload(); router.push("/availability/profiles"); }
-    catch (cause) { setDeleteError(cause instanceof Error ? cause.message : "ลบชุดเวลาว่างไม่สำเร็จ"); }
+    try {
+      await availabilityApi.deleteProfile(selected.id);
+      invalidate("availability/profiles");
+      invalidate("advisors/me/services");
+      invalidate("services/");
+      profiles.reload();
+      router.push("/availability/profiles");
+    } catch (cause) {
+      setDeleteError(cause instanceof Error ? cause.message : String(cause));
+    }
   };
 
   return (
-    // Figma "Desktop / Availability - Profiles (Light)" (1994:28352) and its
-    // empty state (1994:28276): the heading becomes a white band, and the cards
-    // keep their own surfaces in an 800px column on the grey ground below.
-    <MobileScreen wide>
-      <div className="hidden w-full lg:block">
-        <TopBar unreadNotifications />
-      </div>
-      <ScreenTopBar className={BACK_BAR} href="/availability" label={c("back")} />
-
-      <ScreenBody className="gap-4 pb-6 lg:gap-0 lg:pb-0">
-        <div className={HEAD_BAND}>
-          <div className={cn("flex w-full shrink-0 flex-col items-start gap-1.5 overflow-clip px-6", COLUMN, "lg:gap-2 lg:py-5")}>
-            <h1 className="w-full text-2xl font-semibold text-foreground lg:text-display">
-              {t("profilesTitle")}
-            </h1>
-            <p className="text-sm font-normal text-muted-foreground">
-              <ThaiText>{t("profilesSubtitle")}</ThaiText>
-            </p>
-            {/* What the list adds up to, stated once. The band at 1440 was a
-                full-width white slab holding two lines of text; the figures are
-                already in the fixture and every card below repeats a piece of
-                them. `lg:` only — the phone's heading is unchanged. */}
+    <DeskPage
+      action={
+        <Button className={cn(authPill(true), DESK_PILL)} nativeButton={false} render={<Link href="/availability/profiles/new" />}>
+          <Plus aria-hidden />
+          {t("createTitle")}
+        </Button>
+      }
+      backHref="/availability"
+      subtitle={t("listSubtitle")}
+      title={a("profilesTitle")}
+    >
+      <div className="mt-5 flex flex-col gap-6 lg:mt-8">
+        {failure ? (
+          <ApiErrorCard
+            error={failure}
+            onRetry={() => {
+              profiles.reload();
+              usage.reload();
+            }}
+            title={t("loadFailed")}
+          />
+        ) : !profiles.data || !usage.data ? (
+          <div aria-busy className="h-40 animate-pulse rounded-2xl bg-muted motion-reduce:animate-none" />
+        ) : rows.length === 0 ? (
+          <div className={cn(DESK_BOX, "flex flex-col items-center gap-3 px-6 py-12 text-center lg:gap-5 lg:py-20")}>
+            <span className="flex size-11 items-center justify-center rounded-full bg-muted text-hero-ink/75 lg:size-14">
+              <CalendarClock aria-hidden className="size-5 lg:size-7" strokeWidth={1.5} />
+            </span>
+            <div className="flex flex-col items-center gap-1">
+              <h2 className="text-base font-semibold text-foreground lg:text-frame-figure">{a("emptyTitle")}</h2>
+              <p className="text-xs text-balance text-muted-foreground lg:text-frame-meta">{a("emptyBody")}</p>
+            </div>
           </div>
-        </div>
+        ) : (
+          <ul className={cn(DESK_BOX, "flex flex-col divide-y divide-border")}>
+            {rows.map((profile) => {
+              const used = usage.data?.get(profile.id) ?? 0;
+              return (
+                <li className="flex items-center gap-3 px-4 py-4 lg:gap-5 lg:px-6" key={profile.id}>
+                  <span className={DESK_GLYPH}>
+                    <CalendarClock aria-hidden className="size-4 lg:size-6" strokeWidth={1.75} />
+                  </span>
+                  <Link
+                    className="flex min-w-0 flex-1 flex-col gap-0.5 rounded-lg outline-none focus-visible:ring-3 focus-visible:ring-ring/50 lg:gap-1"
+                    href={`/availability/profiles/edit?id=${encodeURIComponent(profile.id)}`}
+                  >
+                    <span className="truncate text-sm font-medium text-foreground lg:text-frame-body">{profile.name}</span>
+                    <span className="truncate font-latin text-xs text-muted-foreground tabular-nums lg:text-frame-meta">{weekLine(profile)}</span>
+                    <span className="text-xs text-muted-foreground lg:text-frame-label">{a("usedByServices", { count: used })}</span>
+                  </Link>
+                  <div className="flex shrink-0 items-center gap-1">
+                    <Button
+                      className="h-9 rounded-full px-3 text-sm font-medium"
+                      nativeButton={false}
+                      render={<Link href={`/availability/profiles/edit?id=${encodeURIComponent(profile.id)}`} />}
+                      variant="ghost"
+                    >
+                      {a("edit")}
+                    </Button>
+                    {used === 0 ? (
+                      <Button
+                        className="h-9 rounded-full px-3 text-sm font-medium text-destructive hover:text-destructive"
+                        nativeButton={false}
+                        render={<Link href={`/availability/profiles/delete?id=${encodeURIComponent(profile.id)}`} />}
+                        variant="ghost"
+                      >
+                        {a("delete")}
+                      </Button>
+                    ) : null}
+                  </div>
+                </li>
+              );
+            })}
+          </ul>
+        )}
+        <p className="text-sm text-muted-foreground lg:text-frame-meta">{a("profilesNote")}</p>
+      </div>
 
-        <div className={cn("flex w-full shrink-0 flex-col items-start gap-2.5 overflow-clip px-6", COLUMN, "lg:pt-12")}>
-          {resource.loading || usageResource.loading ? <Surface className="w-full p-6"><p role="status">กำลังโหลดชุดเวลาว่าง…</p></Surface> : resource.error || usageResource.error ? <Surface className="w-full p-6"><p role="alert" className="text-destructive">{(resource.error ?? usageResource.error)?.message}</p><Button variant="link" className="mt-3 h-auto border-0 p-0 text-base font-normal underline" onClick={() => { resource.reload(); usageResource.reload(); }} type="button">ลองอีกครั้ง</Button></Surface> : isEmpty ? (
-            /* Figma "Empty" — a single card carrying the centred explanation, now
-               the app's one `EmptyState`: same two lines, with the mark and the
-               18px title an empty screen is supposed to lead with. */
-            <Surface className="w-full shrink-0 overflow-clip">
-              <EmptyState
-                body={<ThaiText>{t("emptyBody")}</ThaiText>}
-                icon={CalendarClock}
-                title={t("emptyTitle")}
-              />
-            </Surface>
-          ) : (
-            profiles.map((profile) => (
-              <ProfileCard key={profile.id} profile={{ id: profile.id, name: profile.name, timezone: Intl.DateTimeFormat().resolvedOptions().timeZone, windows: profileWindows(profile), serviceCount: usageResource.data?.get(profile.id) ?? 0 }} />
-            ))
-          )}
-
-          <AddProfileButton label={t("addProfile")} />
-        </div>
-
-        <Note>{isEmpty ? t("emptyNote") : t("profilesNote")}</Note>
-
-        <SiteFooter className="mt-auto hidden lg:flex" />
-      </ScreenBody>
-
-      {state === "delete" && selected ? <DeleteProfileDialog profileName={selected.name} error={deleteError} onDelete={() => void remove()} /> : null}
-    </MobileScreen>
+      {state === "delete" && selected ? <DeleteProfileDialog error={deleteError} onDelete={() => void remove()} profileName={selected.name} /> : null}
+    </DeskPage>
   );
 }
