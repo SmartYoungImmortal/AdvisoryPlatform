@@ -187,7 +187,7 @@ export function ProfilesScreen({
   const remove = async () => {
     if (!selected) return;
     setDeleteError(null);
-    try { await availabilityApi.deleteProfile(selected.id); invalidate("availability/profiles"); resource.reload(); router.push("/availability/profiles"); }
+    try { await availabilityApi.deleteProfile(selected.id); invalidate("availability/profiles"); invalidate("advisors/me/services"); invalidate("services/"); resource.reload(); router.push("/availability/profiles"); }
     catch (cause) { setDeleteError(cause instanceof Error ? cause.message : "ลบชุดเวลาว่างไม่สำเร็จ"); }
   };
 

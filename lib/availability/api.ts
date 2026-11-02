@@ -52,7 +52,7 @@ export interface UpsertAvailabilityProfile {
 }
 
 export const availabilityApi = {
-  getGlobal: () => api.get<GlobalAvailability>("advisors/me/availability/global"),
+  getGlobal: (signal?: AbortSignal) => api.get<GlobalAvailability>("advisors/me/availability/global", { signal }),
   saveGlobal: (values: Partial<Omit<GlobalAvailability, "advisorId" | "slotIntervalMinutes">>) =>
     api.put<GlobalAvailability>("advisors/me/availability/global", { body: values }),
   getProfiles: (signal?: AbortSignal) => api.get<AvailabilityProfile[]>("advisors/me/availability/profiles", { signal }),

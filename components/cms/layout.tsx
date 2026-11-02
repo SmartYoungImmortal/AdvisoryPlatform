@@ -19,6 +19,7 @@ import {
 } from "react";
 
 import { useRulingVersion } from "@/components/cms/api";
+import { useCmsFeedback } from "@/components/cms/feedback";
 import { CmsAvatar } from "@/components/cms/avatar";
 import { CmsButton } from "@/components/cms/button";
 import { useDashboardCounts, type DashboardCounts } from "@/components/cms/dashboard-data";
@@ -345,6 +346,23 @@ const MENU_GLYPH =
 /** The signed-in admin at the sidebar's foot, opening upward: the site, and signing out. */
 function UserMenu() {
   const t = useTranslations("cms.userMenu");
+  const logout = useTranslations("logOut");
+  const { toast } = useCmsFeedback();
+  const pending = useRef(false);
+  const [saving, setSaving] = useState(false);
+
+  async function leave() {
+    if (pending.current) return;
+    pending.current = true;
+    setSaving(true);
+    if (await signOut()) {
+      window.location.replace("/admin/login");
+      return;
+    }
+    pending.current = false;
+    setSaving(false);
+    toast({ color: "error", title: logout("failure") });
+  }
   const session = useSession();
   const account = session.status === "authenticated" ? session.account : null;
 
@@ -401,18 +419,14 @@ function UserMenu() {
           </DropdownMenuItem>
           <DropdownMenuItem
             className={cn(MENU_ITEM, "data-[variant=destructive]:focus:bg-destructive/10")}
-            onClick={() => {
-              // A full load: the console gate reacts to the sign-out as well, and
-              // its soft redirect would carry a `?next=` back into the console.
-              // After the API has dropped the cookie: leaving cancels that request.
-              void signOut().then(() => window.location.replace("/admin/login"));
-            }}
+            disabled={saving}
+            onClick={leave}
             variant="destructive"
           >
             <span className={cn(MENU_GLYPH, "bg-destructive/10 text-destructive")}>
               <LogOut aria-hidden className="size-4" />
             </span>
-            {t("signOut")}
+            {saving ? logout("pending") : t("signOut")}
           </DropdownMenuItem>
         </DropdownMenuGroup>
       </DropdownMenuContent>

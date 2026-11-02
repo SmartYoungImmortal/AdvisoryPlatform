@@ -49,6 +49,7 @@ function TextField({
   value,
   onChange,
   loading,
+  disabled,
   autoComplete,
   inputRef,
 }: {
@@ -60,6 +61,7 @@ function TextField({
   readonly onChange: (value: string) => void;
   /** No profile to seed it with yet: the box's shape, not an empty field. */
   readonly loading: boolean;
+  readonly disabled: boolean;
   readonly autoComplete?: string;
   readonly inputRef?: RefObject<HTMLInputElement | null>;
 }) {
@@ -93,6 +95,7 @@ function TextField({
           autoComplete={autoComplete}
           className="h-11 rounded-xl border-accented bg-card px-4 text-base shadow-none md:h-12 md:text-base lg:px-[19px] lg:text-frame-body"
           id={id}
+          disabled={disabled}
           onChange={(event) => onChange(event.target.value)}
           ref={inputRef}
           value={value}
@@ -305,7 +308,7 @@ export function EditProfileScreen({
 
   async function save(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (!profile.data || saving) return;
+    if (!profile.data || saving || uploading) return;
     const nextName = nameValue.trim();
     const nextFull = fullValue.trim();
 
@@ -334,7 +337,7 @@ export function EditProfileScreen({
   }
 
   const pick = () => picker.current?.click();
-  const photoBusy = !profile.data || uploading;
+  const photoBusy = !profile.data || uploading || saving;
   const saveLabel = t(saveLabelKey(saving, saveError !== null));
 
   return (
@@ -412,6 +415,7 @@ export function EditProfileScreen({
                           id="display-name"
                           inputRef={nameField}
                           label={t("displayNameLabel")}
+                          disabled={saving}
                           loading={!ready}
                           onChange={(value) => {
                             setDisplayName(value);
@@ -461,6 +465,7 @@ export function EditProfileScreen({
                       id="full-name"
                       inputRef={fullField}
                       label={t("fullNameLabel")}
+                      disabled={saving}
                       loading={!ready}
                       onChange={(value) => {
                         setFullName(value);
@@ -497,7 +502,7 @@ export function EditProfileScreen({
                       <Button
                         aria-busy={saving || undefined}
                         className={cn(profilePill(true), "flex-[2] lg:flex-none")}
-                        disabled={!ready || saving}
+                        disabled={!ready || saving || uploading}
                         type="submit"
                       >
                         {saving ? <LoaderCircle aria-hidden className="animate-spin motion-reduce:animate-none" /> : null}

@@ -284,7 +284,7 @@ export function GlobalAvailabilityScreen({
     }
     try {
       await availabilityApi.saveGlobal({ bookingHorizonDays: horizon, bufferMinutes: buffer, minimumBookingNoticeMinutes: data?.minimumBookingNoticeMinutes ?? 0, dailyConsultationLimitMinutes: limitOn ? limitHours * 60 : null });
-      invalidate("availability/global"); resource.reload(); setSaved(true);
+      invalidate("availability/global"); invalidate("advisors/me/services"); invalidate("services/"); resource.reload(); setSaved(true);
     } catch (cause) { setSaveError(cause instanceof Error ? cause.message : "บันทึกเวลาว่างไม่สำเร็จ"); }
     finally { setSaving(false); }
   };
