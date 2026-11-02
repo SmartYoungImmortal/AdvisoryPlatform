@@ -12,25 +12,44 @@ import {
   Wallet,
   type LucideIcon,
 } from "lucide-react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useSearchParams } from "next/navigation";
 import { useFormatter, useTranslations } from "next-intl";
-import { Suspense, useCallback, useRef, useState } from "react";
+import { Suspense, useCallback, useRef, useState, type FormEvent } from "react";
 
-import { EntryDialog, FIELD_BOX, SelectField, TextField } from "@/components/advisor/edit-fields";
+import { EntryDialog, FIELD_BOX, SelectField } from "@/components/advisor/edit-fields";
 import { authPill } from "@/components/auth/auth-split";
 import { asUuid } from "@/components/bookings/booking-flow";
+import { Field } from "@/components/mobile/field";
+import { StatusToast, useStatusToast } from "@/components/mobile/toast";
 import { DayGroup } from "@/components/notifications/notification-center-screen";
 import { useOwnProfile } from "@/components/profile/profile-data";
+import {
+  SETTINGS_DIALOG_ACTIONS,
+  SETTINGS_DIALOG_STACK,
+  SettingsDialog,
+  settingsPill,
+  settingsStackPill,
+} from "@/components/profile/settings-dialog";
 import { ApiErrorCard } from "@/components/service/parts";
 import { Button } from "@/components/ui/button";
 import { FieldDescription, FieldError, FieldLabel, Field as FieldRoot } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { DESK_BOX, DESK_GLYPH, DESK_PILL, DESK_ROW, DeskPage } from "@/components/work/desk-page";
 import { DESK_BONE, DeskEmpty, DeskFilter, DeskListSkeleton, DeskRow, DeskRowAction } from "@/components/work/desk-parts";
 import { usePayouts } from "@/components/work/work-data";
 import { WorkEarningsScreen } from "@/components/work/work-screens";
-import type { ApiPayout } from "@/lib/api/advisor-work";
-import type { Paginated } from "@/lib/api/client";
+import {
+  getMyPayoutAccount,
+  PAYOUT_ACCOUNT_KEY,
+  PAYOUT_BANKS,
+  removeMyPayoutAccount,
+  saveMyPayoutAccount,
+  type ApiPayout,
+  type ApiPayoutAccount,
+  type PayoutBank,
+} from "@/lib/api/advisor-work";
+import { ApiError, type Paginated } from "@/lib/api/client";
 import {
   listOwnSkillProofs,
   listSkillCatalogue,
@@ -320,100 +339,306 @@ export function PayoutSetupScreen() {
   return <PayoutAccountScreen setup />;
 }
 
-const BANKS = ["BBL", "KBANK", "SCB", "KTB", "BAY", "TTB", "GSB", "BAAC", "UOB", "CIMBT", "KKP", "LHB"] as const;
-type Bank = (typeof BANKS)[number];
+/**
+ * The bank as one of the dialog's fields: the outline field's label over a
+ * box of the same height and line, the banks listed under it.
+ */
+function BankField({ value, error, onChange }: {
+  readonly value: PayoutBank | "";
+  readonly error?: string;
+  readonly onChange: (bank: PayoutBank) => void;
+}) {
+  const t = useTranslations("advisor");
+  return (
+    <FieldRoot className="gap-1.5" data-invalid={error ? true : undefined}>
+      <FieldLabel className="text-sm font-medium text-muted-foreground md:text-base" htmlFor="payout-bank">
+        {t("bankLabel")}
+      </FieldLabel>
+      <Select
+        items={PAYOUT_BANKS.map((code) => ({ value: code, label: t(`banks.${code}`) }))}
+        onValueChange={(next) => onChange(next as PayoutBank)}
+        value={value || null}
+      >
+        <SelectTrigger
+          aria-invalid={error ? true : undefined}
+          // `text-base` with a `max-md:` step rather than the trigger's own
+          // `text-sm` or a bare `text-xs`: the dialog lifts those two classes
+          // to its caption steps from `lg`, and this is a field's type.
+          className="w-full rounded-xl border-accented bg-card px-3 text-base shadow-none data-[size=default]:h-9 max-md:text-xs md:data-[size=default]:h-11 lg:px-4 lg:data-[size=default]:h-12"
+          id="payout-bank"
+        >
+          <SelectValue placeholder={t("bankPlaceholder")} />
+        </SelectTrigger>
+        <SelectContent alignItemWithTrigger={false} sideOffset={6}>
+          {PAYOUT_BANKS.map((code) => (
+            <SelectItem key={code} value={code}>
+              {t(`banks.${code}`)}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+      {error ? <FieldError className="text-xs">{error}</FieldError> : null}
+    </FieldRoot>
+  );
+}
 
 /**
- * The account payouts go to, as a popup over the payout account page: the
- * bank from the list, the number (10 to 12 digits, spaces and dashes
- * allowed), and the name as the passbook has it.
- *
- * Nothing is stored yet: the API has a table for an advisor's payout
- * account but no route that writes it, so a valid form only closes.
+ * The account payouts go to, as the settings' centred card over the payout
+ * account page: the bank's mark over its title, the bank, the number (10 to
+ * 12 digits, spaces and dashes allowed) and the name as the passbook has it,
+ * then saving and the way out stacked under them. Saving sends it to
+ * `PUT /advisors/me/payout-account`, which has the payment provider check it
+ * with the bank; a refusal stays in the card, under the fields.
  */
-function PayoutAccountDialog({ adding, onClose }: { readonly adding: boolean; readonly onClose: () => void }) {
+function PayoutAccountDialog({ adding, onClose, onSaved }: {
+  readonly adding: boolean;
+  readonly onClose: () => void;
+  readonly onSaved: () => void;
+}) {
   const t = useTranslations("advisor");
-  const [bank, setBank] = useState<Bank | "">("");
+  const [bank, setBank] = useState<PayoutBank | "">("");
   const [number, setNumber] = useState("");
   const [name, setName] = useState("");
   const [errors, setErrors] = useState<{ bank?: string; number?: string; name?: string }>({});
+  const [problem, setProblem] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
+  // A field's complaint goes as soon as it is touched again; the rest stay until the next try.
+  const settle = (field: keyof typeof errors) => setErrors((current) => ({ ...current, [field]: undefined }));
 
-  const submit = () => {
+  const submit = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
     const digits = number.replace(/[\s-]/g, "");
     const found: typeof errors = {};
     if (!bank) found.bank = t("bankRequired");
     if (!/^\d{10,12}$/.test(digits)) found.number = t("accountNoInvalid");
     if (!name.trim()) found.name = t("accountNameRequired");
     setErrors(found);
-    if (Object.keys(found).length === 0) onClose();
+    if (!bank || Object.keys(found).length > 0) return;
+
+    setSaving(true);
+    setProblem(null);
+    try {
+      await saveMyPayoutAccount({ bank, accountNumber: digits, accountName: name.trim() });
+      onSaved();
+    } catch (error) {
+      setProblem(error instanceof ApiError && error.status === 400 ? t("accountRejected") : t("accountSaveFailed"));
+      setSaving(false);
+    }
   };
 
   return (
-    <EntryDialog
-      focusId="payout-bank"
-      onOpenChange={(next) => (next ? null : onClose())}
-      onSubmit={submit}
+    <SettingsDialog
+      icon={Landmark}
+      onOpenChange={(open) => {
+        if (!open && !saving) onClose();
+      }}
       open
-      submitLabel={t("saveAccount")}
       title={adding ? t("payoutSetupTitle") : t("payoutChangeTitle")}
     >
-      <SelectField
-        id="payout-bank"
-        items={BANKS.map((code) => ({ value: code, label: t(`banks.${code}`) }))}
-        label={t("bankLabel")}
-        onChange={setBank}
-        placeholder={t("bankPlaceholder")}
-        value={bank}
-      />
-      {errors.bank ? (
-        <p className="-mt-2 text-sm text-destructive" role="alert">
-          {errors.bank}
+      <form className="flex w-full flex-col" noValidate onSubmit={(event) => void submit(event)}>
+        <div className="flex w-full flex-col gap-4 lg:gap-6">
+          <BankField
+            error={errors.bank}
+            onChange={(next) => {
+              setBank(next);
+              settle("bank");
+            }}
+            value={bank}
+          />
+          <Field
+            autoComplete="off"
+            error={errors.number}
+            id="payout-number"
+            inputMode="numeric"
+            invalid={Boolean(errors.number)}
+            label={t("accountNoLabel")}
+            latin
+            onChange={(event) => {
+              setNumber(event.target.value);
+              settle("number");
+            }}
+            outline
+            placeholder={t("accountNoPlaceholder")}
+            value={number}
+          />
+          <Field
+            autoComplete="name"
+            error={errors.name}
+            hint={t("accountNameHint")}
+            id="payout-name"
+            invalid={Boolean(errors.name)}
+            label={t("accountNameLabel")}
+            onChange={(event) => {
+              setName(event.target.value);
+              settle("name");
+            }}
+            outline
+            placeholder={t("accountNamePlaceholder")}
+            value={name}
+          />
+        </div>
+        {problem ? (
+          <p className="mt-4 text-xs text-destructive md:text-sm" role="alert">
+            {problem}
+          </p>
+        ) : null}
+        <div className={SETTINGS_DIALOG_STACK}>
+          <Button className={settingsStackPill("solid")} disabled={saving} type="submit">
+            {t("saveAccount")}
+          </Button>
+          <Button className={settingsStackPill("soft")} disabled={saving} onClick={onClose} type="button" variant="ghost">
+            {t("cancel")}
+          </Button>
+        </div>
+      </form>
+    </SettingsDialog>
+  );
+}
+
+/**
+ * Removing the account, as the settings' confirm card: the question, what
+ * happens to the payouts meanwhile, then the way out and removing it in red.
+ */
+function RemovePayoutAccountDialog({ onClose, onRemoved }: { readonly onClose: () => void; readonly onRemoved: () => void }) {
+  const t = useTranslations("advisor");
+  const [removing, setRemoving] = useState(false);
+  const [failed, setFailed] = useState(false);
+
+  const remove = async () => {
+    setRemoving(true);
+    setFailed(false);
+    try {
+      await removeMyPayoutAccount();
+      onRemoved();
+    } catch {
+      setFailed(true);
+      setRemoving(false);
+    }
+  };
+
+  return (
+    <SettingsDialog
+      description={t("removeAccountBody")}
+      onOpenChange={(open) => {
+        if (!open && !removing) onClose();
+      }}
+      open
+      title={t("removeAccountTitle")}
+    >
+      {failed ? (
+        <p className="mb-3 text-xs text-destructive md:mb-4 md:text-sm" role="alert">
+          {t("accountRemoveFailed")}
         </p>
       ) : null}
-      <TextField
-        error={errors.number}
-        id="payout-number"
-        inputMode="numeric"
-        label={t("accountNoLabel")}
-        onChange={setNumber}
-        placeholder={t("accountNoPlaceholder")}
-        value={number}
-      />
-      <TextField
-        error={errors.name}
-        hint={t("accountNameHint")}
-        id="payout-name"
-        label={t("accountNameLabel")}
-        onChange={setName}
-        placeholder={t("accountNamePlaceholder")}
-        value={name}
-      />
-    </EntryDialog>
+      <div className={cn(SETTINGS_DIALOG_ACTIONS, "mt-0 md:mt-0")}>
+        <Button className={settingsPill("ghost")} disabled={removing} onClick={onClose} type="button" variant="ghost">
+          {t("cancel")}
+        </Button>
+        <Button className={settingsPill("danger")} disabled={removing} onClick={() => void remove()} type="button" variant="ghost">
+          {t("deleteAccount")}
+        </Button>
+      </div>
+    </SettingsDialog>
+  );
+}
+
+/** The account box's line of rows: what it is on the left, its value on the right. */
+const ACCOUNT_ROW = "flex items-baseline justify-between gap-4 border-b border-border py-3.5 last:border-b-0 lg:py-4";
+
+/** The page while the account is read: the box's head and its two rows, then the two pills, at their sizes. */
+function PayoutAccountSkeleton() {
+  const t = useTranslations("advisor");
+  return (
+    <div aria-busy className="mt-5 flex w-full max-w-200 flex-col gap-8 lg:mt-8 lg:gap-10">
+      <span className="sr-only">{t("payoutLoading")}</span>
+      <div aria-hidden className={cn(DESK_BOX, "flex flex-col px-4 py-2 lg:px-6 lg:py-3")}>
+        <div className="flex items-center gap-3 py-3 lg:gap-5 lg:py-4">
+          <span className={cn(DESK_BONE, "size-9 shrink-0 rounded-full lg:size-12")} />
+          <span className="flex min-w-0 flex-1 flex-col gap-0.5 lg:gap-1">
+            <span className="flex h-lh items-center text-sm lg:text-frame-body">
+              <span className={cn(DESK_BONE, "h-3.5 w-32 rounded lg:h-4 lg:w-40")} />
+            </span>
+            <span className="flex h-lh items-center text-xs lg:text-frame-meta">
+              <span className={cn(DESK_BONE, "h-3 w-14 rounded lg:h-3.5 lg:w-18")} />
+            </span>
+          </span>
+          <span className="flex h-lh items-center text-xs lg:text-frame-label">
+            <span className={cn(DESK_BONE, "h-3 w-16 rounded lg:h-3.5 lg:w-20")} />
+          </span>
+        </div>
+        <div className="flex flex-col border-t border-border">
+          {["w-36 lg:w-44", "w-24 lg:w-32"].map((width) => (
+            <div className={ACCOUNT_ROW} key={width}>
+              <span className="flex h-lh items-center text-sm lg:text-frame-meta">
+                <span className={cn(DESK_BONE, "h-3.5 w-16 rounded lg:h-4 lg:w-20")} />
+              </span>
+              <span className="flex h-lh items-center text-sm lg:text-frame-body">
+                <span className={cn(DESK_BONE, "h-3.5 rounded lg:h-4", width)} />
+              </span>
+            </div>
+          ))}
+        </div>
+      </div>
+      <div aria-hidden className="flex w-full items-center gap-3 lg:justify-end">
+        <span className={cn(DESK_BONE, "h-10 flex-1 rounded-full lg:h-12 lg:w-32 lg:flex-none")} />
+        <span className={cn(DESK_BONE, "h-10 flex-1 rounded-full lg:h-12 lg:w-36 lg:flex-none")} />
+      </div>
+    </div>
   );
 }
 
 /**
  * `/earnings/payout-account`: the account payouts go to, on the desk's frame —
- * the bank and the masked number with whether it is verified, the account's
- * name and how it is paid, then changing it in a popup over the page
- * (`PayoutAccountDialog`); `setup` opens with it up.
- *
- * The figures are still the prototype's: the API has a table for an advisor's
- * payout account but no route that reads or writes it yet.
+ * the bank and the number's last digits with whether the payment provider has
+ * checked it with the bank yet, the account's name and when it was added, then
+ * removing it or changing it, each in a popup over the page; `setup` opens
+ * with the form up. Without an account, the empty box and the way to add one.
+ * All of it is `/advisors/me/payout-account`.
  */
 export function PayoutAccountScreen({ setup = false }: { readonly setup?: boolean }) {
   const t = useTranslations("advisor");
-  const router = useRouter();
-  const [changing, setChanging] = useState(setup);
+  const format = useFormatter();
+  const status = useStatusToast();
+  const account = useResource<ApiPayoutAccount | null>(
+    PAYOUT_ACCOUNT_KEY,
+    useCallback((signal: AbortSignal) => getMyPayoutAccount(signal), []),
+  );
+  const [open, setOpen] = useState<"edit" | "remove" | null>(setup ? "edit" : null);
 
   const close = () => {
-    setChanging(false);
-    // Opened by its own address: the address goes back to the page's.
-    if (setup) router.replace("/earnings/payout-account");
+    setOpen(null);
+    // Opened by its own address: the address goes back to the page's, in
+    // place, so the page (and the toast a save leaves on it) stays mounted.
+    if (setup) window.history.replaceState(null, "", "/earnings/payout-account");
+  };
+  const done = (message: string) => {
+    close();
+    invalidate(PAYOUT_ACCOUNT_KEY);
+    account.reload();
+    status.show(message, true);
   };
 
-  return (
-    <DeskPage backHref="/work/earnings" title={t("payoutTitle")}>
+  let body;
+  if (account.error) {
+    body = (
+      <div className="mt-5 w-full max-w-200 lg:mt-8">
+        <ApiErrorCard className={ERROR_CARD_LG} error={account.error} onRetry={account.reload} title={t("payoutLoadFailed")} />
+      </div>
+    );
+  } else if (account.data === undefined) {
+    body = <PayoutAccountSkeleton />;
+  } else if (account.data === null) {
+    body = (
+      <DeskEmpty
+        action={{ label: t("addAccount"), href: "/earnings/payout-account/setup" }}
+        body={t("payoutEmptyBody")}
+        icon={Landmark}
+        title={t("payoutEmptyTitle")}
+      />
+    );
+  } else {
+    const { bank, accountName, lastDigits, verified, createdAt } = account.data;
+    body = (
       <div className="mt-5 flex w-full max-w-200 flex-col gap-8 lg:mt-8 lg:gap-10">
         <div className={cn(DESK_BOX, "flex flex-col px-4 py-2 lg:px-6 lg:py-3")}>
           <div className="flex items-center gap-3 py-3 lg:gap-5 lg:py-4">
@@ -421,37 +646,59 @@ export function PayoutAccountScreen({ setup = false }: { readonly setup?: boolea
               <Landmark aria-hidden className="size-4 lg:size-6" strokeWidth={1.75} />
             </span>
             <span className="flex min-w-0 flex-1 flex-col gap-0.5 lg:gap-1">
-              <span className="truncate text-sm font-medium text-foreground lg:text-frame-body">{t("bankName")}</span>
-              <span className="truncate font-latin text-xs text-muted-foreground tabular-nums lg:text-frame-meta">{t("bankAccount")}</span>
+              <span className="truncate text-sm font-medium text-foreground lg:text-frame-body">{t(`banks.${bank}`)}</span>
+              <span className="truncate font-latin text-xs text-muted-foreground tabular-nums lg:text-frame-meta">
+                {t("accountMasked", { digits: lastDigits ?? "····" })}
+              </span>
             </span>
-            <span className="flex shrink-0 items-center gap-1 text-xs text-success lg:text-frame-label">
-              <CircleCheck aria-hidden className="size-3.5" />
-              {t("verified")}
-            </span>
+            {verified ? (
+              <span className="flex shrink-0 items-center gap-1 text-xs text-success lg:text-frame-label">
+                <CircleCheck aria-hidden className="size-3.5" />
+                {t("verified")}
+              </span>
+            ) : (
+              <span className="flex shrink-0 items-center gap-1 text-xs text-warning lg:text-frame-label">
+                <Clock aria-hidden className="size-3.5" />
+                {t("verifying")}
+              </span>
+            )}
           </div>
           <dl className="flex flex-col border-t border-border">
-            {[
-              { label: t("accountNameLabel"), value: <span className="font-latin">{t("accountNameValue")}</span> },
-              { label: t("payoutTypeLabel"), value: t("payoutTypeValue") },
-            ].map((row) => (
-              <div className="flex items-baseline justify-between gap-4 border-b border-border py-3.5 last:border-b-0 lg:py-4" key={row.label}>
-                <dt className="text-sm text-muted-foreground lg:text-frame-meta">{row.label}</dt>
-                <dd className="text-sm font-medium text-foreground lg:text-frame-body">{row.value}</dd>
+            <div className={ACCOUNT_ROW}>
+              <dt className="text-sm text-muted-foreground lg:text-frame-meta">{t("accountNameLabel")}</dt>
+              <dd className="min-w-0 truncate text-sm font-medium text-foreground lg:text-frame-body">{accountName}</dd>
+            </div>
+            {createdAt ? (
+              <div className={ACCOUNT_ROW}>
+                <dt className="text-sm text-muted-foreground lg:text-frame-meta">{t("addedOnLabel")}</dt>
+                <dd className="text-sm font-medium text-foreground lg:text-frame-body">
+                  {format.dateTime(new Date(createdAt), { day: "numeric", month: "long", year: "numeric" })}
+                </dd>
               </div>
-            ))}
+            ) : null}
           </dl>
         </div>
 
         <div className="flex w-full items-center gap-3 lg:justify-end">
-          <Button className={cn(authPill(false), DESK_PILL, "flex-1 lg:flex-none")} nativeButton={false} render={<Link href="/work/earnings" />} variant="outline">
+          <Button className={cn(authPill(false), DESK_PILL, "flex-1 lg:flex-none")} onClick={() => setOpen("remove")} type="button" variant="outline">
             {t("deleteAccount")}
           </Button>
-          <Button className={cn(authPill(true), DESK_PILL, "flex-1 lg:flex-none")} onClick={() => setChanging(true)} type="button">
+          <Button className={cn(authPill(true), DESK_PILL, "flex-1 lg:flex-none")} onClick={() => setOpen("edit")} type="button">
             {t("changeAccount")}
           </Button>
         </div>
       </div>
-      {changing ? <PayoutAccountDialog adding={false} onClose={close} /> : null}
+    );
+  }
+
+  return (
+    <DeskPage backHref="/work/earnings" title={t("payoutTitle")}>
+      {body}
+      {open === "edit" && account.data !== undefined ? (
+        <PayoutAccountDialog adding={!account.data} onClose={close} onSaved={() => done(t("accountSaved"))} />
+      ) : null}
+      {open === "remove" ? <RemovePayoutAccountDialog onClose={close} onRemoved={() => done(t("accountRemoved"))} /> : null}
+      <StatusToast dismiss={status.dismiss} leaving={status.leaving} paused={status.paused} setPaused={status.setPaused} toast={status.toast} />
     </DeskPage>
   );
 }
