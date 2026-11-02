@@ -98,6 +98,14 @@ export function uploadAdvisorServiceImage(id: string, file: File): Promise<{ ima
   return api.post(`advisors/me/services/${encodeURIComponent(id)}/images`, { body });
 }
 
+/** `DELETE .../images/:index` — takes one photograph out of the carousel; answers the rest. */
+export function removeAdvisorServiceImage(id: string, index: number): Promise<{ images: string[] }> {
+  return api.delete(`advisors/me/services/${encodeURIComponent(id)}/images/${index}`);
+}
+
+/** The most photographs a service may have (`MAX_SERVICE_IMAGES`). */
+export const MAX_SERVICE_IMAGES = 6;
+
 /** A package as `PUT .../packages` takes it: an `id` keeps an existing one, none adds one. */
 export interface ServicePackageInput {
   readonly id?: string;

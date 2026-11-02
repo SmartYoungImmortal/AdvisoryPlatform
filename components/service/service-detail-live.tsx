@@ -127,6 +127,10 @@ function useAdvisor(advisorId: string): ApiPublicAdvisor | undefined {
  * cover among them.
  */
 function photosOf(item: LiveService | undefined, service: ApiPublicService): readonly string[] {
+  // Photographs the advisor uploaded win: they come back presigned from our
+  // storage, where the seed's are plain hotlinks.
+  const uploaded = (service.images ?? []).some((src) => /[?&]X-Amz-Signature=/.test(src));
+  if (uploaded && service.images) return service.images;
   // This page's own three, where the service has them (`service-photo-sets`).
   const own = servicePhotoSet(service.id);
   if (own) return own;
@@ -168,7 +172,7 @@ function similarTo(
  * account pages are drawn at `app-scale`, and the same `frame-*` step has to
  * read the same size here as there.
  */
-function Frame({ children, bar }: { readonly children: ReactNode; readonly bar?: ReactNode }) {
+export function ServiceFrame({ children, bar }: { readonly children: ReactNode; readonly bar?: ReactNode }) {
   // This page's neutral greys (`.neutral-greys`): on the frame for what it
   // draws, on <body> while it is mounted for the dialogs and sheets that
   // portal out of it.
@@ -200,7 +204,7 @@ function Frame({ children, bar }: { readonly children: ReactNode; readonly bar?:
  */
 export function LiveServiceDetailSkeleton() {
   return (
-    <Frame
+    <ServiceFrame
       bar={
         // The phone's floating price holds its place too, so nothing
         // appears from nowhere when the price arrives.
@@ -284,7 +288,7 @@ export function LiveServiceDetailSkeleton() {
           </div>
         </div>
       </div>
-    </Frame>
+    </ServiceFrame>
   );
 }
 
@@ -358,7 +362,7 @@ export function ServiceView({ service, owner }: { readonly service: ApiPublicSer
   const settled = !(catalogue.loading && !item);
 
   return (
-    <Frame bar={<BookingBar picker={picker} selection={selection} service={service} />}>
+    <ServiceFrame bar={<BookingBar picker={picker} selection={selection} service={service} />}>
       {owner?.bar}
       <BookingPicker
         advisorName={name}
@@ -412,7 +416,7 @@ export function ServiceView({ service, owner }: { readonly service: ApiPublicSer
           <MoreServices advisorId={service.advisorId} category={similar.category} own={own} similar={similar.items} />
         </div>
       </div>
-    </Frame>
+    </ServiceFrame>
   );
 }
 
@@ -424,9 +428,9 @@ export function LiveServiceDetailScreen({ serviceId }: { readonly serviceId: str
   if (service.loading) return <LiveServiceDetailSkeleton />;
   if (service.error || !service.data) {
     return (
-      <Frame>
+      <ServiceFrame>
         <Unavailable error={service.error ?? new Error(t("notFoundBody"))} onRetry={service.reload} />
-      </Frame>
+      </ServiceFrame>
     );
   }
   return <ServiceView service={service.data} />;
