@@ -138,6 +138,24 @@ function photosOf(item: LiveService | undefined, service: ApiPublicService): rea
   return [...new Set(all.filter((src): src is string => Boolean(src)))];
 }
 
+/**
+ * The advisor's other services this page shows: the ones they chose, in their
+ * order, where any is still listed; otherwise the page picks, those in the
+ * same category first and the newest first within each.
+ */
+export function relatedOf(
+  items: readonly LiveService[],
+  service: Pick<ApiPublicService, "id" | "advisorId" | "categoryId" | "relatedServiceIds">,
+): readonly LiveService[] {
+  const others = items.filter((item) => item.advisorId === service.advisorId && item.id !== service.id);
+  const chosen = (service.relatedServiceIds ?? [])
+    .map((id) => others.find((item) => item.id === id))
+    .filter((item): item is LiveService => item !== undefined);
+  if (chosen.length > 0) return chosen;
+  const near = (item: LiveService) => (item.categoryId === service.categoryId ? 0 : 1);
+  return others.toSorted((a, b) => near(a) - near(b) || b.listedAt - a.listedAt);
+}
+
 /** Best rated first, the busier of two equal scores ahead. */
 function byScore(a: LiveService, b: LiveService): number {
   return (b.rating ?? 0) - (a.rating ?? 0) || b.reviews - a.reviews;
@@ -354,7 +372,7 @@ export function ServiceView({ service, owner }: { readonly service: ApiPublicSer
     item?.face ?? (advisor?.image ? { src: advisor.image, width: 128, height: 128 } : null);
   const category = item?.category ?? "";
   const photos = photosOf(item, service);
-  const own = catalogue.items.filter((entry) => entry.advisorId === service.advisorId && entry.id !== service.id);
+  const own = relatedOf(catalogue.items, service);
   const similar = similarTo(catalogue.items, service, category);
 
   // Held back until the catalogue is in, so the cover is the photo the reader

@@ -13,19 +13,23 @@ import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import {
+  MAX_RELATED_SERVICES,
   MAX_SERVICE_IMAGES,
   MAX_SERVICE_PACKAGES,
   getAdvisorServiceImages,
   getMyAdvisorService,
+  listMyAdvisorServices,
   listMyServicePackages,
   removeAdvisorServiceImage,
   replaceMyServicePackages,
   updateAdvisorService,
   uploadAdvisorServiceImage,
   type AdvisorService,
+  type AdvisorServicesPage,
 } from "@/lib/advisor-services/api";
 import type { ApiPublicService, ApiServicePackage } from "@/lib/api/types";
 import { invalidate, useResource } from "@/lib/api/use-resource";
+import { useLiveCatalogue } from "@/lib/catalogue/live";
 import { cn } from "@/lib/utils";
 
 /**
@@ -37,8 +41,8 @@ import { cn } from "@/lib/utils";
  * **preview**, the page exactly as a customer sees it (`ServiceView`).
  *
  * Photographs go up and come out at once (they are files, not fields); the
- * words and packages wait for the save. A hidden service shows too, as it
- * will look once on sale.
+ * words, packages and the other services the page shows wait for the save.
+ * A hidden service shows too, as it will look once on sale.
  */
 
 const PILL = "h-10 w-auto px-4 text-sm md:h-10 md:px-5 md:text-sm lg:h-12 lg:px-6 lg:text-frame-body";
@@ -85,6 +89,7 @@ function useOwnedService(serviceId: string) {
           screeningRequired: record.data.screeningRequired,
           trialEnabled: record.data.trialEnabled,
           trialDurationMinutes: record.data.trialDurationMinutes,
+          relatedServiceIds: record.data.relatedServiceIds,
           createdAt: record.data.createdAt,
           images: images.data.images,
           packages: packages.data,
@@ -260,15 +265,19 @@ function Editor({ record, images, packages, onImages, onSaved }: {
   const [minutes, setMinutes] = useState(String(record.durationMinutes));
   const [drafts, setDrafts] = useState<PackageDraft[]>(() => packages.map((item) => packageDraft(item)));
   const [packagesTouched, setPackagesTouched] = useState(false);
+  const [related, setRelated] = useState<readonly string[]>(record.relatedServiceIds ?? []);
   const [problem, setProblem] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
 
+  const storedRelated = record.relatedServiceIds ?? [];
+  const relatedChanged = related.length !== storedRelated.length || related.some((id, at) => id !== storedRelated[at]);
   const detailsChanged =
     name !== record.name ||
     description !== (record.description ?? "") ||
     price !== String(record.priceSatang / 100) ||
-    minutes !== String(record.durationMinutes);
+    minutes !== String(record.durationMinutes) ||
+    relatedChanged;
   const dirty = detailsChanged || packagesTouched;
 
   const changeDraft = (key: string, patch: Partial<PackageDraft>) => {
@@ -284,6 +293,7 @@ function Editor({ record, images, packages, onImages, onSaved }: {
     setMinutes(String(record.durationMinutes));
     setDrafts(packages.map((item) => packageDraft(item)));
     setPackagesTouched(false);
+    setRelated(storedRelated);
     setProblem(null);
   };
 
@@ -317,6 +327,7 @@ function Editor({ record, images, packages, onImages, onSaved }: {
           description: description.trim(),
           priceSatang: baht * 100,
           durationMinutes: length,
+          ...(relatedChanged ? { relatedServiceIds: related } : {}),
         });
       }
       if (packagesTouched) await replaceMyServicePackages(record.id, nextPackages);
@@ -445,6 +456,15 @@ function Editor({ record, images, packages, onImages, onSaved }: {
         {drafts.length === 0 ? <p className="text-sm text-muted-foreground lg:text-frame-meta">{t("noPackages")}</p> : null}
       </section>
 
+      <RelatedPicker
+        chosen={related}
+        onChange={(next) => {
+          setRelated(next);
+          setSaved(false);
+        }}
+        serviceId={record.id}
+      />
+
       {/* The save bar, once something changed (or just saved): fixed to the foot. */}
       {dirty || saved || problem ? (
         <div className="fixed inset-x-0 bottom-0 z-30 border-t border-border bg-card/95 backdrop-blur supports-[backdrop-filter]:bg-card/80">
@@ -496,6 +516,111 @@ function FieldWithUnit({ id, label, value, onChange, unit, compact = false }: {
         <span className="pointer-events-none absolute inset-y-0 right-4 flex items-center text-sm text-muted-foreground">{unit}</span>
       </div>
     </div>
+  );
+}
+
+/* --------------------------------------------------------------- related */
+
+/**
+ * Which of the advisor's other services this page shows: their cards, pressed
+ * in the order they should appear (the number on each says where), up to
+ * three. None chosen leaves the choice to the page (`relatedOf`). A hidden
+ * service can be chosen and shows once it is on sale.
+ */
+function RelatedPicker({ serviceId, chosen, onChange }: {
+  readonly serviceId: string;
+  readonly chosen: readonly string[];
+  readonly onChange: (next: readonly string[]) => void;
+}) {
+  const t = useTranslations("ownerService");
+  const mine = useResource<AdvisorServicesPage>(
+    // The services list's own key, so the two share one read.
+    "advisors/me/services?page=1&limit=100",
+    useCallback((signal: AbortSignal) => listMyAdvisorServices(signal), []),
+  );
+  const catalogue = useLiveCatalogue();
+  const others = (mine.data?.items ?? []).filter((item) => item.id !== serviceId);
+  const full = chosen.length >= MAX_RELATED_SERVICES;
+
+  const toggle = (id: string) =>
+    onChange(chosen.includes(id) ? chosen.filter((entry) => entry !== id) : [...chosen, id]);
+
+  let body: ReactNode;
+  if (mine.loading && !mine.data) {
+    body = (
+      <div aria-busy className="grid grid-cols-2 gap-4 md:grid-cols-3 lg:gap-5">
+        {[0, 1, 2].map((key) => (
+          <span className="block aspect-[4/3] w-full animate-pulse rounded-2xl bg-muted" key={key} />
+        ))}
+      </div>
+    );
+  } else if (!mine.data) {
+    body = <ApiErrorCard error={mine.error ?? new Error(t("loadFailed"))} onRetry={mine.reload} title={t("loadFailed")} />;
+  } else if (others.length === 0) {
+    body = <p className="text-sm text-muted-foreground lg:text-frame-meta">{t("relatedNone")}</p>;
+  } else {
+    body = (
+      <ul className="grid grid-cols-2 gap-x-4 gap-y-6 md:grid-cols-3 lg:gap-x-5">
+        {others.map((item) => {
+          const place = chosen.indexOf(item.id);
+          const picked = place !== -1;
+          const cover = catalogue.items.find((entry) => entry.id === item.id)?.cover.src;
+          return (
+            <li key={item.id}>
+              <button
+                aria-label={t("relatedPick", { name: item.name })}
+                aria-pressed={picked}
+                className="group flex w-full flex-col gap-2.5 rounded-2xl text-left outline-none focus-visible:ring-3 focus-visible:ring-ring/50 disabled:cursor-not-allowed disabled:opacity-50"
+                disabled={!picked && full}
+                onClick={() => toggle(item.id)}
+                type="button"
+              >
+                <span
+                  className={cn(
+                    "relative block aspect-[4/3] w-full overflow-hidden rounded-2xl bg-muted ring-offset-2 ring-offset-card transition-shadow",
+                    picked ? "ring-2 ring-hero-action" : "group-hover:ring-1 group-hover:ring-accented",
+                  )}
+                >
+                  {cover ? (
+                    // eslint-disable-next-line @next/next/no-img-element -- catalogue covers are remote URLs of mixed hosts
+                    <img alt="" className="size-full object-cover" src={cover} />
+                  ) : null}
+                  {picked ? (
+                    <span className="absolute top-2.5 left-2.5 flex size-8 items-center justify-center rounded-full bg-hero-action font-latin text-sm font-semibold text-hero-action-foreground tabular-nums">
+                      {place + 1}
+                    </span>
+                  ) : null}
+                </span>
+                <span className="flex flex-col gap-0.5 px-0.5">
+                  <span className="line-clamp-2 text-base font-medium text-foreground lg:text-frame-body">{item.name}</span>
+                  {item.isPublished ? null : <span className="text-sm text-muted-foreground lg:text-frame-meta">{t("relatedHidden")}</span>}
+                </span>
+              </button>
+            </li>
+          );
+        })}
+      </ul>
+    );
+  }
+
+  return (
+    <section className="flex flex-col gap-4 border-t border-border pt-8 lg:gap-6 lg:pt-12">
+      <div className="flex flex-wrap items-end justify-between gap-3">
+        <div className="flex flex-col gap-1">
+          <h2 className="text-lg font-semibold text-foreground lg:text-frame-heading">{t("relatedTitle")}</h2>
+          <p className="text-sm text-muted-foreground lg:text-frame-meta">{t("relatedBody", { max: MAX_RELATED_SERVICES })}</p>
+        </div>
+        {chosen.length > 0 ? (
+          <Button className={cn(authPill(false), PILL)} onClick={() => onChange([])} type="button" variant="outline">
+            {t("relatedAuto")}
+          </Button>
+        ) : null}
+      </div>
+      {body}
+      {full && others.length > MAX_RELATED_SERVICES ? (
+        <p className="text-sm text-muted-foreground lg:text-frame-meta">{t("relatedFull", { max: MAX_RELATED_SERVICES })}</p>
+      ) : null}
+    </section>
   );
 }
 

@@ -59,7 +59,14 @@
     "priceInvalid": "The price must be a whole number of baht, 0 or more",
     "minutesInvalid": "The length must be a whole number of minutes, 1 or more",
     "save": "Save",
-    "saving": "Saving…"
+    "saving": "Saving…",
+    "relatedTitle": "Other services shown on this page",
+    "relatedBody": "Choose up to {max}, in the order you press them. Choose none and the page picks ones in the same category, or your newest.",
+    "relatedAuto": "Let the page choose",
+    "relatedNone": "You have no other services yet. Add a second one and you can show it here.",
+    "relatedHidden": "Hidden",
+    "relatedPick": "Show {name} on this page",
+    "relatedFull": "{max} chosen. Take one out to choose another."
   },
   "advisorServices": {
     "loadFailed": "Couldn't load your services",

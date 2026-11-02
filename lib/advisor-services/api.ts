@@ -16,6 +16,8 @@ export interface AdvisorService {
   readonly screeningRequired: boolean;
   readonly trialEnabled: boolean;
   readonly trialDurationMinutes: number | null;
+  /** The other services this one's page shows, in order; empty lets the page choose. */
+  readonly relatedServiceIds?: readonly string[];
   readonly createdAt: string;
   readonly modifiedAt: string;
 }
@@ -68,6 +70,7 @@ export function createAdvisorService(input: {
   readonly screeningRequired?: boolean;
   readonly trialEnabled?: boolean;
   readonly trialDurationMinutes?: number;
+  readonly relatedServiceIds?: readonly string[];
 }, signal?: AbortSignal): Promise<AdvisorService> {
   return api.post("advisors/me/services", { body: input, signal });
 }
@@ -105,6 +108,9 @@ export function removeAdvisorServiceImage(id: string, index: number): Promise<{ 
 
 /** The most photographs a service may have (`MAX_SERVICE_IMAGES`). */
 export const MAX_SERVICE_IMAGES = 6;
+
+/** The most of the advisor's other services a service's page may be set to show (`MAX_RELATED_SERVICES`). */
+export const MAX_RELATED_SERVICES = 3;
 
 /** A package as `PUT .../packages` takes it: an `id` keeps an existing one, none adds one. */
 export interface ServicePackageInput {

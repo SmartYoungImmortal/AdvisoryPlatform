@@ -30,6 +30,11 @@ export interface ApiPublicService {
   readonly screeningRequired: boolean;
   readonly trialEnabled: boolean;
   readonly trialDurationMinutes: number | null;
+  /**
+   * The advisor's other services this page shows, in their order; empty (or
+   * absent, from an older API) leaves the choice to the page.
+   */
+  readonly relatedServiceIds?: readonly string[];
   /** ISO timestamp the service was listed. */
   readonly createdAt: string;
   /**
