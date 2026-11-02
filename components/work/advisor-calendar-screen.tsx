@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import { ChevronLeft, ChevronRight, RotateCw } from "lucide-react";
 import { useLocale, useTranslations } from "next-intl";
 import { useCallback, useState } from "react";
@@ -236,13 +235,6 @@ function CalendarData({ profile }: { readonly profile: ApiOwnProfile }) {
             {t("emptyDay")}
           </p>
         )}
-        <Link
-          className="flex h-14 w-full items-center justify-between gap-3 rounded-2xl border border-border px-5 text-base text-foreground outline-none transition-colors hover:bg-muted/60 focus-visible:ring-3 focus-visible:ring-ring/50 lg:text-frame-body"
-          href="/availability"
-        >
-          {t("manageAvailability")}
-          <ChevronRight aria-hidden className="size-4" />
-        </Link>
       </section>
     </div>
   );

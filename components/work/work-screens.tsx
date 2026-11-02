@@ -1,10 +1,11 @@
 "use client";
 
-import { CalendarDays, CreditCard, MessageSquare, ShieldCheck, Wallet, type LucideIcon } from "lucide-react";
+import { CalendarDays, ChevronRight, CreditCard, Inbox, MessageSquare, ShieldCheck, Star, Wallet, type LucideIcon } from "lucide-react";
 import Link from "next/link";
 import { useFormatter, useTranslations } from "next-intl";
 import { useCallback, type ReactNode } from "react";
 
+import { LinkListCount } from "@/components/account/link-list";
 import { authPill } from "@/components/auth/auth-split";
 import { useMountTime } from "@/components/bookings/booking-flow";
 import { DayGroup } from "@/components/notifications/notification-center-screen";
@@ -15,7 +16,7 @@ import { AdvisorCalendarScreen } from "@/components/work/advisor-calendar-screen
 import { SessionRow } from "@/components/work/session-row";
 import { AdvisorSessionDetailScreen } from "@/components/work/session-detail";
 import { useAdvisorBookings, usePayouts, usePendingScreening, useRatingSummary } from "@/components/work/work-data";
-import { DESK_PILL } from "@/components/work/desk-page";
+import { DESK_GLYPH, DESK_PILL } from "@/components/work/desk-page";
 import { WorkHub } from "@/components/work/work-hub";
 import { getAdvisorBooking, type AdvisorBooking, type AdvisorBookingDetail } from "@/lib/api/advisor-bookings";
 import type { ApiPayout } from "@/lib/api/advisor-work";
@@ -272,15 +273,35 @@ function NextSession({ booking, now, timeZone }: { readonly booking: AdvisorBook
 }
 
 /** One of the dashboard's figures: a hairline box, its value large over its name, and the way to its page. */
-function StatCard({ label, value, href }: { readonly label: string; readonly value: ReactNode; readonly href: string }) {
+type OverviewRow = { readonly icon: LucideIcon; readonly label: string; readonly value: ReactNode; readonly href: string };
+
+/**
+ * Today's figures beside the sessions, as one hairline box of rows — the
+ * payout account's rows: the soft glyph, what it counts, its figure at the
+ * right and the chevron to where it is kept.
+ */
+function Overview({ label, rows }: { readonly label: string; readonly rows: readonly OverviewRow[] }) {
   return (
-    <Link
-      className="flex flex-col gap-1 rounded-2xl border border-border p-4 outline-none transition-colors hover:bg-muted/60 focus-visible:ring-3 focus-visible:ring-ring/50 lg:gap-2 lg:p-5"
-      href={href}
-    >
-      <span className="font-latin text-2xl leading-tight font-semibold text-foreground tabular-nums lg:text-frame-title">{value}</span>
-      <span className="text-xs text-muted-foreground lg:text-frame-label">{label}</span>
-    </Link>
+    <ul aria-label={label} className="flex flex-col divide-y divide-border overflow-hidden rounded-2xl border border-border">
+      {rows.map((row) => {
+        const Icon = row.icon;
+        return (
+          <li key={row.label}>
+            <Link
+              className="flex items-center gap-3 px-4 py-3.5 outline-none transition-colors hover:bg-muted/60 focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:ring-inset lg:gap-4 lg:px-5 lg:py-4"
+              href={row.href}
+            >
+              <span className={DESK_GLYPH}>
+                <Icon aria-hidden className="size-4 lg:size-5" strokeWidth={1.75} />
+              </span>
+              <span className="min-w-0 flex-1 truncate text-sm text-foreground lg:text-frame-body">{row.label}</span>
+              <span className="font-latin text-base font-semibold text-foreground tabular-nums lg:text-frame-body">{row.value}</span>
+              <ChevronRight aria-hidden className="size-4 shrink-0 text-muted-foreground" />
+            </Link>
+          </li>
+        );
+      })}
+    </ul>
   );
 }
 
@@ -381,26 +402,39 @@ function Today({ profile }: { readonly profile: ApiOwnProfile }) {
           )}
         </div>
 
-        <div className="grid grid-cols-2 gap-3 lg:col-start-2 lg:row-start-1 lg:gap-4">
-          <StatCard href="/work/calendar" label={t("figToday")} value={bookings.data ? format.number(todayCount) : <FigureBone />} />
-          <StatCard
-            href="/screening/requests"
-            label={t("figPending")}
-            value={pending.data === undefined ? (pending.error ? "—" : <FigureBone />) : format.number(pending.data)}
-          />
-          <StatCard href="/work/earnings" label={t("figPaidMonth")} value={payouts.data ? baht(paidThisMonth) : payouts.error ? "—" : <FigureBone />} />
-          <StatCard
-            href="/profile?tab=reviews"
-            label={t("figRating")}
-            value={
-              rating.data
-                ? rating.data.total > 0
-                  ? format.number(rating.data.average, { minimumFractionDigits: 1, maximumFractionDigits: 1 })
-                  : "—"
-                : rating.error
-                  ? "—"
-                  : <FigureBone />
-            }
+        <div className="min-w-0 lg:col-start-2 lg:row-start-1">
+          <Overview
+            label={t("figuresLabel")}
+            rows={[
+              { icon: CalendarDays, label: t("figToday"), href: "/work/calendar", value: bookings.data ? format.number(todayCount) : <FigureBone /> },
+              {
+                icon: Inbox,
+                label: t("figPending"),
+                href: "/screening/requests",
+                // Waiting on an answer: the count as the menu's badge, so it reads as something to do.
+                value:
+                  pending.data === undefined ? (
+                    pending.error ? "—" : <FigureBone />
+                  ) : pending.data > 0 ? (
+                    <LinkListCount count={pending.data} label={t("pendingCount", { count: pending.data })} />
+                  ) : (
+                    format.number(0)
+                  ),
+              },
+              { icon: Wallet, label: t("figPaidMonth"), href: "/work/earnings", value: payouts.data ? baht(paidThisMonth) : payouts.error ? "—" : <FigureBone /> },
+              {
+                icon: Star,
+                label: t("figRating"),
+                href: "/profile?tab=reviews",
+                value: rating.data
+                  ? rating.data.total > 0
+                    ? format.number(rating.data.average, { minimumFractionDigits: 1, maximumFractionDigits: 1 })
+                    : "—"
+                  : rating.error
+                    ? "—"
+                    : <FigureBone />,
+              },
+            ]}
           />
         </div>
 
