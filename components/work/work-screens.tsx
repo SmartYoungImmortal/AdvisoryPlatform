@@ -12,12 +12,12 @@ import { DayGroup } from "@/components/notifications/notification-center-screen"
 import { useOwnProfile } from "@/components/profile/profile-data";
 import { ApiErrorCard } from "@/components/service/parts";
 import { Button } from "@/components/ui/button";
-import { AdvisorCalendarScreen } from "@/components/work/advisor-calendar-screen";
+import { AdvisorCalendarScreen, SessionRowBones } from "@/components/work/advisor-calendar-screen";
 import { SessionRow } from "@/components/work/session-row";
 import { AdvisorSessionDetailScreen } from "@/components/work/session-detail";
 import { useAdvisorBookings, usePayouts, usePendingScreening, useRatingSummary } from "@/components/work/work-data";
 import { DESK_GLYPH, DESK_PILL } from "@/components/work/desk-page";
-import { DeskEmpty, DeskFilter, DeskListSkeleton } from "@/components/work/desk-parts";
+import { DESK_BONE, DeskEmpty, DeskFilter, DeskListSkeleton, DeskSection } from "@/components/work/desk-parts";
 import { WorkHub } from "@/components/work/work-hub";
 import { getAdvisorBooking, type AdvisorBooking, type AdvisorBookingDetail } from "@/lib/api/advisor-bookings";
 import type { ApiPayout } from "@/lib/api/advisor-work";
@@ -30,8 +30,11 @@ import { cn } from "@/lib/utils";
 /** The desk's two columns from `lg`: the view, and its tools beside it — the profile's feed and rail. */
 const DESK = "mt-5 grid grid-cols-1 gap-8 lg:mt-8 lg:grid-cols-[minmax(0,1fr)_24rem]";
 
-/** A placeholder's surface while the API answers, still for a reader who asks for less motion. */
-const BONE = "animate-pulse bg-muted motion-reduce:animate-none";
+/** A list's heading over its rows, at the gap the dashboard's lists keep. */
+const LIST_SECTION = "gap-3 lg:gap-4";
+
+/** The earnings page's capsules while they load: everything, paid and on its way, at their labels' widths. */
+const EARNINGS_CAPSULES = ["w-22 lg:w-26", "w-32 lg:w-38", "w-26 lg:w-30"];
 
 /** `ApiErrorCard` at the frame's type steps from `lg`, as the transactions page draws it. */
 const ERROR_CARD_LG =
@@ -62,28 +65,12 @@ function useBaht(): (satang: number) => string {
 
 /* -------------------------------------------------------------- the pieces */
 
-/** A figure still on its way. */
+/** A figure still on its way: one line box of the figure's step, the bone inside. */
 function FigureBone() {
-  return <span aria-hidden className={cn(BONE, "my-1 block h-6 w-8 rounded-md lg:h-8")} />;
-}
-
-/** A titled column: the heading at the profile's rail step, then its body. */
-function Section({ id, title, action, children }: {
-  readonly id: string;
-  readonly title: string;
-  readonly action?: ReactNode;
-  readonly children: ReactNode;
-}) {
   return (
-    <section aria-labelledby={id} className="flex min-w-0 flex-col gap-3 lg:gap-4">
-      <div className="flex min-h-11 items-center justify-between gap-3">
-        <h2 className="text-lg font-semibold text-foreground lg:text-frame-heading" id={id}>
-          {title}
-        </h2>
-        {action}
-      </div>
-      {children}
-    </section>
+    <span aria-hidden className="flex h-lh items-center">
+      <span className={cn(DESK_BONE, "h-4 w-8 rounded lg:h-5")} />
+    </span>
   );
 }
 
@@ -115,27 +102,13 @@ function Empty({ icon: Icon, title, body, href, action }: {
   );
 }
 
-/** Rows still on their way, at a row's own height. */
-function RowsBone({ rows = 3 }: { readonly rows?: number }) {
-  return (
-    <div aria-hidden className="flex flex-col">
-      {Array.from({ length: rows }, (_, i) => (
-        <div className="flex items-start gap-3 py-2.5 lg:gap-5 lg:py-3.5" key={i}>
-          <span className={cn(BONE, "size-9 shrink-0 rounded-full lg:size-12")} />
-          <span className="flex min-w-0 flex-1 flex-col gap-2 pt-1">
-            <span className={cn(BONE, "h-3.5 w-1/2 rounded lg:h-4.5")} />
-            <span className={cn(BONE, "h-3 w-1/3 rounded lg:h-4")} />
-          </span>
-          <span className={cn(BONE, "mt-1 h-3.5 w-16 rounded lg:h-4")} />
-        </div>
-      ))}
-    </div>
-  );
-}
-
-/** The account the desk belongs to, read once; each view draws from it. */
-function WithProfile({ tab, children }: {
+/**
+ * The account the desk belongs to, read once; each view draws from it, and
+ * until it lands the view's own skeleton (`skeleton`) holds its place.
+ */
+function WithProfile({ tab, skeleton, children }: {
   readonly tab: "today" | "earnings";
+  readonly skeleton: ReactNode;
   readonly children: (profile: ApiOwnProfile) => ReactNode;
 }) {
   const t = useTranslations("workDesk");
@@ -148,10 +121,7 @@ function WithProfile({ tab, children }: {
           <ApiErrorCard className={ERROR_CARD_LG} error={profile.error} onRetry={profile.reload} title={t("loadFailed")} />
         </div>
       ) : (
-        <div aria-busy className="mt-5 lg:mt-8">
-          <span className="sr-only">{t("loading")}</span>
-          <RowsBone />
-        </div>
+        skeleton
       )}
     </WorkHub>
   );
@@ -168,7 +138,11 @@ function WithProfile({ tab, children }: {
  * identity is not verified. Every figure and row is the API's.
  */
 export function WorkTodayScreen() {
-  return <WithProfile tab="today">{(profile) => <Today profile={profile} />}</WithProfile>;
+  return (
+    <WithProfile skeleton={<TodaySkeleton />} tab="today">
+      {(profile) => <Today profile={profile} />}
+    </WithProfile>
+  );
 }
 
 /** "อีก 25 นาที", "อีก 3 ชม. 10 นาที", or the day and time when it is further off. */
@@ -253,36 +227,125 @@ function NextSession({ booking, now, timeZone }: { readonly booking: AdvisorBook
   );
 }
 
-/** One of the dashboard's figures: a hairline box, its value large over its name, and the way to its page. */
-type OverviewRow = { readonly icon: LucideIcon; readonly label: string; readonly value: ReactNode; readonly href: string };
+/** The card's shape while the bookings load: the label and the time's capsule, who in the circle over two lines, and the two ways in. */
+function NextSessionBone() {
+  return (
+    <div aria-hidden className="flex flex-col gap-5 rounded-2xl border border-border p-5 lg:gap-7 lg:p-8">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <span className="flex h-lh items-center text-sm lg:text-frame-meta">
+          <span className={cn(DESK_BONE, "h-3.5 w-20 rounded lg:h-4 lg:w-24")} />
+        </span>
+        <span className={cn(DESK_BONE, "h-8 w-20 rounded-full lg:h-10 lg:w-28")} />
+      </div>
+      <div className="flex items-center gap-4 lg:gap-6">
+        <span className={cn(DESK_BONE, "size-14 shrink-0 rounded-full lg:size-20")} />
+        <div className="flex min-w-0 flex-col gap-1 lg:gap-2">
+          <span className="flex h-lh items-center text-2xl lg:text-frame-title">
+            <span className={cn(DESK_BONE, "h-6 w-40 rounded-md lg:h-8 lg:w-60")} />
+          </span>
+          <span className="flex h-lh items-center text-sm lg:text-frame-meta">
+            <span className={cn(DESK_BONE, "h-3.5 w-48 rounded lg:h-4 lg:w-72")} />
+          </span>
+        </div>
+      </div>
+      <div className="flex flex-wrap gap-2.5 lg:gap-3">
+        <span className={cn(DESK_BONE, "h-10 w-28 rounded-full lg:h-12 lg:w-36")} />
+        <span className={cn(DESK_BONE, "h-10 w-28 rounded-full lg:h-12 lg:w-36")} />
+      </div>
+    </div>
+  );
+}
+
+/** The dashboard's four figures in the box's order, each the way to its page. */
+const FIGURES = [
+  { key: "figToday", icon: CalendarDays, href: "/work/calendar" },
+  { key: "figPending", icon: Inbox, href: "/screening/requests" },
+  { key: "figPaidMonth", icon: Wallet, href: "/work/earnings" },
+  { key: "figRating", icon: Star, href: "/profile?tab=reviews" },
+] as const;
+
+type Figure = (typeof FIGURES)[number]["key"];
 
 /**
  * Today's figures beside the sessions, as one hairline box of rows — the
  * payout account's rows: the soft glyph, what it counts, its figure at the
- * right and the chevron to where it is kept.
+ * right and the chevron to where it is kept. A figure not given yet is a
+ * bone, so the box stands whole while the API answers.
  */
-function Overview({ label, rows }: { readonly label: string; readonly rows: readonly OverviewRow[] }) {
+function Overview({ values = {} }: { readonly values?: Partial<Record<Figure, ReactNode>> }) {
+  const t = useTranslations("workDesk");
   return (
-    <ul aria-label={label} className="flex flex-col divide-y divide-border overflow-hidden rounded-2xl border border-border">
-      {rows.map((row) => {
-        const Icon = row.icon;
-        return (
-          <li key={row.label}>
-            <Link
-              className="flex items-center gap-3 px-4 py-3.5 outline-none transition-colors hover:bg-muted/60 focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:ring-inset lg:gap-4 lg:px-5 lg:py-4"
-              href={row.href}
-            >
-              <span className={DESK_GLYPH}>
-                <Icon aria-hidden className="size-4 lg:size-5" strokeWidth={1.75} />
-              </span>
-              <span className="min-w-0 flex-1 truncate text-sm text-foreground lg:text-frame-body">{row.label}</span>
-              <span className="font-latin text-base font-semibold text-foreground tabular-nums lg:text-frame-body">{row.value}</span>
-              <ChevronRight aria-hidden className="size-4 shrink-0 text-muted-foreground" />
-            </Link>
-          </li>
-        );
-      })}
+    <ul aria-label={t("figuresLabel")} className="flex flex-col divide-y divide-border overflow-hidden rounded-2xl border border-border">
+      {FIGURES.map(({ key, icon: Icon, href }) => (
+        <li key={key}>
+          <Link
+            className="flex items-center gap-3 px-4 py-3.5 outline-none transition-colors hover:bg-muted/60 focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:ring-inset lg:gap-4 lg:px-5 lg:py-4"
+            href={href}
+          >
+            <span className={DESK_GLYPH}>
+              <Icon aria-hidden className="size-4 lg:size-5" strokeWidth={1.75} />
+            </span>
+            <span className="min-w-0 flex-1 truncate text-sm text-foreground lg:text-frame-body">{t(key)}</span>
+            <span className="font-latin text-base font-semibold text-foreground tabular-nums lg:text-frame-body">
+              {values[key] ?? <FigureBone />}
+            </span>
+            <ChevronRight aria-hidden className="size-4 shrink-0 text-muted-foreground" />
+          </Link>
+        </li>
+      ))}
     </ul>
+  );
+}
+
+/** The days after today while the bookings load: the heading with its link, then two days of sessions. */
+function LaterBone() {
+  return (
+    <div aria-hidden className={cn("flex min-w-0 flex-col", LIST_SECTION)}>
+      <div className="flex min-h-11 items-end justify-between gap-3">
+        <span className="flex h-lh items-center text-base lg:text-frame-body">
+          <span className={cn(DESK_BONE, "h-4 w-14 rounded lg:h-5 lg:w-16")} />
+        </span>
+        <span className="flex h-lh items-center text-sm lg:text-frame-meta">
+          <span className={cn(DESK_BONE, "h-3.5 w-16 rounded lg:h-4 lg:w-20")} />
+        </span>
+      </div>
+      <div className="-mt-5 flex flex-col divide-y divide-border lg:-mt-8">
+        {[0, 1].map((group) => (
+          <div className="flex w-full flex-col pt-5 lg:pt-8" key={group}>
+            <span className="flex h-lh items-center text-xs lg:text-frame-label">
+              <span className={cn(DESK_BONE, "h-3 w-24 rounded lg:h-3.5 lg:w-28")} />
+            </span>
+            <SessionRowBones />
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+/**
+ * `/work` while the account is on its way: the page's own three blocks in
+ * the shape they hold while the bookings load — the next session's card, the
+ * box of figures beside it, and the days after under it — so nothing shifts
+ * when either lands.
+ */
+function TodaySkeleton() {
+  const t = useTranslations("workDesk");
+  return (
+    <div aria-busy className="flex w-full flex-col">
+      <span className="sr-only">{t("loading")}</span>
+      <div className={cn(DESK, "lg:items-start")}>
+        <div className="min-w-0 lg:col-start-1 lg:row-start-1">
+          <NextSessionBone />
+        </div>
+        <div className="min-w-0 lg:col-start-2 lg:row-start-1">
+          <Overview />
+        </div>
+        <div className="flex min-w-0 flex-col gap-8 lg:col-start-1 lg:row-start-2 lg:gap-10">
+          <LaterBone />
+        </div>
+      </div>
+    </div>
   );
 }
 
@@ -365,7 +428,7 @@ function Today({ profile }: { readonly profile: ApiOwnProfile }) {
           {bookings.error ? (
             <ApiErrorCard className={ERROR_CARD_LG} error={bookings.error} onRetry={bookings.reload} title={t("loadFailed")} />
           ) : !bookings.data ? (
-            <div aria-hidden className={cn(BONE, "h-56 rounded-2xl lg:h-72")} />
+            <NextSessionBone />
           ) : next ? (
             <NextSession booking={next} now={now} timeZone={timeZone} />
           ) : (
@@ -381,59 +444,52 @@ function Today({ profile }: { readonly profile: ApiOwnProfile }) {
 
         <div className="min-w-0 lg:col-start-2 lg:row-start-1">
           <Overview
-            label={t("figuresLabel")}
-            rows={[
-              { icon: CalendarDays, label: t("figToday"), href: "/work/calendar", value: bookings.data ? format.number(todayCount) : <FigureBone /> },
-              {
-                icon: Inbox,
-                label: t("figPending"),
-                href: "/screening/requests",
-                // Waiting on an answer: the count as the menu's badge, so it reads as something to do.
-                value:
-                  pending.data === undefined ? (
-                    pending.error ? "—" : <FigureBone />
-                  ) : pending.data > 0 ? (
-                    <LinkListCount count={pending.data} label={t("pendingCount", { count: pending.data })} />
-                  ) : (
-                    format.number(0)
-                  ),
-              },
-              { icon: Wallet, label: t("figPaidMonth"), href: "/work/earnings", value: payouts.data ? baht(paidThisMonth) : payouts.error ? "—" : <FigureBone /> },
-              {
-                icon: Star,
-                label: t("figRating"),
-                href: "/profile?tab=reviews",
-                value: rating.data
-                  ? rating.data.total > 0
-                    ? format.number(rating.data.average, { minimumFractionDigits: 1, maximumFractionDigits: 1 })
-                    : "—"
-                  : rating.error
-                    ? "—"
-                    : <FigureBone />,
-              },
-            ]}
+            values={{
+              figToday: bookings.data ? format.number(todayCount) : bookings.error ? "—" : undefined,
+              // Waiting on an answer: the count as the menu's badge, so it reads as something to do.
+              figPending:
+                pending.data === undefined ? (
+                  pending.error ? "—" : undefined
+                ) : pending.data > 0 ? (
+                  <LinkListCount count={pending.data} label={t("pendingCount", { count: pending.data })} />
+                ) : (
+                  format.number(0)
+                ),
+              figPaidMonth: payouts.data ? baht(paidThisMonth) : payouts.error ? "—" : undefined,
+              figRating: rating.data
+                ? rating.data.total > 0
+                  ? format.number(rating.data.average, { minimumFractionDigits: 1, maximumFractionDigits: 1 })
+                  : "—"
+                : rating.error
+                  ? "—"
+                  : undefined,
+            }}
           />
         </div>
 
         <div className="flex min-w-0 flex-col gap-8 empty:hidden lg:col-start-1 lg:row-start-2 lg:gap-10">
+          {/* The days after stand as bones until the bookings land, as the skeleton drew them. */}
+          {!bookings.data && !bookings.error ? <LaterBone /> : null}
+
           {/* The rest of today, only when there is more of it than the card above. */}
           {todayRows.length > 0 ? (
-            <Section id="work-today" title={t("todayTitle")}>
+            <DeskSection className={LIST_SECTION} id="work-today" title={t("todayTitle")}>
               <ul className="-mt-1 flex flex-col">
                 {todayRows.map((booking) => (
                   <SessionRow booking={booking} key={booking.id} now={now} timeZone={timeZone} />
                 ))}
               </ul>
-            </Section>
+            </DeskSection>
           ) : null}
 
           {groups.length > 0 ? (
-            <Section
+            <DeskSection
               action={
                 <Link className="text-sm font-medium text-foreground underline underline-offset-4 lg:text-frame-meta" href="/work/calendar">
                   {t("seeCalendar")}
                 </Link>
               }
+              className={LIST_SECTION}
               id="work-later"
               title={t("laterTitle")}
             >
@@ -446,7 +502,7 @@ function Today({ profile }: { readonly profile: ApiOwnProfile }) {
                   </DayGroup>
                 ))}
               </div>
-            </Section>
+            </DeskSection>
           ) : null}
         </div>
       </div>
@@ -477,7 +533,17 @@ const PAYOUT_INK: Record<ApiPayout["status"], string> = {
  * `GET /advisors/me/payouts`.
  */
 export function WorkEarningsScreen() {
-  return <WithProfile tab="earnings">{(profile) => <Earnings profile={profile} />}</WithProfile>;
+  return (
+    <WithProfile skeleton={<EarningsSkeleton />} tab="earnings">
+      {(profile) => <Earnings profile={profile} />}
+    </WithProfile>
+  );
+}
+
+/** The earnings page while it loads, the account or its payouts: the capsules' row over a month of payouts. */
+function EarningsSkeleton() {
+  const t = useTranslations("workDesk");
+  return <DeskListSkeleton capsules={EARNINGS_CAPSULES} label={t("loading")} rows={1} />;
 }
 
 function Earnings({ profile }: { readonly profile: ApiOwnProfile }) {
@@ -519,7 +585,7 @@ function Earnings({ profile }: { readonly profile: ApiOwnProfile }) {
           <ApiErrorCard className={ERROR_CARD_LG} error={payouts.error} onRetry={payouts.reload} title={t("earningsLoadFailed")} />
         </div>
       ) : !payouts.data ? (
-        <DeskListSkeleton capsules={["w-22 lg:w-26", "w-32 lg:w-38", "w-26 lg:w-30"]} label={t("loading")} rows={1} />
+        <EarningsSkeleton />
       ) : items.length === 0 ? (
         <DeskEmpty
           action={{ label: t("earningsEmptyAction"), href: "/earnings/payout-account" }}
