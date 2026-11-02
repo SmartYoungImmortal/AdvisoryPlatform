@@ -794,6 +794,31 @@
     "loadFailed": "Couldn't load the experts"
   },
   "workDesk": {
+    "nextTitle": "Next session",
+    "inSession": "In session now",
+    "startsInMinutes": "In {minutes} min",
+    "startsInHours": "In {hours} h {minutes} min",
+    "joinNow": "Join the session",
+    "openSession": "Session details",
+    "openChat": "Chat",
+    "todayTitle": "Today",
+    "laterTitle": "Coming up",
+    "figPaidMonth": "Paid this month",
+    "verifyAction": "Send documents",
+    "verify": {
+      "NONE": {
+        "title": "Identity not verified",
+        "body": "Send your identity documents so customers can find and book your services"
+      },
+      "SUBMITTED": {
+        "title": "Checking your identity documents",
+        "body": "The team is reviewing them; you'll hear back in your notifications"
+      },
+      "REJECTED": {
+        "title": "Identity documents not accepted",
+        "body": "See why in your notifications, then send them again"
+      }
+    },
     "loading": "Loading your work",
     "loadFailed": "Couldn't load your work",
     "todaySubtitle": "{date} · {count, plural, =0 {No sessions today} one {# session today} other {# sessions today}}",
