@@ -197,7 +197,7 @@ export function Notice({
       <span className="flex size-11 items-center justify-center rounded-full bg-muted text-foreground lg:size-13">
         <Icon aria-hidden className="size-5 lg:size-6" />
       </span>
-      <div className="max-w-72 text-sm leading-6 text-foreground lg:text-frame-meta">{children}</div>
+      <div className="max-w-sm text-sm leading-6 text-foreground lg:text-frame-meta">{children}</div>
       {action}
     </div>
   );
@@ -366,7 +366,7 @@ function OwnNotice() {
       icon={BadgeCheck}
     >
       <span className="block font-medium">{t("ownService")}</span>
-      <span className="block text-muted-foreground">{t("ownServiceHint")}</span>
+      <span className="block text-muted-foreground lg:whitespace-nowrap">{t("ownServiceHint")}</span>
     </Notice>
   );
 }
@@ -827,7 +827,8 @@ const WIDE = {
   slot: "h-[49.875px] rounded-[14.25px] px-0 shadow-none",
   slotText: "font-latin text-frame-label font-medium tabular-nums",
   none: "mt-[14.25px] px-[28.5px] text-frame-meta text-muted-foreground",
-  notice: "px-[28.5px] pt-9.5",
+  // In the middle of the panel: the space under the title, less the title's own height below it.
+  notice: "flex flex-1 flex-col justify-center px-[28.5px] pb-[97.375px]",
   footer: "flex shrink-0 items-center justify-between gap-[19px] border-t border-border px-[28.5px] py-[19px]",
   footPrice: "font-latin text-frame-figure font-medium text-foreground tabular-nums",
   footNote: "text-frame-label text-muted-foreground",
@@ -861,7 +862,7 @@ const NARROW: typeof WIDE = {
   slot: "h-[45px] w-16 shrink-0 rounded-[12px] px-0 shadow-none",
   slotText: "font-latin text-xs font-medium tabular-nums",
   none: "mt-3 px-6 text-sm text-muted-foreground",
-  notice: "px-6 pt-8",
+  notice: "flex flex-1 flex-col justify-center px-6 py-8",
   footer: "flex shrink-0 items-center justify-between gap-3 border-t border-border px-6 py-4",
   footPrice: "font-latin text-lg font-medium text-foreground tabular-nums",
   footNote: "text-xs text-muted-foreground",
@@ -937,7 +938,8 @@ function Schedule({
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
-      <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
+      {/* A column only while it holds a notice: the week strip scrolls sideways, and a flex item that scrolls may shrink. */}
+      <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain has-[[data-notice]]:flex has-[[data-notice]]:flex-col">
         <Title className={S.title}>{t("book")}</Title>
         <ScheduleBody
           advisorName={advisorName}
@@ -1014,23 +1016,24 @@ function ScheduleBody({
   const own = useOwnService(service.advisorId);
   const { day } = calendar;
 
+  // `data-notice` turns the scroller into a column (see `Schedule`), for the notice to sit in its middle.
   if (own) {
     return (
-      <div className={S.notice}>
+      <div className={S.notice} data-notice>
         <OwnNotice />
       </div>
     );
   }
   if (slots.error) {
     return (
-      <div className={S.notice}>
+      <div className={S.notice} data-notice>
         <SlotsNotice advisorName={advisorName} error={slots.error} onRetry={slots.reload} service={service} />
       </div>
     );
   }
   if (!slots.loading && !day) {
     return (
-      <div className={S.notice}>
+      <div className={S.notice} data-notice>
         <Notice action={<MessageButton advisorId={service.advisorId} />} icon={CalendarX2}>
           {t("noSlotsAhead")}
         </Notice>
