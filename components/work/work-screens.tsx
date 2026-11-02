@@ -180,7 +180,7 @@ function Tools({ pending }: { readonly pending: number | undefined }) {
             href: "/screening/requests",
             badge: pending ? <LinkListCount count={pending} label={t("pendingCount", { count: pending })} /> : null,
           },
-          { icon: Star, label: t("toolReviews"), href: "/reviews" },
+          { icon: Star, label: t("toolReviews"), href: "/profile?tab=reviews" },
           { icon: UserRoundPen, label: t("toolAdvisorEdit"), href: "/advisor/edit" },
           { icon: CreditCard, label: t("toolPayoutAccount"), href: "/earnings/payout-account" },
         ]}
@@ -428,7 +428,7 @@ function Today({ profile }: { readonly profile: ApiOwnProfile }) {
           />
           <StatCard href="/work/earnings" label={t("figPaidMonth")} value={payouts.data ? baht(paidThisMonth) : payouts.error ? "—" : <FigureBone />} />
           <StatCard
-            href="/reviews"
+            href="/profile?tab=reviews"
             label={t("figRating")}
             value={
               rating.data

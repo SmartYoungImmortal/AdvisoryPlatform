@@ -928,6 +928,9 @@
     "advisorWork": "My work",
     "advisorEdit": "What your advisor page shows",
     "advisorPublic": "View my advisor page",
+    "reviewsKindLabel": "Which reviews",
+    "reviewsReceived": "Received",
+    "reviewsWritten": "Written",
     "editProfileAction": "Edit profile",
     "stats": {
       "reviews": "reviews",

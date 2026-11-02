@@ -26,7 +26,7 @@ import { useCallback, useState, type KeyboardEvent, type ReactNode } from "react
 import { AccountShell } from "@/components/account/account-shell";
 import { AppFrame, PHONE_BAR } from "@/components/account/app-frame";
 import { LinkList, LinkListCount, type LinkListRow } from "@/components/account/link-list";
-import { liveAdvisorHref, useMountTime } from "@/components/bookings/booking-flow";
+import { liveAdvisorHref, useMountTime, useQueryValue } from "@/components/bookings/booking-flow";
 import { MobileScreen, ScreenBody } from "@/components/mobile/screen";
 import { StatusPill, type StatusTone } from "@/components/mobile/status-pill";
 import { useNotificationPulse } from "@/components/notifications/notification-store";
@@ -46,6 +46,7 @@ import {
   type BookingEntry,
   type BookingHistory,
 } from "@/components/profile/profile-data";
+import { ReceivedReviews } from "@/components/reviews/my-reviews-screen";
 import { ApiErrorCard } from "@/components/service/parts";
 import { useOwnAdvisorId, useRatingSummary } from "@/components/work/work-data";
 import { useAccount } from "@/components/session/account-bits";
@@ -720,6 +721,43 @@ function Stars({ value }: { readonly value: number }) {
  * reviewed), so this asks once per completed session, and only when the tab
  * is opened.
  */
+/**
+ * The reviews tab. An advisor has two kinds: what customers wrote about them
+ * (with a reply under each) and what they wrote as a customer themselves, so
+ * the tab opens on the first, with capsules to switch; anyone else sees only
+ * the reviews they wrote.
+ */
+function ReviewsTab({ history }: { readonly history: BookingHistory }) {
+  const t = useTranslations("profile");
+  const advisorId = useOwnAdvisorId();
+  const [kind, setKind] = useState<"received" | "written">("received");
+  if (!advisorId) return <ReviewsPanel history={history} />;
+  return (
+    <div className="flex flex-col gap-5 lg:gap-8">
+      <div aria-label={t("reviewsKindLabel")} className="flex gap-2 lg:gap-3" role="group">
+        {(["received", "written"] as const).map((option) => (
+          <Button
+            aria-pressed={kind === option}
+            className={cn(
+              "h-9 shrink-0 rounded-full border px-3.5 text-sm font-medium lg:h-12 lg:px-5 lg:text-frame-meta",
+              kind === option
+                ? "border-hero-action bg-hero-action text-hero-action-foreground hover:bg-hero-action/90 hover:text-hero-action-foreground"
+                : "border-border bg-card text-foreground hover:bg-muted",
+            )}
+            key={option}
+            onClick={() => setKind(option)}
+            type="button"
+            variant="ghost"
+          >
+            {t(option === "received" ? "reviewsReceived" : "reviewsWritten")}
+          </Button>
+        ))}
+      </div>
+      {kind === "received" ? <ReceivedReviews /> : <ReviewsPanel history={history} />}
+    </div>
+  );
+}
+
 function ReviewsPanel({ history }: { readonly history: BookingHistory }) {
   const t = useTranslations("profile");
   const format = useFormatter();
@@ -968,7 +1006,10 @@ export function ProfileScreen({
   const history = useBookingHistory(now);
   const signedIn = useAccount() !== null;
   const { unread } = useNotificationPulse(isApiConfigured && signedIn);
-  const [tab, setTab] = useState<Tab>("bookings");
+  // `?tab=reviews` (the desk's "my reviews") opens on that tab; a press decides after.
+  const linkedTab = useQueryValue("tab");
+  const [chosenTab, setTab] = useState<Tab | null>(null);
+  const tab: Tab = chosenTab ?? (TABS.find((key) => key === linkedTab) ?? "bookings");
 
   // Arrow keys move along the tabs, as a tab list should.
   const onTabKey = (event: KeyboardEvent<HTMLButtonElement>) => {
@@ -1059,7 +1100,7 @@ export function ProfileScreen({
               >
                 {tab === "bookings" ? <BookingsPanel history={history} now={now} /> : null}
                 {tab === "experts" ? <ExpertsPanel history={history} /> : null}
-                {tab === "reviews" ? <ReviewsPanel history={history} /> : null}
+                {tab === "reviews" ? <ReviewsTab history={history} /> : null}
                 {tab === "about" ? <AboutPanel /> : null}
               </div>
             </section>

@@ -703,6 +703,9 @@
     "advisorWork": "งานของฉัน",
     "advisorEdit": "ข้อมูลบนหน้าผู้ให้คำปรึกษา",
     "advisorPublic": "ดูหน้าผู้ให้คำปรึกษาของฉัน",
+    "reviewsKindLabel": "รีวิวแบบไหน",
+    "reviewsReceived": "ที่ได้รับ",
+    "reviewsWritten": "ที่เขียน",
     "roleWithMember": "ผู้รับคำปรึกษา · สมาชิกตั้งแต่ ก.ค. 2569",
     "editProfileAction": "แก้ไขโปรไฟล์",
     "stats": {

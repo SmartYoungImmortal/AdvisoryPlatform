@@ -95,6 +95,8 @@ function CardSkeleton() {
   );
 }
 
+type ReviewsState = "default" | "empty" | "replying" | "reply-failed";
+
 export function MyReviewsScreen({
   state = "default",
 }: {
@@ -105,8 +107,22 @@ export function MyReviewsScreen({
    * on whatever the API says. Composing and failing are both reachable by using
    * the screen.
    */
-  readonly state?: "default" | "empty" | "replying" | "reply-failed";
+  readonly state?: ReviewsState;
 }) {
+  const t = useTranslations("reviews");
+  return (
+    <DeskPage title={t("title")}>
+      <ReceivedReviews state={state} />
+    </DeskPage>
+  );
+}
+
+/**
+ * The reviews customers left the advisor, with the score beside them and a
+ * reply under each: the `/reviews` page's body, and the "received" half of
+ * an advisor's reviews tab on `/profile`.
+ */
+export function ReceivedReviews({ state = "default" }: { readonly state?: ReviewsState }) {
   const t = useTranslations("reviews");
   const s = useTranslations("search");
   // `reviews.reviewCount` is the frame's fixed "32 รีวิว", so the real count is
@@ -175,7 +191,7 @@ export function MyReviewsScreen({
   const average = total > 0 ? summary.data?.average : undefined;
 
   return (
-    <DeskPage title={t("title")}>
+    <>
         {reviews.error ? (
           /* The API's own sentence and a retry. Not the empty state: "nobody has
              reviewed you" and "the list did not load" are different facts. */
@@ -278,6 +294,6 @@ export function MyReviewsScreen({
             </div>
           </div>
         )}
-    </DeskPage>
+    </>
   );
 }
