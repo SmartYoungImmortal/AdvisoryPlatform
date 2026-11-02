@@ -317,7 +317,7 @@ function useSave(onSaved: () => void) {
   return { saving, saved, problem, setProblem, setSaved, run };
 }
 
-function Counter({ count, max }: { readonly count: number; readonly max: number }) {
+export function Counter({ count, max }: { readonly count: number; readonly max: number }) {
   return (
     <span className={cn("self-end font-latin text-xs tabular-nums lg:text-frame-label", count > max ? "text-destructive" : "text-muted-foreground")}>
       {count}/{max}
@@ -449,14 +449,6 @@ function CategoryPart({ record, categories, onSaved }: {
   const [chosen, setChosen] = useState<readonly string[]>(stored);
   const save = useSave(onSaved);
   const dirty = chosen.length !== stored.length || chosen.some((id, at) => id !== stored[at]);
-  const full = chosen.length >= MAX_CATEGORIES;
-  const toggle = (id: string) => {
-    // One stays chosen: a service always has its main category.
-    if (chosen.includes(id)) {
-      if (chosen.length > 1) setChosen(chosen.filter((entry) => entry !== id));
-    } else if (!full) setChosen([...chosen, id]);
-    save.setSaved(false);
-  };
   return (
     <form
       noValidate
@@ -470,39 +462,69 @@ function CategoryPart({ record, categories, onSaved }: {
         hint={t("categoryHint", { max: MAX_CATEGORIES })}
         title={t("categorySection")}
       >
-        {categories ? (
-          <div aria-label={t("categorySection")} className="flex flex-wrap gap-2" role="group">
-            {categories.map((item) => {
-              const place = chosen.indexOf(item.id);
-              const picked = place !== -1;
-              return (
-                <Button
-                  aria-pressed={picked}
-                  className={cn(
-                    "h-10 rounded-full px-4 text-sm font-medium shadow-none lg:h-11 lg:text-frame-meta",
-                    picked ? "border-hero-action bg-hero-action text-hero-action-foreground hover:bg-hero-action/90" : "border-border bg-card",
-                  )}
-                  disabled={!picked && full}
-                  key={item.id}
-                  onClick={() => toggle(item.id)}
-                  type="button"
-                  variant="outline"
-                >
-                  {item.name}
-                  {place === 0 ? <span className="text-xs font-normal opacity-80 lg:text-frame-label">· {t("categoryMain")}</span> : null}
-                </Button>
-              );
-            })}
-          </div>
-        ) : (
-          <div aria-busy className="flex flex-wrap gap-2">
-            {[0, 1, 2, 3].map((key) => (
-              <span className="block h-10 w-28 animate-pulse rounded-full bg-muted" key={key} />
-            ))}
-          </div>
-        )}
+        <CategoryChoices
+          categories={categories}
+          chosen={chosen}
+          onChange={(next) => {
+            setChosen(next);
+            save.setSaved(false);
+          }}
+        />
       </Pane>
     </form>
+  );
+}
+
+/**
+ * The categories as capsules, up to three pressed in order: the first is the
+ * one the service is shown as (marked so), the rest where it is also found.
+ * Once one is chosen one always stays: a service has its main category.
+ */
+export function CategoryChoices({ categories, chosen, onChange }: {
+  readonly categories: readonly ServiceCategory[] | null;
+  readonly chosen: readonly string[];
+  readonly onChange: (next: readonly string[]) => void;
+}) {
+  const t = useTranslations("ownerService");
+  const full = chosen.length >= MAX_CATEGORIES;
+  const toggle = (id: string) => {
+    if (chosen.includes(id)) {
+      if (chosen.length > 1) onChange(chosen.filter((entry) => entry !== id));
+    } else if (!full) onChange([...chosen, id]);
+  };
+  if (!categories) {
+    return (
+      <div aria-busy className="flex flex-wrap gap-2">
+        {[0, 1, 2, 3].map((key) => (
+          <span className="block h-10 w-28 animate-pulse rounded-full bg-muted" key={key} />
+        ))}
+      </div>
+    );
+  }
+  return (
+    <div aria-label={t("categorySection")} className="flex flex-wrap gap-2" role="group">
+      {categories.map((item) => {
+        const place = chosen.indexOf(item.id);
+        const picked = place !== -1;
+        return (
+          <Button
+            aria-pressed={picked}
+            className={cn(
+              "h-10 rounded-full px-4 text-sm font-medium shadow-none lg:h-11 lg:text-frame-meta",
+              picked ? "border-hero-action bg-hero-action text-hero-action-foreground hover:bg-hero-action/90" : "border-border bg-card",
+            )}
+            disabled={!picked && full}
+            key={item.id}
+            onClick={() => toggle(item.id)}
+            type="button"
+            variant="outline"
+          >
+            {item.name}
+            {place === 0 ? <span className="text-xs font-normal opacity-80 lg:text-frame-label">· {t("categoryMain")}</span> : null}
+          </Button>
+        );
+      })}
+    </div>
   );
 }
 
@@ -513,7 +535,6 @@ function SchedulePart({ record, profiles, onSaved }: {
   readonly onSaved: () => void;
 }) {
   const t = useTranslations("ownerService");
-  const weekLine = useWeekLine();
   const stored = record.availabilityProfileId ?? "";
   const [chosen, setChosen] = useState(stored);
   const save = useSave(onSaved);
@@ -526,55 +547,66 @@ function SchedulePart({ record, profiles, onSaved }: {
       }}
     >
       <Pane footer={<SaveRow dirty={chosen !== stored} onReset={() => setChosen(stored)} {...save} />} hint={t("scheduleProfileHint")} title={t("scheduleProfileSection")}>
-        {profiles === null ? (
-          <span aria-busy className="block h-32 w-full animate-pulse rounded-2xl bg-muted" />
-        ) : (
-          <div className="flex flex-col gap-3">
-            {profiles.length > 0 ? (
-              <ul aria-label={t("scheduleProfileSection")} className="flex flex-col divide-y divide-border overflow-hidden rounded-2xl border border-border" role="radiogroup">
-                {profiles.map((item) => (
-                  <li key={item.id}>
-                    <button
-                      aria-checked={chosen === item.id}
-                      className={cn(
-                        "flex w-full items-center gap-3 px-4 py-3.5 text-left outline-none transition-colors focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:ring-inset lg:px-5",
-                        chosen === item.id ? "bg-muted" : "hover:bg-muted/50",
-                      )}
-                      onClick={() => {
-                        setChosen(item.id);
-                        save.setSaved(false);
-                      }}
-                      role="radio"
-                      type="button"
-                    >
-                      <span
-                        aria-hidden
-                        className={cn(
-                          "flex size-5 shrink-0 items-center justify-center rounded-full border",
-                          chosen === item.id ? "border-hero-action" : "border-accented",
-                        )}
-                      >
-                        {chosen === item.id ? <span className="size-2.5 rounded-full bg-hero-action" /> : null}
-                      </span>
-                      <span className="flex min-w-0 flex-1 flex-col gap-0.5">
-                        <span className="text-sm font-medium text-foreground lg:text-frame-meta">{item.name}</span>
-                        <span className="truncate text-sm text-muted-foreground lg:text-frame-meta">{weekLine(item) || t("scheduleEmptyWeek")}</span>
-                      </span>
-                    </button>
-                  </li>
-                ))}
-              </ul>
-            ) : (
-              <p className="text-sm text-muted-foreground lg:text-frame-meta">{t("noSchedules")}</p>
-            )}
-            <Button className={cn(authPill(false), PILL, "self-start")} nativeButton={false} render={<Link href="/availability/profiles/new" />} variant="outline">
-              <Plus aria-hidden />
-              {t("newSchedule")}
-            </Button>
-          </div>
-        )}
+        <ScheduleChoices
+          chosen={chosen}
+          onChange={(next) => {
+            setChosen(next);
+            save.setSaved(false);
+          }}
+          profiles={profiles}
+        />
       </Pane>
     </form>
+  );
+}
+
+/** The schedules as rows on hairlines, each its name over its week, one chosen; and the way to make another. */
+export function ScheduleChoices({ profiles, chosen, onChange }: {
+  readonly profiles: readonly AvailabilityProfile[] | null;
+  readonly chosen: string;
+  readonly onChange: (next: string) => void;
+}) {
+  const t = useTranslations("ownerService");
+  const weekLine = useWeekLine();
+  if (profiles === null) return <span aria-busy className="block h-32 w-full animate-pulse rounded-2xl bg-muted" />;
+  return (
+    <div className="flex flex-col gap-3">
+      {profiles.length > 0 ? (
+        <ul aria-label={t("scheduleProfileSection")} className="flex flex-col divide-y divide-border overflow-hidden rounded-2xl border border-border" role="radiogroup">
+          {profiles.map((item) => (
+            <li key={item.id}>
+              <button
+                aria-checked={chosen === item.id}
+                className={cn(
+                  "flex w-full items-center gap-3 px-4 py-3.5 text-left outline-none transition-colors focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:ring-inset lg:px-5",
+                  chosen === item.id ? "bg-muted" : "hover:bg-muted/50",
+                )}
+                onClick={() => onChange(item.id)}
+                role="radio"
+                type="button"
+              >
+                <span
+                  aria-hidden
+                  className={cn("flex size-5 shrink-0 items-center justify-center rounded-full border", chosen === item.id ? "border-hero-action" : "border-accented")}
+                >
+                  {chosen === item.id ? <span className="size-2.5 rounded-full bg-hero-action" /> : null}
+                </span>
+                <span className="flex min-w-0 flex-1 flex-col gap-0.5">
+                  <span className="text-sm font-medium text-foreground lg:text-frame-meta">{item.name}</span>
+                  <span className="truncate text-sm text-muted-foreground lg:text-frame-meta">{weekLine(item) || t("scheduleEmptyWeek")}</span>
+                </span>
+              </button>
+            </li>
+          ))}
+        </ul>
+      ) : (
+        <p className="text-sm text-muted-foreground lg:text-frame-meta">{t("noSchedules")}</p>
+      )}
+      <Button className={cn(authPill(false), PILL, "self-start")} nativeButton={false} render={<Link href="/availability/profiles/new" />} variant="outline">
+        <Plus aria-hidden />
+        {t("newSchedule")}
+      </Button>
+    </div>
   );
 }
 
@@ -1080,7 +1112,7 @@ function PackageDialog({ serviceId, packages, entry, onClose, onSaved }: {
   );
 }
 
-function FieldWithUnit({ id, label, value, onChange, unit, error, large = false }: {
+export function FieldWithUnit({ id, label, value, onChange, unit, error, large = false }: {
   readonly id: string;
   readonly label: string;
   readonly value: string;
@@ -1204,7 +1236,7 @@ function RelatedPicker({ serviceId, chosen, onChange }: {
 /* ---------------------------------------------------------------- photos */
 
 /** The photographs: the cover large, the rest as tiles, each with its remove; a tile to add more. They go at once. */
-function Photos({ serviceId, images, onChanged }: {
+export function Photos({ serviceId, images, onChanged }: {
   readonly serviceId: string;
   readonly images: readonly string[];
   readonly onChanged: () => void;

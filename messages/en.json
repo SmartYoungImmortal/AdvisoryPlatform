@@ -27,6 +27,26 @@
       "NO_SHOW": "No show"
     }
   },
+  "newService": {
+    "stepOf": "Step {n} of {total}",
+    "categoryQ": "Which category is this service in?",
+    "textQ": "Name it, and say what a client gets from the session",
+    "textHint": "The name and description are what clients read first. You can change them any time in the editor.",
+    "priceQ": "How long is a session, and what does it cost?",
+    "priceHint": "To sell it in several forms, add packages later in the editor",
+    "priceInvalid": "Enter both the price and the length first",
+    "scheduleQ": "When can clients book it?",
+    "doneQ": "Almost done",
+    "doneHint": "Put it on sale now, or keep it to finish later. It is saved as a draft already.",
+    "publishNeedsPhoto": "Add at least one cover photo before putting it on sale",
+    "publish": "Put on sale",
+    "keepDraft": "Keep as draft",
+    "back": "Back",
+    "next": "Next",
+    "exit": "Exit",
+    "saving": "Saving…",
+    "saveFailed": "Could not save"
+  },
   "ownerService": {
     "loadFailed": "Couldn't load this service",
     "back": "Back to my services",
