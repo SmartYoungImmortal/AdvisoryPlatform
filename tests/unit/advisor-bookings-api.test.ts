@@ -24,10 +24,17 @@ describe("advisor booking reads", () => {
     fetchMock.mockResolvedValueOnce(response({ items: [booking, cancelled], total: 2, page: 2, limit: 100, totalPages: 2 }));
     const { listAllAdvisorBookings } = await import("@/lib/api/advisor-bookings");
     const controller = new AbortController();
-    expect(await listAllAdvisorBookings(controller.signal)).toEqual([booking, cancelled]);
+    expect(await listAllAdvisorBookings(controller.signal)).toEqual([booking, cancelled].map(item => ({ ...item, adviseeAvatarUrl: null, serviceImageUrl: null })));
     expect(fetchMock).toHaveBeenCalledTimes(2);
     expect(fetchMock.mock.calls[1]?.[0]).toContain("page=2");
     expect(fetchMock.mock.calls[1]?.[1]).toMatchObject({ signal: controller.signal, credentials: "include" });
+  });
+
+  it("preserves supplied avatar and service image URLs", async () => {
+    const pictured = { ...booking, adviseeAvatarUrl: "https://images.example.test/avatar.png", serviceImageUrl: "https://images.example.test/service.png" };
+    fetchMock.mockResolvedValueOnce(response({ items: [pictured], total: 1, page: 1, limit: 100, totalPages: 1 }));
+    const { listAllAdvisorBookings } = await import("@/lib/api/advisor-bookings");
+    expect(await listAllAdvisorBookings()).toEqual([pictured]);
   });
 
   it("accepts a real empty calendar without fetching another page", async () => {
