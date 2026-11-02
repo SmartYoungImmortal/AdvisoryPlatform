@@ -24,6 +24,10 @@ const advisorBookingSchema = z.object({
   cancelledByUserId: z.uuid().nullable(),
   adviseeName: z.string(),
   serviceName: z.string(),
+  // The advisee's picture and the service's first photograph, as fetchable URLs;
+  // null without one, and absent from an API that predates them.
+  adviseeAvatarUrl: z.string().nullable().default(null),
+  serviceImageUrl: z.string().nullable().default(null),
 });
 const detailSchema = advisorBookingSchema.extend({
   chatRoomId: z.uuid().nullable(),

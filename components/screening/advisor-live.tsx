@@ -1,6 +1,6 @@
 "use client";
 
-import { CircleHelp, FileText, Inbox, Package, Plus } from "lucide-react";
+import { CircleHelp, Package, Plus } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
@@ -9,14 +9,15 @@ import { useCallback, useEffect, useState, type ReactNode } from "react";
 import { EntryDialog } from "@/components/advisor/edit-fields";
 import { authPill } from "@/components/auth/auth-split";
 import { useMountTime } from "@/components/bookings/booking-flow";
-import { useElapsedLabel } from "@/components/mobile/live-state";
-import { DayGroup } from "@/components/notifications/notification-center-screen";
 import { DeclineScreeningDialog } from "@/components/screening/decline-dialog";
+import {
+  BoneLine,
+  useScreeningDecision,
+  useScreeningRequest,
+  useShortFailure,
+} from "@/components/screening/inbox-parts";
 import { ScreeningErrorNotice, useSentLabel } from "@/components/screening/live-parts";
 import {
-  acceptScreeningRequest,
-  declineScreeningRequest,
-  getScreeningRequest,
   listScreeningQuestions,
   listScreeningRequests,
   replaceScreeningQuestions,
@@ -24,25 +25,14 @@ import {
   SCREENING_QUESTION_MAX_LENGTH,
   screeningErrorKey,
   screeningKeys,
-  type ApiAdvisorScreeningRequest,
   type ApiScreeningQuestion,
-  type ScreeningErrorKey,
   type ScreeningStatus,
 } from "@/components/screening/screening-data";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
-import { DESK_GLYPH, DESK_PILL, DESK_ROW, DeskPage } from "@/components/work/desk-page";
-import {
-  DESK_BONE,
-  DeskEmpty,
-  DeskFilter,
-  DeskListSkeleton,
-  DeskRow,
-  DeskRowAction,
-  DeskSection,
-} from "@/components/work/desk-parts";
-import { WorkHub } from "@/components/work/work-hub";
+import { DESK_PILL, DeskPage } from "@/components/work/desk-page";
+import { DESK_BONE, DeskEmpty, DeskRow, DeskRowAction, DeskSection } from "@/components/work/desk-parts";
 import {
   getMyAdvisorService,
   listMyAdvisorServices,
@@ -54,148 +44,15 @@ import { cn } from "@/lib/utils";
 
 /**
  * The advisor's screening pages, on the desk's frame and the API: the
- * requests (a place of the desk), one request's answers with the way to
- * accept or decline it, and the questions a service asks before it can be
- * booked.
+ * requests (a place of the desk, the inbox in `inbox-screen.tsx`), one
+ * request's answers with the way to accept or decline it, and the questions
+ * a service asks before it can be booked.
  */
 
 /* ----------------------------------------------------------------- requests */
 
-/**
- * One request, the desk's row: the form in a soft circle, who over which
- * service, and at the right when it came — with a dot while it is unread —
- * or, once answered, how it was answered.
- */
-function RequestRow({
-  request,
-  elapsed,
-}: {
-  readonly request: ApiAdvisorScreeningRequest;
-  readonly elapsed: (iso: string) => string;
-}) {
-  const t = useTranslations("screening");
-  const pending = request.status === "PENDING";
-  const unread = pending && !request.viewedAt;
-  let outcome: { readonly label: string; readonly ink: string } | null = null;
-  if (request.status === "ACCEPTED") outcome = { label: t("req4Body"), ink: "text-success" };
-  if (request.status === "DECLINED") outcome = { label: t("req5Body"), ink: "text-destructive" };
-
-  return (
-    <li>
-      <Link className={DESK_ROW} href={`/screening/review?requestId=${request.id}`}>
-        <span className={cn(DESK_GLYPH, "relative")}>
-          <FileText aria-hidden className="size-4 lg:size-6" strokeWidth={1.75} />
-          {unread ? <span aria-hidden className="absolute top-0 right-0 size-2.5 rounded-full bg-hero-action ring-2 ring-card" /> : null}
-        </span>
-        <span className="flex min-w-0 flex-1 flex-col gap-0.5 lg:gap-1">
-          <span className={cn("truncate text-sm text-foreground lg:text-frame-body", unread ? "font-semibold" : "font-medium")}>
-            {request.adviseeDisplayName}
-          </span>
-          <span className="truncate text-xs text-muted-foreground lg:text-frame-meta">{request.serviceName}</span>
-        </span>
-        <span className="flex shrink-0 flex-col items-end gap-0.5 lg:gap-1">
-          <span className="text-xs whitespace-nowrap text-muted-foreground lg:text-frame-label">
-            {elapsed(request.decidedAt ?? request.createdAt)}
-          </span>
-          {outcome ? <span className={cn("text-xs whitespace-nowrap lg:text-frame-label", outcome.ink)}>{outcome.label}</span> : null}
-        </span>
-      </Link>
-    </li>
-  );
-}
-
-/**
- * `/screening/requests`: the answers advisees sent before booking a screened
- * service, as the transactions page lays out its history — the capsules
- * (all, waiting, answered, each with how many), then the ones waiting on the
- * advisor and those already answered, each a row that opens its answers.
- */
-export function LiveScreeningRequests() {
-  const t = useTranslations("screening");
-  const w = useTranslations("workDesk");
-  const now = useMountTime();
-  const elapsed = useElapsedLabel(now);
-  const [shown, setShown] = useState<"all" | "pending" | "answered">("all");
-  const requests = useResource(
-    screeningKeys.requests,
-    useCallback((signal: AbortSignal) => listScreeningRequests({ limit: 100 }, signal), []),
-  );
-
-  let body;
-  if (requests.loading) {
-    body = <DeskListSkeleton capsules={["w-22 lg:w-26", "w-30 lg:w-36", "w-24 lg:w-28"]} groups={1} label={w("loading")} rows={3} />;
-  } else if (requests.error || !requests.data) {
-    body = (
-      <div className="mt-5 lg:mt-8">
-        <ScreeningErrorNotice errorKey={screeningErrorKey(requests.error)} onRetry={requests.reload} />
-      </div>
-    );
-  } else if (requests.data.items.length === 0) {
-    body = <DeskEmpty body={t("requestsEmptyBody")} icon={Inbox} title={t("requestsEmptyTitle")} />;
-  } else {
-    const pending = requests.data.items.filter((request) => request.status === "PENDING");
-    const answered = requests.data.items.filter((request) => request.status !== "PENDING");
-    const groups = [
-      { key: "pending", label: t("pending"), rows: shown === "answered" ? [] : pending },
-      { key: "answered", label: t("answered"), rows: shown === "pending" ? [] : answered },
-    ].filter((group) => group.rows.length > 0);
-    body = (
-      <>
-        <DeskFilter
-          label={t("requestsTitle")}
-          onChange={setShown}
-          options={[
-            { key: "all", label: w("filterAll"), note: requests.data.items.length },
-            { key: "pending", label: t("pending"), note: pending.length },
-            { key: "answered", label: t("answered"), note: answered.length },
-          ]}
-          value={shown}
-        />
-        {groups.length === 0 ? (
-          <p className="pt-8 text-sm text-muted-foreground lg:pt-12 lg:text-frame-body">{w("filteredEmpty")}</p>
-        ) : (
-          <div className="flex flex-col divide-y divide-border">
-            {groups.map((group) => (
-              <DayGroup key={group.key} label={group.label}>
-                {group.rows.map((request) => (
-                  <RequestRow elapsed={elapsed} key={request.id} request={request} />
-                ))}
-              </DayGroup>
-            ))}
-          </div>
-        )}
-      </>
-    );
-  }
-
-  return <WorkHub tab="requests">{body}</WorkHub>;
-}
-
-/* ------------------------------------------------------------------- shared */
-
-/**
- * What a failed write says in the one line a popup or a pill has room for:
- * the request already answered elsewhere, no connection, or the API's
- * failure — the long load-error cards are for the page itself.
- */
-function useShortFailure(): (key: ScreeningErrorKey) => string {
-  const t = useTranslations("screening");
-  const e = useTranslations("errorStates");
-  return (key) => {
-    if (key === "errorAlreadyDecided") return t("errorAlreadyDecided");
-    if (key === "offline") return e("offlineBody");
-    return e("serverBody");
-  };
-}
-
-/** One line box of a type step with its bone inside, so a skeleton's line stands as tall as the text it holds. */
-function BoneLine({ text, bone }: { readonly text: string; readonly bone: string }) {
-  return (
-    <span className={cn("flex h-lh items-center", text)}>
-      <span className={cn(DESK_BONE, "rounded", bone)} />
-    </span>
-  );
-}
+/** `/screening/requests`: the list beside the open request from `lg`, the list alone on a phone. */
+export { LiveScreeningRequests } from "@/components/screening/inbox-screen";
 
 /* ------------------------------------------------------------------- review */
 
@@ -261,12 +118,7 @@ function ReviewView({ requestId, declining }: { readonly requestId: string; read
   const now = useMountTime();
   const sent = useSentLabel(now);
   const short = useShortFailure();
-  const request = useResource(
-    screeningKeys.request(requestId),
-    useCallback((signal: AbortSignal) => getScreeningRequest(requestId, signal), [requestId]),
-  );
-  const [busy, setBusy] = useState(false);
-  const [failure, setFailure] = useState<ScreeningErrorKey | null>(null);
+  const request = useScreeningRequest(requestId);
 
   // Opening the request marks it as viewed, so the cached list is now out of
   // date. Only the list (its key and the language suffix `useResource` adds):
@@ -277,38 +129,14 @@ function ReviewView({ requestId, declining }: { readonly requestId: string; read
     if (loaded) invalidate(`${screeningKeys.requests}#`);
   }, [loaded]);
 
-  const decided = () => {
-    invalidate(screeningKeys.requests);
-    // The desk menu's count of requests still waiting.
-    invalidate("advisors/me/screening-requests");
-    router.push("/screening/requests");
-  };
-  const fail = (cause: unknown) => {
-    setFailure(screeningErrorKey(cause, { conflict: "errorAlreadyDecided" }));
-    setBusy(false);
-  };
-
-  const accept = async () => {
-    setBusy(true);
-    setFailure(null);
-    try {
-      await acceptScreeningRequest(requestId);
-      decided();
-    } catch (cause) {
-      fail(cause);
-    }
-  };
-
-  const decline = async (message: string) => {
-    setBusy(true);
-    setFailure(null);
-    try {
-      await declineScreeningRequest(requestId, message);
-      decided();
-    } catch (cause) {
-      fail(cause);
-    }
-  };
+  const { busy, failure, accept, decline } = useScreeningDecision(requestId, {
+    onDecided: () => {
+      invalidate(screeningKeys.requests);
+      // The desk menu's count of requests still waiting.
+      invalidate("advisors/me/screening-requests");
+      router.push("/screening/requests");
+    },
+  });
 
   let body;
   if (request.loading) {
@@ -372,7 +200,7 @@ function ReviewView({ requestId, declining }: { readonly requestId: string; read
               </div>
               {failure && !declining ? (
                 <p className="text-sm text-destructive lg:text-frame-meta" role="alert">
-                  {short(failure)}
+                  {short(failure.key)}
                 </p>
               ) : null}
             </div>
@@ -404,7 +232,7 @@ function ReviewView({ requestId, declining }: { readonly requestId: string; read
           <DeclineScreeningDialog
             busy={busy}
             cancelHref={reviewHref}
-            error={failure ? short(failure) : null}
+            error={failure ? short(failure.key) : null}
             name={data.adviseeDisplayName}
             onConfirm={(message) => void decline(message)}
           />

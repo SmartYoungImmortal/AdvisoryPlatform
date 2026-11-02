@@ -7,7 +7,7 @@ import { extendTailwindMerge } from "tailwind-merge"
  * instead of taking them for a colour and dropping the colour beside them.
  */
 const twMerge = extendTailwindMerge({
-  extend: { theme: { text: ["fine", "frame-headline", "display-xs", "display-sm"] } },
+  extend: { theme: { text: ["fine", "frame-headline", "heading-lg", "display-xs", "display-sm"] } },
 })
 
 export function cn(...inputs: ClassValue[]) {

@@ -1,32 +1,53 @@
 "use client";
 
 import { ChevronLeft, ChevronRight, RotateCw } from "lucide-react";
-import { useLocale, useTranslations } from "next-intl";
-import { useCallback, useState, useSyncExternalStore } from "react";
-import { useMountTime } from "@/components/bookings/booking-flow";
+import { useSearchParams } from "next/navigation";
+import { useFormatter, useTranslations } from "next-intl";
+import { Suspense, useEffect, useState } from "react";
+
 import { Button } from "@/components/ui/button";
-import { DESK_BONE, DeskSection } from "@/components/work/desk-parts";
-import { SessionRow } from "@/components/work/session-row";
-import { WorkHub } from "@/components/work/work-hub";
 import {
-  listAllAdvisorBookings,
-  type AdvisorBooking,
-} from "@/lib/api/advisor-bookings";
+  CalendarDeskBox,
+  CalendarDeskControlBones,
+  CalendarDeskControls,
+  CalendarDeskMonth,
+  CalendarDeskWeek,
+  CalendarDeskWeekBones,
+  CalendarMonthMenu,
+  CalendarViewMenu,
+  type CalendarView,
+} from "@/components/work/calendar-desk-views";
+import {
+  CalendarHours,
+  SessionBlock,
+  asDay,
+  hourSpan,
+  laySessions,
+  noonOf,
+  share,
+  shiftDay,
+  weekOf,
+} from "@/components/work/calendar-time-grid";
+import { DESK_BONE } from "@/components/work/desk-parts";
+import { useAdvisorBookings } from "@/components/work/work-data";
+import { WorkHub } from "@/components/work/work-hub";
+import type { AdvisorBooking } from "@/lib/api/advisor-bookings";
 import { getOwnProfile } from "@/lib/api/resources";
 import type { ApiOwnProfile } from "@/lib/api/types";
 import { useResource } from "@/lib/api/use-resource";
-import { WEEKDAY_KEYS, monthGrid } from "@/lib/calendar";
 import { bookingDay, moveMonth } from "@/lib/work/booking-calendar";
 import { cn } from "@/lib/utils";
 
-/** The month's card, and beside it from `lg` the day's list. */
-const GRID =
-  "mt-5 grid w-full gap-8 lg:mt-8 lg:grid-cols-[minmax(0,1.2fr)_minmax(0,1fr)]";
-
-const BLOCK = "flex w-full min-w-0 flex-col items-start gap-3 lg:gap-4";
-
-/** The day's heading over its sessions, at the month card's spacing. */
-const DAY_SECTION = "gap-3 lg:gap-4";
+/**
+ * `/work/calendar`: the advisor's sessions by the clock. Below `lg` the
+ * month over a strip of the week's days, the chosen day's number in the ink
+ * circle and a dot under each day with a session, then that day hour by
+ * hour. From `lg` the month large with its menu and the view's capsule, then
+ * the week hour by hour or the month as tiles, with the way back, today and
+ * the way on floating at the foot. `?day=` (and `?view=month`) name what is
+ * shown, and every move writes them back, so coming back from a session
+ * lands where it was opened.
+ */
 
 export function AdvisorBookingReadState({
   failed = false,
@@ -97,281 +118,271 @@ export function SessionRowBones({ rows = 2 }: { readonly rows?: number }) {
   );
 }
 
-/** Nothing to listen to: the device's month is read once, after hydration. */
-const noSubscription = () => () => {};
+/** The page under the frame's band. */
+const PAGE = "mt-5 flex w-full min-w-0 flex-col lg:mt-8";
 
-/**
- * How many weeks the device's own month spans. The account's zone is not
- * known while it loads; the device's agrees with it but at a month's edge.
- */
-function deviceWeeks(): number {
-  const now = new Date();
-  return monthGrid(now.getFullYear(), now.getMonth() + 1).length / 7;
+/** The phone's round grey buttons, and the "today" capsule at their height. */
+const ROUND =
+  "size-10 rounded-full bg-muted text-foreground hover:bg-muted/70 hover:text-foreground";
+const PILL =
+  "h-10 rounded-full bg-muted px-4 text-sm font-medium text-foreground hover:bg-muted/70 hover:text-foreground";
+
+/** The week's strip, its hairline under it running to the phone's edges. */
+const STRIP =
+  "-mx-5 mt-4 grid grid-cols-7 border-b border-border px-5 pb-3 md:mx-0 md:px-0";
+
+/** A day of the strip: its letter, its number in the circle, the dot. */
+const DAY_CELL = "flex h-auto flex-col items-center gap-0 px-0 py-1";
+const CIRCLE = "mt-2 flex size-9 items-center justify-center rounded-full";
+const DOT = "mt-1 size-1.5 rounded-full";
+
+/** The phone's day: 08:00 to 20:00 at the least, an hour either side of its sessions. */
+const DAY_FROM = 8;
+const DAY_TO = 20;
+
+/** A week known to start on Sunday, for the weekdays' letters before any date is. */
+const A_SUNDAY = "2023-01-01";
+
+/** The time, again each minute: today, and the red line on the week. */
+function useMinuteClock(): number {
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    const timer = window.setInterval(() => setNow(Date.now()), 60_000);
+    return () => window.clearInterval(timer);
+  }, []);
+  return now;
 }
 
 /**
- * The calendar while the account is on its way, in its own shape so nothing
- * shifts when it lands: the month's row (its two chevrons and its name), the
- * zone's line, the card of weeks under the weekdays' names, the count with
- * the refresh, and beside it the day's heading over its sessions.
+ * The calendar while it loads, in its own shape so nothing shifts when it
+ * lands: below `lg` the month's row, the strip's letters over bones in the
+ * circles, and the hours with bones for labels; from `lg` the title and the
+ * capsule, the week's head and hours, and the floating controls.
  */
 function CalendarSkeleton() {
   const t = useTranslations("advisorBookings");
-  const s = useTranslations("serviceSchedule");
-  // The static export prerenders the build's month, so the page hydrates
-  // with five weeks and then takes the device's count.
-  const weeks = useSyncExternalStore(noSubscription, deviceWeeks, () => 5);
+  const format = useFormatter();
 
   return (
-    <div aria-busy className={GRID}>
+    <div aria-busy className={PAGE}>
       <span className="sr-only">{t("loading")}</span>
-      <div aria-hidden className={BLOCK}>
+      <div aria-hidden className="lg:hidden">
         <div className="flex w-full items-center justify-between gap-3">
-          <span className={cn(DESK_BONE, "size-9 shrink-0 rounded-md")} />
-          <span className="flex h-lh items-center text-base lg:text-frame-body">
-            <span className={cn(DESK_BONE, "h-4 w-32 rounded lg:h-5 lg:w-40")} />
+          <span className="flex h-lh items-center font-hero text-xl">
+            <span className={cn(DESK_BONE, "h-5 w-36 rounded")} />
           </span>
-          <span className={cn(DESK_BONE, "size-9 shrink-0 rounded-md")} />
+          <span className="flex shrink-0 items-center gap-2">
+            <span className={cn(DESK_BONE, "size-10 rounded-full")} />
+            <span className={cn(DESK_BONE, "size-10 rounded-full")} />
+            <span className={cn(DESK_BONE, "h-10 w-18 rounded-full")} />
+          </span>
         </div>
-        <span className="flex h-lh items-center text-xs lg:text-frame-label">
-          <span className={cn(DESK_BONE, "h-3 w-36 rounded lg:h-3.5 lg:w-44")} />
-        </span>
-        <div className="w-full overflow-hidden rounded-2xl border border-border">
-          <div className="grid grid-cols-7">
-            {WEEKDAY_KEYS.map((key) => (
-              <span
-                className="py-2 text-center text-xs text-muted-foreground"
-                key={key}
-              >
-                {s(`weekdayShort.${key}`)}
+        <div className={STRIP}>
+          {weekOf(A_SUNDAY).map((date) => (
+            <span className={cn(DAY_CELL, "border border-transparent")} key={date}>
+              <span className="text-xs text-muted-foreground">
+                {format.dateTime(noonOf(date), { weekday: "narrow", timeZone: "UTC" })}
               </span>
-            ))}
-            {Array.from({ length: weeks * 7 }, (_, index) => (
-              <span
-                className="flex min-h-12 items-center justify-center lg:min-h-20 lg:border-t lg:border-border"
-                key={index}
-              >
-                <span className="flex h-lh items-center text-sm">
-                  <span className={cn(DESK_BONE, "h-3.5 w-4 rounded")} />
-                </span>
-              </span>
-            ))}
-          </div>
+              <span className={cn(DESK_BONE, CIRCLE)} />
+              <span className={DOT} />
+            </span>
+          ))}
         </div>
-        <div className="flex w-full items-center justify-between gap-2">
-          <span className="flex h-lh items-center text-xs">
-            <span className={cn(DESK_BONE, "h-3 w-16 rounded")} />
-          </span>
-          <span className="flex h-9 items-center px-2.5">
-            <span className={cn(DESK_BONE, "h-3.5 w-16 rounded")} />
-          </span>
+        <div className="mt-8 pb-3">
+          <CalendarHours bones first={DAY_FROM} last={DAY_TO} size="phone" />
         </div>
       </div>
-      <div aria-hidden className={cn("flex min-w-0 flex-col", DAY_SECTION)}>
-        <div className="flex min-h-11 items-end">
-          <span className="flex h-lh items-center text-base lg:text-frame-body">
-            <span className={cn(DESK_BONE, "h-4 w-56 rounded lg:h-5 lg:w-72")} />
+      <div aria-hidden className="hidden lg:block">
+        <div className="flex items-center justify-between gap-4">
+          <span className="flex items-center gap-1">
+            <span className="flex h-lh items-center text-frame-title">
+              <span className={cn(DESK_BONE, "h-9 w-72 rounded-lg")} />
+            </span>
+            <span className={cn(DESK_BONE, "size-10 rounded-full")} />
           </span>
+          <span className={cn(DESK_BONE, "h-10 w-24.5 rounded-full")} />
         </div>
-        <SessionRowBones />
+        <CalendarDeskBox controls={<CalendarDeskControlBones />}>
+          <CalendarDeskWeekBones />
+        </CalendarDeskBox>
       </div>
     </div>
   );
 }
 
 export function AdvisorCalendarScreen() {
-  const profile = useResource<ApiOwnProfile>("users/me", getOwnProfile);
   return (
     <WorkHub tab="calendar">
-      {profile.error ? (
-        <AdvisorBookingReadState failed retry={profile.reload} />
-      ) : profile.data ? (
-        <CalendarData profile={profile.data} />
-      ) : (
-        <CalendarSkeleton />
-      )}
+      <Suspense fallback={<CalendarSkeleton />}>
+        <CalendarFromQuery />
+      </Suspense>
     </WorkHub>
   );
 }
 
-function CalendarData({ profile }: { readonly profile: ApiOwnProfile }) {
-  const t = useTranslations("advisorBookings");
-  const s = useTranslations("serviceSchedule");
-  const locale = useLocale();
-  const now = useMountTime();
-  const today = bookingDay(now, profile.timezone);
-  const [shownMonth, setShownMonth] = useState<string | null>(null);
-  const [picked, setPicked] = useState<string | null>(null);
-  const fetcher = useCallback(
-    (signal: AbortSignal) => listAllAdvisorBookings(signal),
-    [],
-  );
-  const resource = useResource<AdvisorBooking[]>(
-    `advisors/${profile.id}/bookings/all`,
-    fetcher,
-  );
-  const month = shownMonth ?? today.slice(0, 7);
-  const day = picked?.startsWith(month)
-    ? picked
-    : month === today.slice(0, 7)
-      ? today
-      : `${month}-01`;
-  const [year, monthNumber] = month.split("-").map(Number);
-  const cells = monthGrid(year, monthNumber);
-  const entries = (resource.data ?? []).toSorted((a, b) =>
-    a.startTime.localeCompare(b.startTime),
-  );
-  const inMonth = entries.filter((booking) =>
-    bookingDay(booking.startTime, profile.timezone).startsWith(month),
-  );
-  const selected = inMonth.filter(
-    (booking) => bookingDay(booking.startTime, profile.timezone) === day,
-  );
-  const counts = new Map<string, number>();
-  for (const booking of inMonth) {
-    const key = bookingDay(booking.startTime, profile.timezone);
-    counts.set(key, (counts.get(key) ?? 0) + 1);
+/** What the address names: the day shown, and the month view when it is that. */
+function CalendarFromQuery() {
+  const params = useSearchParams();
+  const day = asDay(params.get("day"));
+  const view: CalendarView = params.get("view") === "month" ? "month" : "week";
+  const profile = useResource<ApiOwnProfile>("users/me", getOwnProfile);
+  if (profile.error) {
+    return <AdvisorBookingReadState failed retry={profile.reload} />;
   }
-  const monthLabel = new Intl.DateTimeFormat(locale, {
-    month: "long",
-    year: "numeric",
-    timeZone: "UTC",
-  }).format(new Date(`${month}-01T12:00:00Z`));
-  const dayLabel = new Intl.DateTimeFormat(locale, {
-    dateStyle: "full",
-    timeZone: "UTC",
-  }).format(new Date(`${day}T12:00:00Z`));
-  function navigate(offset: number) {
-    setShownMonth(moveMonth(month, offset));
-    setPicked(null);
+  if (!profile.data) return <CalendarSkeleton />;
+  return <CalendarData profile={profile.data} queryDay={day} queryView={view} />;
+}
+
+function CalendarData({
+  profile,
+  queryDay,
+  queryView,
+}: {
+  readonly profile: ApiOwnProfile;
+  readonly queryDay: string | null;
+  readonly queryView: CalendarView;
+}) {
+  const t = useTranslations("advisorBookings");
+  const format = useFormatter();
+  const bookings = useAdvisorBookings(profile);
+  const now = useMinuteClock();
+  const [picked, setPicked] = useState<{ readonly day: string; readonly view: CalendarView } | null>(null);
+  const timeZone = profile.timezone;
+  const today = bookingDay(now, timeZone);
+  const day = picked?.day ?? queryDay ?? today;
+  const view = picked?.view ?? queryView;
+
+  if (bookings.error) {
+    return <AdvisorBookingReadState failed retry={bookings.reload} />;
+  }
+  if (!bookings.data) return <CalendarSkeleton />;
+
+  /** Show `next` (in `nextView`), and name it in the address for the way back. */
+  function go(next: string, nextView: CalendarView = view) {
+    setPicked({ day: next, view: nextView });
+    const params = new URLSearchParams(window.location.search);
+    params.set("day", next);
+    if (nextView === "month") params.set("view", "month");
+    else params.delete("view");
+    window.history.replaceState(null, "", `?${params.toString()}`);
+  }
+
+  const byDay = new Map<string, AdvisorBooking[]>();
+  for (const booking of bookings.data.toSorted((a, b) => a.startTime.localeCompare(b.startTime))) {
+    const key = bookingDay(booking.startTime, timeZone);
+    byDay.set(key, [...(byDay.get(key) ?? []), booking]);
+  }
+  const week = weekOf(day);
+  const month = day.slice(0, 7);
+  const monthLabel = format.dateTime(noonOf(day), { month: "long", year: "numeric", timeZone: "UTC" });
+  const fullDate = (date: string) => format.dateTime(noonOf(date), { dateStyle: "full", timeZone: "UTC" });
+  const daySlots = laySessions(byDay.get(day) ?? [], timeZone);
+  const { first, last } = hourSpan(daySlots, DAY_FROM, DAY_TO, 1);
+  const rows = last - first;
+
+  function step(offset: number) {
+    go(view === "week" ? shiftDay(day, offset * 7) : `${moveMonth(month, offset)}-01`);
   }
 
   return (
-    <div className={GRID}>
-      <section className={BLOCK}>
+    <div className={PAGE}>
+      <div className="lg:hidden">
         <div className="flex w-full items-center justify-between gap-3">
-          <Button
-            aria-label={t("previousMonth")}
-            onClick={() => navigate(-1)}
-            size="icon"
-            type="button"
-            variant="outline"
-          >
-            <ChevronLeft aria-hidden />
-          </Button>
-          <h2 className="text-base font-semibold text-foreground lg:text-frame-body" aria-live="polite">
+          <h2 aria-live="polite" className="min-w-0 truncate font-hero text-xl font-medium tracking-tight text-hero-ink">
             {monthLabel}
           </h2>
-          <Button
-            aria-label={t("nextMonth")}
-            onClick={() => navigate(1)}
-            size="icon"
-            type="button"
-            variant="outline"
-          >
-            <ChevronRight aria-hidden />
-          </Button>
+          <div className="flex shrink-0 items-center gap-2">
+            <Button aria-label={t("previousWeek")} className={ROUND} onClick={() => go(shiftDay(day, -7))} size="icon" type="button" variant="ghost">
+              <ChevronLeft aria-hidden className="size-5" />
+            </Button>
+            <Button aria-label={t("nextWeek")} className={ROUND} onClick={() => go(shiftDay(day, 7))} size="icon" type="button" variant="ghost">
+              <ChevronRight aria-hidden className="size-5" />
+            </Button>
+            <Button className={PILL} onClick={() => go(today)} type="button" variant="ghost">
+              {t("today")}
+            </Button>
+          </div>
         </div>
-        <p className="text-xs text-muted-foreground lg:text-frame-label">
-          {t("timezone", { zone: profile.timezone })}
-        </p>
-        <div className="w-full overflow-hidden rounded-2xl border border-border">
-          <div className="grid grid-cols-7">
-            {WEEKDAY_KEYS.map((key) => (
-              <span
-                className="py-2 text-center text-xs text-muted-foreground"
-                key={key}
+        <div className={STRIP}>
+          {week.map((date) => {
+            const count = byDay.get(date)?.length ?? 0;
+            const selected = date === day;
+            return (
+              <Button
+                aria-current={date === today ? "date" : undefined}
+                aria-label={`${fullDate(date)}, ${t("bookingCount", { count })}`}
+                aria-pressed={selected}
+                className={cn(DAY_CELL, "hover:bg-transparent dark:hover:bg-transparent")}
+                key={date}
+                onClick={() => go(date)}
+                type="button"
+                variant="ghost"
               >
-                {s(`weekdayShort.${key}`)}
-              </span>
-            ))}
-            {cells.map((cell, index) => {
-              const key = `${month}-${String(cell.day).padStart(2, "0")}`;
-              const count = cell.inMonth ? (counts.get(key) ?? 0) : 0;
-              return (
-                <button
-                  aria-label={`${cell.day}, ${t("bookingCount", { count })}`}
-                  aria-pressed={cell.inMonth && key === day}
+                <span className="text-xs font-normal text-muted-foreground">
+                  {format.dateTime(noonOf(date), { weekday: "narrow", timeZone: "UTC" })}
+                </span>
+                <span
                   className={cn(
-                    "relative flex min-h-12 flex-col items-center justify-center gap-1 text-sm lg:min-h-20 lg:border-t lg:border-border",
-                    !cell.inMonth && "text-muted-foreground/40",
-                    cell.inMonth &&
-                      key === day &&
-                      "bg-hero-action text-hero-action-foreground",
+                    CIRCLE,
+                    "font-latin text-base font-medium tabular-nums",
+                    selected
+                      ? "bg-hero-action text-hero-action-foreground"
+                      : cn(
+                          "group-hover/button:bg-muted",
+                          date === today && "font-bold text-foreground",
+                          date < today && "text-muted-foreground",
+                          date > today && "text-foreground",
+                        ),
                   )}
-                  disabled={!cell.inMonth}
-                  key={`${index}-${cell.day}`}
-                  onClick={() => setPicked(key)}
-                  type="button"
                 >
-                  <span
-                    className={cn(
-                      "font-latin tabular-nums",
-                      key === today && "font-bold underline underline-offset-4",
-                    )}
-                  >
-                    {cell.day}
-                  </span>
-                  {count > 0 ? (
-                    <span
-                      aria-hidden
-                      className={cn(
-                        "size-1.5 rounded-full",
-                        key === day ? "bg-hero-action-foreground" : "bg-hero-action",
-                      )}
-                    />
-                  ) : null}
-                </button>
-              );
-            })}
-          </div>
+                  {Number(date.slice(8))}
+                </span>
+                <span aria-hidden className={cn(DOT, count ? "bg-foreground" : "bg-transparent")} />
+              </Button>
+            );
+          })}
         </div>
-        <div className="flex w-full items-center justify-between gap-2 text-xs text-muted-foreground">
-          {resource.data ? (
-            <span>{t("bookingCount", { count: inMonth.length })}</span>
-          ) : resource.error ? (
-            <span>{t("loadFailed")}</span>
+        <section aria-label={fullDate(day)} className="mt-8 pb-3">
+          <CalendarHours first={first} last={last} size="phone">
+            {daySlots.length ? (
+              <ul>
+                {daySlots.map((slot) => (
+                  <SessionBlock first={first} key={slot.booking.id} last={last} now={now} size="phone" slot={slot} timeZone={timeZone} />
+                ))}
+              </ul>
+            ) : (
+              <p
+                className="absolute inset-x-0 -translate-y-1/2 text-center text-sm text-muted-foreground"
+                style={{ top: share(Math.floor(rows / 2) + 0.5, rows) }}
+              >
+                {t("emptyDay")}
+              </p>
+            )}
+          </CalendarHours>
+        </section>
+      </div>
+
+      <div className="hidden lg:block">
+        <div className="flex items-center justify-between gap-4">
+          <div className="flex min-w-0 items-center gap-1">
+            <h2 aria-live="polite" className="truncate font-hero text-frame-title font-medium tracking-tight text-hero-ink">
+              {monthLabel}
+            </h2>
+            <CalendarMonthMenu
+              month={month}
+              onPick={(next) => go(next === today.slice(0, 7) ? today : `${next}-01`)}
+            />
+          </div>
+          <CalendarViewMenu onChange={(next) => go(day, next)} view={view} />
+        </div>
+        <CalendarDeskBox controls={<CalendarDeskControls onStep={step} onToday={() => go(today)} view={view} />}>
+          {view === "week" ? (
+            <CalendarDeskWeek byDay={byDay} now={now} timeZone={timeZone} today={today} week={week} />
           ) : (
-            <span aria-hidden className="flex h-lh items-center">
-              <span className={cn(DESK_BONE, "h-3 w-16 rounded")} />
-            </span>
+            <CalendarDeskMonth byDay={byDay} month={month} onPick={(date) => go(date, "week")} timeZone={timeZone} today={today} />
           )}
-          <Button
-            disabled={resource.loading}
-            onClick={resource.reload}
-            type="button"
-            variant="ghost"
-          >
-            <RotateCw aria-hidden />
-            {t("refresh")}
-          </Button>
-        </div>
-      </section>
-      <DeskSection className={DAY_SECTION} id="calendar-day" title={dayLabel}>
-        {resource.error ? (
-          <AdvisorBookingReadState failed retry={resource.reload} />
-        ) : !resource.data ? (
-          <div aria-busy className="w-full">
-            <span className="sr-only">{t("loading")}</span>
-            <SessionRowBones />
-          </div>
-        ) : selected.length ? (
-          <ul className="flex w-full flex-col">
-            {selected.map((booking) => (
-              <SessionRow
-                booking={booking}
-                key={booking.id}
-                now={now}
-                timeZone={profile.timezone}
-              />
-            ))}
-          </ul>
-        ) : (
-          <p className="w-full rounded-2xl border border-border p-5 text-sm text-muted-foreground lg:text-frame-meta">
-            {t("emptyDay")}
-          </p>
-        )}
-      </DeskSection>
+        </CalendarDeskBox>
+      </div>
     </div>
   );
 }

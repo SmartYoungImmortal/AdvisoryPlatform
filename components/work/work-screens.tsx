@@ -1,25 +1,25 @@
 "use client";
 
-import { CalendarDays, ChevronRight, CreditCard, Inbox, MessageSquare, ShieldCheck, Star, Wallet, type LucideIcon } from "lucide-react";
+import { CreditCard, ShieldCheck, Wallet } from "lucide-react";
 import Link from "next/link";
 import { useFormatter, useTranslations } from "next-intl";
 import { useCallback, useState, type ReactNode } from "react";
 
-import { LinkListCount } from "@/components/account/link-list";
+import { initialsOf } from "@/components/advisor-public/headline";
 import { authPill } from "@/components/auth/auth-split";
 import { useMountTime } from "@/components/bookings/booking-flow";
 import { DayGroup } from "@/components/notifications/notification-center-screen";
 import { useOwnProfile } from "@/components/profile/profile-data";
 import { ApiErrorCard } from "@/components/service/parts";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
-import { AdvisorCalendarScreen, SessionRowBones } from "@/components/work/advisor-calendar-screen";
-import { SessionRow } from "@/components/work/session-row";
+import { AdvisorCalendarScreen } from "@/components/work/advisor-calendar-screen";
 import { AdvisorSessionDetailScreen } from "@/components/work/session-detail";
-import { useAdvisorBookings, usePayouts, usePendingScreening, useRatingSummary } from "@/components/work/work-data";
-import { DESK_GLYPH, DESK_PILL } from "@/components/work/desk-page";
-import { DESK_BONE, DeskEmpty, DeskFilter, DeskListSkeleton, DeskSection } from "@/components/work/desk-parts";
+import { useAdvisorBookings, usePayouts } from "@/components/work/work-data";
+import { DESK_PILL } from "@/components/work/desk-page";
+import { DESK_BONE, DeskEmpty, DeskFilter, DeskListSkeleton } from "@/components/work/desk-parts";
 import { WorkHub } from "@/components/work/work-hub";
-import { getAdvisorBooking, type AdvisorBooking, type AdvisorBookingDetail } from "@/lib/api/advisor-bookings";
+import type { AdvisorBooking } from "@/lib/api/advisor-bookings";
 import type { ApiPayout } from "@/lib/api/advisor-work";
 import { getOwnAdvisorProfile, type ApiOwnAdvisorProfile } from "@/lib/api/onboarding";
 import type { ApiOwnProfile } from "@/lib/api/types";
@@ -27,21 +27,12 @@ import { useResource } from "@/lib/api/use-resource";
 import { bookingDay } from "@/lib/work/booking-calendar";
 import { cn } from "@/lib/utils";
 
-/** The desk's two columns from `lg`: the view, and its tools beside it — the profile's feed and rail. */
-const DESK = "mt-5 grid grid-cols-1 gap-8 lg:mt-8 lg:grid-cols-[minmax(0,1fr)_24rem]";
-
-/** A list's heading over its rows, at the gap the dashboard's lists keep. */
-const LIST_SECTION = "gap-3 lg:gap-4";
-
 /** The earnings page's capsules while they load: everything, paid and on its way, at their labels' widths. */
 const EARNINGS_CAPSULES = ["w-22 lg:w-26", "w-32 lg:w-38", "w-26 lg:w-30"];
 
 /** `ApiErrorCard` at the frame's type steps from `lg`, as the transactions page draws it. */
 const ERROR_CARD_LG =
   "lg:gap-4 lg:p-7 lg:[&_[data-slot=button]]:h-12 lg:[&_[data-slot=button]]:px-5 lg:[&_[data-slot=button]]:text-frame-meta lg:[&_p]:text-frame-meta lg:[&_p:first-child]:text-frame-figure";
-
-/** How many sessions the desk lists before it points at the calendar. */
-const UPCOMING_SHOWN = 8;
 
 /** A booking still to happen, or happening: held-for-payment ones are not the advisor's yet. */
 function isAhead(booking: AdvisorBooking, now: number): boolean {
@@ -64,43 +55,6 @@ function useBaht(): (satang: number) => string {
 }
 
 /* -------------------------------------------------------------- the pieces */
-
-/** A figure still on its way: one line box of the figure's step, the bone inside. */
-function FigureBone() {
-  return (
-    <span aria-hidden className="flex h-lh items-center">
-      <span className={cn(DESK_BONE, "h-4 w-8 rounded lg:h-5")} />
-    </span>
-  );
-}
-
-/** Nothing yet: one muted icon, what will land here, and the way to start — the transactions page's empty box. */
-function Empty({ icon: Icon, title, body, href, action }: {
-  readonly icon: LucideIcon;
-  readonly title: string;
-  readonly body: string;
-  readonly href: string;
-  readonly action: string;
-}) {
-  return (
-    <div className="flex w-full flex-col items-center justify-center gap-3 rounded-2xl border border-border px-6 py-12 text-center lg:gap-5 lg:py-20">
-      <span className="flex size-11 items-center justify-center rounded-full bg-muted text-hero-ink/75 lg:size-14">
-        <Icon aria-hidden className="size-5 lg:size-7" strokeWidth={1.5} />
-      </span>
-      <div className="flex flex-col items-center gap-1">
-        <h3 className="text-base font-semibold text-foreground lg:text-frame-figure">{title}</h3>
-        <p className="text-xs text-balance text-muted-foreground lg:text-frame-meta">{body}</p>
-      </div>
-      <Button
-        className={cn(authPill(true), "mt-1 h-10 w-auto px-4 text-sm md:h-10 md:px-5 md:text-sm lg:h-12 lg:px-6 lg:text-frame-body")}
-        nativeButton={false}
-        render={<Link href={href} />}
-      >
-        {action}
-      </Button>
-    </div>
-  );
-}
 
 /**
  * The account the desk belongs to, read once; each view draws from it, and
@@ -130,12 +84,14 @@ function WithProfile({ tab, skeleton, children }: {
 /* ------------------------------------------------------------------- today */
 
 /**
- * `/work`: the advisor's dashboard. What needs them first — the next session,
- * large, with the way into it and how long until it starts — then the rest of
- * today, and what comes after a day to a group. Beside it the four figures an
- * advisor checks (today, requests waiting, paid this month, the score), each
- * the way to its page, and the desk's tools. A banner says so when their
- * identity is not verified. Every figure and row is the API's.
+ * `/work`: the advisor's sessions, one column down the middle of the page.
+ * Two capsules choose the day — today, or everything from tomorrow on — and
+ * under them one large line says how many there are, then each session is a
+ * card: when, who in a large circle, the service, and a word when it is under
+ * way or over. A card is the way into its session, where joining and the chat
+ * are. With nothing there, the line, what will land here, and one grey button
+ * (to the sessions ahead, or to the services). A banner says so above it all
+ * while the advisor's identity is not verified. Every session is the API's.
  */
 export function WorkTodayScreen() {
   return (
@@ -145,206 +101,163 @@ export function WorkTodayScreen() {
   );
 }
 
-/** "อีก 25 นาที", "อีก 3 ชม. 10 นาที", or the day and time when it is further off. */
-function useStartsIn(now: number, timeZone: string): (booking: AdvisorBooking) => string {
-  const t = useTranslations("workDesk");
-  const format = useFormatter();
-  return (booking) => {
-    const start = Date.parse(booking.startTime);
-    if (start <= now) return t("inSession");
-    const minutes = Math.ceil((start - now) / 60_000);
-    if (minutes < 60) return t("startsInMinutes", { minutes });
-    if (minutes < 24 * 60) return t("startsInHours", { hours: Math.floor(minutes / 60), minutes: minutes % 60 });
-    return format.dateTime(new Date(start), { weekday: "short", day: "numeric", month: "short", hour: "2-digit", minute: "2-digit", hourCycle: "h23", timeZone });
-  };
-}
+/** The page's two views, in the capsules' order. */
+const VIEWS = ["today", "upcoming"] as const;
 
-/** The next session, large: who, what and when, how long until it starts, and the ways into it. */
-function NextSession({ booking, now, timeZone }: { readonly booking: AdvisorBooking; readonly now: number; readonly timeZone: string }) {
-  const t = useTranslations("workDesk");
-  const format = useFormatter();
-  const startsIn = useStartsIn(now, timeZone);
-  const detail = useResource<AdvisorBookingDetail>(
-    `advisors/me/bookings/${booking.id}`,
-    useCallback((signal: AbortSignal) => getAdvisorBooking(booking.id, signal), [booking.id]),
-  );
-  const clock = (iso: string) => format.dateTime(new Date(iso), { hour: "2-digit", minute: "2-digit", hourCycle: "h23", timeZone });
-  const live = Date.parse(booking.startTime) <= now;
-  const chatRoomId = detail.data?.chatRoomId;
+type View = (typeof VIEWS)[number];
 
-  return (
-    <section aria-labelledby="work-next" className="flex flex-col gap-5 rounded-2xl border border-border p-5 lg:gap-7 lg:p-8">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <h2 className="text-sm font-medium text-muted-foreground lg:text-frame-meta" id="work-next">
-          {t("nextTitle")}
-        </h2>
-        <span
-          className={cn(
-            "flex h-8 items-center rounded-full px-3 text-xs font-medium lg:h-10 lg:px-4 lg:text-frame-label",
-            live ? "bg-hero-action text-hero-action-foreground" : "bg-muted text-foreground",
-          )}
-        >
-          {startsIn(booking)}
-        </span>
-      </div>
-      <div className="flex items-center gap-4 lg:gap-6">
-        <span
-          aria-hidden
-          className="flex size-14 shrink-0 items-center justify-center rounded-full bg-muted text-xl font-medium text-foreground lg:size-20 lg:text-frame-heading"
-        >
-          {booking.adviseeName.trim().slice(0, 1)}
-        </span>
-        <div className="flex min-w-0 flex-col gap-1 lg:gap-2">
-          <p className="truncate font-hero text-2xl font-normal tracking-tight text-hero-ink lg:text-frame-title">
-            {booking.adviseeName}
-          </p>
-          <p className="text-sm text-muted-foreground lg:text-frame-meta">
-            {booking.serviceName}
-            {" · "}
-            <span className="font-latin tabular-nums">
-              {clock(booking.startTime)}–{clock(booking.endTime)}
-            </span>
-          </p>
-        </div>
-      </div>
-      <div className="flex flex-wrap gap-2.5 lg:gap-3">
-        <Button className={cn(authPill(true), DESK_PILL)} nativeButton={false} render={<Link href={`/work/session?id=${booking.id}`} />}>
-          {live ? t("joinNow") : t("openSession")}
-        </Button>
-        {chatRoomId ? (
-          <Button
-            className={cn(authPill(false), DESK_PILL)}
-            nativeButton={false}
-            render={<Link href={`/chat/room?id=${chatRoomId}`} />}
-            variant="outline"
-          >
-            <MessageSquare aria-hidden />
-            {t("openChat")}
-          </Button>
-        ) : null}
-      </div>
-    </section>
-  );
-}
+/** How many sessions ahead the upcoming view draws. */
+const UPCOMING_CARDS = 12;
 
-/** The card's shape while the bookings load: the label and the time's capsule, who in the circle over two lines, and the two ways in. */
-function NextSessionBone() {
-  return (
-    <div aria-hidden className="flex flex-col gap-5 rounded-2xl border border-border p-5 lg:gap-7 lg:p-8">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <span className="flex h-lh items-center text-sm lg:text-frame-meta">
-          <span className={cn(DESK_BONE, "h-3.5 w-20 rounded lg:h-4 lg:w-24")} />
-        </span>
-        <span className={cn(DESK_BONE, "h-8 w-20 rounded-full lg:h-10 lg:w-28")} />
-      </div>
-      <div className="flex items-center gap-4 lg:gap-6">
-        <span className={cn(DESK_BONE, "size-14 shrink-0 rounded-full lg:size-20")} />
-        <div className="flex min-w-0 flex-col gap-1 lg:gap-2">
-          <span className="flex h-lh items-center text-2xl lg:text-frame-title">
-            <span className={cn(DESK_BONE, "h-6 w-40 rounded-md lg:h-8 lg:w-60")} />
-          </span>
-          <span className="flex h-lh items-center text-sm lg:text-frame-meta">
-            <span className={cn(DESK_BONE, "h-3.5 w-48 rounded lg:h-4 lg:w-72")} />
-          </span>
-        </div>
-      </div>
-      <div className="flex flex-wrap gap-2.5 lg:gap-3">
-        <span className={cn(DESK_BONE, "h-10 w-28 rounded-full lg:h-12 lg:w-36")} />
-        <span className={cn(DESK_BONE, "h-10 w-28 rounded-full lg:h-12 lg:w-36")} />
-      </div>
-    </div>
-  );
-}
+/** A capsule: 36 tall on a phone, 48 from `lg`, the label at 14 then 16, 12 apart. */
+const VIEW_CAPSULE = "h-9 rounded-full px-4 text-sm font-medium lg:h-12 lg:px-6 lg:text-base";
 
-/** The dashboard's four figures in the box's order, each the way to its page. */
-const FIGURES = [
-  { key: "figToday", icon: CalendarDays, href: "/work/calendar" },
-  { key: "figPending", icon: Inbox, href: "/screening/requests" },
-  { key: "figPaidMonth", icon: Wallet, href: "/work/earnings" },
-  { key: "figRating", icon: Star, href: "/profile?tab=reviews" },
-] as const;
+/** The capsules while they load, at their labels' widths. */
+const VIEW_BONES = ["w-16 lg:w-21", "w-24 lg:w-30"];
 
-type Figure = (typeof FIGURES)[number]["key"];
+/** The large line's type: 32 on 36, semibold and drawn in. */
+const HEADLINE_TYPE = "text-heading-lg leading-9 font-semibold tracking-tight";
+
+/** How far the large line sits under the capsules: further when nothing follows it. */
+const HEADLINE_GAP = "mt-8 lg:mt-16";
+const HEADLINE_GAP_EMPTY = "mt-12 lg:mt-24";
 
 /**
- * Today's figures beside the sessions, as one hairline box of rows — the
- * payout account's rows: the soft glyph, what it counts, its figure at the
- * right and the chevron to where it is kept. A figure not given yet is a
- * bone, so the box stands whole while the API answers.
+ * The cards: one column on a phone, at most 352 wide; from `md` as many
+ * 17rem columns as the page holds (four abreast on a 1440 screen), the empty
+ * ones folded away so one or two cards still stand in the middle.
  */
-function Overview({ values = {} }: { readonly values?: Partial<Record<Figure, ReactNode>> }) {
+const CARD_GRID =
+  "mt-8 grid w-full max-w-88 grid-cols-1 gap-4 md:max-w-none md:grid-cols-[repeat(auto-fit,minmax(0,17rem))] md:justify-center lg:mt-10 lg:gap-6";
+
+/** A session's card: white, a hairline and a soft shadow, everything on its centre line. */
+const CARD = "flex w-full min-w-0 flex-col items-center rounded-3xl border border-border bg-card p-6 text-center shadow-hero-card lg:px-8 lg:py-10";
+
+/**
+ * The card's lines, top to bottom: when, the face, who, and the service.
+ * When is held to one line box (`h-lh`): its figures are in the Latin face,
+ * whose own leading would otherwise make the line a hair taller than its bone.
+ */
+const CARD_WHEN = "h-lh text-sm font-medium lg:text-frame-meta";
+const CARD_FACE = "mt-6 size-20 shrink-0 rounded-full lg:mt-9 lg:size-24";
+const CARD_NAME = "mt-6 w-full text-xl font-semibold lg:mt-8 lg:text-frame-figure";
+const CARD_LINE = "mt-1 w-full text-sm lg:text-frame-meta";
+
+/** The grey button under an empty page: 40 tall on a phone, 48 from `lg`, on the `xl` corner. */
+const EMPTY_ACTION =
+  "mt-8 h-10 rounded-xl bg-muted px-5 text-sm font-medium text-foreground hover:bg-muted/70 hover:text-foreground lg:mt-12 lg:h-12 lg:px-6 lg:text-base";
+
+/** On the advisor's day: confirmed, under way or done — not held for payment, not called off. */
+function isConfirmed(booking: AdvisorBooking): boolean {
+  return booking.state === "BOOKED" || booking.state === "IN_PROGRESS" || booking.state === "COMPLETED";
+}
+
+/**
+ * One session as a card, the whole of it the way into the session: when it
+ * is (the hours today; the day and the hours ahead), who in a large circle,
+ * their name, the service, and one small word while it is under way or once
+ * it is over. Times are in the advisor's own zone.
+ */
+function SessionCard({ booking, view, now, timeZone }: {
+  readonly booking: AdvisorBooking;
+  readonly view: View;
+  readonly now: number;
+  readonly timeZone: string;
+}) {
   const t = useTranslations("workDesk");
+  const format = useFormatter();
+  const clock = (iso: string) => format.dateTime(new Date(iso), { hour: "2-digit", minute: "2-digit", hourCycle: "h23", timeZone });
+  const finished = booking.state === "COMPLETED" || Date.parse(booking.endTime) <= now;
+  const live = !finished && Date.parse(booking.startTime) <= now;
+
   return (
-    <ul aria-label={t("figuresLabel")} className="flex flex-col divide-y divide-border overflow-hidden rounded-2xl border border-border">
-      {FIGURES.map(({ key, icon: Icon, href }) => (
-        <li key={key}>
-          <Link
-            className="flex items-center gap-3 px-4 py-3.5 outline-none transition-colors hover:bg-muted/60 focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:ring-inset lg:gap-4 lg:px-5 lg:py-4"
-            href={href}
-          >
-            <span className={DESK_GLYPH}>
-              <Icon aria-hidden className="size-4 lg:size-5" strokeWidth={1.75} />
-            </span>
-            <span className="min-w-0 flex-1 truncate text-sm text-foreground lg:text-frame-body">{t(key)}</span>
-            <span className="font-latin text-base font-semibold text-foreground tabular-nums lg:text-frame-body">
-              {values[key] ?? <FigureBone />}
-            </span>
-            <ChevronRight aria-hidden className="size-4 shrink-0 text-muted-foreground" />
-          </Link>
-        </li>
-      ))}
-    </ul>
+    <li className="flex min-w-0">
+      <Link
+        className={cn(CARD, "outline-none hover:shadow-hero-card-hover focus-visible:ring-3 focus-visible:ring-ring/50")}
+        href={`/work/session?id=${booking.id}`}
+      >
+        <span className={cn(CARD_WHEN, "text-foreground")}>
+          {view === "upcoming" ? (
+            <>
+              {format.dateTime(new Date(booking.startTime), { weekday: "short", day: "numeric", month: "short", timeZone })}
+              {" · "}
+            </>
+          ) : null}
+          <span className="font-latin tabular-nums">
+            {clock(booking.startTime)}–{clock(booking.endTime)}
+          </span>
+        </span>
+        {/* Their face, and the service's photograph on its lower right edge,
+            ringed in the card's white; the initial while there is no face. */}
+        <span aria-hidden className={cn(CARD_FACE, "relative")}>
+          <Avatar className="size-full after:hidden">
+            {booking.adviseeAvatarUrl ? <AvatarImage alt="" src={booking.adviseeAvatarUrl} /> : null}
+            <AvatarFallback className="bg-muted text-2xl font-medium text-foreground lg:text-frame-title">
+              {initialsOf(booking.adviseeName).charAt(0)}
+            </AvatarFallback>
+          </Avatar>
+          {booking.serviceImageUrl ? (
+            <Avatar className="absolute -right-5 bottom-0 size-9 rounded-lg ring-3 ring-card after:hidden lg:-right-6.5 lg:size-11">
+              <AvatarImage alt="" className="rounded-lg" src={booking.serviceImageUrl} />
+              <AvatarFallback className="rounded-lg" />
+            </Avatar>
+          ) : null}
+        </span>
+        <span className={cn(CARD_NAME, "truncate text-foreground")}>{booking.adviseeName}</span>
+        <span className={cn(CARD_LINE, "truncate text-muted-foreground")}>{booking.serviceName}</span>
+        {live || finished ? (
+          <span className={cn("mt-1 text-xs font-medium lg:text-frame-label", live ? "text-hero-ink" : "text-muted-foreground")}>
+            {live ? t("inSession") : t("finished")}
+          </span>
+        ) : null}
+      </Link>
+    </li>
   );
 }
 
-/** The days after today while the bookings load: the heading with its link, then two days of sessions. */
-function LaterBone() {
+/** A card while the bookings load: the same card, each line one line box of its step with the bone inside, the circle whole. */
+function SessionCardBone() {
   return (
-    <div aria-hidden className={cn("flex min-w-0 flex-col", LIST_SECTION)}>
-      <div className="flex min-h-11 items-end justify-between gap-3">
-        <span className="flex h-lh items-center text-base lg:text-frame-body">
-          <span className={cn(DESK_BONE, "h-4 w-14 rounded lg:h-5 lg:w-16")} />
+    <li className="flex min-w-0">
+      <div className={CARD}>
+        <span className={cn(CARD_WHEN, "flex items-center")}>
+          <span className={cn(DESK_BONE, "h-3.5 w-24 rounded lg:h-4 lg:w-28")} />
         </span>
-        <span className="flex h-lh items-center text-sm lg:text-frame-meta">
-          <span className={cn(DESK_BONE, "h-3.5 w-16 rounded lg:h-4 lg:w-20")} />
+        <span className={cn(DESK_BONE, CARD_FACE)} />
+        <span className={cn(CARD_NAME, "flex h-lh items-center justify-center")}>
+          <span className={cn(DESK_BONE, "h-5 w-36 rounded-md lg:h-5.5 lg:w-40")} />
+        </span>
+        <span className={cn(CARD_LINE, "flex h-lh items-center justify-center")}>
+          <span className={cn(DESK_BONE, "h-3.5 w-28 rounded lg:h-4 lg:w-32")} />
         </span>
       </div>
-      <div className="-mt-5 flex flex-col divide-y divide-border lg:-mt-8">
-        {[0, 1].map((group) => (
-          <div className="flex w-full flex-col pt-5 lg:pt-8" key={group}>
-            <span className="flex h-lh items-center text-xs lg:text-frame-label">
-              <span className={cn(DESK_BONE, "h-3 w-24 rounded lg:h-3.5 lg:w-28")} />
-            </span>
-            <SessionRowBones />
-          </div>
-        ))}
-      </div>
-    </div>
+    </li>
   );
 }
 
 /**
- * `/work` while the account is on its way: the page's own three blocks in
- * the shape they hold while the bookings load — the next session's card, the
- * box of figures beside it, and the days after under it — so nothing shifts
- * when either lands.
+ * `/work` while the account or its bookings are on their way: the capsules
+ * at their sizes, the large line as one line box with its bone, and three
+ * cards in the cards' own shape, so nothing shifts when the sessions land.
  */
 function TodaySkeleton() {
   const t = useTranslations("workDesk");
   return (
-    <div aria-busy className="flex w-full flex-col">
+    <div aria-busy className="flex w-full flex-col items-center">
       <span className="sr-only">{t("loading")}</span>
-      <div className={cn(DESK, "lg:items-start")}>
-        <div className="min-w-0 lg:col-start-1 lg:row-start-1">
-          <NextSessionBone />
-        </div>
-        <div className="min-w-0 lg:col-start-2 lg:row-start-1">
-          <Overview />
-        </div>
-        <div className="flex min-w-0 flex-col gap-8 lg:col-start-1 lg:row-start-2 lg:gap-10">
-          <LaterBone />
-        </div>
+      <div aria-hidden className="mt-6 flex gap-3">
+        {VIEW_BONES.map((width) => (
+          <span className={cn(DESK_BONE, "h-9 shrink-0 rounded-full lg:h-12", width)} key={width} />
+        ))}
       </div>
+      <span aria-hidden className={cn(HEADLINE_TYPE, HEADLINE_GAP, "flex h-lh items-center")}>
+        <span className={cn(DESK_BONE, "h-6 w-64 rounded-md")} />
+      </span>
+      <ul aria-hidden className={CARD_GRID}>
+        {[0, 1, 2].map((card) => (
+          <SessionCardBone key={card} />
+        ))}
+      </ul>
     </div>
   );
 }
@@ -378,134 +291,87 @@ function VerificationBanner() {
 
 function Today({ profile }: { readonly profile: ApiOwnProfile }) {
   const t = useTranslations("workDesk");
-  const format = useFormatter();
-  const baht = useBaht();
   const now = useMountTime();
   const timeZone = profile.timezone;
   const bookings = useAdvisorBookings(profile);
-  const pending = usePendingScreening();
-  const rating = useRatingSummary(profile.id);
-  const payouts = usePayouts();
+  const [view, setView] = useState<View>("today");
 
   const today = bookingDay(now, timeZone);
-  const tomorrow = bookingDay(now + 86_400_000, timeZone);
-  const ahead = (bookings.data ?? [])
-    .filter((booking) => isAhead(booking, now))
-    .toSorted((a, b) => a.startTime.localeCompare(b.startTime));
-  const next = ahead[0];
-  const todayRows = ahead.filter((booking) => booking !== next && bookingDay(booking.startTime, timeZone) === today);
-  const todayCount = ahead.filter((booking) => bookingDay(booking.startTime, timeZone) === today).length;
-  const later = ahead.filter((booking) => booking !== next && bookingDay(booking.startTime, timeZone) !== today).slice(0, UPCOMING_SHOWN);
-
-  const groups: { key: string; label: string; rows: AdvisorBooking[] }[] = [];
-  for (const booking of later) {
-    const key = bookingDay(booking.startTime, timeZone);
-    let group = groups.at(-1);
-    if (group?.key !== key) {
-      const label =
-        key === tomorrow
-          ? t("tomorrow")
-          : format.dateTime(new Date(booking.startTime), { weekday: "long", day: "numeric", month: "long", timeZone });
-      group = { key, label, rows: [] };
-      groups.push(group);
-    }
-    group.rows.push(booking);
-  }
-
-  const month = today.slice(0, 7);
-  const paidThisMonth = (payouts.data?.items ?? [])
-    .filter((payout) => payout.status === "PAID" && payout.paidAt && bookingDay(payout.paidAt, timeZone).startsWith(month))
-    .reduce((sum, payout) => sum + payout.netAmountSatang, 0);
+  const all = (bookings.data ?? []).toSorted((a, b) => a.startTime.localeCompare(b.startTime));
+  // Today: every confirmed session on the advisor's day, the ones already over too.
+  const todays = all.filter((booking) => isConfirmed(booking) && bookingDay(booking.startTime, timeZone) === today);
+  // Upcoming: what is still ahead from tomorrow on.
+  const upcoming = all.filter((booking) => isAhead(booking, now) && bookingDay(booking.startTime, timeZone) > today);
+  const count = view === "today" ? todays.length : upcoming.length;
+  const cards = view === "today" ? todays : upcoming.slice(0, UPCOMING_CARDS);
+  // Today empty with sessions ahead: the way to them; otherwise the way to the services that get booked.
+  const toUpcoming = view === "today" && upcoming.length > 0;
 
   return (
     <WorkHub tab="today">
       <VerificationBanner />
-      {/* Four blocks, placed so the phone reads them in the order that matters
-          — the next session, the figures, the rest of the days, the tools —
-          while the desktop stands the figures and tools beside the sessions. */}
-      <div className={cn(DESK, "lg:items-start")}>
-        <div className="min-w-0 lg:col-start-1 lg:row-start-1">
-          {bookings.error ? (
-            <ApiErrorCard className={ERROR_CARD_LG} error={bookings.error} onRetry={bookings.reload} title={t("loadFailed")} />
-          ) : !bookings.data ? (
-            <NextSessionBone />
-          ) : next ? (
-            <NextSession booking={next} now={now} timeZone={timeZone} />
+      {bookings.error ? (
+        <div className="mt-5 lg:mt-8">
+          <ApiErrorCard className={ERROR_CARD_LG} error={bookings.error} onRetry={bookings.reload} title={t("loadFailed")} />
+        </div>
+      ) : !bookings.data ? (
+        <TodaySkeleton />
+      ) : (
+        <div className="flex w-full flex-col items-center">
+          {/* `<fieldset>`: a group by its own semantics; reset so it lays out as the row it is. */}
+          <fieldset aria-label={t("viewsLabel")} className="mx-0 mt-6 flex min-w-0 gap-3 border-0 p-0">
+            {VIEWS.map((key) => {
+              const active = key === view;
+              return (
+                <Button
+                  aria-pressed={active}
+                  className={cn(
+                    VIEW_CAPSULE,
+                    active
+                      ? "bg-hero-action/85 text-hero-action-foreground hover:bg-hero-action hover:text-hero-action-foreground"
+                      : "bg-muted text-foreground hover:bg-muted/70 hover:text-foreground",
+                  )}
+                  key={key}
+                  onClick={() => setView(key)}
+                  type="button"
+                >
+                  {t(key)}
+                </Button>
+              );
+            })}
+          </fieldset>
+
+          <h2
+            className={cn(HEADLINE_TYPE, "max-w-93 text-center text-balance text-foreground", cards.length > 0 ? HEADLINE_GAP : HEADLINE_GAP_EMPTY)}
+            id="work-today-headline"
+          >
+            {view === "today" ? t("todayHeadline", { count }) : t("upcomingHeadline", { count })}
+          </h2>
+
+          {cards.length > 0 ? (
+            <ul aria-labelledby="work-today-headline" className={CARD_GRID}>
+              {cards.map((booking) => (
+                <SessionCard booking={booking} key={booking.id} now={now} timeZone={timeZone} view={view} />
+              ))}
+            </ul>
           ) : (
-            <Empty
-              action={t("emptyAction")}
-              body={t("emptyBody")}
-              href="/advisor/services"
-              icon={CalendarDays}
-              title={t("emptyTitle")}
-            />
+            <>
+              <p className="mt-4 max-w-93 text-center text-base text-balance text-muted-foreground lg:text-lg lg:leading-6">
+                {toUpcoming ? t("todayEmptyBody") : t("emptyBody")}
+              </p>
+              {toUpcoming ? (
+                <Button className={EMPTY_ACTION} onClick={() => setView("upcoming")} type="button" variant="ghost">
+                  {t("seeUpcoming")}
+                </Button>
+              ) : (
+                <Button className={EMPTY_ACTION} nativeButton={false} render={<Link href="/advisor/services" />} variant="ghost">
+                  {t("emptyAction")}
+                </Button>
+              )}
+            </>
           )}
         </div>
-
-        <div className="min-w-0 lg:col-start-2 lg:row-start-1">
-          <Overview
-            values={{
-              figToday: bookings.data ? format.number(todayCount) : bookings.error ? "—" : undefined,
-              // Waiting on an answer: the count as the menu's badge, so it reads as something to do.
-              figPending:
-                pending.data === undefined ? (
-                  pending.error ? "—" : undefined
-                ) : pending.data > 0 ? (
-                  <LinkListCount count={pending.data} label={t("pendingCount", { count: pending.data })} />
-                ) : (
-                  format.number(0)
-                ),
-              figPaidMonth: payouts.data ? baht(paidThisMonth) : payouts.error ? "—" : undefined,
-              figRating: rating.data
-                ? rating.data.total > 0
-                  ? format.number(rating.data.average, { minimumFractionDigits: 1, maximumFractionDigits: 1 })
-                  : "—"
-                : rating.error
-                  ? "—"
-                  : undefined,
-            }}
-          />
-        </div>
-
-        <div className="flex min-w-0 flex-col gap-8 empty:hidden lg:col-start-1 lg:row-start-2 lg:gap-10">
-          {/* The days after stand as bones until the bookings land, as the skeleton drew them. */}
-          {!bookings.data && !bookings.error ? <LaterBone /> : null}
-
-          {/* The rest of today, only when there is more of it than the card above. */}
-          {todayRows.length > 0 ? (
-            <DeskSection className={LIST_SECTION} id="work-today" title={t("todayTitle")}>
-              <ul className="-mt-1 flex flex-col">
-                {todayRows.map((booking) => (
-                  <SessionRow booking={booking} key={booking.id} now={now} timeZone={timeZone} />
-                ))}
-              </ul>
-            </DeskSection>
-          ) : null}
-
-          {groups.length > 0 ? (
-            <DeskSection
-              action={
-                <Link className="text-sm font-medium text-foreground underline underline-offset-4 lg:text-frame-meta" href="/work/calendar">
-                  {t("seeCalendar")}
-                </Link>
-              }
-              className={LIST_SECTION}
-              id="work-later"
-              title={t("laterTitle")}
-            >
-              <div className="-mt-5 flex flex-col divide-y divide-border lg:-mt-8">
-                {groups.map((group) => (
-                  <DayGroup key={group.key} label={group.label}>
-                    {group.rows.map((booking) => (
-                      <SessionRow booking={booking} key={booking.id} now={now} timeZone={timeZone} />
-                    ))}
-                  </DayGroup>
-                ))}
-              </div>
-            </DeskSection>
-          ) : null}
-        </div>
-      </div>
+      )}
     </WorkHub>
   );
 }
