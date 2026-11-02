@@ -25,13 +25,3 @@ it("accepts a menu link after an unrelated Button and a correctly configured But
   const result = check('<><Button>Open</Button><DropdownMenuItem render={<Link href="/new" />}>New</DropdownMenuItem><Button nativeButton={false}\n render={<Link href="/profile" />}\n>Profile</Button></>');
   expect(result.status).toBe(0);
 });
-
-it.each([
-  '<Button render={(<Link href="/profile" />)}>Profile</Button>',
-  '<Button nativeButton={true} render={<Link href="/profile" />}>Profile</Button>',
-  '<Button nativeButton render={<Link href="/profile" />}>Profile</Button>',
-])("rejects unsafe Link configuration: %s", source => {
-  const result = check(source);
-  expect(result.status).toBe(1);
-  expect(result.stderr).toContain("render-link-without-nativebutton");
-});

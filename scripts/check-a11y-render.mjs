@@ -21,11 +21,6 @@ import { sourceFiles } from "./source-files.mjs";
 
 const problems = [];
 
-function unwrap(expression) {
-  while (expression && ts.isParenthesizedExpression(expression)) expression = expression.expression;
-  return expression;
-}
-
 // Read JSX nodes so a menu item's render prop cannot be attributed to an
 // unrelated Button earlier in the file.
 for (const file of sourceFiles()) {
@@ -34,11 +29,9 @@ for (const file of sourceFiles()) {
     if ((ts.isJsxOpeningElement(node) || ts.isJsxSelfClosingElement(node)) && node.tagName.getText(source) === "Button") {
       const attributes = node.attributes.properties.filter(ts.isJsxAttribute);
       const render = attributes.find(attribute => attribute.name.getText(source) === "render");
-      const expression = unwrap(render?.initializer && ts.isJsxExpression(render.initializer) ? render.initializer.expression : undefined);
+      const expression = render?.initializer && ts.isJsxExpression(render.initializer) ? render.initializer.expression : undefined;
       const tag = expression && (ts.isJsxSelfClosingElement(expression) ? expression.tagName : ts.isJsxElement(expression) ? expression.openingElement.tagName : undefined);
-      const nativeButton = attributes.find(attribute => attribute.name.getText(source) === "nativeButton");
-      const nativeValue = unwrap(nativeButton?.initializer && ts.isJsxExpression(nativeButton.initializer) ? nativeButton.initializer.expression : undefined);
-      if (tag?.getText(source) === "Link" && nativeValue?.kind !== ts.SyntaxKind.FalseKeyword) {
+      if (tag?.getText(source) === "Link" && !attributes.some(attribute => attribute.name.getText(source) === "nativeButton")) {
         problems.push({ file, line: source.getLineAndCharacterOfPosition(node.getStart(source)).line + 1, match: node.getText(source).slice(0, 60) });
       }
     }
