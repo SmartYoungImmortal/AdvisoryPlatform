@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import Link from "next/link";
 import {
   CircleAlert,
@@ -343,6 +344,15 @@ export function PayoutSetupScreen() {
  * The bank as one of the dialog's fields: the outline field's label over a
  * box of the same height and line, the banks listed under it.
  */
+/** A bank's mark in a white circle on a hairline, whatever the mark's own shape (`public/icons/payout-banks`). */
+function BankLogo({ bank, className }: { readonly bank: PayoutBank; readonly className?: string }) {
+  return (
+    <span aria-hidden className={cn("relative block shrink-0 overflow-hidden rounded-full bg-card ring-1 ring-border", className)}>
+      <Image alt="" className="object-contain" fill sizes="48px" src={`/icons/payout-banks/${bank}.png`} unoptimized />
+    </span>
+  );
+}
+
 function BankField({ value, error, onChange }: {
   readonly value: PayoutBank | "";
   readonly error?: string;
@@ -367,11 +377,24 @@ function BankField({ value, error, onChange }: {
           className="w-full rounded-xl border-accented bg-card px-3 text-base shadow-none data-[size=default]:h-9 max-md:text-xs md:data-[size=default]:h-11 lg:px-4 lg:data-[size=default]:h-12"
           id="payout-bank"
         >
-          <SelectValue placeholder={t("bankPlaceholder")} />
+          <SelectValue placeholder={t("bankPlaceholder")}>
+            {(chosen: PayoutBank | null) =>
+              chosen ? (
+                <span className="flex min-w-0 items-center gap-2.5">
+                  <BankLogo bank={chosen} className="size-6" />
+                  <span className="truncate">{t(`banks.${chosen}`)}</span>
+                </span>
+              ) : (
+                t("bankPlaceholder")
+              )
+            }
+          </SelectValue>
         </SelectTrigger>
-        <SelectContent alignItemWithTrigger={false} sideOffset={6}>
+        {/* Each bank a 48 row with its mark, so the twelve read as banks rather than a list of names. */}
+        <SelectContent alignItemWithTrigger={false} className="max-h-96 rounded-xl p-1.5" sideOffset={6}>
           {PAYOUT_BANKS.map((code) => (
-            <SelectItem key={code} value={code}>
+            <SelectItem className="h-12 gap-3 rounded-lg pl-2.5 text-base" key={code} value={code}>
+              <BankLogo bank={code} className="size-8" />
               {t(`banks.${code}`)}
             </SelectItem>
           ))}
@@ -642,9 +665,7 @@ export function PayoutAccountScreen({ setup = false }: { readonly setup?: boolea
       <div className="mt-5 flex w-full max-w-200 flex-col gap-8 lg:mt-8 lg:gap-10">
         <div className={cn(DESK_BOX, "flex flex-col px-4 py-2 lg:px-6 lg:py-3")}>
           <div className="flex items-center gap-3 py-3 lg:gap-5 lg:py-4">
-            <span className={DESK_GLYPH}>
-              <Landmark aria-hidden className="size-4 lg:size-6" strokeWidth={1.75} />
-            </span>
+            <BankLogo bank={bank} className="size-9 lg:size-12" />
             <span className="flex min-w-0 flex-1 flex-col gap-0.5 lg:gap-1">
               <span className="truncate text-sm font-medium text-foreground lg:text-frame-body">{t(`banks.${bank}`)}</span>
               <span className="truncate font-latin text-xs text-muted-foreground tabular-nums lg:text-frame-meta">
