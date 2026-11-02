@@ -79,6 +79,7 @@ for (const width of [1440, 390]) {
     let serviceId = "",
       profileId = "";
     const bookingId = randomUUID();
+    const serviceName = `Owned detail proof ${width} ${randomUUID()}`;
     const errors: string[] = [];
     page.on("pageerror", (error) => errors.push(error.message));
     try {
@@ -106,7 +107,7 @@ for (const width of [1440, 390]) {
         `${api}/advisors/me/services`,
         {
           data: {
-            name: `Owned detail proof ${width}`,
+            name: serviceName,
             description: "Persisted service detail",
             categoryId: source.categoryId,
             availabilityProfileId: profileId,
@@ -122,7 +123,7 @@ for (const width of [1440, 390]) {
       serviceId = row.parse((await created.json()).data).id;
       await page.goto(`/advisor/services/view?serviceId=${serviceId}`, { waitUntil: "domcontentloaded" });
       await expect(
-        page.getByText(`Owned detail proof ${width}`, { exact: true }),
+        page.getByText(serviceName, { exact: true }),
       ).toBeVisible();
       await expect(
         page.getByText(
@@ -154,6 +155,10 @@ for (const width of [1440, 390]) {
           )
         ).status(),
       ).toBe(200);
+      // A screened service must actually ask a question to exercise its access gate.
+      expect((await context.request.put(`${api}/advisors/me/services/${serviceId}/screening-questions`, {
+        data: { questions: [{ question: "What should the advisor prepare?", isRequired: true }] },
+      })).status()).toBe(200);
       const adviseeId = z
         .uuid()
         .parse(
@@ -179,13 +184,13 @@ for (const width of [1440, 390]) {
       ).toBeVisible();
       await expect(
         page.getByRole("img", {
-          name: `Owned detail proof ${width}`,
+          name: serviceName,
           exact: true,
         }),
       ).toBeVisible();
       await page.goto("/advisor/services", { waitUntil: "domcontentloaded" });
       await page.locator(`a[href="/advisor/services/view?serviceId=${serviceId}"]`).click();
-      await expect(page.getByText(`Owned detail proof ${width}`, { exact: true })).toBeVisible();
+      await expect(page.getByText(serviceName, { exact: true })).toBeVisible();
       await page.locator(`a[href="/availability/profiles/edit?id=${profileId}"]`).click();
       await expect(page.locator('input[name="name"]')).toHaveValue(`Detail profile ${width}`);
       await page.locator('input[name="name"]').fill(`Updated detail profile ${width}`);
@@ -265,7 +270,7 @@ for (const width of [1440, 390]) {
         new RegExp(`/work/session\\?id=${bookingId}`),
       );
       await expect(
-        page.getByText(`Owned detail proof ${width} · 30 นาที`, {
+        page.getByText(`${serviceName} · 30 นาที`, {
           exact: true,
         }),
       ).toBeVisible();
@@ -329,7 +334,7 @@ for (const width of [1440, 390]) {
         .getByRole("button", { name: "ลองอีกครั้ง", exact: true })
         .click();
       await expect(
-        page.getByText(`Owned detail proof ${width}`, { exact: true }),
+        page.getByText(serviceName, { exact: true }),
       ).toBeVisible();
       expect(errors).toEqual([]);
       expect(

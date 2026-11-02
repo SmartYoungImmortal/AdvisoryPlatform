@@ -323,7 +323,9 @@
     "imageCountError": "A service can have at most six images.",
     "imageFileError": "Choose JPEG, PNG or WebP images, up to 5 MiB each.",
 
-    "limitActiveNote": "This service is limited to {hours} hours per day. Your availability's overall daily limit also applies."
+    "limitActiveNote": "This service is limited to {hours} hours per day. Your availability's overall daily limit also applies.",
+    "deleteDialogBody": "“{name}” will be permanently deleted. Services with booking or screening history cannot be deleted; hide the service instead.",
+    "deleteHistoryBody": "This service has consultation or screening history and cannot be deleted. Hide the service instead."
   },
   "bookings": {
     "title": "My bookings",

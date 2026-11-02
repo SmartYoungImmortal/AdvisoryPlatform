@@ -1,8 +1,13 @@
+import { execFileSync } from "node:child_process";
+import { randomUUID } from "node:crypto";
 import { expect, test } from "./support/coverage";
 import { z } from "zod";
 
 test.skip(process.env.BOOKING_LIVE_PROOF !== "1", "Requires the isolated seeded proof API on localhost:3200");
 test.use({ video: "on" });
+function sql(statement: string) {
+  return execFileSync("docker", ["exec", "advisory-booking-proof-db", "psql", "-U", "advisory", "-d", "advisory_proof", "-At", "-v", "ON_ERROR_STOP=1", "-c", statement], { encoding: "utf8" }).trim();
+}
 const api = "http://localhost:3200/api/v1/advisors/me/services";
 const serviceSchema = z.object({ id: z.uuid(), categoryId: z.uuid(), availabilityProfileId: z.uuid() });
 const globalSchema = z.object({ bookingHorizonDays: z.number(), bufferMinutes: z.number(), minimumBookingNoticeMinutes: z.number(), dailyConsultationLimitMinutes: z.number().nullable() });
@@ -16,6 +21,9 @@ for (const width of [1440, 390]) {
     })).status()).toBe(200);
     let id = "";
     let deleted = false;
+    const historyId = randomUUID();
+    const errors: string[] = [];
+    page.on("pageerror", error => errors.push(error.message));
     try {
       await page.goto("/advisor/services/new");
       await page.getByRole("textbox", { name: "ชื่อบริการ", exact: true }).fill(`Service lifecycle proof ${width}`);
@@ -31,6 +39,9 @@ for (const width of [1440, 390]) {
       expect(response.status()).toBe(201);
       id = z.object({ data: serviceSchema }).parse(await response.json()).data.id;
       await expect(page).toHaveURL(new RegExp(`/advisor/services/view\\?serviceId=${id}`));
+      expect((await context.request.put(`${api}/${id}/screening-questions`, {
+        data: { questions: [{ question: "What should the advisor prepare?", isRequired: true }] },
+      })).status()).toBe(200);
       const readPublished = async () => z.object({ data: z.object({ isPublished: z.boolean() }) }).parse(await (await context.request.get(`${api}/${id}`)).json()).data.isPublished;
       expect(await readPublished()).toBe(false);
       await page.goto(`/advisor/services/manage?serviceId=${id}`);
@@ -65,6 +76,18 @@ for (const width of [1440, 390]) {
       await expect(page.getByRole("button", { name: "เผยแพร่บริการ", exact: true })).toBeVisible();
       await page.screenshot({ path: `test-results/service-lifecycle-${width}.png`, fullPage: true });
       await page.getByRole("link", { name: /ลบบริการนี้/ }).click();
+      sql(`INSERT INTO service_appointments (id,service_id,advisor_id,advisee_id,start_time,end_time,unavailable_until,state,blocks_availability) SELECT '${historyId}',s.id,s.advisor_id,u.id,now()-interval '2 days',now()-interval '2 days'+interval '30 minutes',now()-interval '2 days'+interval '30 minutes','COMPLETED',false FROM services s CROSS JOIN public.user u WHERE s.id='${id}' AND u.email='nattapong.d@advisory.demo'`);
+      const blocked = page.waitForResponse(response => response.url() === `${api}/${id}` && response.request().method() === "DELETE");
+      await page.getByRole("button", { name: "ลบบริการ", exact: true }).click();
+      expect((await blocked).status()).toBe(409);
+      await expect(page.getByRole("alertdialog").getByRole("alert")).toContainText("บริการนี้มีประวัติการให้คำปรึกษาหรือการคัดกรอง จึงลบไม่ได้ กรุณาซ่อนบริการแทน");
+      await expect(page.getByRole("button", { name: "ลบบริการ", exact: true })).toBeDisabled();
+      expect((await context.request.get(`${api}/${id}`)).status()).toBe(200);
+      await page.screenshot({ path: `test-results/service-delete-history-${width}.png` });
+      sql(`DELETE FROM service_appointments WHERE id='${historyId}'`);
+      await page.getByRole("alertdialog").getByRole("button", { name: "ยกเลิก", exact: true }).click();
+      await expect(page).toHaveURL(new RegExp(`/advisor/services/manage\\?serviceId=${id}`));
+      await page.getByRole("link", { name: /ลบบริการนี้/ }).click();
       const removed = page.waitForResponse((response) => response.url() === `${api}/${id}` && response.request().method() === "DELETE");
       await page.getByRole("button", { name: "ลบบริการ", exact: true }).click();
       expect((await removed).status()).toBe(200);
@@ -73,7 +96,9 @@ for (const width of [1440, 390]) {
       expect((await context.request.get(`${api}/${id}`)).status()).toBe(404);
       await page.reload();
       await expect(page.getByText(`Service lifecycle proof ${width}`, { exact: true })).toHaveCount(0);
+      expect(errors).toEqual([]);
     } finally {
+      sql(`DELETE FROM service_appointments WHERE id='${historyId}'`);
       if (id && !deleted) expect((await context.request.delete(`${api}/${id}`)).status()).toBe(200);
     }
   });
