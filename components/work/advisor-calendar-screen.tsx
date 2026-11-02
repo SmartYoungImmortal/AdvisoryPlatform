@@ -1,39 +1,32 @@
 "use client";
 
 import { ChevronLeft, ChevronRight, RotateCw } from "lucide-react";
-import { useSearchParams } from "next/navigation";
 import { useLocale, useTranslations } from "next-intl";
-import { Suspense, useState, useSyncExternalStore } from "react";
+import { useCallback, useState, useSyncExternalStore } from "react";
 import { useMountTime } from "@/components/bookings/booking-flow";
 import { Button } from "@/components/ui/button";
-import { CalendarMonthBones, CalendarMonthGrid } from "@/components/work/calendar-month";
 import { DESK_BONE, DeskSection } from "@/components/work/desk-parts";
 import { SessionRow } from "@/components/work/session-row";
-import { useAdvisorBookings } from "@/components/work/work-data";
 import { WorkHub } from "@/components/work/work-hub";
-import type { AdvisorBooking } from "@/lib/api/advisor-bookings";
+import {
+  listAllAdvisorBookings,
+  type AdvisorBooking,
+} from "@/lib/api/advisor-bookings";
 import { getOwnProfile } from "@/lib/api/resources";
 import type { ApiOwnProfile } from "@/lib/api/types";
 import { useResource } from "@/lib/api/use-resource";
-import { monthGrid } from "@/lib/calendar";
+import { WEEKDAY_KEYS, monthGrid } from "@/lib/calendar";
 import { bookingDay, moveMonth } from "@/lib/work/booking-calendar";
 import { cn } from "@/lib/utils";
 
-/** The month's row: its name at the left, "today" and the two chevrons at the right. */
-const HEAD_ROW = "mt-5 flex w-full items-center justify-between gap-3 lg:mt-8";
+/** The month's card, and beside it from `lg` the day's list. */
+const GRID =
+  "mt-5 grid w-full gap-8 lg:mt-8 lg:grid-cols-[minmax(0,1.2fr)_minmax(0,1fr)]";
 
-const MONTH_NAME = "min-w-0 truncate font-hero text-xl font-normal tracking-tight text-hero-ink lg:text-frame-heading";
+const BLOCK = "flex w-full min-w-0 flex-col items-start gap-3 lg:gap-4";
 
-/** "Today", an outline capsule at the chevrons' height. */
-const TODAY_PILL = "h-9 rounded-full px-3.5 text-sm font-medium shadow-none lg:h-11 lg:px-5 lg:text-frame-meta";
-
-const CHEVRON = "size-9 rounded-full shadow-none lg:size-11";
-
-/** The month's box under its row. */
-const GRID_GAP = "mt-4 lg:mt-6";
-
-/** The picked day's heading over its sessions, under the month. */
-const DAY_SECTION = "mt-8 gap-3 lg:mt-12 lg:gap-4";
+/** The day's heading over its sessions, at the month card's spacing. */
+const DAY_SECTION = "gap-3 lg:gap-4";
 
 export function AdvisorBookingReadState({
   failed = false,
@@ -116,43 +109,63 @@ function deviceWeeks(): number {
   return monthGrid(now.getFullYear(), now.getMonth() + 1).length / 7;
 }
 
-/** `?day=` when it is a real "YYYY-MM-DD"; anything else is not asked for. */
-function askedDay(value: string | null): string | null {
-  if (!value || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return null;
-  const date = new Date(`${value}T12:00:00Z`);
-  return !Number.isNaN(date.getTime()) && date.toISOString().slice(0, 10) === value ? value : null;
-}
-
 /**
  * The calendar while the account is on its way, in its own shape so nothing
- * shifts when it lands: the month's row (its name, "today" and the two
- * chevrons), the month's box of weeks under the weekdays' names, and under it
- * the day's heading over its sessions. `month` is the one `?day=` asked for,
- * so its weeks are counted; without it the device's month is.
+ * shifts when it lands: the month's row (its two chevrons and its name), the
+ * zone's line, the card of weeks under the weekdays' names, the count with
+ * the refresh, and beside it the day's heading over its sessions.
  */
-function CalendarSkeleton({ month }: { readonly month?: string }) {
+function CalendarSkeleton() {
   const t = useTranslations("advisorBookings");
+  const s = useTranslations("serviceSchedule");
   // The static export prerenders the build's month, so the page hydrates
   // with five weeks and then takes the device's count.
-  const device = useSyncExternalStore(noSubscription, deviceWeeks, () => 5);
-  const [year, monthNumber] = (month ?? "").split("-").map(Number);
-  const weeks = month ? monthGrid(year, monthNumber).length / 7 : device;
+  const weeks = useSyncExternalStore(noSubscription, deviceWeeks, () => 5);
 
   return (
-    <div aria-busy className="flex w-full flex-col">
+    <div aria-busy className={GRID}>
       <span className="sr-only">{t("loading")}</span>
-      <div aria-hidden className={HEAD_ROW}>
-        <span className="flex h-lh items-center font-hero text-xl lg:text-frame-heading">
-          <span className={cn(DESK_BONE, "h-5 w-40 rounded lg:h-6 lg:w-48")} />
+      <div aria-hidden className={BLOCK}>
+        <div className="flex w-full items-center justify-between gap-3">
+          <span className={cn(DESK_BONE, "size-9 shrink-0 rounded-md")} />
+          <span className="flex h-lh items-center text-base lg:text-frame-body">
+            <span className={cn(DESK_BONE, "h-4 w-32 rounded lg:h-5 lg:w-40")} />
+          </span>
+          <span className={cn(DESK_BONE, "size-9 shrink-0 rounded-md")} />
+        </div>
+        <span className="flex h-lh items-center text-xs lg:text-frame-label">
+          <span className={cn(DESK_BONE, "h-3 w-36 rounded lg:h-3.5 lg:w-44")} />
         </span>
-        <span className="flex shrink-0 items-center gap-2">
-          <span className={cn(DESK_BONE, "h-9 w-16 rounded-full lg:h-11 lg:w-20")} />
-          <span className={cn(DESK_BONE, "size-9 rounded-full lg:size-11")} />
-          <span className={cn(DESK_BONE, "size-9 rounded-full lg:size-11")} />
-        </span>
-      </div>
-      <div className={GRID_GAP}>
-        <CalendarMonthBones weeks={weeks} />
+        <div className="w-full overflow-hidden rounded-2xl border border-border">
+          <div className="grid grid-cols-7">
+            {WEEKDAY_KEYS.map((key) => (
+              <span
+                className="py-2 text-center text-xs text-muted-foreground"
+                key={key}
+              >
+                {s(`weekdayShort.${key}`)}
+              </span>
+            ))}
+            {Array.from({ length: weeks * 7 }, (_, index) => (
+              <span
+                className="flex min-h-12 items-center justify-center lg:min-h-20 lg:border-t lg:border-border"
+                key={index}
+              >
+                <span className="flex h-lh items-center text-sm">
+                  <span className={cn(DESK_BONE, "h-3.5 w-4 rounded")} />
+                </span>
+              </span>
+            ))}
+          </div>
+        </div>
+        <div className="flex w-full items-center justify-between gap-2">
+          <span className="flex h-lh items-center text-xs">
+            <span className={cn(DESK_BONE, "h-3 w-16 rounded")} />
+          </span>
+          <span className="flex h-9 items-center px-2.5">
+            <span className={cn(DESK_BONE, "h-3.5 w-16 rounded")} />
+          </span>
+        </div>
       </div>
       <div aria-hidden className={cn("flex min-w-0 flex-col", DAY_SECTION)}>
         <div className="flex min-h-11 items-end">
@@ -166,57 +179,59 @@ function CalendarSkeleton({ month }: { readonly month?: string }) {
   );
 }
 
-/**
- * `/work/calendar`: the advisor's month as a host's calendar — the month's
- * name with "today" and the chevrons, the month's box with each day's
- * sessions in it, and under it the picked day's sessions as rows. `?day=`
- * opens on that day and its month; picking a day writes it back, so the way
- * back from a session lands on the same day.
- */
 export function AdvisorCalendarScreen() {
+  const profile = useResource<ApiOwnProfile>("users/me", getOwnProfile);
   return (
     <WorkHub tab="calendar">
-      {/* `useSearchParams` in a prerendered page reads in the browser only, under a boundary. */}
-      <Suspense fallback={<CalendarSkeleton />}>
-        <CalendarFromQuery />
-      </Suspense>
+      {profile.error ? (
+        <AdvisorBookingReadState failed retry={profile.reload} />
+      ) : profile.data ? (
+        <CalendarData profile={profile.data} />
+      ) : (
+        <CalendarSkeleton />
+      )}
     </WorkHub>
   );
 }
 
-function CalendarFromQuery() {
-  const asked = askedDay(useSearchParams().get("day"));
-  const profile = useResource<ApiOwnProfile>("users/me", getOwnProfile);
-  if (profile.error) return <AdvisorBookingReadState failed retry={profile.reload} />;
-  if (!profile.data) return <CalendarSkeleton month={asked?.slice(0, 7)} />;
-  return <CalendarData asked={asked} profile={profile.data} />;
-}
-
-function CalendarData({
-  profile,
-  asked,
-}: {
-  readonly profile: ApiOwnProfile;
-  /** The day `?day=` opened on, if any. */
-  readonly asked: string | null;
-}) {
+function CalendarData({ profile }: { readonly profile: ApiOwnProfile }) {
   const t = useTranslations("advisorBookings");
+  const s = useTranslations("serviceSchedule");
   const locale = useLocale();
   const now = useMountTime();
   const today = bookingDay(now, profile.timezone);
-  const [chosen, setChosen] = useState<string | null>(null);
-  const resource = useAdvisorBookings(profile);
-  const day = chosen ?? asked ?? today;
-  const month = day.slice(0, 7);
-  const byDay = new Map<string, AdvisorBooking[]>();
-  for (const booking of (resource.data ?? []).toSorted((a, b) => a.startTime.localeCompare(b.startTime))) {
+  const [shownMonth, setShownMonth] = useState<string | null>(null);
+  const [picked, setPicked] = useState<string | null>(null);
+  const fetcher = useCallback(
+    (signal: AbortSignal) => listAllAdvisorBookings(signal),
+    [],
+  );
+  const resource = useResource<AdvisorBooking[]>(
+    `advisors/${profile.id}/bookings/all`,
+    fetcher,
+  );
+  const month = shownMonth ?? today.slice(0, 7);
+  const day = picked?.startsWith(month)
+    ? picked
+    : month === today.slice(0, 7)
+      ? today
+      : `${month}-01`;
+  const [year, monthNumber] = month.split("-").map(Number);
+  const cells = monthGrid(year, monthNumber);
+  const entries = (resource.data ?? []).toSorted((a, b) =>
+    a.startTime.localeCompare(b.startTime),
+  );
+  const inMonth = entries.filter((booking) =>
+    bookingDay(booking.startTime, profile.timezone).startsWith(month),
+  );
+  const selected = inMonth.filter(
+    (booking) => bookingDay(booking.startTime, profile.timezone) === day,
+  );
+  const counts = new Map<string, number>();
+  for (const booking of inMonth) {
     const key = bookingDay(booking.startTime, profile.timezone);
-    if (!key.startsWith(month)) continue;
-    const list = byDay.get(key);
-    if (list) list.push(booking);
-    else byDay.set(key, [booking]);
+    counts.set(key, (counts.get(key) ?? 0) + 1);
   }
-  const selected = byDay.get(day) ?? [];
   const monthLabel = new Intl.DateTimeFormat(locale, {
     month: "long",
     year: "numeric",
@@ -226,61 +241,112 @@ function CalendarData({
     dateStyle: "full",
     timeZone: "UTC",
   }).format(new Date(`${day}T12:00:00Z`));
-
-  /** Pick a day, and keep it in the address so returning from a session lands on it. */
-  function go(next: string) {
-    setChosen(next);
-    window.history.replaceState(null, "", `?day=${next}`);
-  }
-  /** Another month: today when it is this one, its first day otherwise. */
-  function turn(offset: number) {
-    const next = moveMonth(month, offset);
-    go(next === today.slice(0, 7) ? today : `${next}-01`);
+  function navigate(offset: number) {
+    setShownMonth(moveMonth(month, offset));
+    setPicked(null);
   }
 
   return (
-    <div className="flex w-full flex-col">
-      <div className={HEAD_ROW}>
-        <h2 aria-live="polite" className={MONTH_NAME}>
-          {monthLabel}
-        </h2>
-        <div className="flex shrink-0 items-center gap-2">
-          <Button className={TODAY_PILL} onClick={() => go(today)} type="button" variant="outline">
-            {t("today")}
-          </Button>
+    <div className={GRID}>
+      <section className={BLOCK}>
+        <div className="flex w-full items-center justify-between gap-3">
           <Button
             aria-label={t("previousMonth")}
-            className={CHEVRON}
-            onClick={() => turn(-1)}
+            onClick={() => navigate(-1)}
             size="icon"
             type="button"
             variant="outline"
           >
-            <ChevronLeft aria-hidden className="size-4 lg:size-5" />
+            <ChevronLeft aria-hidden />
           </Button>
+          <h2 className="text-base font-semibold text-foreground lg:text-frame-body" aria-live="polite">
+            {monthLabel}
+          </h2>
           <Button
             aria-label={t("nextMonth")}
-            className={CHEVRON}
-            onClick={() => turn(1)}
+            onClick={() => navigate(1)}
             size="icon"
             type="button"
             variant="outline"
           >
-            <ChevronRight aria-hidden className="size-4 lg:size-5" />
+            <ChevronRight aria-hidden />
           </Button>
         </div>
-      </div>
-      <div className={GRID_GAP}>
-        <CalendarMonthGrid
-          byDay={byDay}
-          month={month}
-          now={now}
-          onPick={go}
-          selected={day}
-          timeZone={profile.timezone}
-          today={today}
-        />
-      </div>
+        <p className="text-xs text-muted-foreground lg:text-frame-label">
+          {t("timezone", { zone: profile.timezone })}
+        </p>
+        <div className="w-full overflow-hidden rounded-2xl border border-border">
+          <div className="grid grid-cols-7">
+            {WEEKDAY_KEYS.map((key) => (
+              <span
+                className="py-2 text-center text-xs text-muted-foreground"
+                key={key}
+              >
+                {s(`weekdayShort.${key}`)}
+              </span>
+            ))}
+            {cells.map((cell, index) => {
+              const key = `${month}-${String(cell.day).padStart(2, "0")}`;
+              const count = cell.inMonth ? (counts.get(key) ?? 0) : 0;
+              return (
+                <button
+                  aria-label={`${cell.day}, ${t("bookingCount", { count })}`}
+                  aria-pressed={cell.inMonth && key === day}
+                  className={cn(
+                    "relative flex min-h-12 flex-col items-center justify-center gap-1 text-sm lg:min-h-20 lg:border-t lg:border-border",
+                    !cell.inMonth && "text-muted-foreground/40",
+                    cell.inMonth &&
+                      key === day &&
+                      "bg-hero-action text-hero-action-foreground",
+                  )}
+                  disabled={!cell.inMonth}
+                  key={`${index}-${cell.day}`}
+                  onClick={() => setPicked(key)}
+                  type="button"
+                >
+                  <span
+                    className={cn(
+                      "font-latin tabular-nums",
+                      key === today && "font-bold underline underline-offset-4",
+                    )}
+                  >
+                    {cell.day}
+                  </span>
+                  {count > 0 ? (
+                    <span
+                      aria-hidden
+                      className={cn(
+                        "size-1.5 rounded-full",
+                        key === day ? "bg-hero-action-foreground" : "bg-hero-action",
+                      )}
+                    />
+                  ) : null}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+        <div className="flex w-full items-center justify-between gap-2 text-xs text-muted-foreground">
+          {resource.data ? (
+            <span>{t("bookingCount", { count: inMonth.length })}</span>
+          ) : resource.error ? (
+            <span>{t("loadFailed")}</span>
+          ) : (
+            <span aria-hidden className="flex h-lh items-center">
+              <span className={cn(DESK_BONE, "h-3 w-16 rounded")} />
+            </span>
+          )}
+          <Button
+            disabled={resource.loading}
+            onClick={resource.reload}
+            type="button"
+            variant="ghost"
+          >
+            <RotateCw aria-hidden />
+            {t("refresh")}
+          </Button>
+        </div>
+      </section>
       <DeskSection className={DAY_SECTION} id="calendar-day" title={dayLabel}>
         {resource.error ? (
           <AdvisorBookingReadState failed retry={resource.reload} />

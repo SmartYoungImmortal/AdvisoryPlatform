@@ -2,20 +2,17 @@
 
 import { CircleHelp, FileText, Inbox, Package, Plus } from "lucide-react";
 import Link from "next/link";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
-import { Suspense, useCallback, useEffect, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useState, type ReactNode } from "react";
 
 import { EntryDialog } from "@/components/advisor/edit-fields";
 import { authPill } from "@/components/auth/auth-split";
-import { asUuid, useMountTime } from "@/components/bookings/booking-flow";
+import { useMountTime } from "@/components/bookings/booking-flow";
 import { useElapsedLabel } from "@/components/mobile/live-state";
-import { StatusToast, useStatusToast } from "@/components/mobile/toast";
 import { DayGroup } from "@/components/notifications/notification-center-screen";
-import { BoneLine, useShortFailure } from "@/components/screening/advisor-parts";
 import { DeclineScreeningDialog } from "@/components/screening/decline-dialog";
 import { ScreeningErrorNotice, useSentLabel } from "@/components/screening/live-parts";
-import { DECLINE_PARAM, RequestCards, REQUESTS_HREF, RequestsSkeleton } from "@/components/screening/request-card";
 import {
   acceptScreeningRequest,
   declineScreeningRequest,
@@ -40,11 +37,11 @@ import {
   DESK_BONE,
   DeskEmpty,
   DeskFilter,
+  DeskListSkeleton,
   DeskRow,
   DeskRowAction,
   DeskSection,
 } from "@/components/work/desk-parts";
-import { usePendingScreening } from "@/components/work/work-data";
 import { WorkHub } from "@/components/work/work-hub";
 import {
   getMyAdvisorService,
@@ -52,7 +49,7 @@ import {
   type AdvisorService,
   type AdvisorServicesPage,
 } from "@/lib/advisor-services/api";
-import { invalidate, useLastAnswer, useResource } from "@/lib/api/use-resource";
+import { invalidate, useResource } from "@/lib/api/use-resource";
 import { cn } from "@/lib/utils";
 
 /**
@@ -65,9 +62,9 @@ import { cn } from "@/lib/utils";
 /* ----------------------------------------------------------------- requests */
 
 /**
- * One answered request, the desk's row: the form in a soft circle, who over
- * which service, and at the right when it was answered over how — accepted,
- * declined, or expired once the service's questions changed.
+ * One request, the desk's row: the form in a soft circle, who over which
+ * service, and at the right when it came — with a dot while it is unread —
+ * or, once answered, how it was answered.
  */
 function RequestRow({
   request,
@@ -77,21 +74,23 @@ function RequestRow({
   readonly elapsed: (iso: string) => string;
 }) {
   const t = useTranslations("screening");
-  const outcome = {
-    PENDING: null,
-    ACCEPTED: { label: t("req4Body"), ink: "text-success" },
-    DECLINED: { label: t("req5Body"), ink: "text-destructive" },
-    EXPIRED: { label: t("statusExpired"), ink: "text-muted-foreground" },
-  }[request.status];
+  const pending = request.status === "PENDING";
+  const unread = pending && !request.viewedAt;
+  let outcome: { readonly label: string; readonly ink: string } | null = null;
+  if (request.status === "ACCEPTED") outcome = { label: t("req4Body"), ink: "text-success" };
+  if (request.status === "DECLINED") outcome = { label: t("req5Body"), ink: "text-destructive" };
 
   return (
     <li>
       <Link className={DESK_ROW} href={`/screening/review?requestId=${request.id}`}>
-        <span className={DESK_GLYPH}>
+        <span className={cn(DESK_GLYPH, "relative")}>
           <FileText aria-hidden className="size-4 lg:size-6" strokeWidth={1.75} />
+          {unread ? <span aria-hidden className="absolute top-0 right-0 size-2.5 rounded-full bg-hero-action ring-2 ring-card" /> : null}
         </span>
         <span className="flex min-w-0 flex-1 flex-col gap-0.5 lg:gap-1">
-          <span className="truncate text-sm font-medium text-foreground lg:text-frame-body">{request.adviseeDisplayName}</span>
+          <span className={cn("truncate text-sm text-foreground lg:text-frame-body", unread ? "font-semibold" : "font-medium")}>
+            {request.adviseeDisplayName}
+          </span>
           <span className="truncate text-xs text-muted-foreground lg:text-frame-meta">{request.serviceName}</span>
         </span>
         <span className="flex shrink-0 flex-col items-end gap-0.5 lg:gap-1">
@@ -105,191 +104,96 @@ function RequestRow({
   );
 }
 
-type Shown = "pending" | "answered" | "all";
-
 /**
  * `/screening/requests`: the answers advisees sent before booking a screened
- * service. The capsules first (waiting, answered, all, each with how many;
- * waiting while any wait, all otherwise), then the requests waiting on the
- * advisor as cards to answer where they stand (`RequestCards`) and those
- * already answered as the desk's rows — under their names only when both are
- * shown. `?decline=` is a waiting request's decline popup over the list.
- *
- * A request answered here takes its new standing at once and says so in the
- * toast, while the list and the desk menu's count are read again under it.
+ * service, as the transactions page lays out its history — the capsules
+ * (all, waiting, answered, each with how many), then the ones waiting on the
+ * advisor and those already answered, each a row that opens its answers.
  */
 export function LiveScreeningRequests() {
   const t = useTranslations("screening");
   const w = useTranslations("workDesk");
   const now = useMountTime();
   const elapsed = useElapsedLabel(now);
-  const toast = useStatusToast();
-  // Null until the advisor picks a capsule: the page opens on what waits.
-  const [shown, setShown] = useState<Shown | null>(null);
-  // Each request answered here, as the API returned it, over the list's copy.
-  const [decided, setDecided] = useState<Readonly<Record<string, ApiAdvisorScreeningRequest>>>({});
+  const [shown, setShown] = useState<"all" | "pending" | "answered">("all");
   const requests = useResource(
     screeningKeys.requests,
     useCallback((signal: AbortSignal) => listScreeningRequests({ limit: 100 }, signal), []),
   );
-  const list = useLastAnswer(requests);
-  // The requests unread when the page first had the list. Each card reads its
-  // request, which marks it viewed, so the list read again after an answer
-  // would otherwise take every other card's dot away at once.
-  const [unread, setUnread] = useState<ReadonlySet<string> | null>(null);
-  if (list && unread === null) setUnread(new Set(list.items.filter((request) => !request.viewedAt).map((request) => request.id)));
-  // The desk menu's count of requests still waiting, held here so it can be read again.
-  const waiting = usePendingScreening();
-
-  // A card reads its request, which marks it viewed, so the list read here is
-  // out of date once the page is left: it is dropped then (its key and the
-  // language suffix `useResource` adds), and the next visit reads it fresh.
-  useEffect(() => () => invalidate(`${screeningKeys.requests}#`), []);
-
-  const decide = (request: ApiAdvisorScreeningRequest) => {
-    setDecided((current) => ({ ...current, [request.id]: request }));
-    // Its own answers' entry, so its review page reads where it stands now;
-    // the accepted list the questions editor counts; then this list and the
-    // count, read again while the page keeps showing what it has.
-    invalidate(`${screeningKeys.request(request.id)}#`);
-    invalidate(`${screeningKeys.requests}?`);
-    invalidate(`${screeningKeys.requests}#`);
-    requests.reload();
-    invalidate("advisors/me/screening-requests");
-    waiting.reload();
-    const name = request.adviseeDisplayName;
-    toast.show(request.status === "ACCEPTED" ? t("acceptedToast", { name }) : t("declinedToast", { name }), true);
-  };
 
   let body;
-  if (!list) {
-    body = requests.loading ? (
-      <RequestsSkeleton label={w("loading")} />
-    ) : (
+  if (requests.loading) {
+    body = <DeskListSkeleton capsules={["w-22 lg:w-26", "w-30 lg:w-36", "w-24 lg:w-28"]} groups={1} label={w("loading")} rows={3} />;
+  } else if (requests.error || !requests.data) {
+    body = (
       <div className="mt-5 lg:mt-8">
         <ScreeningErrorNotice errorKey={screeningErrorKey(requests.error)} onRetry={requests.reload} />
       </div>
     );
-  } else if (list.items.length === 0) {
+  } else if (requests.data.items.length === 0) {
     body = <DeskEmpty body={t("requestsEmptyBody")} icon={Inbox} title={t("requestsEmptyTitle")} />;
   } else {
-    const items = list.items.map((request) => decided[request.id] ?? request);
-    const pending = items.filter((request) => request.status === "PENDING");
-    const answered = items.filter((request) => request.status !== "PENDING");
-    const view = shown ?? (pending.length > 0 ? "pending" : "all");
-    const cards = view === "answered" ? [] : pending;
-    const rows = (view === "pending" ? [] : answered).map((request) => (
-      <RequestRow elapsed={elapsed} key={request.id} request={request} />
-    ));
-
-    let shownList: ReactNode;
-    if (cards.length > 0 && rows.length > 0) {
-      shownList = (
-        <div className="flex flex-col divide-y divide-border">
-          <section aria-labelledby="screening-waiting" className="flex flex-col gap-3 py-5 lg:gap-4 lg:py-8">
-            <h2 className="text-xs font-medium text-muted-foreground lg:text-frame-label" id="screening-waiting">
-              {t("filterPending")}
-            </h2>
-            <RequestCards elapsed={elapsed} onDecided={decide} requests={cards} unread={unread} />
-          </section>
-          <DayGroup label={t("answered")}>{rows}</DayGroup>
-        </div>
-      );
-    } else if (cards.length > 0) {
-      shownList = <RequestCards className="mt-5 lg:mt-8" elapsed={elapsed} onDecided={decide} requests={cards} unread={unread} />;
-    } else if (rows.length > 0) {
-      // A row pads itself (`DESK_ROW`), so this lands its text where a card's edge would stand.
-      shownList = <ul className="mt-2.5 flex flex-col lg:mt-4.5">{rows}</ul>;
-    } else {
-      shownList = <p className="pt-8 text-sm text-muted-foreground lg:pt-12 lg:text-frame-body">{w("filteredEmpty")}</p>;
-    }
-
+    const pending = requests.data.items.filter((request) => request.status === "PENDING");
+    const answered = requests.data.items.filter((request) => request.status !== "PENDING");
+    const groups = [
+      { key: "pending", label: t("pending"), rows: shown === "answered" ? [] : pending },
+      { key: "answered", label: t("answered"), rows: shown === "pending" ? [] : answered },
+    ].filter((group) => group.rows.length > 0);
     body = (
       <>
         <DeskFilter
           label={t("requestsTitle")}
           onChange={setShown}
           options={[
-            { key: "pending", label: t("filterPending"), note: pending.length },
+            { key: "all", label: w("filterAll"), note: requests.data.items.length },
+            { key: "pending", label: t("pending"), note: pending.length },
             { key: "answered", label: t("answered"), note: answered.length },
-            { key: "all", label: w("filterAll"), note: items.length },
           ]}
-          value={view}
+          value={shown}
         />
-        {shownList}
-        {/* The popup's address is read on the client only: the prerendered page has none. */}
-        <Suspense fallback={null}>
-          <DeclineFromQuery onDecided={decide} pending={pending} />
-        </Suspense>
+        {groups.length === 0 ? (
+          <p className="pt-8 text-sm text-muted-foreground lg:pt-12 lg:text-frame-body">{w("filteredEmpty")}</p>
+        ) : (
+          <div className="flex flex-col divide-y divide-border">
+            {groups.map((group) => (
+              <DayGroup key={group.key} label={group.label}>
+                {group.rows.map((request) => (
+                  <RequestRow elapsed={elapsed} key={request.id} request={request} />
+                ))}
+              </DayGroup>
+            ))}
+          </div>
+        )}
       </>
     );
   }
 
-  return (
-    <WorkHub tab="requests">
-      {body}
-      <StatusToast
-        dismiss={toast.dismiss}
-        leaving={toast.leaving}
-        paused={toast.paused}
-        setPaused={toast.setPaused}
-        toast={toast.toast}
-      />
-    </WorkHub>
-  );
+  return <WorkHub tab="requests">{body}</WorkHub>;
 }
 
-/** `?decline=`: the decline popup over the list, for a request that still waits. */
-function DeclineFromQuery({
-  pending,
-  onDecided,
-}: {
-  readonly pending: readonly ApiAdvisorScreeningRequest[];
-  readonly onDecided: (request: ApiAdvisorScreeningRequest) => void;
-}) {
-  const requestId = asUuid(useSearchParams().get(DECLINE_PARAM));
-  const request = pending.find((row) => row.id === requestId);
-  return request ? <RequestDecline key={request.id} onDecided={onDecided} request={request} /> : null;
-}
+/* ------------------------------------------------------------------- shared */
 
 /**
- * Declining one request from its card, in the review page's own popup
- * (`DeclineScreeningDialog`): its way out goes back to the list, and once
- * the decline is stored the address drops the popup's parameter.
+ * What a failed write says in the one line a popup or a pill has room for:
+ * the request already answered elsewhere, no connection, or the API's
+ * failure — the long load-error cards are for the page itself.
  */
-function RequestDecline({
-  request,
-  onDecided,
-}: {
-  readonly request: ApiAdvisorScreeningRequest;
-  readonly onDecided: (request: ApiAdvisorScreeningRequest) => void;
-}) {
-  const router = useRouter();
-  const short = useShortFailure();
-  const [busy, setBusy] = useState(false);
-  const [failure, setFailure] = useState<ScreeningErrorKey | null>(null);
-
-  const decline = async (message: string) => {
-    setBusy(true);
-    setFailure(null);
-    try {
-      // The names stay the list's, should the API's answer leave one out.
-      onDecided({ ...request, ...(await declineScreeningRequest(request.id, message)) });
-      router.replace(REQUESTS_HREF, { scroll: false });
-    } catch (cause) {
-      setFailure(screeningErrorKey(cause, { conflict: "errorAlreadyDecided" }));
-      setBusy(false);
-    }
+function useShortFailure(): (key: ScreeningErrorKey) => string {
+  const t = useTranslations("screening");
+  const e = useTranslations("errorStates");
+  return (key) => {
+    if (key === "errorAlreadyDecided") return t("errorAlreadyDecided");
+    if (key === "offline") return e("offlineBody");
+    return e("serverBody");
   };
+}
 
+/** One line box of a type step with its bone inside, so a skeleton's line stands as tall as the text it holds. */
+function BoneLine({ text, bone }: { readonly text: string; readonly bone: string }) {
   return (
-    <DeclineScreeningDialog
-      busy={busy}
-      cancelHref={REQUESTS_HREF}
-      error={failure ? short(failure) : null}
-      name={request.adviseeDisplayName}
-      onConfirm={(message) => void decline(message)}
-    />
+    <span className={cn("flex h-lh items-center", text)}>
+      <span className={cn(DESK_BONE, "rounded", bone)} />
+    </span>
   );
 }
 
