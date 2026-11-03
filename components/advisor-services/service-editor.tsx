@@ -35,7 +35,7 @@ import {
   type ContentLocale,
   type ServiceCategory,
 } from "@/lib/advisor-services/api";
-import type { Paginated } from "@/lib/api/client";
+import { ApiError, type Paginated } from "@/lib/api/client";
 import type { ApiPublicService, ApiServicePackage } from "@/lib/api/types";
 import { invalidate, useResource } from "@/lib/api/use-resource";
 import { CUSTOM_BOUNDS } from "@/lib/availability";
@@ -1422,19 +1422,21 @@ function DeleteServiceConfirm({ record, onClose }: { readonly record: AdvisorSer
   const t = useTranslations("ownerService");
   const router = useRouter();
   const [busy, setBusy] = useState(false);
-  const [failed, setFailed] = useState(false);
+  // A service with bookings or screening behind it is kept by the API (409):
+  // that is said for what it is, and the delete stays off.
+  const [failed, setFailed] = useState<"history" | "other" | null>(null);
 
   const remove = () => {
     setBusy(true);
-    setFailed(false);
+    setFailed(null);
     void (async () => {
       try {
         await deleteAdvisorService(record.id);
         invalidate("advisors/me/services");
         invalidate("services");
         router.push("/advisor/services");
-      } catch {
-        setFailed(true);
+      } catch (cause) {
+        setFailed(cause instanceof ApiError && cause.status === 409 ? "history" : "other");
         setBusy(false);
       }
     })();
@@ -1451,14 +1453,14 @@ function DeleteServiceConfirm({ record, onClose }: { readonly record: AdvisorSer
     >
       {failed ? (
         <p className="mb-3 text-xs text-destructive md:mb-4 md:text-sm" role="alert">
-          {t("deleteFailed")}
+          {t(failed === "history" ? "deleteHistory" : "deleteFailed")}
         </p>
       ) : null}
       <div className={cn(SETTINGS_DIALOG_ACTIONS, "mt-0 md:mt-0")}>
         <Button className={settingsPill("ghost")} disabled={busy} onClick={onClose} type="button" variant="ghost">
           {t("deleteCancel")}
         </Button>
-        <Button className={settingsPill("danger")} disabled={busy} onClick={remove} type="button" variant="ghost">
+        <Button className={settingsPill("danger")} disabled={busy || failed === "history"} onClick={remove} type="button" variant="ghost">
           {busy ? t("deletePending") : t("deleteYes")}
         </Button>
       </div>
