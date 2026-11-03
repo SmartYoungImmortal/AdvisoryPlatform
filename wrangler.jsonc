@@ -18,10 +18,18 @@
   "env": {
     "qa": {
       "name": "advisory-platform-qa",
+      // qa talks to the API on Cloud Run through its own origin, so it has a
+      // Worker — but only the API's paths run it; pages are still plain assets.
+      "main": "worker/api-proxy.ts",
       "assets": {
         "directory": "out",
+        "binding": "ASSETS",
         "html_handling": "auto-trailing-slash",
-        "not_found_handling": "404-page"
+        "not_found_handling": "404-page",
+        "run_worker_first": ["/api/*", "/socket.io/*"]
+      },
+      "vars": {
+        "API_ORIGIN": "https://advisory-api-qa-456000608798.asia-southeast1.run.app"
       }
     }
   }
