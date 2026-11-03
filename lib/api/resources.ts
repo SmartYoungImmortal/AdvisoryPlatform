@@ -37,6 +37,7 @@ import type {
   ApiNamedRecord,
   ApiOwnProfile,
   ApiPageQuery,
+  ApiPortfolioItem,
   ApiPublicAdvisor,
   ApiPublicAdvisorQuery,
   ApiPublicService,
@@ -138,6 +139,14 @@ export function getAdvisorBackground(
   signal?: AbortSignal,
 ): Promise<ApiAdvisorBackground> {
   return api.get(`advisors/${advisorId}/background`, { signal });
+}
+
+/** `GET /advisors/:id/portfolio` — the work their profile shows, in their order. */
+export function getAdvisorPortfolio(
+  advisorId: string,
+  signal?: AbortSignal,
+): Promise<ApiPortfolioItem[]> {
+  return api.get(`advisors/${advisorId}/portfolio`, { signal });
 }
 
 /* ------------------------------------------------------------------ reviews */

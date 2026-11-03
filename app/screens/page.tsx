@@ -84,7 +84,6 @@ const SECTIONS: ReadonlyArray<{
     node: "995:11175",
     screens: [
       { href: "/matching", label: "Problem description" },
-      { href: "/matching/searching", label: "Matching in progress" },
       { href: "/matching/results", label: "Matched advisors" },
     ],
   },
@@ -145,7 +144,6 @@ const SECTIONS: ReadonlyArray<{
     title: "Advisor profile & payouts",
     node: "995:8632",
     screens: [
-      { href: "/advisor/profile", label: "Advisor profile – View" },
       { href: "/advisor/edit", label: "Advisor profile – Edit" },
       { href: "/advisor/skills", label: "Skill management" },
       { href: "/earnings", label: "Advisor – Earnings" },

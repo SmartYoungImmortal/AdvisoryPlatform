@@ -1,5 +1,5 @@
-import { ServiceFormScreen } from "@/components/advisor-services/service-form-screen";
+import { NewServiceScreen } from "@/components/advisor-services/service-editor";
 
 export default function CreateServicePage() {
-  return <ServiceFormScreen mode="create" />;
+  return <NewServiceScreen />;
 }

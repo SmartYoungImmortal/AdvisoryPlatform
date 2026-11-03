@@ -18,12 +18,12 @@ import { cn } from "@/lib/utils";
 
 /**
  * The console's form controls on the shadcn primitives, drawn as the site's
- * sign-in field is (`Field outline`): a white box on a grey hairline with 14px
- * corners, the focus ring the rest of the site shows, 40 tall at 1440 and 44
- * on a phone, where the type is 16px so iOS does not zoom into the field.
+ * sign-in field is (`Field outline`): a white box on a grey hairline with 8px
+ * corners like the buttons, the focus ring the rest of the site shows, 40 tall
+ * at 1440 and 44 on a phone, where the type is 16px so iOS does not zoom.
  */
 const controlClass =
-  "h-11 rounded-xl border border-accented bg-card px-3.5 py-2 text-base text-foreground shadow-none placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 aria-invalid:border-destructive aria-invalid:ring-3 aria-invalid:ring-destructive/20 disabled:cursor-not-allowed disabled:opacity-60 md:h-10 md:text-sm";
+  "h-11 rounded-lg border border-accented bg-card px-3.5 py-2 text-base text-foreground shadow-none placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 aria-invalid:border-destructive aria-invalid:ring-3 aria-invalid:ring-destructive/20 disabled:cursor-not-allowed disabled:opacity-60 md:h-10 md:text-sm";
 
 /** A field: its label (a muted 14px line, as on the sign-in page), the control, then the error or a help line. */
 export function CmsFormField({

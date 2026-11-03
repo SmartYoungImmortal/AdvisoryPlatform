@@ -37,7 +37,7 @@ export function DeleteProfileDialog({ profileName, error, onDelete }: { readonly
           <AlertDialogTitle className="text-xl leading-7 font-semibold">
             {t("deleteTitle")}
           </AlertDialogTitle>
-          <AlertDialogDescription className="text-left">ลบ “{profileName}” หรือไม่? หากมีบริการใช้ชุดนี้อยู่ กรุณาเปลี่ยนชุดเวลาของบริการก่อนจึงจะลบได้</AlertDialogDescription>
+          <AlertDialogDescription className="text-left">{t("deletePrompt", { name: profileName })}</AlertDialogDescription>
         </AlertDialogHeader>
 
         {error ? <p role="alert" className="w-full rounded-lg bg-destructive/10 px-3 py-2.5 text-xs text-destructive">{error}</p> : null}
@@ -46,7 +46,7 @@ export function DeleteProfileDialog({ profileName, error, onDelete }: { readonly
             confirmations, so the footer's default grid is kept and only the widths
             are set. */}
         <AlertDialogFooter className="flex flex-row gap-2.5 group-data-[size=sm]/alert-dialog-content:flex sm:flex-row">
-          <NeutralButton className="flex-1" href="/availability/profiles">
+          <NeutralButton className="flex-1" href="/availability">
             {c("cancel")}
           </NeutralButton>
           <Button variant="destructive" className="h-auto flex-1 rounded-lg border-0 bg-destructive px-4 py-2 text-sm text-destructive-foreground hover:bg-destructive/90" onClick={onDelete} type="button">{t("deleteConfirm")}</Button>

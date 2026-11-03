@@ -40,7 +40,7 @@ import { useResource } from "@/lib/api/use-resource";
 const REPORTS_KEY = ADMIN_KEYS.reports;
 const FLAGS_KEY = ADMIN_KEYS.flags;
 const REPORTS_BACK = "/admin/reports";
-const FLAGS_BACK = "/admin/reports?tab=flags";
+const FLAGS_BACK = "/admin/reports";
 
 /**
  * The two outcomes both case pages offer, in the column beside the case: act
@@ -90,7 +90,7 @@ export function ReportReviewScreen() {
 
   const fetcher = useCallback((signal: AbortSignal) => getReport(id, signal), [id]);
   const report = useResource<AdminReport>(`${REPORTS_KEY}/${id}`, fetcher);
-  const frame = { backHref: REPORTS_BACK, backLabel: t("tab.reports"), title: t("reportTitle") };
+  const frame = { backHref: REPORTS_BACK, backLabel: t("title"), title: t("reportTitle") };
 
   if (id === "") {
     return (
@@ -177,7 +177,7 @@ function ReportRecord({ report }: { readonly report: AdminReport }) {
         />
       }
       backHref={REPORTS_BACK}
-      backLabel={t("tab.reports")}
+      backLabel={t("title")}
       badge={<CmsStatus group="report" value={report.status} />}
       description={t("reportLine", { reporter, reported })}
       title={t("reportTitle")}
@@ -190,7 +190,9 @@ function ReportRecord({ report }: { readonly report: AdminReport }) {
           <CmsDataRow label={t("col.reporter")}>
             <PersonLink id={report.reporterUserId} name={reporter} />
           </CmsDataRow>
-          <CmsDataRow label={t("col.detail")}>{report.reason}</CmsDataRow>
+          <CmsDataRow label={t("col.detail")} wide>
+            {report.reason}
+          </CmsDataRow>
         </CmsDataList>
       </CmsSection>
       <CaseEvidence context={evidence.data} loading={evidence.loading} />
@@ -227,7 +229,7 @@ export function FlagReviewScreen() {
     fetcher,
   );
   const flag = useMemo(() => flags.data?.items.find((f) => f.id === id), [flags.data, id]);
-  const frame = { backHref: FLAGS_BACK, backLabel: t("tab.flags"), title: t("flagTitle") };
+  const frame = { backHref: FLAGS_BACK, backLabel: t("title"), title: t("flagTitle") };
 
   if (id === "") {
     return (
@@ -313,7 +315,7 @@ function FlagRecord({ flag }: { readonly flag: OffPlatformFlag }) {
         />
       }
       backHref={FLAGS_BACK}
-      backLabel={t("tab.flags")}
+      backLabel={t("title")}
       badge={<CmsStatus group="flag" value={flag.status} />}
       title={t("flagTitle")}
     >

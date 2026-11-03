@@ -107,18 +107,13 @@ export function ServicesScreen() {
       header: t("col.title"),
       sortable: true,
       primary: true,
-      render: (s) => <span className="inline-block max-w-80 truncate align-bottom">{s.name}</span>,
+      render: (s) => <span className="block max-w-96 truncate">{s.name}</span>,
+      sub: (s) => categoryName.get(s.categoryId) ?? "-",
     },
     {
       id: "advisor",
       header: t("col.advisor"),
       render: (s) => accountName(s.advisorId) ?? "-",
-    },
-    {
-      id: "category",
-      header: t("col.category"),
-      className: "text-muted-foreground",
-      render: (s) => categoryName.get(s.categoryId) ?? "-",
     },
     {
       id: "price",
@@ -138,22 +133,23 @@ export function ServicesScreen() {
 
   if (services.loading) {
     return (
-      <CmsPage title={t("title")}>
+      <CmsPage full title={t("title")}>
         <CmsTableSkeleton columns={columns.length} />
       </CmsPage>
     );
   }
   if (services.error) {
     return (
-      <CmsPage title={t("title")}>
+      <CmsPage full title={t("title")}>
         <CmsApiError error={services.error} onRetry={services.reload} />
       </CmsPage>
     );
   }
 
   return (
-    <CmsPage title={t("title")}>
+    <CmsPage full title={t("title")}>
       <CmsTable
+        leadingIcon={Store}
         chips={
           <CmsChips
             label={t("col.status")}

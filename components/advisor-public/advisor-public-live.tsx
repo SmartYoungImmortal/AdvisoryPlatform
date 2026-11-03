@@ -37,12 +37,14 @@ import { ApiError, type Paginated } from "@/lib/api/client";
 import {
   getAdvisor,
   getAdvisorBackground,
+  getAdvisorPortfolio,
   getAdvisorRatingSummary,
   listAdvisorReviews,
   listServices,
 } from "@/lib/api/resources";
 import type {
   ApiAdvisorBackground,
+  ApiPortfolioItem,
   ApiPublicAdvisor,
   ApiPublicService,
   ApiRatingSummary,
@@ -77,6 +79,8 @@ import type { ProfileTab } from "@/lib/catalogue/profiles";
  *   as in search.
  * - `GET /advisors/:id/reviews`: the reviews tab, each naming the service
  *   and the package it was for.
+ * - `GET /advisors/:id/portfolio` and `/background`: the About tab, the
+ *   work they have done first.
  *
  * Nothing that is absent is drawn as a zero: a figure that failed to load is
  * left out of the box, and one still loading shows its shape.
@@ -284,6 +288,10 @@ export function LiveAdvisorProfileScreen({
     `advisors/${advisorId}/background`,
     useCallback((signal: AbortSignal) => getAdvisorBackground(advisorId, signal), [advisorId]),
   );
+  const portfolio = useResource<ApiPortfolioItem[]>(
+    `advisors/${advisorId}/portfolio`,
+    useCallback((signal: AbortSignal) => getAdvisorPortfolio(advisorId, signal), [advisorId]),
+  );
   const catalogue = useLiveCatalogue();
 
   const own = useMemo(() => services.data?.items ?? [], [services.data]);
@@ -428,6 +436,7 @@ export function LiveAdvisorProfileScreen({
           <AboutView
             background={background.data ?? (background.loading ? undefined : null)}
             bio={live.bio ?? live.headline}
+            portfolio={portfolio.data ?? (portfolio.loading ? undefined : null)}
             skills={live.skills}
           />
         ) : null}

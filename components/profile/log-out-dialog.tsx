@@ -5,24 +5,28 @@ import { useRouter } from "next/navigation";
 import { useRef, useState } from "react";
 import { useTranslations } from "next-intl";
 
+import { SETTINGS_DIALOG_ACTIONS, SettingsDialog, settingsPill } from "@/components/profile/settings-dialog";
 import { Button } from "@/components/ui/button";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogTitle,
-} from "@/components/ui/dialog";
+import { cn } from "@/lib/utils";
 import { signOut } from "@/lib/session";
 
-/** Logout confirmation follows the current phone and desktop Figma dialog frames. */
-export function LogOutDialog({
-  cancelHref = "/profile",
-}: {
-  readonly cancelHref?: string;
-}) {
+/**
+ * Figma "Log out confirm" (995:7665): the question and the two answers, in the
+ * same dialog as the settings' other steps (`SettingsDialog`), so it opens,
+ * closes and reads as they do. Leaving takes the soft red capsule: it ends
+ * the session, though nothing is lost.
+ *
+ * The route *is* the dialog's open state; the prototype has no trigger to
+ * press. Closing it, or answering no, goes back to `cancelHref` — except while
+ * the sign-out is in flight, when both answers are held.
+ *
+ * `signOut` answers whether the API confirmed the session ended. Only then
+ * does the page leave; otherwise the dialog stays with a line saying so, and
+ * the same button tries again.
+ */
+export function LogOutDialog({ cancelHref = "/profile" }: { readonly cancelHref?: string }) {
   const t = useTranslations("logOut");
   const router = useRouter();
-  const popup = useRef<HTMLDivElement>(null);
   const pending = useRef(false);
   const [saving, setSaving] = useState(false);
   const [failed, setFailed] = useState(false);
@@ -32,9 +36,10 @@ export function LogOutDialog({
     pending.current = true;
     setSaving(true);
     setFailed(false);
-    const confirmed = await signOut();
-    if (confirmed) {
-      // Finish the cookie request before navigating away from this guarded route.
+    if (await signOut()) {
+      // A full load rather than `router.replace`: the gate on this guarded
+      // route reacts to the sign-out too, and its soft redirect would add a
+      // `?next=` pointing back at this dialog.
       window.location.replace("/login");
       return;
     }
@@ -44,51 +49,35 @@ export function LogOutDialog({
   }
 
   return (
-    <Dialog
-      open
+    <SettingsDialog
+      description={t("body")}
       onOpenChange={(open) => {
         if (!open && !pending.current) router.push(cancelHref);
       }}
+      open
+      title={t("title")}
     >
-      <DialogContent
-        className="flex w-[calc(100%-3rem)] max-w-[20.375rem] flex-col gap-0 rounded-2xl p-5 text-start sm:max-w-[26.25rem] md:p-7"
-        initialFocus={(type) => (type === "keyboard" ? true : popup.current)}
-        overlayClassName="bg-scrim/60 supports-backdrop-filter:backdrop-blur-none"
-        ref={popup}
-        showCloseButton={false}
-      >
-        <DialogTitle className="text-xl leading-7 font-semibold">
-          {t("title")}
-        </DialogTitle>
-        <DialogDescription className="mt-2 text-sm leading-5 text-muted-foreground">
-          {t("body")}
-        </DialogDescription>
-        {failed ? (
-          <p className="mt-3 text-sm text-destructive" role="alert">
-            {t("failure")}
-          </p>
-        ) : null}
-        <div className="mt-4 flex flex-col gap-2.5 md:h-[5.125rem] md:flex-row md:items-center md:justify-end md:gap-3">
-          <Button
-            className="h-9 w-full rounded-lg bg-destructive text-sm text-primary-foreground hover:bg-destructive/90 md:w-40"
-            disabled={saving}
-            onClick={submit}
-            type="button"
-            variant="destructive"
-          >
-            {saving ? t("pending") : t("confirm")}
-          </Button>
-          <Button
-            className="h-9 w-full rounded-lg bg-card text-sm md:order-first md:w-30"
-            disabled={saving}
-            nativeButton={saving}
-            render={saving ? undefined : <Link href={cancelHref} />}
-            variant="outline"
-          >
-            {t("cancel")}
-          </Button>
-        </div>
-      </DialogContent>
-    </Dialog>
+      {failed ? (
+        <p className="mb-3 text-xs text-destructive md:mb-4 md:text-sm" role="alert">
+          {t("failure")}
+        </p>
+      ) : null}
+      {/* Straight under the question: there is no form between, so the
+          dialog's own gap is the only one (the actions' would add to it). */}
+      <div className={cn(SETTINGS_DIALOG_ACTIONS, "mt-0 md:mt-0")}>
+        <Button
+          className={settingsPill("ghost")}
+          disabled={saving}
+          nativeButton={saving}
+          render={saving ? undefined : <Link href={cancelHref} />}
+          variant="ghost"
+        >
+          {t("cancel")}
+        </Button>
+        <Button className={settingsPill("danger")} disabled={saving} onClick={submit} type="button" variant="ghost">
+          {saving ? t("pending") : t("confirm")}
+        </Button>
+      </div>
+    </SettingsDialog>
   );
 }

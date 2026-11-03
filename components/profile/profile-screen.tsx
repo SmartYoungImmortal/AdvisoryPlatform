@@ -6,6 +6,7 @@ import {
   Briefcase,
   CalendarDays,
   CircleHelp,
+  Eye,
   ReceiptText,
   Search,
   Settings,
@@ -24,7 +25,8 @@ import { useCallback, useState, type KeyboardEvent, type ReactNode } from "react
 
 import { AccountShell } from "@/components/account/account-shell";
 import { AppFrame, PHONE_BAR } from "@/components/account/app-frame";
-import { liveAdvisorHref, useMountTime } from "@/components/bookings/booking-flow";
+import { LinkList, LinkListCount, type LinkListRow } from "@/components/account/link-list";
+import { liveAdvisorHref, useMountTime, useQueryValue } from "@/components/bookings/booking-flow";
 import { MobileScreen, ScreenBody } from "@/components/mobile/screen";
 import { StatusPill, type StatusTone } from "@/components/mobile/status-pill";
 import { useNotificationPulse } from "@/components/notifications/notification-store";
@@ -44,7 +46,9 @@ import {
   type BookingEntry,
   type BookingHistory,
 } from "@/components/profile/profile-data";
+import { ReceivedReviews } from "@/components/reviews/my-reviews-screen";
 import { ApiErrorCard } from "@/components/service/parts";
+import { useOwnAdvisorId, useRatingSummary } from "@/components/work/work-data";
 import { useAccount } from "@/components/session/account-bits";
 import { BottomBar } from "@/components/bottombar";
 import { TopBar } from "@/components/topbar";
@@ -249,9 +253,30 @@ function Stats({ history }: { readonly history: BookingHistory }) {
   );
 }
 
+/** An advisor's score on the handle line: the stars' average over how many reviews, once there is one. */
+function AdvisorScore({ advisorId }: { readonly advisorId: string }) {
+  const t = useTranslations("profile");
+  const format = useFormatter();
+  const summary = useRatingSummary(advisorId);
+  if (!summary.data || summary.data.total === 0) return null;
+  return (
+    <>
+      <span aria-hidden>·</span>
+      <span className="inline-flex items-center gap-1">
+        <Star aria-hidden className="size-4 fill-foreground text-foreground" />
+        <span className="font-latin font-medium text-foreground tabular-nums">
+          {format.number(summary.data.average, { minimumFractionDigits: 1, maximumFractionDigits: 1 })}
+        </span>
+        {t("advisorReviewCount", { count: summary.data.total })}
+      </span>
+    </>
+  );
+}
+
 function Identity({ history }: { readonly history: BookingHistory }) {
   const t = useTranslations("profile");
   const { name, email, verified } = useProfileFacts();
+  const advisorId = useOwnAdvisorId();
 
   return (
     <IdentityRow portrait={<OwnAvatar className={PORTRAIT} fluid size={112} />}>
@@ -277,7 +302,8 @@ function Identity({ history }: { readonly history: BookingHistory }) {
           </span>
         ) : null}
         <span aria-hidden>·</span>
-        <span>{t("role")}</span>
+        <span>{advisorId ? t("roleAdvisor") : t("role")}</span>
+        {advisorId ? <AdvisorScore advisorId={advisorId} /> : null}
       </p>
       <Summary history={history} />
       <Stats history={history} />
@@ -695,6 +721,43 @@ function Stars({ value }: { readonly value: number }) {
  * reviewed), so this asks once per completed session, and only when the tab
  * is opened.
  */
+/**
+ * The reviews tab. An advisor has two kinds: what customers wrote about them
+ * (with a reply under each) and what they wrote as a customer themselves, so
+ * the tab opens on the first, with capsules to switch; anyone else sees only
+ * the reviews they wrote.
+ */
+function ReviewsTab({ history }: { readonly history: BookingHistory }) {
+  const t = useTranslations("profile");
+  const advisorId = useOwnAdvisorId();
+  const [kind, setKind] = useState<"received" | "written">("received");
+  if (!advisorId) return <ReviewsPanel history={history} />;
+  return (
+    <div className="flex flex-col gap-5 lg:gap-8">
+      <div aria-label={t("reviewsKindLabel")} className="flex gap-2 lg:gap-3" role="group">
+        {(["received", "written"] as const).map((option) => (
+          <Button
+            aria-pressed={kind === option}
+            className={cn(
+              "h-9 shrink-0 rounded-full border px-3.5 text-sm font-medium lg:h-12 lg:px-5 lg:text-frame-meta",
+              kind === option
+                ? "border-hero-action bg-hero-action text-hero-action-foreground hover:bg-hero-action/90 hover:text-hero-action-foreground"
+                : "border-border bg-card text-foreground hover:bg-muted",
+            )}
+            key={option}
+            onClick={() => setKind(option)}
+            type="button"
+            variant="ghost"
+          >
+            {t(option === "received" ? "reviewsReceived" : "reviewsWritten")}
+          </Button>
+        ))}
+      </div>
+      {kind === "received" ? <ReceivedReviews /> : <ReviewsPanel history={history} />}
+    </div>
+  );
+}
+
 function ReviewsPanel({ history }: { readonly history: BookingHistory }) {
   const t = useTranslations("profile");
   const format = useFormatter();
@@ -799,54 +862,12 @@ function ReviewsPanel({ history }: { readonly history: BookingHistory }) {
   );
 }
 
-type Row = {
-  readonly icon: LucideIcon;
-  readonly label: string;
-  readonly href: string;
-  readonly badge?: ReactNode;
-};
-
-/** A card of links, one 56px row each (64 from `lg`). */
-function LinkList({
-  rows,
-  label,
-  className,
-  children,
-}: {
-  readonly rows: readonly Row[];
-  readonly label: string;
-  readonly className?: string;
-  readonly children?: ReactNode;
-}) {
-  return (
-    <nav aria-label={label} className={cn("rounded-2xl border border-border bg-card p-2", className)}>
-      <ul className="flex flex-col">
-        {rows.map(({ icon: Icon, label: text, href, badge }) => (
-          <li key={href}>
-            <Link
-              className="flex h-14 items-center gap-3 rounded-xl px-3 text-base text-foreground outline-none transition-colors hover:bg-muted/60 focus-visible:ring-3 focus-visible:ring-ring/50 lg:h-13 lg:text-frame-body"
-              href={href}
-            >
-              <span className="flex size-9 shrink-0 items-center justify-center rounded-full bg-muted lg:size-10">
-                <Icon aria-hidden className="size-4.5 lg:size-5" />
-              </span>
-              <span className="min-w-0 flex-1 truncate">{text}</span>
-              {badge}
-              <ChevronRight aria-hidden className="size-4 shrink-0 text-muted-foreground" />
-            </Link>
-          </li>
-        ))}
-      </ul>
-      {children}
-    </nav>
-  );
-}
-
 function AboutPanel() {
   const t = useTranslations("profile");
   const c = useTranslations("common");
   const { profile, name, email, fullName, verified, joined } = useProfileFacts();
   const offersAdvisor = profile.data !== undefined && !hasRole(profile.data, "advisor");
+  const advisorId = profile.data && hasRole(profile.data, "advisor") ? profile.data.id : null;
 
   const facts: { readonly label: string; readonly value: ReactNode }[] = [
     { label: t("displayName"), value: name },
@@ -905,6 +926,18 @@ function AboutPanel() {
       </section>
 
       <Rail id="profile-more" title={t("moreTitle")}>
+        {/* An advisor's profile is this one page: their own account above, and
+            from here the work desk and what the public page shows. */}
+        {advisorId ? (
+          <LinkList
+            label={t("advisorLinksLabel")}
+            rows={[
+              { icon: Briefcase, label: t("advisorWork"), href: "/work" },
+              { icon: UserRoundPen, label: t("advisorEdit"), href: "/advisor/edit" },
+              { icon: Eye, label: t("advisorPublic"), href: liveAdvisorHref(advisorId) },
+            ]}
+          />
+        ) : null}
         <LinkList
           label={t("moreTitle")}
           rows={[
@@ -973,7 +1006,10 @@ export function ProfileScreen({
   const history = useBookingHistory(now);
   const signedIn = useAccount() !== null;
   const { unread } = useNotificationPulse(isApiConfigured && signedIn);
-  const [tab, setTab] = useState<Tab>("bookings");
+  // `?tab=reviews` (the desk's "my reviews") opens on that tab; a press decides after.
+  const linkedTab = useQueryValue("tab");
+  const [chosenTab, setTab] = useState<Tab | null>(null);
+  const tab: Tab = chosenTab ?? (TABS.find((key) => key === linkedTab) ?? "bookings");
 
   // Arrow keys move along the tabs, as a tab list should.
   const onTabKey = (event: KeyboardEvent<HTMLButtonElement>) => {
@@ -985,19 +1021,14 @@ export function ProfileScreen({
     document.getElementById(`profile-tab-${next}`)?.focus();
   };
 
-  const menu: readonly Row[] = [
+  const menu: readonly LinkListRow[] = [
     { icon: ReceiptText, label: nav("transactions"), href: "/transactions" },
     {
       icon: Bell,
       label: nav("notifications"),
       href: "/notifications",
       badge:
-        unread !== null && unread > 0 ? (
-          <span className="flex h-6 min-w-6 items-center justify-center rounded-full bg-primary px-2 font-latin text-xs font-semibold text-primary-foreground tabular-nums">
-            <span aria-hidden>{unread > 99 ? "99+" : unread}</span>
-            <span className="sr-only">{nav("unread", { count: unread })}</span>
-          </span>
-        ) : null,
+        unread !== null && unread > 0 ? <LinkListCount count={unread} label={nav("unread", { count: unread })} /> : null,
     },
     { icon: Settings, label: nav("settings"), href: "/settings" },
   ];
@@ -1069,7 +1100,7 @@ export function ProfileScreen({
               >
                 {tab === "bookings" ? <BookingsPanel history={history} now={now} /> : null}
                 {tab === "experts" ? <ExpertsPanel history={history} /> : null}
-                {tab === "reviews" ? <ReviewsPanel history={history} /> : null}
+                {tab === "reviews" ? <ReviewsTab history={history} /> : null}
                 {tab === "about" ? <AboutPanel /> : null}
               </div>
             </section>

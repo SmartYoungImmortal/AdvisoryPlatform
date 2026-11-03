@@ -102,10 +102,11 @@ export const pages: Record<
       icon: MessageSquare,
       href: pageHrefs.chat,
     },
-    // An advisor's own profile is the workspace one, not the advisee's.
+    // One profile for every account: an advisor's adds their score and the
+    // way to their desk and public page, on the same page.
     user: {
       icon: UserRound,
-      href: "/advisor/profile",
+      href: pageHrefs.user,
     },
   },
   admin: {

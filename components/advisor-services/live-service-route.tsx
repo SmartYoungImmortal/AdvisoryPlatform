@@ -4,9 +4,8 @@ import { Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import { useTranslations } from "next-intl";
 
-import { ServiceFormScreen } from "@/components/advisor-services/service-form-screen";
 import { ServiceScheduleScreen } from "@/components/advisor-services/service-schedule-screen";
-import { AdvisorServiceDetailScreen } from "@/components/advisor-services/advisor-service-detail-screen";
+import { OwnerServiceScreen } from "@/components/advisor-services/owner-service-view";
 
 function RouteContent({
   mode,
@@ -22,15 +21,13 @@ function RouteContent({
         {t("missingServiceId")}
       </p>
     );
-  if (mode === "edit")
-    return <ServiceFormScreen mode="edit" serviceId={serviceId} />;
-  if (mode === "delete")
-    return (
-      <ServiceFormScreen mode="edit" serviceId={serviceId} state="delete" />
-    );
+  // The settings that had a form of their own live in the editor now, as its booking part.
+  if (mode === "edit" || mode === "delete")
+    return <OwnerServiceScreen initialPart="booking" serviceId={serviceId} />;
   if (mode === "schedule")
     return <ServiceScheduleScreen serviceId={serviceId} />;
-  return <AdvisorServiceDetailScreen serviceId={serviceId} />;
+  // The owner's own service, shown as the page customers see, editable in place.
+  return <OwnerServiceScreen serviceId={serviceId} />;
 }
 
 export function LiveServiceRoute({

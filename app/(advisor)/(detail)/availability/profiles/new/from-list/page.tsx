@@ -1,5 +1,5 @@
-import { ProfileEditorScreen } from "@/components/availability/profile-editor-screen";
+import { ScheduleEditorScreen } from "@/components/availability/schedule-editor";
 
 export default function CreateProfileFromListPage() {
-  return <ProfileEditorScreen mode="create-from-list" />;
+  return <ScheduleEditorScreen mode="create" />;
 }

@@ -23,6 +23,8 @@ export interface ApiPublicService {
   readonly id: string;
   readonly advisorId: string;
   readonly categoryId: string;
+  /** The categories it is also found under, beside `categoryId`; absent from an older API. */
+  readonly extraCategoryIds?: readonly string[];
   readonly name: string;
   readonly description: string;
   readonly priceSatang: number;
@@ -30,6 +32,11 @@ export interface ApiPublicService {
   readonly screeningRequired: boolean;
   readonly trialEnabled: boolean;
   readonly trialDurationMinutes: number | null;
+  /**
+   * The advisor's other services this page shows, in their order; empty (or
+   * absent, from an older API) leaves the choice to the page.
+   */
+  readonly relatedServiceIds?: readonly string[];
   /** ISO timestamp the service was listed. */
   readonly createdAt: string;
   /**
@@ -56,6 +63,8 @@ export interface ApiServicePackage {
   readonly description: string | null;
   readonly durationMinutes: number;
   readonly priceSatang: number;
+  /** The package's own picture, apart from the service's photographs; null (or absent, from an older API) without one. */
+  readonly image?: string | null;
 }
 
 /** `PublicServiceQueryDto` — the filters `GET /services` accepts. */
@@ -138,6 +147,21 @@ export interface ApiAdvisorBackground {
   readonly educations: readonly ApiAdvisorEducation[];
   readonly languages: readonly ApiAdvisorLanguage[];
   readonly credentials: readonly ApiAdvisorCredential[];
+}
+
+/**
+ * `PortfolioItemResponseDto` — a piece of work on the advisor's profile:
+ * `GET /advisors/:id/portfolio`, and the advisor's own at
+ * `advisors/me/portfolio`, in the advisor's order.
+ */
+export interface ApiPortfolioItem {
+  readonly id: string;
+  readonly title: string;
+  readonly description: string | null;
+  readonly link: string | null;
+  /** URLs to show as they are; an uploaded one is signed for an hour. */
+  readonly images: readonly string[];
+  readonly createdAt: string;
 }
 
 /** `AvailabilitySlotResponseDto` — availability/dtos/availability.dto.ts:134 */

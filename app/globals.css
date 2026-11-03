@@ -510,12 +510,11 @@ html:not(.dark) .checkout-surface {
   --ring: #a1a1aa;
   --destructive: #dc2626;
   --destructive-foreground: #ffffff;
-  /* A step darker than the site's status colours: here they are the text of
-     a tinted status pill, and the lighter green and amber did not reach 4.5:1
-     on their own tint. */
-  --success: #067647;
+  /* The site's own status colours: a status is now printed as the
+     transaction rows print theirs, coloured words on white, no tinted pill. */
+  --success: #65a30d;
   --success-foreground: #ffffff;
-  --warning: #b54708;
+  --warning: #ca8a04;
   --info: #2563eb;
   --action: #2563eb;
   --action-foreground: #ffffff;
@@ -929,26 +928,4 @@ html:not(.dark) .checkout-surface {
 @utility animate-toast-countdown {
   transform-origin: left;
   animation: toast-countdown linear forwards;
-}
-
-/* Profile-editor palette from Figma 995:7586 and 1787:25320. */
-.profile-edit-page {
-  --background: #fafafa;
-  --muted: #f4f4f5;
-  --muted-foreground: #71717a;
-  --border: #e4e4e7;
-  --info: #2563eb;
-}
-
-.dark .profile-edit-page {
-  --background: oklch(0.141 0.005 285.823);
-  --muted: oklch(0.274 0.006 286.033);
-  --muted-foreground: oklch(0.705 0.015 286.067);
-  --border: oklch(1 0 0 / 10%);
-}
-
-@media (width >= 64rem) {
-  .profile-edit-card {
-    box-shadow: 0 6px 16px -2px rgb(0 0 0 / 5%), 0 1px 3px rgb(0 0 0 / 4%);
-  }
 }

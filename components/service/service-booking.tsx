@@ -100,8 +100,12 @@ function quote(service: ApiPublicService, selection: Selection) {
   return { priceSatang: service.priceSatang, durationMinutes: service.durationMinutes, from: false };
 }
 
-/** The photograph a package wears: the service's photographs dealt out to the packages in turn. */
+/**
+ * The photograph a package wears: its own, where the advisor gave it one;
+ * otherwise the service's photographs dealt out to the packages in turn.
+ */
 function packagePhoto(service: ApiPublicService, photos: readonly string[], pack: ApiServicePackage): string | null {
+  if (pack.image) return pack.image;
   if (photos.length === 0) return null;
   const index = (service.packages ?? []).findIndex((item) => item.id === pack.id);
   return photos[Math.max(index, 0) % photos.length];
@@ -197,7 +201,7 @@ export function Notice({
       <span className="flex size-11 items-center justify-center rounded-full bg-muted text-foreground lg:size-13">
         <Icon aria-hidden className="size-5 lg:size-6" />
       </span>
-      <div className="max-w-72 text-sm leading-6 text-foreground lg:text-frame-meta">{children}</div>
+      <div className="max-w-sm text-sm leading-6 text-foreground lg:text-frame-meta">{children}</div>
       {action}
     </div>
   );
@@ -235,9 +239,10 @@ export function FailedNotice({
 
 /**
  * What the panel shows instead of times, for each answer the slots route
- * gives other than a list. Signed out (401) asks to sign in and comes back
- * here afterwards, a screened service (400) points at its questions,
- * anything else is the API's own sentence with a retry.
+ * gives other than a list. The route is public, so a visitor sees the times
+ * like anyone; a 401 (an API from before it was) still asks to sign in and
+ * comes back here afterwards. A screened service (400) points at its
+ * questions, anything else is the API's own sentence with a retry.
  */
 function SlotsNotice({
   error,
@@ -300,14 +305,26 @@ function SlotsNotice({
 function useBook(serviceId: string, onRejected: () => void) {
   const t = useTranslations("service");
   const router = useRouter();
+  const session = useSession();
   const [booking, setBooking] = useState(false);
   const [failure, setFailure] = useState<string | null>(null);
+  // Anyone can look at the times; taking one needs an account. Signed out,
+  // the button goes to sign in and back to this service, not to a 401.
+  const signIn = () => router.push(`/login?next=${encodeURIComponent(liveServiceHref(serviceId))}`);
   const book = (time: string, packageId: string | null) => {
+    if (session.status === "anonymous") {
+      signIn();
+      return;
+    }
     setBooking(true);
     setFailure(null);
     void bookSlot({ serviceId, startTime: time, packageId: packageId ?? undefined })
       .then((created) => router.push(`/checkout/card?bookingId=${created.id}`))
       .catch((cause: unknown) => {
+        if (cause instanceof ApiError && cause.status === 401) {
+          signIn();
+          return;
+        }
         if (cause instanceof ApiError && cause.status === 409) {
           router.push(`/checkout/slot-taken?startTime=${encodeURIComponent(time)}&serviceId=${serviceId}`);
           return;
@@ -353,7 +370,7 @@ function OwnNotice() {
       icon={BadgeCheck}
     >
       <span className="block font-medium">{t("ownService")}</span>
-      <span className="block text-muted-foreground">{t("ownServiceHint")}</span>
+      <span className="block text-muted-foreground lg:whitespace-nowrap">{t("ownServiceHint")}</span>
     </Notice>
   );
 }
@@ -743,8 +760,15 @@ type Lane = {
  * Every package's open times from today to the route's limit, one request
  * per package (each cut to its own length), read together: the panel lists
  * them all for the day picked, and a day is open when any of them is.
+ *
+ * The read is keyed by who is looking as well. Anyone may read the times, but
+ * a screened service answers a visitor and an accepted account differently,
+ * and the cache outlives signing in: without the viewer in the key, someone
+ * who signs in and comes back would still be shown the visitor's answer.
  */
 function useServiceSlots(service: ApiPublicService, today: string, last: string) {
+  const session = useSession();
+  const viewer = session.status === "authenticated" ? session.account.id : "guest";
   const fetcher = useCallback(
     (signal: AbortSignal) => {
       const packs = service.packages && service.packages.length > 0 ? service.packages : [null];
@@ -756,7 +780,7 @@ function useServiceSlots(service: ApiPublicService, today: string, last: string)
   );
   const ids = (service.packages ?? []).map((item) => item.id).join(",");
   const slots = useResource<readonly (readonly ApiSlot[])[]>(
-    `services/${service.id}/slots?from=${today}&to=${last}&packages=${ids}`,
+    `services/${service.id}/slots?from=${today}&to=${last}&packages=${ids}&viewer=${viewer}`,
     fetcher,
   );
   const { lanes, openDays } = useMemo(() => {
@@ -807,7 +831,8 @@ const WIDE = {
   slot: "h-[49.875px] rounded-[14.25px] px-0 shadow-none",
   slotText: "font-latin text-frame-label font-medium tabular-nums",
   none: "mt-[14.25px] px-[28.5px] text-frame-meta text-muted-foreground",
-  notice: "px-[28.5px] pt-9.5",
+  // In the middle of the panel: the space under the title, less the title's own height below it.
+  notice: "flex flex-1 flex-col justify-center px-[28.5px] pb-[97.375px]",
   footer: "flex shrink-0 items-center justify-between gap-[19px] border-t border-border px-[28.5px] py-[19px]",
   footPrice: "font-latin text-frame-figure font-medium text-foreground tabular-nums",
   footNote: "text-frame-label text-muted-foreground",
@@ -841,7 +866,7 @@ const NARROW: typeof WIDE = {
   slot: "h-[45px] w-16 shrink-0 rounded-[12px] px-0 shadow-none",
   slotText: "font-latin text-xs font-medium tabular-nums",
   none: "mt-3 px-6 text-sm text-muted-foreground",
-  notice: "px-6 pt-8",
+  notice: "flex flex-1 flex-col justify-center px-6 py-8",
   footer: "flex shrink-0 items-center justify-between gap-3 border-t border-border px-6 py-4",
   footPrice: "font-latin text-lg font-medium text-foreground tabular-nums",
   footNote: "text-xs text-muted-foreground",
@@ -917,7 +942,8 @@ function Schedule({
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
-      <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
+      {/* A column only while it holds a notice: the week strip scrolls sideways, and a flex item that scrolls may shrink. */}
+      <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain has-[[data-notice]]:flex has-[[data-notice]]:flex-col">
         <Title className={S.title}>{t("book")}</Title>
         <ScheduleBody
           advisorName={advisorName}
@@ -994,23 +1020,24 @@ function ScheduleBody({
   const own = useOwnService(service.advisorId);
   const { day } = calendar;
 
+  // `data-notice` turns the scroller into a column (see `Schedule`), for the notice to sit in its middle.
   if (own) {
     return (
-      <div className={S.notice}>
+      <div className={S.notice} data-notice>
         <OwnNotice />
       </div>
     );
   }
   if (slots.error) {
     return (
-      <div className={S.notice}>
+      <div className={S.notice} data-notice>
         <SlotsNotice advisorName={advisorName} error={slots.error} onRetry={slots.reload} service={service} />
       </div>
     );
   }
   if (!slots.loading && !day) {
     return (
-      <div className={S.notice}>
+      <div className={S.notice} data-notice>
         <Notice action={<MessageButton advisorId={service.advisorId} />} icon={CalendarX2}>
           {t("noSlotsAhead")}
         </Notice>
@@ -1376,17 +1403,18 @@ function TimesDialog({ service, advisorName, selection, picker, photos }: LayerP
             sizes={WIDE}
             Title={DialogTitle}
           />
+          {/* On the title's line, not a row above it: centred on its first line (61.75 down, 35.6 tall). */}
           <DialogClose
             render={
               <Button
                 aria-label={c("close")}
-                className="absolute top-[19px] right-[19px] z-20 size-9.5 rounded-full"
+                className="absolute top-[57px] right-[23.75px] z-20 size-[45px] rounded-full"
                 size="icon"
                 variant="ghost"
               />
             }
           >
-            <X aria-hidden className="size-[19px]" />
+            <X aria-hidden className="size-6" />
           </DialogClose>
         </div>
       </DialogContent>
@@ -1412,17 +1440,18 @@ function TimesSheet({ service, advisorName, selection, picker, photos }: LayerPr
           sizes={NARROW}
           Title={SheetTitle}
         />
+        {/* On the title's line: centred on its first line (52 down, 39 tall). */}
         <SheetClose
           render={
             <Button
               aria-label={c("close")}
-              className="absolute top-6 right-4 z-20 size-10 rounded-full"
+              className="absolute top-[49.5px] right-3 z-20 size-11 rounded-full"
               size="icon"
               variant="ghost"
             />
           }
         >
-          <X aria-hidden className="size-5" />
+          <X aria-hidden className="size-6" />
         </SheetClose>
       </SheetContent>
     </Sheet>

@@ -6,10 +6,9 @@ import type { ReactNode } from "react";
 import { cn } from "@/lib/utils";
 
 /**
- * The console's button, in the site's capsule shapes (`authPill`, the
- * settings rows' grey actions): fully round, the thing being done filled in
- * ink, the way out a white capsule on a hairline or the soft grey, and what
- * cannot be undone in red.
+ * The console's button: 8px corners, as the console this is modelled on draws
+ * its controls, the thing being done filled in ink, the way out white on a
+ * hairline or the soft grey, and what cannot be undone in red.
  *
  * 36 tall from `md` (a toolbar's height at 1440, drawn under `cms-scale`), 44
  * on a phone so every press clears the touch minimum. `sm` and `xs` are for
@@ -17,7 +16,7 @@ import { cn } from "@/lib/utils";
  * (40 and 36 on a phone).
  */
 export const cmsButtonVariants = cva(
-  "inline-flex shrink-0 items-center justify-center rounded-full font-medium whitespace-nowrap transition-colors outline-none select-none focus-visible:ring-3 focus-visible:ring-ring/50 disabled:pointer-events-none disabled:opacity-50 aria-disabled:pointer-events-none aria-disabled:opacity-50 [&_svg]:shrink-0",
+  "inline-flex shrink-0 items-center justify-center rounded-lg font-medium whitespace-nowrap transition-colors outline-none select-none focus-visible:ring-3 focus-visible:ring-ring/50 disabled:pointer-events-none disabled:opacity-50 aria-disabled:pointer-events-none aria-disabled:opacity-50 [&_svg]:shrink-0",
   {
     variants: {
       variant: {

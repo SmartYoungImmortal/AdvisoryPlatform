@@ -103,8 +103,39 @@ function useScreeningRedirect(
 
 /* ---------------------------------------------------------------- questions */
 
+/**
+ * `/screening/questions?serviceId=`: the service's questions to answer before
+ * booking it. Without a service (an old or hand-typed link) there is nothing
+ * to answer, and the page says it was not found.
+ */
+export function LiveScreeningQuestions({ serviceId }: { readonly serviceId: string | undefined }) {
+  const c = useTranslations("common");
+  if (serviceId) return <QuestionsForm key={serviceId} serviceId={serviceId} />;
+  return (
+    <MobileScreen wide>
+      <ScreenTopBar href="/search" label={c("back")} />
+      <ScreenBody className={COLUMN}>
+        <ScreeningErrorNotice errorKey="notFound" />
+      </ScreenBody>
+    </MobileScreen>
+  );
+}
+
+/** The questions page while its address is read, before it knows which service it is for. */
+export function ScreeningQuestionsLoading() {
+  const c = useTranslations("common");
+  return (
+    <MobileScreen wide>
+      <ScreenTopBar href="/search" label={c("back")} />
+      <ScreenBody className={COLUMN}>
+        <LoadingBlock />
+      </ScreenBody>
+    </MobileScreen>
+  );
+}
+
 /** Figma "Advisee - Screening questions (Light)" — 995:11631. */
-export function LiveScreeningQuestions({ serviceId }: { readonly serviceId: string }) {
+function QuestionsForm({ serviceId }: { readonly serviceId: string }) {
   const t = useTranslations("screening");
   const c = useTranslations("common");
   const router = useRouter();

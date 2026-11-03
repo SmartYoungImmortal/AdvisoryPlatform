@@ -31,9 +31,9 @@ export function AddDateSheet({ profileId, busy, error }: { readonly profileId: s
             <p className="text-sm font-medium">{t("addSheet.rangeLabel")}</p>
             {Array.from({ length: rangeCount }, (_, index) => (
               <div key={index} className="flex w-full items-center gap-2">
-                <Input aria-label={`${t("addSheet.rangeLabel")} ${index + 1} เริ่ม`} className="h-10" form={form} name="newSpecificStart" type="time" required />
+                <Input aria-label={`${t("addSheet.rangeStart")} ${index + 1}`} className="h-10" form={form} name="newSpecificStart" type="time" required />
                 <span className="text-muted-foreground">–</span>
-                <Input aria-label={`${t("addSheet.rangeLabel")} ${index + 1} สิ้นสุด`} className="h-10" form={form} name="newSpecificEnd" type="time" required />
+                <Input aria-label={`${t("addSheet.rangeEnd")} ${index + 1}`} className="h-10" form={form} name="newSpecificEnd" type="time" required />
               </div>
             ))}
             <Button className="h-auto justify-start p-0 text-sm font-medium" onClick={() => setRangeCount((count) => count + 1)} type="button" variant="link">{t("addSheet.addAnother")}</Button>
@@ -42,7 +42,7 @@ export function AddDateSheet({ profileId, busy, error }: { readonly profileId: s
           {error ? <p className="text-sm text-destructive" role="alert">{error}</p> : null}
           <div className="flex w-full items-start gap-3">
             <Button className="w-30 shrink-0" onClick={close} type="button" variant="outline">{c("cancel")}</Button>
-            <Button className="h-auto min-w-px flex-1 rounded-lg border-0 px-5 py-2 text-sm" form={form} type="submit">{busy ? "กำลังบันทึก…" : t("addSheet.confirm")}</Button>
+            <Button className="h-auto min-w-px flex-1 rounded-lg border-0 px-5 py-2 text-sm" form={form} type="submit">{busy ? t("saving") : t("addSheet.confirm")}</Button>
           </div>
         </fieldset>
       </DialogContent>

@@ -3,20 +3,16 @@
 import { ChevronRight, FileText, Pencil, Plus, Trash2 } from "lucide-react";
 import Link from "next/link";
 import { useLocale, useTranslations } from "next-intl";
-import { useCallback, useState, type FormEvent, type ReactNode } from "react";
+import { useCallback, useState, type ReactNode } from "react";
 
-import { NeutralButton, PrimaryButton } from "@/components/mobile/buttons";
-import { MobileScreen, ScreenActions, ScreenBody, ScreenHeading, ScreenTopBar } from "@/components/mobile/screen";
-import { surfaceClass } from "@/components/mobile/surface";
+import { EntryDialog, SelectField, TextAreaField, TextField } from "@/components/advisor/edit-fields";
+import { PortfolioSection } from "@/components/advisor/portfolio-editor";
+import { authPill } from "@/components/auth/auth-split";
 import { StatusToast, useStatusToast } from "@/components/mobile/toast";
+import { DESK_BOX, DESK_PILL, DeskPage } from "@/components/work/desk-page";
 import { ApiErrorCard } from "@/components/service/parts";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
-import { FieldDescription, FieldError, FieldLabel, Field as FieldRoot } from "@/components/ui/field";
-import { Input } from "@/components/ui/input";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Textarea } from "@/components/ui/textarea";
 import {
   getOwnAdvisorBackground,
   getOwnAdvisorProfile,
@@ -37,13 +33,16 @@ import { cn } from "@/lib/utils";
 
 /**
  * `/advisor/edit` — what a client reads about the advisor, as the advisor
- * keeps it: the line under their name and their introduction
+ * keeps it: the work they have done (`advisors/me/portfolio`, see
+ * `portfolio-editor.tsx`), the line under their name and their introduction
  * (`PATCH /advisors/me`), and the background their public profile's About
  * tab lists (`PUT /advisors/me/background`): work, education, languages,
  * licences and awards.
  *
  * Each list is edited here, an entry at a time in a small dialog, and the
  * whole page is saved at once, so nothing reaches the profile half done.
+ * The portfolio is the exception: a piece's pictures are uploaded to it, so
+ * each piece is saved from its own dialog.
  * Years are typed the way the page's language counts them: Buddhist Era in
  * Thai (2565), and stored as the common era.
  */
@@ -70,182 +69,6 @@ function storedYear(typed: string, thai: boolean): number | null {
 /** Whether a stored year is one the API takes (1950 to 2100). */
 function yearInRange(year: number | null): boolean {
   return year === null || (year >= 1950 && year <= 2100);
-}
-
-/* ----------------------------------------------------------------- fields */
-
-/** The box every field here wears: the sign-up form's white box on a hairline. */
-const FIELD_BOX = "h-11 rounded-xl border-accented bg-card px-4 text-base shadow-none md:h-12 md:text-base";
-
-function TextField({
-  id,
-  label,
-  value,
-  onChange,
-  hint,
-  error,
-  inputMode,
-  placeholder,
-  className,
-}: {
-  readonly id: string;
-  readonly label: string;
-  readonly value: string;
-  readonly onChange: (value: string) => void;
-  readonly hint?: string;
-  readonly error?: string;
-  readonly inputMode?: "numeric";
-  readonly placeholder?: string;
-  readonly className?: string;
-}) {
-  const note = `${id}-note`;
-  return (
-    <FieldRoot className={cn("gap-1.5", className)} data-invalid={error ? true : undefined}>
-      <FieldLabel className="text-sm font-medium text-muted-foreground" htmlFor={id}>
-        {label}
-      </FieldLabel>
-      <Input
-        aria-describedby={error || hint ? note : undefined}
-        aria-invalid={error ? true : undefined}
-        className={FIELD_BOX}
-        id={id}
-        inputMode={inputMode}
-        onChange={(event) => onChange(event.target.value)}
-        placeholder={placeholder}
-        value={value}
-      />
-      {error ? (
-        <FieldError className="text-sm" id={note}>
-          {error}
-        </FieldError>
-      ) : null}
-      {!error && hint ? (
-        <FieldDescription className="text-sm" id={note}>
-          {hint}
-        </FieldDescription>
-      ) : null}
-    </FieldRoot>
-  );
-}
-
-function TextAreaField({
-  id,
-  label,
-  value,
-  onChange,
-  hint,
-  rows = 4,
-}: {
-  readonly id: string;
-  readonly label: string;
-  readonly value: string;
-  readonly onChange: (value: string) => void;
-  readonly hint?: string;
-  readonly rows?: number;
-}) {
-  return (
-    <FieldRoot className="gap-1.5">
-      <FieldLabel className="text-sm font-medium text-muted-foreground" htmlFor={id}>
-        {label}
-      </FieldLabel>
-      <Textarea
-        className="min-h-24 rounded-xl border-accented bg-card px-4 py-3 text-base shadow-none field-sizing-content md:text-base"
-        id={id}
-        onChange={(event) => onChange(event.target.value)}
-        rows={rows}
-        value={value}
-      />
-      {hint ? <FieldDescription className="text-sm">{hint}</FieldDescription> : null}
-    </FieldRoot>
-  );
-}
-
-function SelectField<K extends string>({
-  id,
-  label,
-  value,
-  onChange,
-  items,
-  placeholder,
-}: {
-  readonly id: string;
-  readonly label: string;
-  readonly value: K | "";
-  readonly onChange: (value: K) => void;
-  readonly items: readonly { readonly value: K; readonly label: string }[];
-  readonly placeholder?: string;
-}) {
-  return (
-    <FieldRoot className="gap-1.5">
-      <FieldLabel className="text-sm font-medium text-muted-foreground" htmlFor={id}>
-        {label}
-      </FieldLabel>
-      <Select items={items} onValueChange={(next) => onChange(next as K)} value={value || null}>
-        <SelectTrigger className={cn(FIELD_BOX, "w-full justify-between data-[size=default]:h-11 md:data-[size=default]:h-12")} id={id}>
-          <SelectValue placeholder={placeholder} />
-        </SelectTrigger>
-        <SelectContent alignItemWithTrigger={false} sideOffset={6}>
-          {items.map((item) => (
-            <SelectItem key={item.value} value={item.value}>
-              {item.label}
-            </SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
-    </FieldRoot>
-  );
-}
-
-/* ----------------------------------------------------------------- dialog */
-
-/**
- * An entry's dialog, the settings' confirm card: its title in bold at the top
- * left, the fields flat on white, and the answers on one line at the right,
- * the way out as bare words and saving the entry as the capsule.
- */
-function EntryDialog({
-  open,
-  onOpenChange,
-  title,
-  onSubmit,
-  children,
-}: {
-  readonly open: boolean;
-  readonly onOpenChange: (open: boolean) => void;
-  readonly title: string;
-  readonly onSubmit: () => void;
-  readonly children: ReactNode;
-}) {
-  const t = useTranslations("advisorEdit");
-  return (
-    <Dialog onOpenChange={onOpenChange} open={open}>
-      <DialogContent
-        className="max-h-[calc(100dvh-2rem)] gap-0 overflow-y-auto rounded-2xl p-5 sm:max-w-[480px] md:p-6"
-        overlayClassName="bg-scrim/40 supports-backdrop-filter:backdrop-blur-none"
-        showCloseButton={false}
-      >
-        <form
-          className="flex flex-col"
-          noValidate
-          onSubmit={(event: FormEvent) => {
-            event.preventDefault();
-            onSubmit();
-          }}
-        >
-          <DialogTitle className="text-lg font-semibold text-foreground">{title}</DialogTitle>
-          <div className="mt-5 flex flex-col gap-4">{children}</div>
-          <div className="mt-6 flex items-center justify-end gap-3">
-            <Button className="h-11 px-4 text-sm font-medium" onClick={() => onOpenChange(false)} type="button" variant="ghost">
-              {t("cancel")}
-            </Button>
-            <Button className="h-11 rounded-full bg-foreground px-6 text-sm font-medium text-background hover:bg-foreground/85" type="submit">
-              {t("done")}
-            </Button>
-          </div>
-        </form>
-      </DialogContent>
-    </Dialog>
-  );
 }
 
 /* ---------------------------------------------------------------- entries */
@@ -559,10 +382,10 @@ function EntryRow({
 }) {
   const t = useTranslations("advisorEdit");
   return (
-    <li className="flex items-center gap-3 py-3">
-      <span className="flex min-w-0 flex-1 flex-col gap-0.5">
-        <span className="text-base font-medium text-foreground">{head}</span>
-        {line ? <span className="text-sm text-muted-foreground">{line}</span> : null}
+    <li className="flex items-center gap-3 py-3 lg:py-4">
+      <span className="flex min-w-0 flex-1 flex-col gap-0.5 lg:gap-1">
+        <span className="text-base font-medium text-foreground lg:text-frame-body">{head}</span>
+        {line ? <span className="text-sm text-muted-foreground lg:text-frame-meta">{line}</span> : null}
       </span>
       <Button aria-label={t("editEntry", { name: head })} className="size-10 rounded-full" onClick={onEdit} size="icon" type="button" variant="ghost">
         <Pencil aria-hidden className="size-4" />
@@ -590,14 +413,14 @@ function ListSection({
 }) {
   const hasEntries = Array.isArray(children) ? children.length > 0 : Boolean(children);
   return (
-    <section className="flex flex-col border-t border-border pt-6">
-      <h2 className="text-lg font-semibold text-foreground">{title}</h2>
+    <section className="flex flex-col border-t border-border pt-8 lg:pt-10">
+      <h2 className="text-lg font-semibold text-foreground lg:text-frame-heading">{title}</h2>
       {hasEntries ? (
         <ul className="mt-2 flex flex-col divide-y divide-border">{children}</ul>
       ) : (
-        <p className="mt-2 text-sm text-muted-foreground">{empty}</p>
+        <p className="mt-2 text-sm text-muted-foreground lg:text-frame-meta">{empty}</p>
       )}
-      <Button className="mt-3 h-10 self-start rounded-full border-accented px-4 text-sm font-medium" onClick={onAdd} type="button" variant="outline">
+      <Button className="mt-4 h-10 self-start rounded-full border-border px-4 text-sm font-medium lg:h-12 lg:px-5 lg:text-frame-meta" onClick={onAdd} type="button" variant="outline">
         <Plus aria-hidden className="size-4" />
         {addLabel}
       </Button>
@@ -676,17 +499,20 @@ function EditForm({ profile, initial }: { readonly profile: ApiOwnAdvisorProfile
   const dialogKey = editing ? `${editing.list}-${editing.index ?? "new"}` : "closed";
 
   return (
-    <>
+    <div className="mt-5 flex w-full max-w-200 flex-col gap-8 lg:mt-8 lg:gap-10">
+      {/* First, because it is what a client looks at first; it saves a piece at a time, so it sits outside the form. */}
+      <PortfolioSection advisorId={profile.id} onStatus={status.show} />
+
       <form
-        className="flex w-full flex-col gap-6 px-6 pt-3 pb-6"
+        className="flex w-full flex-col gap-8 lg:gap-10"
         noValidate
         onSubmit={(event) => {
           event.preventDefault();
           save();
         }}
       >
-        <section className="flex flex-col gap-4">
-          <h2 className="text-lg font-semibold text-foreground">{p("introTitle")}</h2>
+        <section className="flex flex-col gap-4 border-t border-border pt-8 lg:gap-5 lg:pt-10">
+          <h2 className="text-lg font-semibold text-foreground lg:text-frame-heading">{p("introTitle")}</h2>
           <TextField
             error={headlineError}
             hint={t("headlineHint")}
@@ -770,21 +596,28 @@ function EditForm({ profile, initial }: { readonly profile: ApiOwnAdvisorProfile
         </ListSection>
 
         {/* The skills are proved, not typed: their own page sends the proof. */}
-        <section className="flex flex-col gap-3 border-t border-border pt-6">
-          <h2 className="text-lg font-semibold text-foreground">{a("skillsLabel")}</h2>
-          <Link className={cn(surfaceClass({ tier: "raised", interactive: true }), "flex w-full items-center gap-3 p-3.5")} href="/advisor/skills">
-            <FileText aria-hidden className="size-4 shrink-0 text-muted-foreground" />
-            <span className="min-w-px flex-1 text-sm text-foreground">{t("skillsLink")}</span>
+        <section className="flex flex-col gap-4 border-t border-border pt-8 lg:pt-10">
+          <h2 className="text-lg font-semibold text-foreground lg:text-frame-heading">{a("skillsLabel")}</h2>
+          <Link
+            className={cn(DESK_BOX, "flex h-16 w-full items-center gap-3 px-4 outline-none transition-colors hover:bg-muted/60 focus-visible:ring-3 focus-visible:ring-ring/50 lg:h-18 lg:px-5")}
+            href="/advisor/skills"
+          >
+            <span className="flex size-9 shrink-0 items-center justify-center rounded-full bg-muted lg:size-10">
+              <FileText aria-hidden className="size-4.5 lg:size-5" />
+            </span>
+            <span className="min-w-0 flex-1 text-base text-foreground lg:text-frame-body">{t("skillsLink")}</span>
             <ChevronRight aria-hidden className="size-4 shrink-0 text-muted-foreground" />
           </Link>
         </section>
 
-        <ScreenActions className="px-0">
-          <PrimaryButton disabled={saving} type="submit">
+        <div className="flex w-full items-center gap-3 lg:justify-end">
+          <Button className={cn(authPill(false), DESK_PILL, "flex-1 lg:flex-none")} nativeButton={false} render={<Link href="/profile" />} variant="outline">
+            {a("cancel")}
+          </Button>
+          <Button className={cn(authPill(true), DESK_PILL, "flex-[2] lg:flex-none")} disabled={saving} type="submit">
             {saving ? t("saving") : a("save")}
-          </PrimaryButton>
-          <NeutralButton href="/advisor/profile">{a("cancel")}</NeutralButton>
-        </ScreenActions>
+          </Button>
+        </div>
       </form>
 
       {/* Keyed by the entry, so each opening starts from that entry's own values. */}
@@ -808,7 +641,7 @@ function EditForm({ profile, initial }: { readonly profile: ApiOwnAdvisorProfile
         setPaused={status.setPaused}
         toast={status.toast}
       />
-    </>
+    </div>
   );
 }
 
@@ -816,7 +649,6 @@ function EditForm({ profile, initial }: { readonly profile: ApiOwnAdvisorProfile
 export function AdvisorProfileEditScreen() {
   const t = useTranslations("advisor");
   const e = useTranslations("advisorEdit");
-  const c = useTranslations("common");
   const profile = useResource<ApiOwnAdvisorProfile | null>(
     "advisors/me",
     useCallback((signal: AbortSignal) => getOwnAdvisorProfile(signal), []),
@@ -828,7 +660,7 @@ export function AdvisorProfileEditScreen() {
   let body: ReactNode;
   if (profile.loading || background.loading) {
     body = (
-      <div aria-busy className="flex w-full flex-col gap-4 px-6 pt-3">
+      <div aria-busy className="mt-5 flex w-full max-w-200 flex-col gap-4 lg:mt-8">
         <span className="h-11 w-full animate-pulse rounded-xl bg-muted" />
         <span className="h-24 w-full animate-pulse rounded-xl bg-muted" />
         <span className="h-16 w-full animate-pulse rounded-xl bg-muted" />
@@ -836,7 +668,7 @@ export function AdvisorProfileEditScreen() {
     );
   } else if (profile.error || background.error) {
     body = (
-      <div className="px-6 pt-3">
+      <div className="mt-5 lg:mt-8">
         <ApiErrorCard
           error={profile.error ?? background.error ?? new Error(e("loadFailed"))}
           onRetry={() => {
@@ -850,11 +682,11 @@ export function AdvisorProfileEditScreen() {
   } else if (!profile.data) {
     // No application yet: nothing to edit until there is a profile.
     body = (
-      <div className="flex flex-col items-start gap-3 px-6 pt-3">
-        <p className="text-sm text-muted-foreground">{e("noProfile")}</p>
-        <PrimaryButton className="w-auto" href="/advisor/apply">
+      <div className="mt-5 flex flex-col items-start gap-4 lg:mt-8">
+        <p className="text-sm text-muted-foreground lg:text-frame-meta">{e("noProfile")}</p>
+        <Button className={cn(authPill(true), DESK_PILL)} nativeButton={false} render={<Link href="/advisor/apply" />}>
           {e("apply")}
-        </PrimaryButton>
+        </Button>
       </div>
     );
   } else {
@@ -862,12 +694,8 @@ export function AdvisorProfileEditScreen() {
   }
 
   return (
-    <MobileScreen wide>
-      <ScreenTopBar href="/advisor/profile" label={c("back")} />
-      <ScreenBody className="lg:[&>*:not(.sticky)]:mx-auto lg:[&>*:not(.sticky)]:w-full lg:[&>*:not(.sticky)]:max-w-[880px]">
-        <ScreenHeading className="gap-2 pt-4" subtitle={t("editSubtitle")} title={t("editTitle")} />
-        {body}
-      </ScreenBody>
-    </MobileScreen>
+    <DeskPage backHref="/profile" rail="profile" title={t("editTitle")}>
+      {body}
+    </DeskPage>
   );
 }

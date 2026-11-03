@@ -13,7 +13,7 @@ import { useCmsFeedback } from "@/components/cms/feedback";
 import { useRecordId } from "@/components/cms/hooks";
 import { CmsPage } from "@/components/cms/layout";
 import { useAccountName } from "@/components/cms/people";
-import { RulingDecision } from "@/components/cms/ruling";
+import { useRulingDecision } from "@/components/cms/ruling";
 import {
   CmsDataList,
   CmsDataRow,
@@ -35,7 +35,7 @@ import type { Paginated } from "@/lib/api/client";
 import { useResource } from "@/lib/api/use-resource";
 
 const PROOFS_KEY = ADMIN_KEYS.skillProofs;
-const BACK = "/admin/verification?tab=skills";
+const BACK = "/admin/verification";
 
 /**
  * One skill document, on the verification desk's second tab: the document and
@@ -58,7 +58,7 @@ export function SkillProofReviewScreen() {
     fetcher,
   );
   const proof = proofs.data?.items.find((p) => p.id === id);
-  const frame = { backHref: BACK, backLabel: t("tab.skills"), title: t("proofTitle") };
+  const frame = { backHref: BACK, backLabel: t("title"), title: t("proofTitle") };
 
   if (id === "") {
     return (
@@ -126,10 +126,22 @@ function ProofRecord({ proof }: { readonly proof: SkillProof }) {
     if (result.ok) router.push(BACK);
   }
 
+  const decision = useRulingDecision({
+    approveLabel: t("approve"),
+    onApprove: approve,
+    onReject: reject,
+    reasonHelp: t("reasonHelp"),
+    reasonLabel: t("reason"),
+    reasonPlaceholder: t("rejectPlaceholder"),
+    reasonRequired: t("reasonRequired"),
+    rejectLabel: t("reject"),
+  });
+
   return (
     <CmsPage
       aside={
         <CmsSidebarOptions
+          actions={pending ? decision.actions : undefined}
           info={[
             { label: t("submittedAt"), by: advisor, at: proof.createdAt },
             ...(proof.reviewedAt
@@ -143,22 +155,11 @@ function ProofRecord({ proof }: { readonly proof: SkillProof }) {
               : []),
           ]}
         >
-          {pending ? (
-            <RulingDecision
-              approveLabel={t("approve")}
-              onApprove={approve}
-              onReject={reject}
-              reasonHelp={t("reasonHelp")}
-              reasonLabel={t("reason")}
-              reasonPlaceholder={t("rejectPlaceholder")}
-              reasonRequired={t("reasonRequired")}
-              rejectLabel={t("reject")}
-            />
-          ) : undefined}
+          {pending ? decision.field : undefined}
         </CmsSidebarOptions>
       }
       backHref={BACK}
-      backLabel={t("tab.skills")}
+      backLabel={t("title")}
       badge={<CmsStatus group="proof" value={proof.reviewStatus} />}
       title={proof.skillName}
     >
@@ -180,7 +181,9 @@ function ProofRecord({ proof }: { readonly proof: SkillProof }) {
             </span>
           </CmsDataRow>
           {proof.rejectionReason ? (
-            <CmsDataRow label={t("reason")}>{proof.rejectionReason}</CmsDataRow>
+            <CmsDataRow label={t("reason")} wide>
+              {proof.rejectionReason}
+            </CmsDataRow>
           ) : null}
         </CmsDataList>
       </CmsSection>

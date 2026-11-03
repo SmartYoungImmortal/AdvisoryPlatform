@@ -25,7 +25,6 @@ import {
   useSelection,
 } from "@/components/service/service-booking";
 import { ServiceIntro } from "@/components/service/service-head";
-import { servicePhotoSet } from "@/components/service/service-photo-sets";
 import {
   AdvisorSection,
   KnowSection,
@@ -33,6 +32,7 @@ import {
   ReviewsSection,
 } from "@/components/service/service-sections";
 import { Button } from "@/components/ui/button";
+import { WorkFrame } from "@/components/work/work-frame";
 import { cn } from "@/lib/utils";
 
 /**
@@ -78,13 +78,39 @@ const COLUMNS =
  * 38 of top padding; inside `app-scale` that is the bar's height over the
  * page's zoom, plus 38. The screen's height is `100dvh` over the same zoom,
  * since a viewport length here is zoomed with everything else.
+ *
+ * It is exactly that height, never more: on a screen too short for all of
+ * it the cover gives way (`ServiceIntro`), so the column is never taller than
+ * its room and never pushed up where the page ends.
  */
 const INTRO_COLUMN =
-  "flex min-w-0 flex-col md:mx-auto md:w-full md:max-w-xl lg:sticky lg:top-(--intro-top) lg:mx-0 lg:min-h-[calc(100dvh_/_var(--app-zoom)_-_var(--intro-top))] lg:max-w-none";
+  "flex min-w-0 flex-col md:mx-auto md:w-full md:max-w-xl lg:sticky lg:top-(--intro-top) lg:mx-0 lg:h-[calc(var(--intro-screen,100dvh)_/_var(--app-zoom)_-_var(--intro-top))] lg:max-w-none";
 
 const INTRO_VARS = {
   "--app-zoom": "tan(atan2(min(100vw, 1440px), 1710px))",
   "--intro-top": "calc(88px * clamp(0.75, tan(atan2(100vw, 1710px)), 1) / var(--app-zoom) + 38px)",
+} as CSSProperties;
+
+/**
+ * The head of the advisor's own service in the desk's frame (`WorkFrame`):
+ * the band's title and action, and where its chevron goes back to.
+ */
+export type DeskHead = {
+  readonly title: ReactNode;
+  readonly action?: ReactNode;
+  readonly backHref: string;
+};
+
+/**
+ * The intro in the owner's view (the desk's frame): it starts under the
+ * desk's band held at the top (its 88, then the page's 32), and its screen
+ * is the panel's, 6 in from the window's top and bottom. The view ends on the
+ * panel's foot (`flushFoot`), so the price card sits on it.
+ */
+const OWNER_INTRO_VARS = {
+  "--app-zoom": "tan(atan2(min(100vw, 1440px), 1710px))",
+  "--intro-top": "120px",
+  "--intro-screen": "calc(100dvh - 12px)",
 } as CSSProperties;
 
 /**
@@ -121,17 +147,31 @@ function useAdvisor(advisorId: string): ApiPublicAdvisor | undefined {
   return useResource<ApiPublicAdvisor>(`advisors/${advisorId}`, fetcher).data;
 }
 
-/**
- * The photographs, cover first: the card's cover (what the reader pressed),
- * then the service's own, each URL once, since the API may list the same
- * cover among them.
- */
+/** The photographs, cover first. */
 function photosOf(item: LiveService | undefined, service: ApiPublicService): readonly string[] {
-  // This page's own three, where the service has them (`service-photo-sets`).
-  const own = servicePhotoSet(service.id);
-  if (own) return own;
-  const all = [item?.cover.src, ...(service.images ?? item?.images ?? [])];
-  return [...new Set(all.filter((src): src is string => Boolean(src)))];
+  // The service's own photographs, as its owner keeps them in the API (and as the editor's client view
+  // holds them before the save): the same ones its editor, its card and its owner's list show. Only a
+  // service with none wears its card's picture.
+  if (service.images && service.images.length > 0) return service.images;
+  return item ? [item.cover.src] : [];
+}
+
+/**
+ * The advisor's other services this page shows: the ones they chose, in their
+ * order, where any is still listed; otherwise the page picks, those in the
+ * same category first and the newest first within each.
+ */
+export function relatedOf(
+  items: readonly LiveService[],
+  service: Pick<ApiPublicService, "id" | "advisorId" | "categoryId" | "relatedServiceIds">,
+): readonly LiveService[] {
+  const others = items.filter((item) => item.advisorId === service.advisorId && item.id !== service.id);
+  const chosen = (service.relatedServiceIds ?? [])
+    .map((id) => others.find((item) => item.id === id))
+    .filter((item): item is LiveService => item !== undefined);
+  if (chosen.length > 0) return chosen;
+  const near = (item: LiveService) => (item.categoryId === service.categoryId ? 0 : 1);
+  return others.toSorted((a, b) => near(a) - near(b) || b.listedAt - a.listedAt);
 }
 
 /** Best rated first, the busier of two equal scores ahead. */
@@ -168,14 +208,48 @@ function similarTo(
  * account pages are drawn at `app-scale`, and the same `frame-*` step has to
  * read the same size here as there.
  */
-function Frame({ children, bar }: { readonly children: ReactNode; readonly bar?: ReactNode }) {
+export function ServiceFrame({ children, bar, desk, footer, flushFoot = false }: {
+  readonly children: ReactNode;
+  readonly bar?: ReactNode;
+  /** In the desk's frame, no room under the page: the client's view ends on the panel's foot, as the page itself does. */
+  readonly flushFoot?: boolean;
+  /**
+   * The advisor's own service (its editor, and the client's view of it): in
+   * the work desk's frame (`WorkFrame`) under this head, with the desk's menu
+   * at the left and "บริการ" marked, not under the marketplace's bar.
+   */
+  readonly desk?: DeskHead;
+  /** Held to the foot of the scroller, under the page (the editor's save). */
+  readonly footer?: ReactNode;
+}) {
   // This page's neutral greys (`.neutral-greys`): on the frame for what it
   // draws, on <body> while it is mounted for the dialogs and sheets that
-  // portal out of it.
+  // portal out of it. Not on <body> in the desk's frame, whose menu and rail
+  // keep the account pages' own greys.
+  const inDesk = desk !== undefined;
   useEffect(() => {
+    if (inDesk) return;
     document.body.classList.add("neutral-greys");
     return () => document.body.classList.remove("neutral-greys");
-  }, []);
+  }, [inDesk]);
+
+  if (desk) {
+    return (
+      <WorkFrame
+        action={desk.action}
+        backHref={desk.backHref}
+        bodyClassName="neutral-greys"
+        flushFoot={flushFoot}
+        footer={footer}
+        overlay={bar}
+        place="services"
+        stickyBand
+        title={desk.title}
+      >
+        <div className="mt-5 flex flex-1 flex-col lg:mt-8">{children}</div>
+      </WorkFrame>
+    );
+  }
 
   return (
     <MobileScreen className="neutral-greys pb-0" wide="md">
@@ -187,6 +261,7 @@ function Frame({ children, bar }: { readonly children: ReactNode; readonly bar?:
         <div className="app-scale mx-auto flex w-full flex-1 flex-col px-6 pt-2 pb-32 md:px-12 md:pt-4 lg:max-w-[1658px] lg:px-8 lg:pt-9.5 lg:pb-0">
           {children}
         </div>
+        {footer}
       </ScreenBody>
       {bar}
     </MobileScreen>
@@ -200,7 +275,7 @@ function Frame({ children, bar }: { readonly children: ReactNode; readonly bar?:
  */
 export function LiveServiceDetailSkeleton() {
   return (
-    <Frame
+    <ServiceFrame
       bar={
         // The phone's floating price holds its place too, so nothing
         // appears from nowhere when the price arrives.
@@ -284,7 +359,7 @@ export function LiveServiceDetailSkeleton() {
           </div>
         </div>
       </div>
-    </Frame>
+    </ServiceFrame>
   );
 }
 
@@ -323,8 +398,22 @@ function Unavailable({ error, onRetry }: { readonly error: Error; readonly onRet
   );
 }
 
-/** The loaded service, with everything around it. */
-function ServiceView({ service }: { readonly service: ApiPublicService }) {
+/**
+ * What the owner's view of their own service adds to the page a customer
+ * sees (`/advisor/services/view`): a bar above it, and the way to change the
+ * details and the packages where they stand.
+ */
+export type OwnerSlots = {
+  /** The desk's band over the page (`DeskHead`). */
+  readonly head: DeskHead;
+  readonly intro: ReactNode;
+  readonly packages: ReactNode;
+  /** Held to the foot of the page (the editor's save). */
+  readonly footer?: ReactNode;
+};
+
+/** The loaded service, with everything around it; with `owner`, the owner's view of it. */
+export function ServiceView({ service, owner }: { readonly service: ApiPublicService; readonly owner?: OwnerSlots }) {
   const t = useTranslations("service");
   const catalogue = useLiveCatalogue();
   const advisor = useAdvisor(service.advisorId);
@@ -339,7 +428,7 @@ function ServiceView({ service }: { readonly service: ApiPublicService }) {
     item?.face ?? (advisor?.image ? { src: advisor.image, width: 128, height: 128 } : null);
   const category = item?.category ?? "";
   const photos = photosOf(item, service);
-  const own = catalogue.items.filter((entry) => entry.advisorId === service.advisorId && entry.id !== service.id);
+  const own = relatedOf(catalogue.items, service);
   const similar = similarTo(catalogue.items, service, category);
 
   // Held back until the catalogue is in, so the cover is the photo the reader
@@ -347,7 +436,7 @@ function ServiceView({ service }: { readonly service: ApiPublicService }) {
   const settled = !(catalogue.loading && !item);
 
   return (
-    <Frame bar={<BookingBar picker={picker} selection={selection} service={service} />}>
+    <ServiceFrame bar={<BookingBar picker={picker} selection={selection} service={service} />} desk={owner?.head} flushFoot footer={owner?.footer}>
       <BookingPicker
         advisorName={name}
         photos={settled ? photos : []}
@@ -357,7 +446,8 @@ function ServiceView({ service }: { readonly service: ApiPublicService }) {
       />
       <div className={COLUMNS}>
         {/* `items-start` on the grid is what lets the column ride. */}
-        <aside aria-label={t("panelLabel")} className={INTRO_COLUMN} style={INTRO_VARS}>
+        <aside aria-label={t("panelLabel")} className={INTRO_COLUMN} style={owner ? OWNER_INTRO_VARS : INTRO_VARS}>
+          {owner ? <div className="mb-4 flex flex-wrap gap-2 lg:mb-6">{owner.intro}</div> : null}
           <ServiceIntro
             booking={<BookingCard picker={picker} selection={selection} service={service} />}
             category={category}
@@ -373,13 +463,17 @@ function ServiceView({ service }: { readonly service: ApiPublicService }) {
         {/* The page's foot padding is this column's, not the frame's: the
             grid then ends where the page does, and the intro beside it stays
             put to the last pixel of the scroll. */}
-        <div className="flex min-w-0 flex-col lg:pb-28">
+        {/* In the owner's view a shorter foot: it ends on the desk's panel, with nothing floating over it. */}
+        <div className={cn("flex min-w-0 flex-col", owner ? "lg:pb-12" : "lg:pb-28")}>
           {/* The packages, where the listing pages list a host's offerings:
               first, and with no head, as theirs has none. */}
           {service.packages && service.packages.length > 0 ? (
             <div className="border-b border-border pb-9 lg:pb-[57px]">
+              {owner ? <div className="mb-4 flex justify-end lg:mb-6">{owner.packages}</div> : null}
               <PackageCards photos={settled ? photos : []} picker={picker} selection={selection} service={service} />
             </div>
+          ) : owner ? (
+            <div className="border-b border-border pb-9 lg:pb-[57px]">{owner.packages}</div>
           ) : null}
           <ReviewsSection
             advisorName={name}
@@ -396,7 +490,7 @@ function ServiceView({ service }: { readonly service: ApiPublicService }) {
           <MoreServices advisorId={service.advisorId} category={similar.category} own={own} similar={similar.items} />
         </div>
       </div>
-    </Frame>
+    </ServiceFrame>
   );
 }
 
@@ -408,9 +502,9 @@ export function LiveServiceDetailScreen({ serviceId }: { readonly serviceId: str
   if (service.loading) return <LiveServiceDetailSkeleton />;
   if (service.error || !service.data) {
     return (
-      <Frame>
+      <ServiceFrame>
         <Unavailable error={service.error ?? new Error(t("notFoundBody"))} onRetry={service.reload} />
-      </Frame>
+      </ServiceFrame>
     );
   }
   return <ServiceView service={service.data} />;

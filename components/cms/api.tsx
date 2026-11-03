@@ -61,8 +61,9 @@ export function CmsApiError({
 const BONE = "block rounded-full bg-muted";
 
 /**
- * A table-shaped placeholder at the table's own heights — the capsules and the
- * search, the head, the rows — so the page does not reflow when the rows land.
+ * A table-shaped placeholder at the table's own heights — the card, its
+ * toolbar band, the head, the rows and the footer band — so the page does not
+ * reflow when the rows land.
  */
 export function CmsTableSkeleton({
   columns,
@@ -72,18 +73,21 @@ export function CmsTableSkeleton({
   readonly rows?: number;
 }) {
   return (
-    <div aria-hidden className="flex flex-col">
-      <div className="flex items-center justify-between gap-4">
-        <span className="flex gap-2">
+    <div aria-hidden className="flex flex-col overflow-hidden rounded-lg border border-border bg-card">
+      <div className="flex items-center justify-between gap-4 border-b border-border px-5 py-4">
+        <span className={cn(BONE, "h-9 w-64")} />
+        <span className="hidden gap-2 md:flex">
           <span className={cn(BONE, "h-9 w-20")} />
           <span className={cn(BONE, "h-9 w-24")} />
           <span className={cn(BONE, "h-9 w-24")} />
         </span>
-        <span className={cn(BONE, "hidden h-9 w-64 md:block")} />
       </div>
-      <div className="mt-4 divide-y divide-border border-b border-border">
+      <div className="divide-y divide-border">
         {Array.from({ length: rows + 1 }, (_, row) => (
-          <div className={cn("flex items-center gap-6", row === 0 ? "h-11" : "h-13")} key={row}>
+          <div
+            className={cn("flex items-center gap-6 px-5", row === 0 ? "h-11 bg-muted/50" : "h-16")}
+            key={row}
+          >
             {Array.from({ length: Math.min(columns, 6) }, (_, column) => (
               <span
                 className={cn(
@@ -97,18 +101,22 @@ export function CmsTableSkeleton({
           </div>
         ))}
       </div>
+      <div className="flex items-center justify-between gap-4 border-t border-border px-5 py-4">
+        <span className={cn(BONE, "h-4 w-40")} />
+        <span className={cn(BONE, "hidden h-9 w-48 sm:block")} />
+      </div>
     </div>
   );
 }
 
-/** A record page's placeholder: label and value rows on hairlines. */
+/** A record page's placeholder: a card of label-over-value pairs in two columns. */
 export function CmsDetailSkeleton({ rows = 4 }: { readonly rows?: number }) {
   return (
-    <div aria-hidden className="flex flex-col">
-      <span className={cn(BONE, "mb-4 h-4 w-32")} />
-      <div className="divide-y divide-border border-y border-border">
+    <div aria-hidden className="flex flex-col rounded-lg border border-border bg-card p-5 md:p-6">
+      <span className={cn(BONE, "mb-5 h-4 w-32")} />
+      <div className="grid gap-x-8 gap-y-5 sm:grid-cols-2">
         {Array.from({ length: rows }, (_, row) => (
-          <div className="grid gap-2 py-4 sm:grid-cols-[12rem_1fr] sm:gap-6" key={row}>
+          <div className="flex flex-col gap-2 py-1" key={row}>
             <span className={cn(BONE, "h-3 w-24")} />
             <span className={cn(BONE, "h-3 w-2/3")} />
           </div>
