@@ -12,6 +12,23 @@ const nextConfig: NextConfig = {
   // The development badge, bottom-left by default, sat on the app rail's
   // settings item (`components/account/app-frame.tsx`). Dev only.
   devIndicators: { position: "bottom-right" },
+  // `next dev` reaches the API the way the qa Worker does (worker/api-proxy.ts):
+  // through this origin, so the session cookie is first-party. Set
+  // NEXT_PUBLIC_API_URL to this server and API_PROXY_TARGET to the API. Dev
+  // only — a static export has no rewrites. The Socket.IO client asks for
+  // `/socket.io/`, so the trailing slash is kept rather than redirected away.
+  ...(process.env.NODE_ENV === "development" && process.env.API_PROXY_TARGET
+    ? {
+        skipTrailingSlashRedirect: true,
+        async rewrites() {
+          const target = process.env.API_PROXY_TARGET;
+          return [
+            { source: "/api/:path*", destination: `${target}/api/:path*` },
+            { source: "/socket.io/", destination: `${target}/socket.io/` },
+          ];
+        },
+      }
+    : {}),
   images: {
     // Cloudflare's static assets have no image-optimisation endpoint to call,
     // so images are emitted with their original src.
