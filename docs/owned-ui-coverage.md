@@ -47,3 +47,9 @@ This is measurement groundwork, not completion of #60. Next work includes real a
 ## Service-detail follow-up — 1 November 2026
 
 The live service-detail and service-schedule routes now read owner data and real slots. Desktop and phone browser proof includes profile-save invalidation, date-specific rules and exact session links. See `docs/review/service-detail.md`. The baseline above predates this work; no new whole-UI percentage is claimed.
+
+## Full-flow follow-up — 2 November 2026
+
+All 63 combined browser scenarios pass with the local live flags enabled: 52 live and 11 ordinary scenarios. The reporter initially refused to report the unused `lib/advisor-services/schedule.ts` fixture because it has no browser source map. Its exports have no consumers; the live calendar replaced it, so the dead file was removed rather than excluded from measurement.
+
+The verified report covers 63 owned source files, with no file missing from an exercised browser bundle: 87.03% statements, 73.19% branches, 81.55% functions and 89.15% lines. The branch gate still fails. Keep #60 open. This is source execution evidence, not finished-screen or visual acceptance. Current remaining gaps include unexercised date/time editor interactions and several account recovery states.

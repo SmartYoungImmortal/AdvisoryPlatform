@@ -808,7 +808,7 @@
     "publish": "Publish service",
     "saveChanges": "Save changes",
     "deleteDialogTitle": "Delete this service?",
-    "deleteDialogBody": "“{name}” will be deleted for good and disappear from search right away. Paid bookings still go ahead until they're complete.",
+    "deleteDialogBody": "“{name}” will be deleted for good. A service with booking or screening history can't be deleted — hide it instead.",
     "deleteConfirm": "Delete service",
     "durationLabel": "Length (minutes)",
     "missingServiceId": "Service ID not found",
@@ -819,7 +819,8 @@
     "deleting": "Deleting…",
     "validationError": "Enter a valid service name, category, schedule, price and length",
     "apiUnavailable": "Couldn't connect. Check your internet connection and try again",
-    "unnamedService": "Untitled service"
+    "unnamedService": "Untitled service",
+    "deleteHistoryBody": "This service has consultation or screening history, so it can't be deleted. Hide it instead."
   },
   "bookings": {
     "title": "My bookings",
@@ -1747,7 +1748,8 @@
     "wrongCurrentTitle": "Current password is incorrect",
     "wrongCurrentBody": "3 more tries before sign-in is paused for 15 minutes",
     "wrongCurrentFieldError": "Doesn't match your current password",
-    "invalid": "Check the new password and its confirmation again"
+    "invalid": "Check the new password and its confirmation again",
+    "requestFailed": "Could not change your password. Please try again."
   },
   "changeEmail": {
     "title": "Change email",

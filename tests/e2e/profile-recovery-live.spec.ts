@@ -63,6 +63,7 @@ for (const width of [1440, 390]) {
       await expect(page.getByRole("form").getByRole("alert")).toContainText(
         "บันทึกการเปลี่ยนแปลงไม่สำเร็จ",
       );
+      await expect(page.getByRole("form").getByRole("alert")).toContainText("The API could not be reached");
       await expect(field).toHaveValue(nextName);
       expect(
         names.parse(

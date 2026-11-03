@@ -1,11 +1,11 @@
 import { useTranslations } from "next-intl";
+import { Popover } from "@base-ui/react/popover";
+import { ChevronDown } from "lucide-react";
+import { useState } from "react";
 
 import { surfaceClass } from "@/components/mobile/surface";
 import { cn } from "@/lib/utils";
-import {
-  END_TIME_OPTIONS,
-  PICKED_END_TIME,
-} from "@/lib/availability/editor";
+import { endTimeOptions } from "@/lib/availability/editor";
 
 /**
  * Figma "Availability - Profile / Time picker" (1594:31672) — the list that drops
@@ -22,25 +22,32 @@ import {
  * of the things that shadow exists for, and it replaces the wide `shadow-lift`
  * wash, which is the hero treatment and read as fog under a 208px list.
  */
-export function TimePickerPopover({ value, onSelect }: { readonly value: string; readonly onSelect: (value: string) => void }) {
+export function TimePickerPopover({ start, value, onSelect, defaultOpen = false }: { readonly start: string; readonly value: string; readonly onSelect: (value: string) => void; readonly defaultOpen?: boolean }) {
   const t = useTranslations("availability");
+  const [open, setOpen] = useState(defaultOpen);
 
   return (
-    <div
+    <Popover.Root open={open} onOpenChange={setOpen}>
+      <Popover.Trigger aria-label={t("picker.endLabel")} className="-my-0.5 flex size-6 shrink-0 items-center justify-center rounded-sm text-muted-foreground outline-none focus-visible:ring-2 focus-visible:ring-ring">
+        <ChevronDown aria-hidden className="size-3.5" />
+      </Popover.Trigger>
+      <Popover.Portal>
+      <Popover.Positioner align="end" sideOffset={4} className="z-50">
+    <Popover.Popup aria-label={t("picker.endLabel")}
       className={cn(
         surfaceClass(),
-        "absolute top-full right-0 z-10 mt-1 flex w-52 flex-col overflow-clip shadow-panel",
+        "flex w-52 flex-col overflow-clip shadow-panel outline-none",
       )}
     >
       <p className="shrink-0 px-3 pt-2.5 pb-1 text-xs font-normal text-muted-foreground">
         {t("picker.endLabel")}
       </p>
       <ul className="flex max-h-60 flex-col overflow-y-auto">
-        {END_TIME_OPTIONS.map((option) => (
+        {endTimeOptions(start).map((option) => (
           <li key={option.time}>
-            <button type="button" aria-pressed={option.time === value} onClick={() => onSelect(option.time)} className={cn(
+            <button type="button" aria-pressed={option.time === value} onClick={() => { onSelect(option.time); setOpen(false); }} className={cn(
               "flex w-full shrink-0 items-center gap-2 px-3 py-2 text-left hover:bg-muted",
-              option.time === value || (!value && option.time === PICKED_END_TIME) ? "bg-accent-surface" : null,
+              option.time === value ? "bg-accent-surface" : null,
             )}>
             <span className="min-w-px flex-1 font-latin text-sm font-normal text-foreground">
               {option.time}
@@ -57,6 +64,9 @@ export function TimePickerPopover({ value, onSelect }: { readonly value: string;
       <p className="shrink-0 border-t border-border px-3 py-2 text-xs font-normal text-muted-foreground">
         {t("picker.scrollHint")}
       </p>
-    </div>
+    </Popover.Popup>
+      </Popover.Positioner>
+      </Popover.Portal>
+    </Popover.Root>
   );
 }

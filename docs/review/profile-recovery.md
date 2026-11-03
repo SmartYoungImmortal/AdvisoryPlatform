@@ -11,3 +11,5 @@ Use [local profile editing](http://localhost:3001/profile/edit) with a signed-in
 Run `AUTH_LIVE_PROOF=1 pnpm exec playwright test tests/e2e/profile-recovery-live.spec.ts` against the named disposable proof services and demo accounts. Desktop and phone tests check failed-write persistence, retained edits, one real successful retry, pending controls and saved state after reload. They restore the demo account's original names. Only the initial transport failure is injected; the retry uses the real API.
 
 The [phone save-failed reference](https://www.figma.com/design/pddSCcCJ1hmYHAZO1GW13b?node-id=995-7586) was fetched for comparison. The existing screen's identity section, cover, layout and typography differ from that frame. This change adds disabled behavior to existing controls and does not establish full visual acceptance. No separately approved pending-state frame is available. No backend or schema changes, deployment verification or whole-source coverage claim is included.
+
+The subsequent [mobile editor follow-up](profile-mobile.md) replaces the phone's inherited profile hero with the final phone layout. Desktop visual acceptance remains open.

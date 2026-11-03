@@ -210,7 +210,7 @@ test("real registration, verification, desktop/mobile profile, password reset an
     await expect(page.locator("#display-name")).toHaveValue("Auth Proof");
     await page.locator("#display-name").fill("Verified Profile");
     const saved = page.waitForResponse(response => response.url().endsWith("/api/v1/users/me") && response.request().method() === "PATCH");
-    await page.locator('button[type="submit"]').click();
+    await page.getByRole("button", { name: "บันทึกการเปลี่ยนแปลง", exact: true }).click();
     expect((await saved).status()).toBe(200);
     await page.goto("http://localhost:3001/profile/edit");
     await expect(page.locator("#display-name")).toHaveValue("Verified Profile");

@@ -28,8 +28,8 @@ import { deleteAdvisorService } from "@/lib/advisor-services/api";
  * screen and the frame gives it the heavier treatment. `defaultOpen` because the
  * route *is* the open state.
  *
- * The body names what survives — bookings already paid for still run — because that
- * is the question an Advisor with upcoming sessions is actually asking.
+ * Services with consultation or screening history must be hidden rather than
+ * deleted; the API keeps those records and reports a conflict.
  */
 export function DeleteServiceDialog({
   record,
@@ -44,7 +44,7 @@ export function DeleteServiceDialog({
   const c = useTranslations("common");
   const router = useRouter();
   const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<{ kind: "history" } | { kind: "other"; message: string } | null>(null);
   const id = serviceId ?? record?.serviceId ?? "";
   const name = serviceName ?? record?.service.title ?? t("unnamedService");
   const back = `/advisor/services/manage?serviceId=${encodeURIComponent(id)}`;
@@ -58,7 +58,9 @@ export function DeleteServiceDialog({
       invalidate("advisors/me/services");
       router.push("/advisor/services");
     } catch (cause) {
-      setError(cause instanceof ApiError ? cause.message : t("apiUnavailable"));
+      setError(cause instanceof ApiError && cause.status === 409
+        ? { kind: "history" }
+        : { kind: "other", message: cause instanceof ApiError ? cause.message : t("apiUnavailable") });
       setBusy(false);
     }
   }
@@ -78,15 +80,15 @@ export function DeleteServiceDialog({
           <AlertDialogTitle className="text-lg font-semibold">
             {t("deleteDialogTitle")}
           </AlertDialogTitle>
-          <AlertDialogDescription className="text-center">
-            {error ?? t("deleteDialogBody", { name })}
+          <AlertDialogDescription className="text-center" role={error ? "alert" : undefined}>
+            {error?.kind === "history" ? t("deleteHistoryBody") : error?.message ?? t("deleteDialogBody", { name })}
           </AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter className="flex flex-row gap-2.5 group-data-[size=sm]/alert-dialog-content:flex sm:flex-row">
           <NeutralButton className="flex-1" href={back}>
             {c("cancel")}
           </NeutralButton>
-          <DestructiveButton className="flex-1" type="button" disabled={busy} onClick={() => void remove()}>{busy ? t("deleting") : t("deleteConfirm")}</DestructiveButton>
+          <DestructiveButton className="flex-1" type="button" disabled={busy || error?.kind === "history"} onClick={() => void remove()}>{busy ? t("deleting") : t("deleteConfirm")}</DestructiveButton>
         </AlertDialogFooter>
       </AlertDialogContent>
     </AlertDialog>

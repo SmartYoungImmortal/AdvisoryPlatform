@@ -357,6 +357,7 @@ export function EditProfileScreen({
               // `size-px` as well: `sr-only` alone lost to the primitive's own
               // `w-full h-9`, leaving a clipped box the width of the page.
               className="sr-only size-px"
+              disabled={photoBusy}
               onChange={(event) => {
                 void changePhoto(event.target.files?.[0]);
                 event.target.value = "";

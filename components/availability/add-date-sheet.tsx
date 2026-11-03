@@ -1,24 +1,51 @@
-import Link from "next/link";
 import { useTranslations } from "next-intl";
+import { useRouter } from "next/navigation";
+import { useState } from "react";
 
-import { NeutralButton } from "@/components/mobile/buttons";
 import { ThaiText } from "@/components/mobile/thai-text";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 
-/** Figma's date sheet, with values submitted by the editor form behind it. */
-export function AddDateSheet({ profileId = "" }: { readonly profileId?: string }) {
+/** Inputs belong to the editor form even though the accessible dialog is portalled. */
+export function AddDateSheet({ profileId, busy, error }: { readonly profileId: string; readonly busy: boolean; readonly error: string | null }) {
   const t = useTranslations("availability");
   const c = useTranslations("common");
-  const editorHref = `/availability/profiles/edit/specific${profileId ? `?id=${encodeURIComponent(profileId)}` : ""}`;
-  return <>
-    <div aria-hidden className="absolute inset-0 z-10 bg-scrim/40" />
-    <div aria-label={t("addSheet.title")} className="absolute inset-x-0 bottom-0 z-20 flex flex-col gap-4 rounded-t-2xl bg-card px-6 pt-3 pb-5 lg:inset-0 lg:m-auto lg:h-fit lg:w-[420px] lg:rounded-2xl lg:border lg:border-border lg:p-6 lg:shadow-lg" role="dialog">
-      <div aria-hidden className="mx-auto h-1 w-10 shrink-0 rounded-full bg-border lg:hidden" />
-      <div className="flex w-full shrink-0 flex-col items-start gap-1.5"><h2 className="w-full text-xl leading-7 font-semibold text-foreground">{t("addSheet.title")}</h2><p className="w-full text-sm text-muted-foreground"><ThaiText>{t("addSheet.subtitle")}</ThaiText></p></div>
-      <label className="grid w-full shrink-0 gap-1.5 text-sm font-medium">{t("addSheet.dateLabel")}<Input name="newSpecificDate" type="date" required /></label>
-      <div className="flex w-full shrink-0 flex-col items-start gap-1.5"><p className="w-full text-sm font-medium">{t("addSheet.rangeLabel")}</p><div className="flex w-full items-center gap-2"><Input aria-label={t("addSheet.rangeStart")} className="h-10" name="newSpecificStart" type="time" required/><span className="text-muted-foreground">–</span><Input aria-label={t("addSheet.rangeEnd")} className="h-10" name="newSpecificEnd" type="time" required/></div><Link className="w-full text-sm font-medium text-primary" href={editorHref}>{t("addSheet.addAnother")}</Link><p className="w-full text-xs text-muted-foreground"><ThaiText>{t("addSheet.hint")}</ThaiText></p></div>
-      <div className="flex w-full items-start gap-3"><NeutralButton className="w-30 shrink-0" href={editorHref}>{c("cancel")}</NeutralButton><Button className="h-auto min-w-px flex-1 rounded-lg border-0 px-5 py-2 text-sm" type="submit">{t("addSheet.confirm")}</Button></div>
-    </div>
-  </>;
+  const router = useRouter();
+  const [rangeCount, setRangeCount] = useState(1);
+  const editorHref = `/availability/profiles/edit/specific?id=${encodeURIComponent(profileId)}`;
+  const close = () => { if (!busy) router.push(editorHref); };
+  const form = "availability-profile-form";
+
+  return (
+    <Dialog open onOpenChange={(open) => { if (!open) close(); }}>
+      <DialogContent className="top-auto bottom-0 left-0 flex max-h-[90dvh] w-full max-w-none translate-x-0 translate-y-0 flex-col gap-4 overflow-y-auto rounded-b-none rounded-t-2xl bg-card px-6 pt-3 pb-5 sm:max-w-none lg:top-1/2 lg:bottom-auto lg:left-1/2 lg:w-105 lg:max-w-105 lg:-translate-x-1/2 lg:-translate-y-1/2 lg:rounded-2xl lg:border lg:border-border lg:p-6 lg:shadow-lg" overlayClassName="bg-scrim/40" showCloseButton={false}>
+        <div aria-hidden className="mx-auto h-1 w-10 shrink-0 rounded-full bg-border lg:hidden" />
+        <div className="flex w-full flex-col gap-1.5">
+          <DialogTitle className="text-xl leading-7 font-semibold text-foreground">{t("addSheet.title")}</DialogTitle>
+          <DialogDescription className="text-sm text-muted-foreground"><ThaiText>{t("addSheet.subtitle")}</ThaiText></DialogDescription>
+        </div>
+        <fieldset className="contents" disabled={busy}>
+          <label className="grid w-full gap-1.5 text-sm font-medium">{t("addSheet.dateLabel")}<Input form={form} name="newSpecificDate" type="date" required /></label>
+          <div className="flex w-full flex-col gap-1.5">
+            <p className="text-sm font-medium">{t("addSheet.rangeLabel")}</p>
+            {Array.from({ length: rangeCount }, (_, index) => (
+              <div key={index} className="flex w-full items-center gap-2">
+                <Input aria-label={`${t("addSheet.rangeStart")} ${index + 1}`} className="h-10" form={form} name="newSpecificStart" type="time" required />
+                <span className="text-muted-foreground">–</span>
+                <Input aria-label={`${t("addSheet.rangeEnd")} ${index + 1}`} className="h-10" form={form} name="newSpecificEnd" type="time" required />
+              </div>
+            ))}
+            <Button className="h-auto justify-start p-0 text-sm font-medium" onClick={() => setRangeCount((count) => count + 1)} type="button" variant="link">{t("addSheet.addAnother")}</Button>
+            <p className="text-xs text-muted-foreground"><ThaiText>{t("addSheet.hint")}</ThaiText></p>
+          </div>
+          {error ? <p className="text-sm text-destructive" role="alert">{error}</p> : null}
+          <div className="flex w-full items-start gap-3">
+            <Button className="w-30 shrink-0" onClick={close} type="button" variant="outline">{c("cancel")}</Button>
+            <Button className="h-auto min-w-px flex-1 rounded-lg border-0 px-5 py-2 text-sm" form={form} type="submit">{busy ? t("saving") : t("addSheet.confirm")}</Button>
+          </div>
+        </fieldset>
+      </DialogContent>
+    </Dialog>
+  );
 }

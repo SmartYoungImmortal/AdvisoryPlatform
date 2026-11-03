@@ -125,15 +125,13 @@ export const PRESET_WEEKLY_DAYS: readonly WeeklyDayFixture[] = WEEKDAYS.map(
  * carries how long the range would become, which is the number the Advisor is
  * actually choosing by.
  */
-export const END_TIME_OPTIONS = [
-  { time: "09:30", minutes: 30 },
-  { time: "10:00", minutes: 60 },
-  { time: "10:30", minutes: 90 },
-  { time: "11:00", minutes: 120 },
-  { time: "11:30", minutes: 150 },
-  { time: "12:00", minutes: 180 },
-  { time: "12:30", minutes: 210 },
-  { time: "13:00", minutes: 240 },
-] as const;
-
-export const PICKED_END_TIME = "12:00";
+export function endTimeOptions(start: string): { time: string; minutes: number }[] {
+  if (!/^([01]\d|2[0-3]):[0-5]\d$/.test(start)) return [];
+  const [hour, minute] = start.split(":").map(Number);
+  const from = hour * 60 + minute;
+  const options: { time: string; minutes: number }[] = [];
+  for (let end = from + 30; end < 24 * 60; end += 30) {
+    options.push({ time: `${String(Math.floor(end / 60)).padStart(2, "0")}:${String(end % 60).padStart(2, "0")}`, minutes: end - from });
+  }
+  return options;
+}
