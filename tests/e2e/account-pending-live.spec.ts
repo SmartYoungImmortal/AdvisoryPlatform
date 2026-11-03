@@ -26,6 +26,15 @@ for (const width of [1440, 390]) {
         await expect(page.getByRole("heading", { name: action === "email" ? "เปลี่ยนอีเมล" : "เปลี่ยนรหัสผ่าน", exact: true })).toHaveCount(1);
         await expect(page.locator(action === "email" ? "#new-email" : "#current-password")).toBeVisible();
         await expect(page.getByRole("dialog")).toHaveCount(0);
+        if (width >= 1024) {
+          await expect(page.getByRole("banner")).toBeVisible();
+          await expect(page.getByRole("contentinfo")).toBeVisible();
+          await expect(page.getByRole("banner").getByRole("link", { name: "การจอง", exact: true })).toHaveAttribute("href", "/bookings");
+          await expect(page.getByRole("contentinfo").getByRole("link", { name: "นโยบายความเป็นส่วนตัว", exact: true })).toHaveAttribute("href", "/privacy-policy");
+        } else {
+          await expect(page.getByRole("banner")).toBeHidden();
+          await expect(page.getByRole("contentinfo")).toBeHidden();
+        }
         await page.screenshot({ path: `test-results/account-${action}-default-${width}.png`, animations: "disabled" });
         const email = `pending-${randomUUID()}@example.test`;
         if (action === "email") await page.locator("#new-email").fill(email);
