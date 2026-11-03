@@ -341,7 +341,7 @@ export function RegisterScreen({
  * qualified. The bullet is part of each string (" · อย่างน้อย 8 ตัวอักษร"),
  * which is what `whitespace-pre-wrap` is preserving.
  */
-function PasswordRules({
+export function PasswordRules({
   password,
   ranged,
 }: {
