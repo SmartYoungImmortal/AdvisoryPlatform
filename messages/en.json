@@ -946,8 +946,8 @@
     "requirement4": "To differ from your current password",
     "submit": "Update password",
     "wrongCurrentTitle": "Current password is incorrect",
-    "wrongCurrentBody": "3 more tries before sign-in is paused for 15 minutes",
     "wrongCurrentFieldError": "Doesn't match your current password",
+    "wrongCurrentRetry": "Check your current password and try again.",
     "invalid": "Check the new password and its confirmation again",
     "requestFailed": "Could not change your password. Please try again."
   },
@@ -955,6 +955,7 @@
     "title": "Change email",
     "subtitle": "Confirm the request from your current email first, then open the link sent to your new email. Your email changes after both steps.",
     "subtitleShort": "Confirm from your current email first, then verify the new address.",
+    "currentLabel": "Current email",
     "newLabel": "New email",
     "newPlaceholder": "you@example.com",
     "passwordLabel": "Current password",

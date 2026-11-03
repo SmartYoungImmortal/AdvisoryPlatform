@@ -1,13 +1,14 @@
 "use client";
 
-import { KeyRound, LockKeyhole, MailCheck } from "lucide-react";
+import { KeyRound, MailCheck } from "lucide-react";
 import Link from "next/link";
 import { useTranslations } from "next-intl";
 import { useRouter } from "next/navigation";
-import { useState, type ComponentProps, type FormEvent } from "react";
+import { useState, type FormEvent } from "react";
 
 import { AUTH_LINK } from "@/components/auth/auth-split";
-import { Field, RevealPasswordButton } from "@/components/mobile/field";
+import { Field } from "@/components/mobile/field";
+import { ACCOUNT_FORM_ACTIONS, ACCOUNT_FORM_CANCEL, ACCOUNT_FORM_CLASS, ACCOUNT_FORM_SUBMIT, AccountFormPage } from "@/components/profile/account-form-page";
 import { AccountSettingsScreen } from "@/components/profile/account-settings-screen";
 import { SETTINGS_DIALOG_STACK, SettingsDialog, settingsStackPill } from "@/components/profile/settings-dialog";
 import { useAccount } from "@/components/session/account-bits";
@@ -27,46 +28,12 @@ function passwordRules(next: string, current: string): readonly boolean[] {
   ];
 }
 
-/** A password field with the sign-in form's eye at its end, to read back what was typed. */
-function PasswordField(props: Omit<ComponentProps<typeof Field>, "type" | "trailing" | "outline">) {
-  const t = useTranslations("login");
-  const [revealed, setRevealed] = useState(false);
-
-  return (
-    <Field
-      {...props}
-      outline
-      trailing={
-        <RevealPasswordButton
-          label={t("showPassword")}
-          onToggle={() => setRevealed((value) => !value)}
-          revealed={revealed}
-        />
-      }
-      type={revealed ? "text" : "password"}
-    />
-  );
-}
-
-/**
- * Figma "Change password" (995:7360) and its wrong-current-password state
- * (995:7404), which marks the current password's field.
- *
- * A dialog over the settings (`SettingsDialog`) rather than a page of its own:
- * three fields, the rules the new one answers to in one line under it, then
- * the change. A wrong current password stays in the dialog, said under its
- * field; a success goes to `/settings/updated`.
- *
- * A reader who does not know the current password takes the line under the
- * capsules: the same dialog turns to sending the reset link to the address
- * the account signs in with (`reset`), then says it went (`sent`). It never
- * leaves for the signed-out pages: the reader is signed in.
- */
+/** Full-page password form; email reset continues through the settings recovery steps. */
 function ChangePasswordForm({ state = "default" }: { readonly state?: "default" | "wrong-current" }) {
   const [step, setStep] = useState<"change" | "reset" | "sent">("change");
 
   if (step === "change") return <ChangeStep onForgot={() => setStep("reset")} state={state} />;
-  return <ResetStep onBack={() => setStep("change")} onSent={() => setStep("sent")} sent={step === "sent"} />;
+  return <AccountSettingsScreen overlay={<ResetStep onBack={() => setStep("change")} onSent={() => setStep("sent")} sent={step === "sent"} />} />;
 }
 
 /** Sending the reset link from inside the settings, then saying it went. */
@@ -86,7 +53,7 @@ function ResetStep({
   const [failed, setFailed] = useState(false);
 
   async function send() {
-    if (!email) return;
+    if (!email || sending) return;
     setSending(true);
     setFailed(false);
     try {
@@ -122,7 +89,7 @@ function ResetStep({
         <Button className={settingsStackPill("solid")} disabled={!email || sending} onClick={() => void send()} type="button">
           {t("resetSend")}
         </Button>
-        <Button className={settingsStackPill("soft")} onClick={onBack} type="button" variant="ghost">
+        <Button className={settingsStackPill("soft")} disabled={sending} onClick={onBack} type="button" variant="ghost">
           {c("back")}
         </Button>
       </div>
@@ -172,46 +139,65 @@ function ChangeStep({
   }
 
   return (
-    <SettingsDialog description={t("subtitle")} icon={LockKeyhole} title={t("title")}>
-      <form className="flex w-full flex-col" onSubmit={submit}>
+    <AccountFormPage title={t("title")}>
+      <form aria-label={t("title")} className={ACCOUNT_FORM_CLASS} onSubmit={submit}>
         <fieldset className="contents" disabled={submitting}>
-          <div className="flex w-full flex-col gap-4 lg:gap-6">
-            <PasswordField
-              autoComplete="current-password"
-              error={isWrong ? t("wrongCurrentFieldError") : undefined}
-              id="current-password"
-              invalid={isWrong}
-              label={t("currentLabel")}
-              onChange={(event) => {
-                setCurrentPassword(event.target.value);
-                setProblem(null);
-              }}
-              placeholder={t("currentPlaceholder")}
-              value={currentPassword}
-            />
-            <PasswordField
-              autoComplete="new-password"
-              hint={t("newHint")}
-              id="new-password"
-              label={t("newLabel")}
-              onChange={(event) => {
-                setNewPassword(event.target.value);
-                setProblem(null);
-              }}
-              placeholder={t("newPlaceholder")}
-              value={newPassword}
-            />
-            <PasswordField
-              autoComplete="new-password"
-              id="confirm-password"
-              label={t("confirmLabel")}
-              onChange={(event) => {
-                setConfirmPassword(event.target.value);
-                setProblem(null);
-              }}
-              placeholder={t("confirmPlaceholder")}
-              value={confirmPassword}
-            />
+          {isWrong ? <div className="flex items-start gap-3 rounded-xl border border-destructive bg-card px-3.25 py-2.75" role="alert">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img alt="" src="/figma/account-forms/lock.svg" width={18} height={18} />
+            <div className="flex flex-col gap-0.5"><p className="text-sm font-medium">{t("wrongCurrentTitle")}</p><p className="text-xs text-muted-foreground">{t("wrongCurrentRetry")}</p></div>
+          </div> : null}
+          <div className="grid gap-4 lg:grid-cols-2 lg:items-start lg:gap-8">
+            <div className="flex w-full flex-col gap-4">
+              <Field
+                autoComplete="current-password"
+                error={isWrong ? t("wrongCurrentFieldError") : undefined}
+                id="current-password"
+                type="password"
+                invalid={isWrong}
+                label={t("currentLabel")}
+                onChange={(event) => {
+                  setCurrentPassword(event.target.value);
+                  setProblem(null);
+                }}
+                placeholder={t("currentPlaceholder")}
+                value={currentPassword}
+              />
+              <Field
+                autoComplete="new-password"
+                id="new-password"
+                type="password"
+                label={t("newLabel")}
+                onChange={(event) => {
+                  setNewPassword(event.target.value);
+                  setProblem(null);
+                }}
+                placeholder={t("newPlaceholder")}
+                value={newPassword}
+              />
+              <Field
+                autoComplete="new-password"
+                id="confirm-password"
+                type="password"
+                label={t("confirmLabel")}
+                onChange={(event) => {
+                  setConfirmPassword(event.target.value);
+                  setProblem(null);
+                }}
+                placeholder={t("confirmPlaceholder")}
+                value={confirmPassword}
+              />
+            </div>
+            <div className="flex flex-col gap-2.5 rounded-xl bg-card p-3.5 lg:border lg:border-border lg:bg-muted lg:p-3.25">
+              <p className="text-xs text-muted-foreground">{t("requirementsTitle")}</p>
+              <ul className="flex flex-col gap-2">
+                {[t("requirement1"), t("requirement2"), t("requirement3"), t("requirement4")].map((text) => <li key={text} className="flex items-start gap-2 text-sm">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img alt="" className="mt-0.5 shrink-0" src="/figma/account-forms/circle-check.svg" width={14} height={14} />
+                  <span>{text}</span>
+                </li>)}
+              </ul>
+            </div>
           </div>
 
           {problem === "invalid" || problem === "request-failed" ? (
@@ -221,30 +207,26 @@ function ChangeStep({
             </p>
           ) : null}
 
-          <div className={SETTINGS_DIALOG_STACK}>
-            <Button className={settingsStackPill("solid")} disabled={!ready || submitting} type="submit">
+          <div className={ACCOUNT_FORM_ACTIONS}>
+            <p className="text-center text-xs text-muted-foreground lg:mr-auto lg:text-left">
+              {t("forgotPrompt")}{" "}
+              <Button className={cn(AUTH_LINK, "h-auto p-0 text-xs")} onClick={onForgot} type="button" variant="link">{t("forgotAction")}</Button>
+            </p>
+            <Button className={ACCOUNT_FORM_SUBMIT} disabled={!ready || submitting} type="submit">
               {t("submit")}
             </Button>
-            <Button className={settingsStackPill("soft")} nativeButton={false} render={<Link href="/settings" />} variant="ghost">
+            <Button className={ACCOUNT_FORM_CANCEL} nativeButton={false} render={<Link href="/settings" />} variant="outline">
               {c("cancel")}
             </Button>
           </div>
 
-          {/* For a reader who does not know the password asked for first, a
-              line under the answers, as the receipt's help line sits. */}
-          <p className="mt-3 text-center text-fine text-muted-foreground md:mt-4 md:text-xs">
-            {t("forgotPrompt")}{" "}
-            <Button className={cn(AUTH_LINK, "h-auto p-0 text-fine md:text-xs")} onClick={onForgot} type="button" variant="link">
-              {t("forgotAction")}
-            </Button>
-          </p>
         </fieldset>
       </form>
-    </SettingsDialog>
+    </AccountFormPage>
   );
 }
 
-/** `/settings/password`: the settings, with the change-password dialog over them. */
+/** `/settings/password`: a responsive password form backed by the current account. */
 export function ChangePasswordScreen({ state = "default" }: { readonly state?: "default" | "wrong-current" }) {
-  return <AccountSettingsScreen overlay={<ChangePasswordForm state={state} />} />;
+  return <ChangePasswordForm state={state} />;
 }

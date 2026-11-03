@@ -23,6 +23,10 @@ for (const width of [1440, 390]) {
       let writes = 0;
       try {
         await page.goto(`/settings/${action}`);
+        await expect(page.getByRole("heading", { name: action === "email" ? "เปลี่ยนอีเมล" : "เปลี่ยนรหัสผ่าน", exact: true })).toHaveCount(1);
+        await expect(page.locator(action === "email" ? "#new-email" : "#current-password")).toBeVisible();
+        await expect(page.getByRole("dialog")).toHaveCount(0);
+        await page.screenshot({ path: `test-results/account-${action}-default-${width}.png`, animations: "disabled" });
         const email = `pending-${randomUUID()}@example.test`;
         if (action === "email") await page.locator("#new-email").fill(email);
         else {
@@ -39,6 +43,14 @@ for (const width of [1440, 390]) {
           await route.fulfill({ response });
         });
         const submit = page.getByRole("button", { name: action === "email" ? "ส่งลิงก์ยืนยัน" : "อัปเดตรหัสผ่าน", exact: true });
+        if (action === "email") {
+          // Deliberately inject only a failure to verify that configuration errors
+          // are not reported as someone else owning the requested address.
+          await page.route(url, (route) => route.fulfill({ status: 400, contentType: "application/json", body: JSON.stringify({ code: "CHANGE_EMAIL_DISABLED", message: "Change email is disabled" }) }), { times: 1 });
+          await submit.click();
+          await expect(page.locator("form").getByRole("alert")).toHaveText("ส่งคำขอไม่สำเร็จ กรุณาลองอีกครั้ง");
+          await expect(page.locator("#new-email")).toHaveValue(email);
+        }
         await submit.click();
         await received;
         const fields = action === "email" ? ["new-email"] : ["current-password", "new-password", "confirm-password"];
@@ -54,15 +66,38 @@ for (const width of [1440, 390]) {
           expect(session).toMatchObject({ user: { email: "nattapong.d@advisory.demo" } });
         } else {
           await expect(page.getByText("ไม่ตรงกับรหัสผ่านปัจจุบัน", { exact: true })).toBeVisible();
+          await page.screenshot({ path: `test-results/account-password-wrong-${width}.png`, animations: "disabled" });
           await expect(page.locator("#current-password")).toBeEnabled();
           await expect(page.locator("#new-password")).toHaveValue("PendingProof!2026");
           await page.unroute(url);
           await page.route(url, (route) => route.abort("failed"));
           await submit.click();
-          await expect(page.locator("form").getByRole("alert")).toHaveText("เปลี่ยนรหัสผ่านไม่สำเร็จ กรุณาลองอีกครั้ง");
+          await expect(page.locator("form").getByRole("alert").filter({ hasText: "เปลี่ยนรหัสผ่านไม่สำเร็จ" })).toHaveText("เปลี่ยนรหัสผ่านไม่สำเร็จ กรุณาลองอีกครั้ง");
           await expect(page.locator("#new-password")).toHaveValue("PendingProof!2026");
         }
         await page.screenshot({ path: `test-results/account-${action}-result-${width}.png`, animations: "disabled" });
+        if (action === "password") {
+          await page.getByRole("button", { name: "ตั้งรหัสใหม่ทางอีเมล", exact: true }).click();
+          await expect(page.getByRole("dialog")).toBeVisible();
+          let resetStarted: (() => void) | undefined;
+          const resetSeen = new Promise<void>((resolve) => { resetStarted = resolve; });
+          const resetHeld = new Promise<void>((resolve) => { release = resolve; });
+          await page.route(`${api}/api/auth/request-password-reset`, async (route) => {
+            const response = await route.fetch();
+            expect(response.status()).toBe(200);
+            resetStarted?.();
+            await resetHeld;
+            await route.fulfill({ response });
+          });
+          await page.getByRole("button", { name: "ส่งลิงก์", exact: true }).click();
+          await resetSeen;
+          await expect(page.getByRole("dialog").getByRole("button", { name: "ย้อนกลับ", exact: true })).toBeDisabled();
+          await expect(page.getByRole("button", { name: "ส่งลิงก์", exact: true })).toBeDisabled();
+          release?.();
+          await expect(page.getByRole("heading", { name: "ส่งลิงก์แล้ว", exact: true })).toBeVisible();
+          await page.getByRole("button", { name: "เรียบร้อย", exact: true }).click();
+          await expect(page).toHaveURL(/\/settings$/);
+        }
         expect(errors).toEqual([]);
       } finally {
         release?.();

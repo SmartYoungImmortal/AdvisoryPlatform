@@ -1,17 +1,17 @@
 "use client";
 
-import { Mail, MailCheck } from "lucide-react";
+import { MailCheck } from "lucide-react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { useTranslations } from "next-intl";
 import { useState, useSyncExternalStore, type FormEvent } from "react";
 
 import { Field } from "@/components/mobile/field";
+import { ACCOUNT_FORM_ACTIONS, ACCOUNT_FORM_CANCEL, ACCOUNT_FORM_CLASS, ACCOUNT_FORM_SUBMIT, AccountFormPage } from "@/components/profile/account-form-page";
 import { AccountSettingsScreen } from "@/components/profile/account-settings-screen";
-import { PhoneShort, SETTINGS_DIALOG_STACK, SettingsDialog, settingsStackPill } from "@/components/profile/settings-dialog";
+import { SETTINGS_DIALOG_STACK, SettingsDialog, settingsStackPill } from "@/components/profile/settings-dialog";
 import { Button } from "@/components/ui/button";
 import { useAccount } from "@/components/session/account-bits";
-import { ApiError } from "@/lib/api/client";
 import { requestEmailChange } from "@/lib/api/account";
 import { isEmail } from "@/lib/session";
 import { cn } from "@/lib/utils";
@@ -32,16 +32,7 @@ const subscribeNever = () => () => {};
 const readPendingEmail = () => new URLSearchParams(window.location.search).get("to");
 const noPendingEmail = () => null;
 
-/**
- * Figma "Change email" (995:7287) and its already-in-use state (995:7320),
- * which says so under the address field.
- *
- * A dialog over the settings (`SettingsDialog`): the new address, then the
- * request. The API sends a confirmation link
- * to the current address and then a verification link to the new address;
- * the address changes only after both links are opened. `state` only seeds
- * the in-use visual state.
- */
+/** Full-page email form. Both mailboxes must confirm before the address changes. */
 function ChangeEmailForm({ state = "default" }: { readonly state?: "default" | "in-use" }) {
   const t = useTranslations("changeEmail");
   const c = useTranslations("common");
@@ -53,7 +44,7 @@ function ChangeEmailForm({ state = "default" }: { readonly state?: "default" | "
   const [submitting, setSubmitting] = useState(false);
   const [problem, setProblem] = useState<Problem | null>(seeded ? "in-use" : null);
 
-  const currentEmail = account?.email ?? c("emailValue");
+  const currentEmail = account?.email ?? "";
   const inUse = problem === "in-use";
 
   let emailError: string | undefined;
@@ -63,7 +54,7 @@ function ChangeEmailForm({ state = "default" }: { readonly state?: "default" | "
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (submitting) return;
+    if (!account || submitting) return;
     const next = email.trim().toLowerCase();
     if (!isEmail(next)) {
       setProblem("invalid-email");
@@ -77,44 +68,40 @@ function ChangeEmailForm({ state = "default" }: { readonly state?: "default" | "
       setSubmitting(true);
       await requestEmailChange(next, `/settings/email/verify?to=${encodeURIComponent(next)}`);
       router.push(`/settings/email/verify?to=${encodeURIComponent(next)}`);
-    } catch (error) {
-      if (error instanceof ApiError && [400, 409].includes(error.status)) {
-        setProblem("in-use");
-      } else {
-        setProblem("request-failed");
-      }
+    } catch {
+      setProblem("request-failed");
     } finally {
       setSubmitting(false);
     }
   }
 
   return (
-    <SettingsDialog
-      description={<PhoneShort full={t("subtitle")} short={t("subtitleShort")} />}
-      icon={Mail}
-      title={t("title")}
-    >
-      <form className="flex w-full flex-col" noValidate onSubmit={submit}>
-        <fieldset className="contents" disabled={submitting}>
-          {/* The address the account has now is on the settings row behind;
-              the dialog only asks for the new one. */}
-          <div className="flex w-full flex-col">
-            <Field
-              autoComplete="email"
-              error={emailError}
-              id="new-email"
-              invalid={emailError !== undefined}
-              label={t("newLabel")}
-              latin
-              onChange={(event) => {
-                setEmail(event.target.value);
-                setProblem(null);
-              }}
-              outline
-              placeholder={t("newPlaceholder")}
-              type="email"
-              value={email}
-            />
+    <AccountFormPage description={t("subtitle")} title={t("title")}>
+      <form aria-label={t("title")} className={ACCOUNT_FORM_CLASS} noValidate onSubmit={submit}>
+        <fieldset className="contents" disabled={!account || submitting}>
+          <div className="grid gap-4 lg:grid-cols-2 lg:items-start lg:gap-8">
+            <div className="order-2 lg:order-1">
+              <Field
+                autoComplete="email"
+                error={emailError}
+                id="new-email"
+                invalid={emailError !== undefined}
+                label={t("newLabel")}
+                latin
+                onChange={(event) => {
+                  setEmail(event.target.value);
+                  setProblem(null);
+                }}
+                placeholder={t("newPlaceholder")}
+                type="email"
+                value={email}
+              />
+            </div>
+            <div className="order-1 flex items-center gap-2.5 rounded-xl bg-card p-3.5 lg:order-2 lg:rounded-none lg:bg-transparent lg:px-3.5 lg:py-2.5">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img alt="" className="shrink-0" src="/figma/account-forms/mail.svg" width={16} height={16} />
+              <div className="flex min-w-0 flex-col gap-0.5"><span className="text-xs text-muted-foreground">{t("currentLabel")}</span><span className="truncate font-latin text-sm font-medium">{currentEmail}</span></div>
+            </div>
           </div>
           {/* A taken address is said under its field; a request that did not
               go through, here, where the reader is about to press again. */}
@@ -124,17 +111,17 @@ function ChangeEmailForm({ state = "default" }: { readonly state?: "default" | "
             </p>
           ) : null}
 
-          <div className={SETTINGS_DIALOG_STACK}>
-            <Button className={settingsStackPill("solid")} disabled={!email.trim() || submitting} type="submit">
+          <div className={ACCOUNT_FORM_ACTIONS}>
+            <Button className={ACCOUNT_FORM_SUBMIT} disabled={!email.trim() || submitting} type="submit">
               {t("submit")}
             </Button>
-            <Button className={settingsStackPill("soft")} nativeButton={false} render={<Link href="/settings" />} variant="ghost">
+            <Button className={ACCOUNT_FORM_CANCEL} nativeButton={false} render={<Link href="/settings" />} variant="outline">
               {c("cancel")}
             </Button>
           </div>
         </fieldset>
       </form>
-    </SettingsDialog>
+    </AccountFormPage>
   );
 }
 
@@ -199,9 +186,9 @@ function VerifyEmailNote() {
   );
 }
 
-/** `/settings/email`: the settings, with the change-email dialog over them. */
+/** `/settings/email`: a responsive email form backed by the current account. */
 export function ChangeEmailScreen({ state = "default" }: { readonly state?: "default" | "in-use" }) {
-  return <AccountSettingsScreen overlay={<ChangeEmailForm state={state} />} />;
+  return <ChangeEmailForm state={state} />;
 }
 
 /** `/settings/email/verify`: the settings, with the waiting-for-the-link note over them. */
