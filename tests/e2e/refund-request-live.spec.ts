@@ -208,15 +208,26 @@ for (const width of [1440, 390]) {
       } finally {
         await admin.close();
       }
-      await page.reload();
+      // No reload: the tab keeps its cached "being reviewed", and the way back
+      // through the popup must read the ruling again on its own.
+      await page.getByRole("link", { name: "กลับไปที่การจอง" }).first().click();
+      await page.getByRole("link", { name: /^เงินคืน ฿/ }).click();
+      await expect(page).toHaveURL(/\/bookings\/refund\?bookingId=/);
       await expect(
         page.getByRole("heading", {
           level: 1,
-          name: width === 1440 ? "อนุมัติแล้ว กำลังคืนเงิน" : "ไม่อนุมัติคืนเงิน",
+          name: width === 1440 ? "อนุมัติแล้ว · รอคืนเงิน" : "ไม่อนุมัติคืนเงิน",
           exact: true,
         }),
       ).toBeVisible();
       await expect(page.getByRole("button", { name: "ส่งคำขอคืนเงิน" })).toHaveCount(0);
+      if (width === 1440) {
+        // Approval is not a transfer (API #86): the page waits on the refund and never says it is done or moving.
+        await expect(
+          page.getByText("รอดำเนินการคืนเงิน แล้วเงินเข้าตามรอบของธนาคารผู้ออกบัตร", { exact: true }),
+        ).toBeVisible();
+        await expect(page.getByText(/คืนเงินแล้ว|กำลังคืน/)).toHaveCount(0);
+      }
       expect(
         (
           await (

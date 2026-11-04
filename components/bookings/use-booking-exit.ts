@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback } from "react";
+import { useCallback, useEffect, useRef } from "react";
 
 import { bookingExit, type BookingExit } from "@/components/bookings/booking-exit";
 import { ApiError } from "@/lib/api/client";
@@ -58,6 +58,17 @@ export function useBookingMoney(bookingId: string): BookingMoney {
     reloadInvoice();
     reloadCases();
   }, [reloadInvoice, reloadCases]);
+
+  // An admin can rule on a request while the tab stays open, and the cache
+  // keeps a tab's first answer, or its failure, for as long as the tab lives.
+  // A screen that opens on a cached answer reads it again once, showing that
+  // answer meanwhile, so neither the popup nor the refund page stays stale.
+  const cached = useRef(invoice.data !== undefined || invoice.error !== null);
+  useEffect(() => {
+    if (!cached.current) return;
+    cached.current = false;
+    reload();
+  }, [reload]);
 
   return {
     invoice: knownInvoice,

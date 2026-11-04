@@ -63,6 +63,43 @@ describe("useBookingExit", () => {
     expect(result.current.exit).toMatchObject({ kind: "status", refund: open });
   });
 
+  it("reads a cached request again when another screen opens on it, showing the cached answer meanwhile", async () => {
+    calls.invoice.mockResolvedValue(invoice);
+    calls.cases.mockResolvedValue({ items: [open], total: 1, page: 1, limit: 100, totalPages: 1 });
+    const popup = renderHook(() => useBookingExit(booking, now));
+    await waitFor(() => expect(popup.result.current.exit).toMatchObject({ kind: "status", stage: "reviewing" }));
+    popup.unmount();
+
+    const approved: ApiRefundCase = { ...open, status: "APPROVED", resolvedAt: "2026-11-05T03:00:00Z" };
+    calls.cases.mockResolvedValue({ items: [approved], total: 1, page: 1, limit: 100, totalPages: 1 });
+    const page = renderHook(() => useBookingExit(booking, now));
+    expect(page.result.current.exit).toMatchObject({ kind: "status", stage: "reviewing" });
+    await waitFor(() => expect(page.result.current.exit).toMatchObject({ kind: "status", stage: "approved" }));
+    expect(calls.cases).toHaveBeenCalledTimes(2);
+  });
+
+  it("tries a failed invoice again when the next screen opens, rather than keeping the failure for the tab's life", async () => {
+    calls.invoice.mockRejectedValueOnce(new ApiError(500, "down"));
+    const first = renderHook(() => useBookingExit(booking, now));
+    await waitFor(() => expect(first.result.current.money.error).not.toBeNull());
+    first.unmount();
+
+    calls.invoice.mockResolvedValue(invoice);
+    calls.cases.mockResolvedValue({ items: [], total: 0, page: 1, limit: 100, totalPages: 1 });
+    const again = renderHook(() => useBookingExit(booking, now));
+    await waitFor(() => expect(again.result.current.exit).toMatchObject({ kind: "cancelRefund" }));
+    expect(calls.invoice).toHaveBeenCalledTimes(2);
+  });
+
+  it("asks once on a first open with nothing cached", async () => {
+    calls.invoice.mockResolvedValue(invoice);
+    calls.cases.mockResolvedValue({ items: [], total: 0, page: 1, limit: 100, totalPages: 1 });
+    const { result } = renderHook(() => useBookingExit(booking, now));
+    await waitFor(() => expect(result.current.exit).toMatchObject({ kind: "cancelRefund" }));
+    expect(calls.invoice).toHaveBeenCalledTimes(1);
+    expect(calls.cases).toHaveBeenCalledTimes(1);
+  });
+
   it("offers nothing and reports the failure when the invoice cannot be read", async () => {
     calls.invoice.mockRejectedValue(new ApiError(500, "down"));
     const { result } = renderHook(() => useBookingExit(booking, now));
