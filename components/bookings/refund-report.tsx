@@ -70,8 +70,8 @@ export function ReportMode({
   readonly invoice: ApiAdviseeInvoice;
   readonly exit: Extract<BookingExit, { kind: "report" }>;
   readonly notice?: string | null;
-  /** The rule again at the press: a form left open can outlast the 7 days. */
-  readonly stillOffered: () => boolean;
+  /** The rule again at the press's time: a form left open can outlast the 7 days. */
+  readonly stillOffered: (at: number) => boolean;
   readonly onOpened: (refund: ApiRefundCase, notice?: string) => void;
 }): ReactNode {
   const t = useTranslations("bookingRefund");
@@ -132,7 +132,7 @@ export function ReportMode({
       field.current?.focus();
       return;
     }
-    if (!stillOffered()) return;
+    if (!stillOffered(Date.now())) return;
     void send(reason);
   }
 

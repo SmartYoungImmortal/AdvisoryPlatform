@@ -116,8 +116,8 @@ export function CancelRefundMode({
   readonly invoice: ApiAdviseeInvoice;
   readonly exit: Extract<BookingExit, { kind: "cancelRefund" }>;
   readonly notice?: string | null;
-  /** The rule again at the press; false when the page has moved to another offer and nothing may be sent. */
-  readonly stillOffered: () => boolean;
+  /** The rule again at the press's time; false when the page has moved to another offer and nothing may be sent. */
+  readonly stillOffered: (at: number) => boolean;
   /** Read the booking and its money again, so the page shows where they stand now. */
   readonly reread: () => void;
   /** A line the page keeps above its buttons, whatever mode it moves to. */
@@ -158,7 +158,7 @@ export function CancelRefundMode({
 
   async function confirm() {
     // The refs shut a second press in the same task, before React has drawn the busy or held button.
-    if (pressed.current || heldOn.current === booking || !stillOffered()) return;
+    if (pressed.current || heldOn.current === booking || !stillOffered(Date.now())) return;
     pressed.current = true;
     setAttempt({ kind: "working" });
     const result = await cancelThenRefund(booking.id, invoice.id, t(`ruleLine.${exit.share}`, { amount }));

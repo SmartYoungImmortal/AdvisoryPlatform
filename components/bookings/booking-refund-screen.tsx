@@ -130,12 +130,12 @@ function RefundContent({ booking, reload }: { readonly booking: ApiBooking; read
   }, [reload, reloadMoney]);
 
   /**
-   * The rule once more at the moment of a press. When the clock has carried
-   * the booking across a line since the page opened, nothing is sent: the page
-   * moves to the offer that holds now and says why.
+   * The rule once more at the moment of a press (`at`, read by the press).
+   * When the clock has carried the booking across a line since the page
+   * opened, nothing is sent: the page moves to the offer that holds now and
+   * says why.
    */
-  function stillOffered(): boolean {
-    const at = Date.now();
+  function stillOffered(at: number): boolean {
     const fresh = bookingExit({ booking: current, invoice: money.invoice, cases, now: at });
     if (sameOffer(exit, fresh)) return true;
     setMovedTo(at);
