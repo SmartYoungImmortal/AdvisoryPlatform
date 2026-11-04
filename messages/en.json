@@ -521,6 +521,153 @@
         "OPEN": "Refund request under review",
         "APPROVED": "Refund request approved",
         "REJECTED": "Refund request rejected"
+    },
+    "head": {
+      "cancelFull": "Cancel booking · full refund",
+      "cancelHalf": "Cancel booking · 50% of the service fee back",
+      "claim": "This booking was cancelled",
+      "report": "Report a problem and request a refund"
+    },
+    "stage": {
+      "refunding": "Refund on its way",
+      "reviewing": "Being reviewed",
+      "approved": "Approved, refund on its way",
+      "refunded": "Refunded",
+      "rejected": "Refund not approved"
+    },
+    "meta": {
+      "cancel": "What you get back if you cancel now",
+      "claimFull": "You cancelled on {date}, at least 24 hours before the start, so you get the full amount back",
+      "claimHalf": "You cancelled on {date}, within 24 hours of the start, so you get 50% of the service fee back",
+      "claimOther": "The advisor or our team cancelled, so you get the full amount back",
+      "report": "The most you can ask back · we reply within 14 business days · report by {date}",
+      "status": {
+        "refunding": "Coming back to you",
+        "reviewing": "Amount requested",
+        "approved": "Coming back to you",
+        "refunded": "Amount refunded",
+        "rejected": "Amount requested"
+      }
+    },
+    "facts": {
+      "refundTo": "Refund to",
+      "paymentMethod": "Original payment method"
+    },
+    "policy": {
+      "heading": "Cancellation terms",
+      "full": {
+        "when": "Until {date}",
+        "what": "Full refund"
+      },
+      "half": {
+        "when": "{from} to {to}",
+        "what": "50% of the service fee back"
+      },
+      "started": {
+        "when": "From {date}",
+        "what": "No cancelling. If something goes wrong, you can request a refund up to 7 days after it ends"
+      },
+      "now": "Now",
+      "termsLink": "Read section 8 of the terms",
+      "final": "A cancellation can't be undone"
+    },
+    "box": {
+      "heading": "Your refund",
+      "service": "Service fee · 50% back",
+      "fee": "Platform fee · not refunded",
+      "total": "Total back"
+    },
+    "reasons": {
+      "legend": "What happened",
+      "advisorAbsent": "The advisor didn't come or cancelled at the last minute",
+      "platformFailed": "I couldn't join because the platform failed",
+      "notAsDescribed": "Not what the service described",
+      "notAsDescribedHint": "Disagreeing with the advice, or a different outcome, doesn't count",
+      "other": "Something else"
+    },
+    "form": {
+      "detailsLabel": "Details (optional)",
+      "detailsLabelRequired": "Details",
+      "detailsPlaceholder": "Tell us briefly what happened, for example how long you waited or what the screen said",
+      "counter": "{count}/{max}",
+      "reasonMissing": "Choose what happened first",
+      "detailsMissing": "Tell us briefly what happened"
+    },
+    "attachments": {
+      "label": "Evidence (optional)",
+      "add": "Attach evidence",
+      "addMore": "Attach more evidence",
+      "limits": "JPG, PNG, WebP or PDF, up to 5 files, 50 MB each",
+      "remove": "Remove {name}",
+      "tooMany": "You can attach up to 5 files",
+      "tooLarge": "{name} is over 50 MB",
+      "wrongType": "{name} isn't a JPG, PNG, WebP or PDF file",
+      "empty": "{name} is empty",
+      "uploadFailed": "Couldn't upload {name}. Try again."
+    },
+    "progress": {
+      "heading": "Progress",
+      "cancellation": {
+        "cancelled": "Booking cancelled",
+        "refund": "Our team refunds {amount}",
+        "refundSub": "Within 14 business days",
+        "arrive": "Money back on {card}",
+        "arriveNoCard": "Money back to your original payment method"
+      },
+      "report": {
+        "sent": "Request sent",
+        "review": "The Advisory team reviews it",
+        "reviewSub": "From the attendance records and chat, with an answer within 14 business days",
+        "refund": "Refund to your card",
+        "refundNoCard": "Refund to your original payment method",
+        "refundSub": "If approved"
+      },
+      "approved": "Approved",
+      "rejected": "Not approved",
+      "bankSub": "On your card issuer's schedule"
+    },
+    "actions": {
+      "confirmCancel": "Cancel and get {amount} back",
+      "keep": "Keep my booking",
+      "claim": "Get {amount} back",
+      "send": "Send refund request",
+      "back": "Back to booking",
+      "toBookings": "Go to my bookings",
+      "retry": "Try again"
+    },
+    "busy": {
+      "loading": "Loading booking and payment…",
+      "cancelling": "Cancelling…",
+      "refunding": "Sending your refund…",
+      "sending": "Sending…",
+      "uploading": "Uploading…"
+    },
+    "announce": {
+      "cancelled": "Cancelled. {amount} is on its way back.",
+      "claimed": "Done. {amount} is on its way back.",
+      "reported": "Request sent. We'll reply within 14 business days.",
+      "attached": "{count, plural, one {# file attached} other {# files attached}}"
+    },
+    "errors": {
+      "cancelFailed": "Couldn't cancel. Your booking is unchanged. Try again.",
+      "cancelledOnly": "Your booking is cancelled, but the refund didn't go through. Press Get {amount} back again.",
+      "claimFailed": "The refund didn't go through. Try again.",
+      "sendFailed": "Couldn't send your request. Try again."
+    },
+    "states": {
+      "notFoundTitle": "Booking not found",
+      "notFoundBody": "It may belong to another account, or the link may be wrong.",
+      "loadFailed": "Couldn't load this booking",
+      "closedTitle": "The refund window has closed",
+      "closedBody": "Refunds could be requested until {date}, 7 days after the session ended.",
+      "nothingTitle": "Nothing to refund",
+      "nothingUnpaid": "This booking wasn't paid for.",
+      "nothingRescheduled": "This booking moved to a new time, and its payment moved with it."
+    },
+    "ruleLine": {
+      "full": "Cancelled at least 24 hours before the start · full refund {amount}",
+      "half": "Cancelled within 24 hours of the start · 50% of the service fee {amount}",
+      "other": "Cancelled by the advisor or our team · full refund {amount}"
     }
 },
   "home": {
@@ -871,7 +1018,7 @@
     "review": "Leave a review",
     "rebook": "Book again",
     "detailsPriceLabel": "Service price",
-    "stateEnded": "Ended",
+    "stateEnded": "Time has passed",
     "stateLapsed": "Not paid",
     "payNow": "Pay now",
     "calendarLabel": "Booking calendar",
@@ -903,7 +1050,20 @@
     "cancellationChecking": "Checking the latest booking status…",
     "cancellationCheck": "Check status",
     "cancellationLogin": "Sign in again",
-    "detailCalendar": "Add to calendar"
+    "detailCalendar": "Add to calendar",
+    "exit": {
+      "cancelRefund": "Cancel and get a refund",
+      "report": "Request a refund",
+      "claim": "Get {amount} back"
+    },
+    "refundNote": {
+      "cancelFull": "Cancel for a full refund until {date}",
+      "cancelHalf": "Cancel now to get 50% of the service fee back",
+      "report": "Report a problem and request a refund until {date}",
+      "claim": "This booking was cancelled. You get {amount} back",
+      "status": "Refund {amount} · {stage}",
+      "refunded": "Refunded {amount}"
+    }
   },
   "service": {
     "advisorLabel": "Advisor",
