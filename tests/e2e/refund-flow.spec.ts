@@ -71,12 +71,18 @@ for (const size of sizes) {
       await expect(popup.getByText(/^ยกเลิกได้ คืนเต็มจำนวน ถึง /)).toBeVisible();
       await expect(popup.getByRole("button", { name: "ยกเลิกการจอง", exact: true })).toHaveCount(0);
       // A paid booking's move is withheld (the API would read the moved original as owed its refund);
-      // where it would be, the popup gives the way to another time by the same deadline.
+      // where it would be, the popup gives the way to another time and its cost, the deadline left to the note above.
       await expect(popup.getByRole("button", { name: "เปลี่ยนเวลานัด", exact: true })).toHaveCount(0);
       await expect(popup.getByRole("button", { name: "ขอเปลี่ยนเวลานัด", exact: true })).toHaveCount(0);
       const another = popup.getByText(/^ต้องการ⁠เวลา⁠อื่น /);
       await expect(another).toBeVisible();
-      expect((await another.textContent())?.replaceAll("⁠", "")).toMatch(/^ต้องการเวลาอื่น ยกเลิกรับเงินคืนเต็มจำนวนได้ถึง .+ แล้วจองเวลาใหม่$/);
+      expect((await another.textContent())?.replaceAll("⁠", "")).toBe(
+        "ต้องการเวลาอื่น ยกเลิกแล้วจองใหม่ นัดใหม่ชำระแยก ส่วนเงินนัดนี้คืนเมื่อทีมงานยืนยัน",
+      );
+      const lines = await another.evaluate((element) =>
+        Math.round((element as HTMLElement).offsetHeight / Number.parseFloat(getComputedStyle(element).lineHeight)),
+      );
+      expect(lines, "the cost line wraps to two lines at most").toBeLessThanOrEqual(2);
       await popup.getByRole("button", { name: "ยกเลิกและรับเงินคืน", exact: true }).click();
       await expect(page).toHaveURL(new RegExp(`/bookings/refund\\?bookingId=${ids.booking}$`));
 
@@ -239,6 +245,8 @@ test("a booked appointment with no receipt of its own is paid on the earlier boo
   await page.goto(`/bookings?bookingId=${ids.booking}`);
   const popup = page.getByRole("dialog");
   await expect(popup.getByText("ชำระไว้กับการจองเดิมก่อนเปลี่ยนเวลา ติดต่อฝ่ายช่วยเหลือเรื่องการจองนี้")).toBeVisible();
+  // Support answers by email, and the full refund's line keeps running meanwhile.
+  await expect(popup.getByText(/^ยกเลิกถึง .+ ได้คืนเต็มจำนวน เวลานี้ไม่หยุดระหว่างรออีเมลตอบ$/)).toBeVisible();
   for (const name of ["ยกเลิกการจอง", "ยกเลิกและรับเงินคืน", "เปลี่ยนเวลานัด", "ขอเปลี่ยนเวลานัด"]) {
     await expect(popup.getByRole("button", { name, exact: true })).toHaveCount(0);
   }
@@ -246,7 +254,9 @@ test("a booked appointment with no receipt of its own is paid on the earlier boo
 
   await page.goto(refundPage);
   await expect(page.getByText("ชำระไว้กับการจองเดิม", { exact: true })).toBeVisible();
-  const support = page.getByRole("button", { name: "ติดต่อฝ่ายช่วยเหลือ" });
+  await expect(page.getByText(/^ยกเลิกถึง .+ ได้คืนเต็มจำนวน เวลานี้ไม่หยุดระหว่างรออีเมลตอบ$/)).toBeVisible();
+  // The button says it writes an email, so nobody takes it for a step in the app.
+  const support = page.getByRole("button", { name: "ส่งอีเมลถึงฝ่ายช่วยเหลือ" });
   // The subject names the booking (service, day, id), so support can find it.
   const subject = decodeURIComponent((await support.getAttribute("href")) ?? "");
   expect(subject).toMatch(new RegExp(`^mailto:[^?]+\\?subject=สอบถามการจอง ${names.service} วันที่ .+ · ${ids.booking}$`));
@@ -309,7 +319,7 @@ test.describe("a request's status", () => {
     await expect(page.getByText("คืนเข้า", { exact: true })).toHaveCount(0);
     // One way to support: the pill, with no help line under it saying the same.
     await expect(page.locator('a[href^="mailto:"]')).toHaveCount(1);
-    await expect(page.getByRole("button", { name: "ติดต่อฝ่ายช่วยเหลือ" })).toHaveAttribute("href", /INV-2026-001104/);
+    await expect(page.getByRole("button", { name: "ส่งอีเมลถึงฝ่ายช่วยเหลือ" })).toHaveAttribute("href", /INV-2026-001104/);
   });
 
   test("a refunded invoice points at its receipt", async ({ page }) => {

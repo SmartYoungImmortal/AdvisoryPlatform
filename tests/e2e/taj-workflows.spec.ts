@@ -97,6 +97,14 @@ test("advisee can cancel an upcoming booking and see it in cancelled bookings", 
             },
           ], 100))),
   );
+  // A held slot's plain cancel waits on its receipt, which may already read paid: this one has none yet.
+  await page.route(`${api}/payment/invoices/for-booking/booking-1`, (route) =>
+    route.fulfill({
+      status: 404,
+      contentType: "application/json",
+      body: JSON.stringify({ statusCode: 404, message: "Invoice not found" }),
+    }),
+  );
   await page.route(`${api}/bookings/booking-1/cancel`, async (route) => {
     cancelCalls += 1;
     bookingState = "CANCELLED";
