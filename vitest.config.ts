@@ -21,6 +21,7 @@ export default defineConfig({
         "components/bookings/use-booking-meeting.ts",
         "components/bookings/booking-exit.ts",
         "components/bookings/refund-actions.ts",
+        "components/bookings/use-booking-exit.ts",
         "lib/api/advisor-bookings.ts",
         "lib/api/my-bookings.ts",
         "lib/work/booking-calendar.ts",
