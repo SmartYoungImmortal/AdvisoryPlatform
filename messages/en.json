@@ -506,7 +506,7 @@
       "claimHalf": "You cancelled on {date}, within 24 hours of the start, so you get 50% of the service fee back",
       "claimOther": "The advisor or our team cancelled, so you get the full amount back",
       "report": "The most you can ask back · we reply within 14 business days · report by {date}",
-      "noShow": "The advisor recorded that you didn't attend. Missing a session, or joining after half of it, isn't refunded. This form is for an advisor who didn't come or a platform failure.",
+      "noShow": "The advisor recorded that you didn't attend. Missing a session without notice, or joining after half of it, isn't refunded. This form is for an advisor who didn't come or a platform failure.",
       "status": {
         "requested": "Amount requested · our team confirms it within 14 business days",
         "reviewing": "Amount requested · we reply within 14 business days",
