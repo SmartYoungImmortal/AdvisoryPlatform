@@ -1,6 +1,7 @@
 import { act, cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import { NextIntlClientProvider } from "next-intl";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import "./support/scroll-trigger";
 
 // refund-sheet reaches GSAP's ScrollTrigger through the receipt screens, and it reads matchMedia on load.
 // A Base UI radio clicks its hidden input with a PointerEvent, which jsdom does not have.

@@ -1,6 +1,7 @@
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { NextIntlClientProvider } from "next-intl";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import "./support/scroll-trigger";
 
 import type { ApiAdviseeInvoice, ApiBooking, ApiPublicService, ApiRefundCase } from "@/lib/api/types";
 import { formats } from "@/lib/i18n/requests";

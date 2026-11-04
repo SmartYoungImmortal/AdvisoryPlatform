@@ -1,6 +1,7 @@
 import { act, cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import { NextIntlClientProvider } from "next-intl";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import "./support/scroll-trigger";
 
 // The live picker reads through useResource, which only asks a configured API.
 // refund-sheet reaches GSAP's ScrollTrigger through the receipt screens, and it reads matchMedia on load.

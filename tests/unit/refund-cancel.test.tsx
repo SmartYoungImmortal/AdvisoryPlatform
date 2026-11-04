@@ -2,6 +2,7 @@ import { act, cleanup, render, screen, within } from "@testing-library/react";
 import { NextIntlClientProvider, type Messages } from "next-intl";
 import { useState, type ReactNode } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import "./support/scroll-trigger";
 
 // invoice-screens reaches GSAP's ScrollTrigger, which asks matchMedia as its module loads.
 vi.hoisted(() => {

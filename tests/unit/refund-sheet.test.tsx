@@ -3,6 +3,7 @@ import { CircleCheckBig, CircleX, Clock3, RotateCcw } from "lucide-react";
 import { NextIntlClientProvider, useTranslations, type Messages } from "next-intl";
 import type { ReactNode } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import "./support/scroll-trigger";
 
 // invoice-screens reaches GSAP's ScrollTrigger, which asks matchMedia as its module loads.
 vi.hoisted(() => {
