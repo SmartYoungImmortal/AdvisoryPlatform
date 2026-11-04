@@ -7,7 +7,7 @@ import type { ReactNode } from "react";
 import { AUTH_LINK, authPill } from "@/components/auth/auth-split";
 import { baht } from "@/components/bookings/booking-flow";
 import { Figures } from "@/components/figures";
-import { PILL_LG, SHEET_X } from "@/components/payment/invoice-screens";
+import { PILL_LG, SHEET_W, SHEET_X } from "@/components/payment/invoice-screens";
 import type { ApiAdviseeInvoice, ApiBooking } from "@/lib/api/types";
 import { cn } from "@/lib/utils";
 
@@ -289,6 +289,10 @@ export function refundPill(kind: "solid" | "outline" | "danger"): string {
   );
 }
 
+/**
+ * From `lg` the buttons are the receipt's own column, centred under the whole
+ * card: they act on the sheet, not on either of its two cells.
+ */
 export function RefundActions({
   children,
   invoiceNumber,
@@ -301,7 +305,7 @@ export function RefundActions({
   const mail = useSupportMail(invoiceNumber);
 
   return (
-    <div className="flex w-full flex-col gap-2.5 md:gap-3 lg:ml-auto lg:w-1/2 lg:gap-4">
+    <div className={cn("flex w-full flex-col gap-2.5 md:gap-3 lg:mx-auto lg:gap-4", SHEET_W)}>
       <div className="flex flex-col gap-2.5">{children}</div>
       <p className="text-center text-xs text-muted-foreground lg:text-frame-label">
         {t("helpPrompt")}{" "}

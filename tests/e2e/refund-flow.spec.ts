@@ -60,7 +60,15 @@ for (const size of sizes) {
       const status = await shown(title);
       expect(status.fontSize).toBe(size.width === 1440 ? 14 : 12);
       const confirm = page.getByRole("button", { name: "ยกเลิกและรับเงินคืน ฿1,000" });
-      expect((await shown(confirm)).height).toBe(size.width === 1440 ? 47 : 44);
+      const pill = await shown(confirm);
+      expect(pill.height).toBe(size.width === 1440 ? 47 : 44);
+      const card = await shown(page.locator("article").filter({ has: title }));
+      if (size.width === 1440) {
+        expect(Math.abs(pill.x + pill.width / 2 - (card.x + card.width / 2)), "centred under the whole card").toBeLessThanOrEqual(1);
+        expect(pill.width, "the receipt's column").toBe(485);
+      } else {
+        expect([pill.x, pill.width], "the card's own width").toEqual([card.x, card.width]);
+      }
       expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBe(size.width);
 
       await confirm.click();

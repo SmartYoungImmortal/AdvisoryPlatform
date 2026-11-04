@@ -359,11 +359,13 @@ describe("RefundActions", () => {
     expect(help.className).toContain("focus-visible:ring-3");
   });
 
-  it("stands under the right-hand cell from lg", () => {
+  it("from lg is the receipt's column, centred under the whole card", () => {
     inLocale("th", <Sheet />);
     const stack = screen.getByRole("button", { name: "เก็บการจองไว้" }).parentElement?.parentElement;
-    expect(stack?.className).toContain("lg:ml-auto");
-    expect(stack?.className).toContain("lg:w-1/2");
+    const classes = stack?.className.split(" ") ?? [];
+    for (const name of ["w-full", "lg:mx-auto", "lg:w-144"]) expect(classes).toContain(name);
+    expect(classes).not.toContain("lg:ml-auto");
+    expect(classes).not.toContain("lg:w-1/2");
   });
 });
 

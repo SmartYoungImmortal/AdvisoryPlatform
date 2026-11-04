@@ -8,7 +8,7 @@ import { bookingExit, bookingPopupHref } from "@/components/bookings/booking-exi
 import { asUuid, useMountTime, useQueryValue } from "@/components/bookings/booking-flow";
 import { CancelRefundMode, ClaimMode } from "@/components/bookings/refund-cancel";
 import { ReportMode } from "@/components/bookings/refund-report";
-import { SHEET_X } from "@/components/payment/invoice-screens";
+import { SHEET_W, SHEET_X } from "@/components/payment/invoice-screens";
 import { useRefundFormat } from "@/components/bookings/refund-sheet";
 import { RefundStatusMode } from "@/components/bookings/refund-status";
 import { isNotFound, useBookingMoney } from "@/components/bookings/use-booking-exit";
@@ -226,7 +226,7 @@ function RefundSkeleton({ bookingId }: { readonly bookingId: string }) {
             ))}
           </div>
         </div>
-        <span aria-hidden className="h-11 w-full rounded-full bg-muted lg:ml-auto lg:h-14 lg:w-1/2" />
+        <span aria-hidden className={cn("h-11 w-full rounded-full bg-muted lg:mx-auto lg:h-14", SHEET_W)} />
       </div>
     </DetailColumn>
   );
