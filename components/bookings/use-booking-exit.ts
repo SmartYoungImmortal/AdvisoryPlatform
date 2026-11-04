@@ -7,7 +7,7 @@ import { refundFailure } from "@/components/bookings/refund-actions";
 import { ApiError } from "@/lib/api/client";
 import { getMyBookingInvoice, listMyRefundCases } from "@/lib/api/resources";
 import type { ApiAdviseeInvoice, ApiBooking, ApiRefundCase } from "@/lib/api/types";
-import { useLastAnswer, useResource, type Resource } from "@/lib/api/use-resource";
+import { useResource, type Resource } from "@/lib/api/use-resource";
 
 export function isNotFound(cause: unknown): boolean {
   return cause instanceof ApiError && cause.status === 404;
@@ -17,10 +17,11 @@ export function isNotFound(cause: unknown): boolean {
 const NO_CASES: readonly ApiRefundCase[] = [];
 
 /**
- * `useLastAnswer`, held to one request: while `key` is read again its last
- * answer stands in, but an answer to another key never does. An unpaid
- * invoice's requests (none) are no answer for the paid one's, which would
- * otherwise read as unclaimed until they load.
+ * The last answer to one request: while `key` is read again, or after that
+ * read failed, its last answer stands in, and the failure is said beside it.
+ * Dropped, a paid receipt would turn a held slot back into the plain cancel.
+ * An answer to another key never stands in: an unpaid invoice's requests
+ * (none) are no answer for the paid one's, which would read as unclaimed.
  */
 function useLastAnswerTo<T>(key: string, resource: Resource<T>): T | undefined {
   const [last, setLast] = useState<{ readonly key: string; readonly data: T }>();
@@ -28,7 +29,7 @@ function useLastAnswerTo<T>(key: string, resource: Resource<T>): T | undefined {
     setLast({ key, data: resource.data });
   }
   if (resource.data !== undefined) return resource.data;
-  return resource.loading && last?.key === key ? last.data : undefined;
+  return last?.key === key ? last.data : undefined;
 }
 
 /**
@@ -48,9 +49,9 @@ export function moneyReadProblem(error: Error): MoneyReadProblem {
 }
 
 export type BookingMoney = {
-  /** Undefined while it loads or after it failed; null when the booking has no receipt. */
+  /** Undefined until a first answer (while it loads, or after it failed); null when the booking has no receipt. */
   readonly invoice: ApiAdviseeInvoice | null | undefined;
-  /** Undefined while they load or after they failed; empty for an unpaid invoice. */
+  /** Undefined until a first answer (while they load, or after they failed); empty for an unpaid invoice. */
   readonly cases: readonly ApiRefundCase[] | undefined;
   /** A failed read (a missing receipt is not one). */
   readonly failure: MoneyReadFailure | null;
@@ -71,11 +72,11 @@ export function useBookingMoney(bookingId: string): BookingMoney {
       }),
     [bookingId],
   );
-  const invoice = useResource<ApiAdviseeInvoice | null>(`payment/invoices/for-booking/${bookingId}`, fetchInvoice);
+  const invoiceKey = `payment/invoices/for-booking/${bookingId}`;
+  const invoice = useResource<ApiAdviseeInvoice | null>(invoiceKey, fetchInvoice);
   // A cancel or a new request drops these from the cache; until they are read
   // again the screen keeps what it knew rather than falling back to "loading".
-  const lastInvoice = useLastAnswer(invoice);
-  const knownInvoice = invoice.data === null ? null : lastInvoice;
+  const knownInvoice = useLastAnswerTo(invoiceKey, invoice);
   const paidId =
     knownInvoice && (knownInvoice.status === "paid" || knownInvoice.status === "refunded") ? knownInvoice.id : null;
   const fetchCases = useCallback(

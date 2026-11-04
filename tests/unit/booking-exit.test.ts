@@ -6,6 +6,7 @@ import {
   currentRefundCase,
   refundHref,
   rescheduleWay,
+  runningDeadline,
   sameOffer,
   signInHref,
   type BookingExitInput,
@@ -47,10 +48,10 @@ describe("R10 nothing is offered while the money is still loading", () => {
     expect(exit({ cases: undefined })).toEqual({ kind: "waiting" });
   });
 
-  it("never waits on the invoice of a held slot, which its own state says is unpaid", () => {
+  it("waits for a held slot's invoice too, since a slot read as held may already be paid", () => {
     const held = { ...booking, state: "PENDING_PAYMENT" as const };
-    expect(exit({ booking: held, invoice: undefined, cases: undefined })).toEqual({ kind: "cancel" });
-    expect(exit({ booking: held, invoice: undefined, now: S })).toEqual({ kind: "none" });
+    expect(exit({ booking: held, invoice: undefined, cases: undefined })).toEqual({ kind: "waiting" });
+    expect(exit({ booking: held, invoice: undefined, now: S })).toEqual({ kind: "waiting" });
   });
 
   it("never waits on requests for a receipt that is not paid, which has none", () => {
@@ -105,8 +106,9 @@ describe("a held slot whose receipt already reads paid follows the paid rules", 
     expect(exit({ booking: held, now: E })).toMatchObject({ kind: "report" });
   });
 
-  it("keeps the plain cancel while its receipt is still loading", () => {
-    expect(exit({ booking: held, invoice: undefined, cases: undefined })).toEqual({ kind: "cancel" });
+  it("offers neither the plain cancel nor the move while its receipt is still loading", () => {
+    expect(exit({ booking: held, invoice: undefined, cases: undefined })).toEqual({ kind: "waiting" });
+    expect(rescheduleWay({ booking: held, invoice: undefined, now: S - 3 * DAY })).toBeNull();
   });
 });
 
@@ -227,6 +229,34 @@ describe("R7 a cancelled, paid booking with no request is owed its refund", () =
   });
 });
 
+describe("an advisee's cancel at or after the start is no §8 cancellation", () => {
+  // dev's old refund form cancelled an ended session before it sent the request, and the API's cancel checks no time.
+  const lateCancel = cancelledBooking("advisee", E + 20 * 60_000);
+
+  it("offers a report for the whole charge until 7 days after the end, never the 50% claim", () => {
+    expect(exit({ booking: lateCancel, now: E + DAY })).toEqual({ kind: "report", maxSatang: 100_000, until: new Date(E + 7 * DAY) });
+  });
+
+  it("counts a cancel at the start instant as after it", () => {
+    expect(exit({ booking: cancelledBooking("advisee", S), now: S + HOUR })).toMatchObject({ kind: "report" });
+    expect(exit({ booking: cancelledBooking("advisee", S - 1), now: S + HOUR })).toMatchObject({ kind: "claim", share: "half" });
+  });
+
+  it("is closed once the report window shuts", () => {
+    expect(exit({ booking: lateCancel, now: E + 8 * DAY })).toEqual({ kind: "closed", closedAt: new Date(E + 7 * DAY) });
+  });
+
+  it("reads its open request as a report under review, for the whole charge", () => {
+    expect(exit({ booking: lateCancel, cases: [refundCase("OPEN", "2026-11-11T05:00:00Z")], now: E + DAY })).toMatchObject({
+      kind: "status", type: "report", stage: "reviewing", refundSatang: 100_000,
+    });
+  });
+
+  it("keeps the advisor's or the team's cancel after the start owed in full", () => {
+    expect(exit({ booking: cancelledBooking("advisor", E + HOUR), now: E + DAY })).toMatchObject({ kind: "claim", share: "full", by: "other" });
+  });
+});
+
 describe("R8 a booking with a request shows its status and is never requested again", () => {
   it("reads an open request on a cancelled booking as the cancellation's refund, requested and not yet moving", () => {
     const open = refundCase("OPEN", "2026-11-04T13:56:00Z");
@@ -313,8 +343,9 @@ describe("§8 one free reschedule, at least 24 hours ahead", () => {
     expect(way({ now: S - DAY })).toBe("withheld");
   });
 
-  it("moves a held slot over the slots, even before its invoice is known", () => {
-    expect(way({ booking: held, invoice: undefined })).toBe("slots");
+  it("moves a held slot over the slots once its receipt is known to be unpaid, and not before", () => {
+    expect(way({ booking: held, invoice: undefined })).toBeNull();
+    expect(way({ booking: held, invoice: null })).toBe("slots");
     expect(way({ booking: held, invoice: { ...invoice, status: "failed" } })).toBe("slots");
   });
 
@@ -371,15 +402,37 @@ describe("the plain cancel and the slot move belong to an unpaid hold alone", ()
     expect(wrong.map((input) => `${input.booking.state} ${input.invoice?.status ?? input.invoice} ${input.now}`)).toEqual([]);
   });
 
-  it("offers the plain cancel to every unpaid hold before its start", () => {
+  it("offers the plain cancel to every hold known to be unpaid before its start", () => {
     const held = grid.filter(
       (input) =>
         input.booking.state === "PENDING_PAYMENT" &&
+        input.invoice !== undefined &&
         !(input.invoice?.status === "paid" || input.invoice?.status === "refunded") &&
         input.now < S,
     );
     expect(held.every((input) => bookingExit(input).kind === "cancel")).toBe(true);
-    expect(held).toHaveLength(36);
+    expect(held).toHaveLength(27);
+  });
+
+  it("offers nothing at all while any booking's receipt is unknown, a held slot's included (R10)", () => {
+    const unknown = grid.filter((input) => input.invoice === undefined);
+    expect(unknown).toHaveLength(108);
+    expect(unknown.filter((input) => bookingExit(input).kind !== "waiting" || rescheduleWay(input) !== null)).toEqual([]);
+  });
+});
+
+describe("the §8 line still running while support answers", () => {
+  it("is the full-refund line until S − 24 h, then the start, then the report window, then none", () => {
+    expect(runningDeadline(booking, S - 3 * DAY)).toEqual({ rule: "full", at: new Date(S - DAY) });
+    expect(runningDeadline(booking, S - DAY)).toEqual({ rule: "full", at: new Date(S - DAY) });
+    expect(runningDeadline(booking, S - 5 * HOUR)).toEqual({ rule: "start", at: new Date(S) });
+    expect(runningDeadline(booking, S)).toEqual({ rule: "report", at: new Date(E + 7 * DAY) });
+    expect(runningDeadline(booking, E + 7 * DAY + 1)).toBeNull();
+  });
+
+  it("follows a session the state says began, and has none for a cancelled booking", () => {
+    expect(runningDeadline({ ...booking, state: "IN_PROGRESS" }, S - 5 * 60_000)).toMatchObject({ rule: "report" });
+    expect(runningDeadline(cancelledBooking("advisor", S - DAY), S - 3 * DAY)).toBeNull();
   });
 });
 

@@ -124,7 +124,7 @@ const MOVING = ["กำลังคืน", "ทีมงานคืนเง�
 const PILLS = {
   none: [],
   receipt: [{ name: "ดูใบเสร็จ", href: "/transactions/detail?id=inv-status" }],
-  support: [{ name: "ติดต่อฝ่ายช่วยเหลือ", href: null }],
+  support: [{ name: th.bookingRefund.actions.mailSupport, href: null }],
 } as const;
 
 type Expected = Scene & {
@@ -171,7 +171,7 @@ describe("RefundStatusMode", () => {
   it("mails support about this receipt when the request was turned down, once, and gives no reason of its own", async () => {
     show(scene({ type: "report", stage: "rejected" }));
     await settle();
-    const mail = screen.getByRole("button", { name: "ติดต่อฝ่ายช่วยเหลือ" }).getAttribute("href") ?? "";
+    const mail = screen.getByRole("button", { name: th.bookingRefund.actions.mailSupport }).getAttribute("href") ?? "";
     expect(mail).toMatch(/^mailto:/);
     expect(decodeURIComponent(mail)).toContain("INV-2026-000123");
     expect(document.querySelectorAll('a[href^="mailto:"]')).toHaveLength(1);
@@ -203,6 +203,18 @@ describe("RefundStatusMode", () => {
       view.unmount();
     }
     expect(api.listRefundEvidence).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    { stage: "reviewing", takes: true },
+    { stage: "approved", takes: false },
+    { stage: "refunded", takes: false },
+    { stage: "refunded", caseStatus: "OPEN", takes: false },
+  ] as const)("takes more evidence for a report only while the team reviews it: $stage (request $caseStatus)", async ({ takes, ...view }) => {
+    show(scene({ type: "report", ...view }));
+    await settle();
+    expect(screen.queryByLabelText("แนบหลักฐานเพิ่ม") !== null).toBe(takes);
+    expect(api.listRefundEvidence).toHaveBeenCalledTimes(takes ? 1 : 0);
   });
 
   it("names the payment method instead of a card when there is none", async () => {
@@ -302,6 +314,16 @@ describe("EvidencePicker on an open report", () => {
     expect(api.getRefundEvidenceUrl).toHaveBeenCalledExactlyOnceWith(open.refund.id, "k1");
     expect(opened).toHaveBeenCalledExactlyOnceWith("https://files.example.test/k1", "_blank", "noopener,noreferrer");
     opened.mockRestore();
+  });
+
+  it("says under the add control, and to whoever focuses it, that a pick goes to the team at once and cannot be taken off", async () => {
+    show(open);
+    await settle();
+    const control = screen.getByLabelText("แนบหลักฐานเพิ่ม");
+    const line = screen.getByText(th.bookingRefund.attachments.instant);
+    const description = (control.getAttribute("aria-describedby") ?? "").split(" ").map((id) => document.getElementById(id));
+    expect(description).toContain(line);
+    expect(control.compareDocumentPosition(line) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   });
 
   it("says so when a file will not open", async () => {

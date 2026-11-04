@@ -14,13 +14,13 @@ import {
 import Image from "next/image";
 import Link from "next/link";
 import { useFormatter, useTranslations } from "next-intl";
-import { useId, useState, type ReactNode } from "react";
+import { useEffect, useId, useRef, useState, type ReactNode } from "react";
 
 import { DESKTOP_TYPE_LIFT } from "@/components/account/account-shell";
 import { AUTH_LINK } from "@/components/auth/auth-split";
 import {
   bookingPopupHref,
-  fullRefundUntil,
+  isPaid,
   refundHref,
   rescheduleWay,
   signInHref,
@@ -34,7 +34,7 @@ import {
 } from "@/components/bookings/booking-flow";
 import { downloadBookingCalendar } from "@/components/bookings/booking-calendar";
 import { CancellationFeedback } from "@/components/bookings/cancellation-feedback";
-import { useRefundFormat } from "@/components/bookings/refund-sheet";
+import { useDeadlineLine, useRefundFormat } from "@/components/bookings/refund-sheet";
 import { RescheduleSlots } from "@/components/bookings/reschedule-booking";
 import { useBookingCancellation } from "@/components/bookings/use-booking-cancellation";
 import {
@@ -302,7 +302,12 @@ function MoneyNote({ bookingId, exit }: { readonly bookingId: string; readonly e
       // The line above says what was paid; what came back, a part or the whole, is said here.
       note = t("refundNote.refunded", { amount: when.baht(exit.refundSatang) });
       break;
-    case "status":
+    case "status": {
+      // A refused request is no refund on its way: the row names the request, then the refusal.
+      const line =
+        exit.stage === "rejected"
+          ? t("refundNote.statusRejected", { amount: when.baht(exit.refundSatang) })
+          : t("refundNote.status", { amount: when.baht(exit.refundSatang), stage: r(`stage.${exit.stage}`) });
       // 44 px to press, rendered: the card is zoomed 1440/1710 from lg. Its
       // text starts where the other notes start, under the payment line, and
       // the extra height hangs into the gap below.
@@ -312,13 +317,12 @@ function MoneyNote({ bookingId, exit }: { readonly bookingId: string; readonly e
           href={refundHref(bookingId)}
         >
           <span className="min-w-0 flex-1">
-            <Figures>
-              {t("refundNote.status", { amount: when.baht(exit.refundSatang), stage: r(`stage.${exit.stage}`) })}
-            </Figures>
+            <Figures>{line}</Figures>
           </span>
           <ChevronRight aria-hidden className="size-4 shrink-0 lg:size-5" />
         </Link>
       );
+    }
     default:
       return null;
   }
@@ -343,11 +347,14 @@ function MoneyFailed({
   bookingId,
   reload,
   supportHref,
+  deadline,
 }: {
   readonly failure: MoneyReadFailure;
   readonly bookingId: string;
   readonly reload: () => void;
   readonly supportHref: string;
+  /** Said under a support link: the §8 line its email does not stop. */
+  readonly deadline: string | null;
 }) {
   const t = useTranslations("bookings");
   const tr = useTranslations("transactions");
@@ -382,8 +389,24 @@ function MoneyFailed({
       );
   }
   return (
-    <p className="mt-1 text-xs text-muted-foreground lg:text-frame-label" role="status">
-      {said} {action}
+    <>
+      <p className="mt-1 text-xs text-muted-foreground lg:text-frame-label" role="status">
+        {said} {action}
+      </p>
+      {deadline && toSupport(problem) ? <DeadlineNote>{deadline}</DeadlineNote> : null}
+    </>
+  );
+}
+
+/** A failed money read whose only help is support, so its line already holds the way there. */
+function toSupport(problem: ReturnType<typeof moneyReadProblem>): boolean {
+  return problem === "forbidden" || problem === "refused";
+}
+
+function DeadlineNote({ children }: { readonly children: string }) {
+  return (
+    <p className="mt-1 text-xs text-muted-foreground lg:text-frame-label">
+      <Figures>{children}</Figures>
     </p>
   );
 }
@@ -400,20 +423,29 @@ function PaymentLine({
   service,
   money,
   exit,
+  now,
   supportHref,
 }: {
   readonly booking: ApiBooking;
   readonly service: ApiPublicService | undefined;
   readonly money: BookingMoney;
   readonly exit: BookingExit;
+  readonly now: number;
   readonly supportHref: string;
 }) {
   const t = useTranslations("bookings");
   const tr = useTranslations("transactions");
   const when = useRefundFormat();
+  const deadline = useDeadlineLine()(booking, now);
   const { invoice } = money;
   const failed = money.failure ? (
-    <MoneyFailed bookingId={booking.id} failure={money.failure} reload={money.reload} supportHref={supportHref} />
+    <MoneyFailed
+      bookingId={booking.id}
+      deadline={deadline}
+      failure={money.failure}
+      reload={money.reload}
+      supportHref={supportHref}
+    />
   ) : null;
 
   // A confirmed booking whose receipt here reads unpaid was paid on another charge: that receipt is not what was paid.
@@ -421,6 +453,7 @@ function PaymentLine({
     return (
       <Line icon={Banknote}>
         <span className="text-muted-foreground">{t(exit.receipt === "missing" ? "paidElsewhere" : "paidUnshown")}</span>
+        {deadline ? <DeadlineNote>{deadline}</DeadlineNote> : null}
       </Line>
     );
   }
@@ -438,7 +471,8 @@ function PaymentLine({
     );
   }
   if (failed) return <Line icon={Banknote}>{failed}</Line>;
-  if (booking.state !== "PENDING_PAYMENT" || !service) return null;
+  // Not while its receipt loads either: a held slot may already be paid, and the list price would pass for what was.
+  if (booking.state !== "PENDING_PAYMENT" || invoice === undefined || !service) return null;
   return (
     <Line icon={Banknote}>
       {t("detailsPriceLabel")}{" "}
@@ -498,7 +532,6 @@ export function BookingSheet({
   const tr = useTranslations("transactions");
   const l = useTranslations("landing");
   const format = useFormatter();
-  const when = useRefundFormat();
   const clock = useClock();
   const now = useMountTime();
   const ways = useWaysOn(entry, now);
@@ -513,9 +546,20 @@ export function BookingSheet({
   const cancellation = useBookingCancellation(onChanged);
   const { booking, service, advisor } = entry;
   // One way out at most. Until the money is known it is `waiting`, so a paid
-  // booking never flashes the plain cancel.
+  // booking never flashes the plain cancel, a held slot's included.
   const { exit, money } = useBookingExit(booking, now);
   const moneyExit = useMoneyExit(exit);
+  // A held slot whose receipt reads paid: the booking was read before the
+  // payment confirmed it (another tab, or API develop confirming after the
+  // charge settles). Read it once more, so the header and the main capsule
+  // follow the server rather than offer to pay again.
+  const settling = booking.state === "PENDING_PAYMENT" && isPaid(money.invoice);
+  const askedAgain = useRef(false);
+  useEffect(() => {
+    if (!settling || askedAgain.current) return;
+    askedAgain.current = true;
+    onChanged();
+  }, [settling, onChanged]);
   const cancellable = exit.kind === "cancel";
   const start = new Date(booking.startTime);
   const minutes = Math.round((Date.parse(booking.endTime) - start.getTime()) / 60_000);
@@ -533,6 +577,9 @@ export function BookingSheet({
   };
   const subject = encodeURIComponent(t("supportSubject", about));
   const supportMail = `mailto:${l("footerEmailAddress")}`;
+  // The help line would only repeat a support link the payment line already holds.
+  const supportAbove =
+    exit.kind !== "paidElsewhere" && money.failure !== null && toSupport(moneyReadProblem(money.failure.error));
 
   return (
     <article
@@ -590,6 +637,7 @@ export function BookingSheet({
           booking={booking}
           exit={exit}
           money={money}
+          now={now}
           service={service}
           supportHref={`${supportMail}?subject=${subject}`}
         />
@@ -655,14 +703,10 @@ export function BookingSheet({
               </Button>
             ) : null}
           </div>
-          {/* Where the move would be: the way to another time, said, so nobody hunts for it, and only beside the
-              cancel it names (not while the requests load). The date moves down whole. */}
+          {/* Where the move would be: the way to another time and what it costs, said, so nobody hunts for it, and
+              only beside the cancel it names (not while the requests load). Its deadline is the note's, above. */}
           {move === "withheld" && exit.kind === "cancelRefund" && exit.share === "full" ? (
-            <p className="text-xs text-balance text-muted-foreground lg:text-frame-label">
-              <Figures>
-                {t("rescheduleWithheld", { date: when.deadline(fullRefundUntil(booking)).replaceAll(" ", " ") })}
-              </Figures>
-            </p>
+            <p className="text-xs text-balance text-muted-foreground lg:text-frame-label">{t("rescheduleWithheld")}</p>
           ) : null}
         </div>
       ) : null}
@@ -717,12 +761,14 @@ export function BookingSheet({
         </div>
       )}
 
-      <p className={cn("text-xs text-muted-foreground lg:text-frame-label", UNDER_TEXT)}>
-        {t("helpPrompt")}{" "}
-        <a className={cn(AUTH_LINK, "py-1.5")} href={`${supportMail}?subject=${subject}`}>
-          {tr("contactSupport")}
-        </a>
-      </p>
+      {supportAbove ? null : (
+        <p className={cn("text-xs text-muted-foreground lg:text-frame-label", UNDER_TEXT)}>
+          {t("helpPrompt")}{" "}
+          <a className={cn(AUTH_LINK, "py-1.5")} href={`${supportMail}?subject=${subject}`}>
+            {tr("contactSupport")}
+          </a>
+        </p>
+      )}
     </article>
   );
 }

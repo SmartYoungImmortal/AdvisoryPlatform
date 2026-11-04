@@ -1,6 +1,6 @@
 "use client";
 
-import { CalendarDays, ChevronLeft } from "lucide-react";
+import { CalendarDays, ChevronLeft, type LucideIcon } from "lucide-react";
 import Link from "next/link";
 import { useCallback, type ReactNode } from "react";
 import { useTranslations } from "next-intl";
@@ -10,6 +10,7 @@ import { AccountShell } from "@/components/account/account-shell";
 import { AppFrame } from "@/components/account/app-frame";
 import { authPill } from "@/components/auth/auth-split";
 import { BookingSheet } from "@/components/bookings/booking-sheet";
+import { Figures } from "@/components/figures";
 import { FEED_COLUMN } from "@/components/notifications/notification-center-screen";
 import { SHEET_W, SHEET_X } from "@/components/payment/invoice-screens";
 import { Button } from "@/components/ui/button";
@@ -45,15 +46,20 @@ export function DetailColumn({
   children,
 }: {
   readonly crumb?: string;
-  /** `fromLg: false`: the page's own button already goes there, so from `lg` it draws no second way back. */
-  readonly back?: { readonly href: string; readonly label: string; readonly fromLg?: boolean };
+  /**
+   * `fromLg`: from `lg`, the back link (`"link"`, the default); nothing, where the page's own button already goes
+   * there and the page sits as high as the list it came from (`"none"`); or the row's height left empty, where the
+   * page's own button goes there but the page must start where its other modes and its skeleton do (`"space"`).
+   */
+  readonly back?: { readonly href: string; readonly label: string; readonly fromLg?: "link" | "none" | "space" };
   readonly children: ReactNode;
 }) {
   const t = useTranslations("bookings");
   const c = useTranslations("common");
   const tr = useTranslations("transactions");
+  const backRow = back?.fromLg ?? "link";
   // From lg a row above the page (the back link or the breadcrumb) and its gap, unless the page's own button replaces it.
-  const topRow = back?.fromLg !== false;
+  const topRow = backRow !== "none";
 
   return (
     // `wide="md"`: a tablet held upright gets the phone layout at its own width.
@@ -64,7 +70,12 @@ export function DetailColumn({
           <AccountShell active="bookings">
             <div className={cn("flex w-full flex-col lg:mx-auto", back ? cn("lg:w-full", FEED_COLUMN) : SHEET_W)}>
               {back ? (
-                topRow ? (
+                backRow === "space" ? (
+                  // One line of the link's type: the link's own height, with nothing in it to press or read.
+                  <span aria-hidden className="hidden text-frame-meta lg:block">
+                    {" "}
+                  </span>
+                ) : backRow === "link" ? (
                   <Link
                     className="hidden w-fit items-center gap-1.5 rounded-md text-frame-meta text-muted-foreground outline-none transition-colors hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/50 lg:inline-flex"
                     href={back.href}
@@ -219,6 +230,7 @@ function BookingDetailSkeleton() {
 export function BookingDetailState({
   title,
   body,
+  note,
   retry,
   retryLabel,
   action,
@@ -226,9 +238,12 @@ export function BookingDetailState({
 }: {
   readonly title: string;
   readonly body: string;
+  /** A second line under the body, such as the deadline an email to support does not stop. */
+  readonly note?: string | null;
   readonly retry?: () => void;
   readonly retryLabel?: string;
-  readonly action?: { readonly href: string; readonly label: string };
+  /** `icon`: what the button opens when it is not a page here, such as an email. */
+  readonly action?: { readonly href: string; readonly label: string; readonly icon?: LucideIcon };
   readonly back?: { readonly href: string; readonly label: string };
 }) {
   const t = useTranslations("bookings");
@@ -236,7 +251,7 @@ export function BookingDetailState({
   // With `back` the column's own back link is the way out, so the state draws no second one to the same place;
   // a state whose own button goes where the back link would leaves the button, the bigger of the two.
   const way = action ?? (back ? undefined : { href: "/bookings", label: t("detailsBackToBookings") });
-  const column = back && way?.href === back.href ? { ...back, fromLg: false } : back;
+  const column = back && way?.href === back.href ? { ...back, fromLg: "none" as const } : back;
 
   return (
     <DetailColumn back={column}>
@@ -251,6 +266,11 @@ export function BookingDetailState({
         <div className="flex flex-col items-center gap-1">
           <h1 className="text-base font-semibold text-foreground lg:text-frame-figure">{title}</h1>
           <p className="text-xs text-balance text-muted-foreground lg:text-frame-meta">{body}</p>
+          {note ? (
+            <p className="text-xs text-balance text-muted-foreground lg:text-frame-meta">
+              <Figures>{note}</Figures>
+            </p>
+          ) : null}
         </div>
         {retry || way ? (
           <div className="flex flex-wrap justify-center gap-2">
@@ -266,6 +286,7 @@ export function BookingDetailState({
             ) : null}
             {way ? (
               <Button className={cn(authPill(true), pill)} nativeButton={false} render={<Link href={way.href} />}>
+                {"icon" in way && way.icon ? <way.icon aria-hidden className="size-4 lg:size-5" /> : null}
                 {way.label}
               </Button>
             ) : null}

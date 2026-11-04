@@ -151,6 +151,8 @@ function CancelOnPage({
   const [shown, setShown] = useState(booking);
   const [notice, setNotice] = useState<string>();
   const [answer, setAnswer] = useState<(() => void) | null>(null);
+  // As the page's: a read in flight clears the last failure, and a failed one keeps the booking it had.
+  const [readFailed, setReadFailed] = useState(false);
   return (
     <>
       <CancelRefundMode
@@ -163,14 +165,21 @@ function CancelOnPage({
         onOpened={onOpened}
         reread={() => {
           onReread();
+          setReadFailed(false);
           setAnswer(() => () => setShown({ ...booking }));
         }}
+        rereadFailed={readFailed}
         stillOffered={stillOffered}
       />
       {answer ? (
-        <button onClick={answer} type="button">
-          answer the read
-        </button>
+        <>
+          <button onClick={answer} type="button">
+            answer the read
+          </button>
+          <button onClick={() => setReadFailed(true)} type="button">
+            fail the read
+          </button>
+        </>
       ) : null}
     </>
   );
@@ -469,6 +478,23 @@ describe("CancelRefundMode, pressing confirm", () => {
     expect(actions.cancelThenRefund).toHaveBeenCalledTimes(1);
   });
 
+  it("after a check whose read failed, offers the check again rather than staying busy with nothing in flight", async () => {
+    const { onReread } = await refuse("uncertain");
+    await act(async () => screen.getByRole("button", { name: "ตรวจสอบสถานะ" }).click());
+    expect(screen.getByRole("button", { name: "กำลังตรวจสอบ…" })).toBeTruthy();
+
+    await act(async () => screen.getByRole("button", { name: "fail the read" }).click());
+    const again = screen.getByRole("button", { name: "ตรวจสอบสถานะ" }) as HTMLButtonElement;
+    expect(again.disabled).toBe(false);
+    expect(again.getAttribute("aria-busy")).toBeNull();
+    // Still the check, not the cancel: what the uncertain answer hid is still unknown.
+    expect(screen.queryByRole("button", { name: "ยกเลิกและรับเงินคืน ฿1,000" })).toBeNull();
+
+    await act(async () => again.click());
+    expect(onReread).toHaveBeenCalledTimes(2);
+    expect(screen.getByRole("button", { name: "กำลังตรวจสอบ…" })).toBeTruthy();
+  });
+
   it("after an answer that may hide a cancel, sends nothing on a press that lands before the check replaces the button", async () => {
     const run = pending<CancelRefundResult>();
     actions.cancelThenRefund.mockReturnValue(run.promise);
@@ -553,8 +579,8 @@ describe("ClaimMode", () => {
   });
 
   it.each([
-    ["refused", "ติดต่อฝ่ายช่วยเหลือ"],
-    ["notFound", "ติดต่อฝ่ายช่วยเหลือ"],
+    ["refused", "ส่งอีเมลถึงฝ่ายช่วยเหลือ"],
+    ["notFound", "ส่งอีเมลถึงฝ่ายช่วยเหลือ"],
     ["signIn", "เข้าสู่ระบบอีกครั้ง"],
   ] as const)("says nothing of a button below once %s puts another in the claim's place, in the line or in the step", (failed, way) => {
     renderClaim({ failed });
@@ -635,26 +661,27 @@ describe("ClaimMode", () => {
 
   it.each([
     [404, "ไม่พบใบเสร็จที่ขอคืนเงินได้ของการจองนี้ ติดต่อฝ่ายช่วยเหลือ"],
-    [400, "ระบบไม่รับคำขอนี้ ติดต่อฝ่ายช่วยเหลือ"],
+    [400, "ส่งคำขอนี้ไม่สำเร็จ ติดต่อฝ่ายช่วยเหลือ"],
   ])("after a %i, sends the advisee to support rather than to press again", async (status, words) => {
     actions.openRefundOnce.mockRejectedValue(new ApiError(status, "refused"));
     renderClaim();
     await act(async () => screen.getByRole("button", { name: "รับเงินคืน ฿1,000" }).click());
     expect(screen.getByRole("alert").textContent).toBe(words);
     // The button is the way on now, with the receipt in the subject; a second press would fail the same way.
+    // It says it opens an email: it is no step in the app.
     expect(screen.queryByRole("button", { name: "รับเงินคืน ฿1,000" })).toBeNull();
-    const support = screen.getByRole("button", { name: "ติดต่อฝ่ายช่วยเหลือ" });
+    const support = screen.getByRole("button", { name: "ส่งอีเมลถึงฝ่ายช่วยเหลือ" });
     expect(decodeURIComponent(support.getAttribute("href") ?? "")).toMatch(/^mailto:[^?]+\?subject=สอบถามรายการ INV-2026-000123$/);
     expect(screen.queryByRole("link", { name: "ติดต่อฝ่ายช่วยเหลือ" })).toBeNull();
   });
 
   it.each([
-    ["refused", "ติดต่อฝ่ายช่วยเหลือ"],
-    ["notFound", "ติดต่อฝ่ายช่วยเหลือ"],
+    ["refused", "ส่งอีเมลถึงฝ่ายช่วยเหลือ"],
+    ["notFound", "ส่งอีเมลถึงฝ่ายช่วยเหลือ"],
     ["signIn", "เข้าสู่ระบบอีกครั้ง"],
   ] as const)("arriving from this page's cancel whose refund was %s, offers what helps, not the claim", (failed, way) => {
-    renderClaim({ failed, notice: "ยกเลิกการจองแล้ว แต่ระบบไม่รับเรื่องคืนเงิน ฿1,000 ติดต่อฝ่ายช่วยเหลือ" });
-    expect(screen.getByRole("alert").textContent).toBe("ยกเลิกการจองแล้ว แต่ระบบไม่รับเรื่องคืนเงิน ฿1,000 ติดต่อฝ่ายช่วยเหลือ");
+    renderClaim({ failed, notice: "ยกเลิกการจองแล้ว แต่ส่งเรื่องคืนเงิน ฿1,000 ไม่สำเร็จ ติดต่อฝ่ายช่วยเหลือ" });
+    expect(screen.getByRole("alert").textContent).toBe("ยกเลิกการจองแล้ว แต่ส่งเรื่องคืนเงิน ฿1,000 ไม่สำเร็จ ติดต่อฝ่ายช่วยเหลือ");
     expect(screen.queryByRole("button", { name: "รับเงินคืน ฿1,000" })).toBeNull();
     expect(screen.getByRole("button", { name: way })).toBeTruthy();
   });

@@ -95,6 +95,8 @@ beforeEach(() => {
   http.getBooking.mockResolvedValue(booked);
   http.getMyBookingInvoice.mockResolvedValue(invoice);
   http.listMyRefundCases.mockResolvedValue(page([]));
+  // The page reads the service while the money loads, so its skeleton wraps the name as the card will.
+  http.getService.mockResolvedValue({ id: "service", name: "วางแผนภาษี", priceSatang: 80_000 });
 });
 afterEach(() => {
   cleanup();

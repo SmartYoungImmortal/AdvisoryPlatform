@@ -109,6 +109,30 @@ describe("useBookingExit", () => {
     expect(result.current.exit).toEqual({ kind: "waiting" });
   });
 
+  it("keeps a held slot's paid receipt and its offer through a failed read again, and says the read failed", async () => {
+    const held = { ...booking, state: "PENDING_PAYMENT" as const };
+    calls.invoice.mockResolvedValue(invoice);
+    calls.cases.mockResolvedValue({ items: [], total: 0, page: 1, limit: 100, totalPages: 1 });
+    const { result } = renderHook(() => useBookingExit(held, now));
+    await waitFor(() => expect(result.current.exit).toMatchObject({ kind: "cancelRefund", share: "full" }));
+
+    const down = new ApiError(503, "down");
+    calls.invoice.mockRejectedValue(down);
+    result.current.money.reload();
+    await waitFor(() => expect(result.current.money.failure).toEqual({ read: "invoice", error: down }));
+    expect(result.current.money.invoice).toEqual(invoice);
+    expect(result.current.exit).toMatchObject({ kind: "cancelRefund", share: "full" });
+  });
+
+  it("offers a held slot nothing until its receipt answers, and nothing after a first read that failed", async () => {
+    const held = { ...booking, state: "PENDING_PAYMENT" as const };
+    calls.invoice.mockRejectedValue(new ApiError(503, "down"));
+    const { result } = renderHook(() => useBookingExit(held, now));
+    expect(result.current.exit).toEqual({ kind: "waiting" });
+    await waitFor(() => expect(result.current.money.failure).not.toBeNull());
+    expect(result.current.exit).toEqual({ kind: "waiting" });
+  });
+
   it("offers nothing when the requests of a paid invoice cannot be read, names that read, and reads both again on reload", async () => {
     const refused = new ApiError(403, "Forbidden");
     calls.invoice.mockResolvedValue(invoice);

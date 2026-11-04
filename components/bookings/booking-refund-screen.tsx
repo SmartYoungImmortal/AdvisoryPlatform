@@ -1,21 +1,29 @@
 "use client";
 
+import { Mail } from "lucide-react";
 import Link from "next/link";
 import { Suspense, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { useSearchParams } from "next/navigation";
 import { useTranslations } from "next-intl";
 
 import { BookingDetailState, DetailColumn } from "@/components/bookings/booking-detail-screen";
-import { bookingExit, bookingPopupHref, refundHref, sameOffer, signInHref } from "@/components/bookings/booking-exit";
+import { bookingExit, bookingPopupHref, refundHref, runningDeadline, sameOffer, signInHref } from "@/components/bookings/booking-exit";
 import { asUuid, useMountTime } from "@/components/bookings/booking-flow";
 import { refundFailure, type RefundFailure } from "@/components/bookings/refund-actions";
 import { CancelRefundMode, ClaimMode } from "@/components/bookings/refund-cancel";
-import { ReportMode } from "@/components/bookings/refund-report";
+import { ReportFormBones, ReportHeadBones, ReportMode } from "@/components/bookings/refund-report";
 import { SHEET_W } from "@/components/payment/invoice-screens";
-import { REFUND_SHAPE, RefundCard, RefundList, RefundSection, useRefundFormat } from "@/components/bookings/refund-sheet";
+import {
+  Bone,
+  REFUND_SHAPE,
+  RefundCard,
+  RefundList,
+  RefundSection,
+  useDeadlineLine,
+  useRefundFormat,
+} from "@/components/bookings/refund-sheet";
 import { RefundStatusMode } from "@/components/bookings/refund-status";
 import { moneyReadProblem, useBookingMoney, type MoneyReadFailure } from "@/components/bookings/use-booking-exit";
-import { Figures } from "@/components/figures";
 import { Button } from "@/components/ui/button";
 import { getBooking, getService } from "@/lib/api/resources";
 import type { ApiBooking, ApiPublicService, ApiRefundCase } from "@/lib/api/types";
@@ -145,6 +153,7 @@ function RefundFailed({
   failure,
   retryBody,
   refused,
+  deadline,
   retry,
   bookingId,
 }: {
@@ -152,18 +161,25 @@ function RefundFailed({
   readonly failure: Exclude<RefundFailure, "signIn">;
   readonly retryBody: string;
   readonly refused: string;
+  /** Under a refusal, once the booking is known: the §8 line the email to support does not stop. */
+  readonly deadline?: string | null;
   readonly retry: () => void;
   readonly bookingId: string;
 }) {
   const t = useTranslations("bookingRefund");
-  const tr = useTranslations("transactions");
   const back = useBack(bookingId);
   const support = useSupportFor(bookingId);
   if (failure === "retry") {
     return <BookingDetailState back={back} body={retryBody} retry={retry} retryLabel={t("actions.retry")} title={title} />;
   }
   return (
-    <BookingDetailState action={{ href: support, label: tr("contactSupport") }} back={back} body={refused} title={title} />
+    <BookingDetailState
+      action={{ href: support, label: t("actions.mailSupport"), icon: Mail }}
+      back={back}
+      body={refused}
+      note={deadline}
+      title={title}
+    />
   );
 }
 
@@ -226,16 +242,25 @@ function useBookingSupport(booking: ApiBooking): string {
  * replaced (`missing`), or on a charge other than the unpaid one shown here
  * (`unpaid`). Support, with the booking named in the subject.
  */
-function RefundPaidElsewhere({ booking, receipt }: { readonly booking: ApiBooking; readonly receipt: "missing" | "unpaid" }) {
+function RefundPaidElsewhere({
+  booking,
+  receipt,
+  now,
+}: {
+  readonly booking: ApiBooking;
+  readonly receipt: "missing" | "unpaid";
+  readonly now: number;
+}) {
   const t = useTranslations("bookingRefund");
-  const tr = useTranslations("transactions");
   const back = useBack(booking.id);
   const support = useBookingSupport(booking);
+  const deadline = useDeadlineLine()(booking, now);
   return (
     <BookingDetailState
-      action={{ href: support, label: tr("contactSupport") }}
+      action={{ href: support, label: t("actions.mailSupport"), icon: Mail }}
       back={back}
       body={t(receipt === "missing" ? "states.paidElsewhereBody" : "states.paidUnshownBody")}
+      note={deadline}
       title={t(receipt === "missing" ? "states.paidElsewhereTitle" : "states.paidUnshownTitle")}
     />
   );
@@ -249,7 +274,6 @@ function RefundPaidElsewhere({ booking, receipt }: { readonly booking: ApiBookin
  */
 function RefundNothing({ booking, rescheduled }: { readonly booking: ApiBooking; readonly rescheduled: boolean }) {
   const t = useTranslations("bookingRefund");
-  const tr = useTranslations("transactions");
   const back = useBack(booking.id);
   const support = useBookingSupport(booking);
   const held = !rescheduled && booking.state === "PENDING_PAYMENT";
@@ -258,7 +282,7 @@ function RefundNothing({ booking, rescheduled }: { readonly booking: ApiBooking;
   else if (held) body = t("states.nothingUnpaid");
   return (
     <BookingDetailState
-      action={held ? undefined : { href: support, label: tr("contactSupport") }}
+      action={held ? undefined : { href: support, label: t("actions.mailSupport"), icon: Mail }}
       back={back}
       body={body}
       title={t("states.nothingTitle")}
@@ -308,7 +332,11 @@ function RefundContent({
 }) {
   const t = useTranslations("bookingRefund");
   const format = useRefundFormat();
+  const deadlineLine = useDeadlineLine();
   const mounted = useMountTime();
+  // Only for the skeleton while the money loads: the service's name wraps the facts where the card's will.
+  const fetchService = useCallback((signal: AbortSignal) => getService(booking.serviceId, signal), [booking.serviceId]);
+  const service = useResource<ApiPublicService>(`services/${booking.serviceId}`, fetchService);
   // The clock the rule is read at: the page's opening, until a press finds the offer has moved on.
   const [movedTo, setMovedTo] = useState<number>();
   const now = movedTo ?? mounted;
@@ -383,13 +411,23 @@ function RefundContent({
 
   if (loading) {
     const failed = money.failure;
-    if (!failed) return <RefundSkeleton bookingId={booking.id} />;
+    if (!failed) {
+      // A booking whose report window is open will most likely show its form, far taller than the two cells.
+      return (
+        <RefundSkeleton
+          bookingId={booking.id}
+          report={runningDeadline(booking, now)?.rule === "report" ? booking : undefined}
+          serviceName={service.data?.name}
+        />
+      );
+    }
     const failure = refundFailure(failed.error);
     if (failure === "signIn") return <RefundSignIn bookingId={booking.id} />;
     const words = MONEY_FAILED[failed.read];
     return (
       <RefundFailed
         bookingId={booking.id}
+        deadline={deadlineLine(booking, now)}
         failure={failure}
         refused={t(moneyReadProblem(failed.error) === "forbidden" ? words.forbidden : words.refused)}
         retry={money.reload}
@@ -398,7 +436,7 @@ function RefundContent({
       />
     );
   }
-  if (exit.kind === "paidElsewhere") return <RefundPaidElsewhere booking={booking} receipt={exit.receipt} />;
+  if (exit.kind === "paidElsewhere") return <RefundPaidElsewhere booking={booking} now={now} receipt={exit.receipt} />;
   if (!invoice || exit.kind === "none" || exit.kind === "cancel" || exit.kind === "rescheduled") {
     return <RefundNothing booking={booking} rescheduled={exit.kind === "rescheduled"} />;
   }
@@ -423,6 +461,7 @@ function RefundContent({
           notice={notice}
           onNotice={(line) => setDone({ notice: line })}
           reread={reread}
+          rereadFailed={bookingFailure !== null}
           stillOffered={stillOffered}
           onCancelledOnly={(at, failure) => {
             setDone({ cancelledAt: at, failure, notice: t(CANCELLED_ONLY[failure], { amount: format.baht(exit.refundSatang) }) });
@@ -484,8 +523,9 @@ function RefundContent({
   }
 
   return (
-    // Cancel mode's own "keep the booking" goes back to the popup, so from lg the column draws no second way back.
-    <DetailColumn back={exit.kind === "cancelRefund" ? { ...back, fromLg: false } : back}>
+    // Cancel mode's own "keep the booking" goes back to the popup, so from lg the column draws no second way back,
+    // only its height: the card starts where the skeleton and the status the press swaps in do.
+    <DetailColumn back={exit.kind === "cancelRefund" ? { ...back, fromLg: "space" } : back}>
       <p aria-live="polite" className="sr-only">
         {done.announce}
       </p>
@@ -495,29 +535,31 @@ function RefundContent({
   );
 }
 
-/**
- * A bone that keeps a real line's height: the text is there only to give the
- * line its type's box (Thai glyphs, and figures in the Latin face as the card
- * sets them), and does not show.
- */
-function Bone({ text }: { readonly text: string }) {
-  return (
-    <span className="rounded bg-muted text-transparent select-none">
-      <Figures>{text}</Figures>
-    </span>
-  );
-}
-
 /** What the facts usually hold: a name, a day over its hours, a service's name, a card. */
 const FACT_BONES = [["กกกกก กกกกกก"], ["กกก 00 กก 0000", "00:00 กก 00:00 ก"], ["กกกกกกกกก กกกกกกกกกก กกกกกกก"]] as const;
 
+/** The facts' bones, the service's own name in its place once known: a name wraps where it does, a placeholder only guesses. */
+function factBones(serviceName: string | undefined): readonly (readonly string[])[] {
+  return serviceName ? [FACT_BONES[0], FACT_BONES[1], [serviceName]] : FACT_BONES;
+}
+
 /**
  * The card's own shape while the booking and its money load, still, no
- * shimmer: the head and a section of four rows (a cancellation's trail, the
- * card a popup's refund row opens on), built in the card's own boxes
- * (`REFUND_SHAPE`), so the page keeps its height when the data lands.
+ * shimmer, built in the card's own boxes (`REFUND_SHAPE`), so the page keeps
+ * its height when the data lands. A booking to `report` gets its form's shape:
+ * the head across the card and the form under it. Any other gets the head
+ * beside a section of four rows (a cancellation's trail, the card a popup's
+ * refund row opens on).
  */
-function RefundSkeleton({ bookingId }: { readonly bookingId?: string }) {
+function RefundSkeleton({
+  bookingId,
+  report,
+  serviceName,
+}: {
+  readonly bookingId?: string;
+  readonly report?: ApiBooking;
+  readonly serviceName?: string;
+}) {
   const t = useTranslations("bookingRefund");
   const back = useBack(bookingId);
   const mark = "rounded-full bg-muted";
@@ -530,6 +572,7 @@ function RefundSkeleton({ bookingId }: { readonly bookingId?: string }) {
         </span>
         <div aria-hidden className="w-full">
           <RefundCard
+            foot={report ? <ReportFormBones booking={report} /> : undefined}
             head={
               <div className={REFUND_SHAPE.head}>
                 <p className={REFUND_SHAPE.status}>
@@ -539,11 +582,15 @@ function RefundSkeleton({ bookingId }: { readonly bookingId?: string }) {
                 <p className={REFUND_SHAPE.amount}>
                   <Bone text="฿0,000" />
                 </p>
-                <p className={REFUND_SHAPE.meta}>
-                  <Bone text="กกกกกกกกก กกกกก 00 กกกกกก" />
-                </p>
+                {report ? (
+                  <ReportHeadBones booking={report} />
+                ) : (
+                  <p className={REFUND_SHAPE.meta}>
+                    <Bone text="กกกกกกกกก กกกกก 00 กกกกกก" />
+                  </p>
+                )}
                 <dl className={REFUND_SHAPE.facts}>
-                  {FACT_BONES.map((lines) => (
+                  {factBones(serviceName).map((lines) => (
                     <div className={REFUND_SHAPE.fact} key={lines[0]}>
                       <dt className={REFUND_SHAPE.term}>
                         <Bone text="กกกกกก" />
@@ -572,23 +619,25 @@ function RefundSkeleton({ bookingId }: { readonly bookingId?: string }) {
               </div>
             }
           >
-            <RefundSection heading={<Bone text="กกกกกกกก" />}>
-              <RefundList>
-                {["กกกกกกกกก กกกกกก", "กกกกกกกก กกกกกกก", "กกกกกก กกกกกกกกกกก", "กกกกกก กกกกก กก กกกกกก"].map((line) => (
-                  <li className={REFUND_SHAPE.row} key={line}>
-                    <span className={cn(REFUND_SHAPE.rowIcon, mark)} />
-                    <div className={REFUND_SHAPE.rowText}>
-                      <p className={REFUND_SHAPE.rowTitle}>
-                        <Bone text={line} />
-                      </p>
-                      <p className={REFUND_SHAPE.rowSub}>
-                        <Bone text="0 กก 0000 · 00:00" />
-                      </p>
-                    </div>
-                  </li>
-                ))}
-              </RefundList>
-            </RefundSection>
+            {report ? null : (
+              <RefundSection heading={<Bone text="กกกกกกกก" />}>
+                <RefundList>
+                  {["กกกกกกกกก กกกกกก", "กกกกกกกก กกกกกกก", "กกกกกก กกกกกกกกกกก", "กกกกกก กกกกก กก กกกกกก"].map((line) => (
+                    <li className={REFUND_SHAPE.row} key={line}>
+                      <span className={cn(REFUND_SHAPE.rowIcon, mark)} />
+                      <div className={REFUND_SHAPE.rowText}>
+                        <p className={REFUND_SHAPE.rowTitle}>
+                          <Bone text={line} />
+                        </p>
+                        <p className={REFUND_SHAPE.rowSub}>
+                          <Bone text="0 กก 0000 · 00:00" />
+                        </p>
+                      </div>
+                    </li>
+                  ))}
+                </RefundList>
+              </RefundSection>
+            )}
           </RefundCard>
         </div>
         <span aria-hidden className={cn("h-11 w-full rounded-full bg-muted lg:mx-auto lg:h-14", SHEET_W)} />

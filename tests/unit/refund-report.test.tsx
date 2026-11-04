@@ -260,7 +260,7 @@ describe("ReportMode", () => {
     { name: "a lapsed session", cause: new ApiError(401, "Unauthorized"), says: "เซสชันหมดอายุ ยังไม่ได้ส่งอะไร เข้าสู่ระบบอีกครั้งแล้วกลับมาที่หน้านี้" },
     { name: "no disputable receipt", cause: new ApiError(404, "Not Found"), says: "ไม่พบใบเสร็จที่ขอคืนเงินได้ของการจองนี้ ติดต่อฝ่ายช่วยเหลือ" },
     { name: "someone else's receipt", cause: new ApiError(403, "Forbidden"), says: "ไม่พบใบเสร็จที่ขอคืนเงินได้ของการจองนี้ ติดต่อฝ่ายช่วยเหลือ" },
-    { name: "a refusal", cause: new ApiError(400, "Bad Request"), says: "ระบบไม่รับคำขอนี้ ติดต่อฝ่ายช่วยเหลือ" },
+    { name: "a refusal", cause: new ApiError(400, "Bad Request"), says: th.bookingRefund.errors.refundRefused },
     { name: "a server fault", cause: new ApiError(503, "Unavailable"), says: "ส่งคำขอไม่สำเร็จ ลองอีกครั้ง" },
     { name: "a request already open that could not be read back", cause: new ApiError(409, "Conflict"), says: "ส่งคำขอไม่สำเร็จ ลองอีกครั้ง" },
     { name: "no network", cause: new TypeError("Failed to fetch"), says: "ส่งคำขอไม่สำเร็จ ลองอีกครั้ง" },
@@ -396,6 +396,14 @@ describe("EvidencePicker in the form", () => {
     fireEvent.click(screen.getByRole("button", { name: "ลบ proof.png" }));
     expect(rows()).toEqual(["chat.pdf"]);
     expect(document.activeElement).toBe(picker());
+  });
+
+  it("holds a pick back until the form is sent, and so says nothing of files going to the team at once", () => {
+    renderForm();
+    attach(file("proof.png", "image/png"));
+    expect(screen.getByRole("button", { name: "ลบ proof.png" })).toBeTruthy();
+    expect(api.uploadRefundEvidence).not.toHaveBeenCalled();
+    expect(screen.queryByText(th.bookingRefund.attachments.instant)).toBeNull();
   });
 
   it("takes only the four file types, and many at once", () => {

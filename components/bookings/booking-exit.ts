@@ -135,7 +135,7 @@ export function signInHref(next: string): string {
   return `/login?next=${encodeURIComponent(next)}`;
 }
 
-function isPaid(invoice: ApiAdviseeInvoice | null | undefined): invoice is ApiAdviseeInvoice {
+export function isPaid(invoice: ApiAdviseeInvoice | null | undefined): invoice is ApiAdviseeInvoice {
   return invoice?.status === "paid" || invoice?.status === "refunded";
 }
 
@@ -148,6 +148,23 @@ function rescheduledAway(booking: ApiBooking, invoice: ApiAdviseeInvoice): boole
     booking.state === "CANCELLED" &&
     invoice.session !== null &&
     Date.parse(invoice.session.startTime) !== Date.parse(booking.startTime)
+  );
+}
+
+/**
+ * The advisee called it off at or after the start. §8 lets nobody cancel a
+ * session once it has begun, so this is no cancellation under the rule, and
+ * the money follows the session as if it had run: a problem with it can be
+ * reported. API develop's cancel checks no time, and dev's old refund form
+ * cancelled every booked session, ended ones too, before it sent the request.
+ */
+function cancelledAfterStart(booking: ApiBooking): boolean {
+  return (
+    booking.state === "CANCELLED" &&
+    booking.cancelledByUserId !== null &&
+    booking.cancelledByUserId === booking.adviseeId &&
+    booking.cancelledAt !== null &&
+    Date.parse(booking.cancelledAt) >= Date.parse(booking.startTime)
   );
 }
 
@@ -178,19 +195,20 @@ const STARTED: ReadonlySet<ApiBooking["state"]> = new Set(["IN_PROGRESS", "COMPL
 /**
  * The one way out of a booking, from /terms §8 and the clock (S = start, E = end):
  *
- * - R10 nothing while the invoice, or a paid invoice's requests, still load.
- * - R1 a held slot (PENDING_PAYMENT) before S: the plain cancel, without
- *   waiting on the invoice. After S, nothing. A receipt already read as paid
- *   outranks the hold: API develop settles the charge before it confirms the
+ * - R10 nothing while the invoice, or a paid invoice's requests, still load,
+ *   a held slot's too: API develop settles the charge before it confirms the
  *   booking (`settleCharge`, then `confirmPayment`), and a list cached in
- *   another tab can still say held, so a paid one follows the paid rules.
+ *   another tab can still say held, so a held slot may already be paid.
+ * - R1 a held slot (PENDING_PAYMENT) with no paid receipt, before S: the
+ *   plain cancel. After S, nothing. A paid one follows the paid rules.
  * - A booking past PENDING_PAYMENT without a paid receipt was paid somewhere
  *   this page cannot see: on API develop only a paid charge or a reschedule's
  *   replacement leaves PENDING_PAYMENT. The replacement gets no receipt of its
  *   own, and `findForBooking` can hand back an earlier failed charge of a
  *   booking paid on a retry. So it offers no cancel, no move and no price,
  *   only support. A cancelled one is "none".
- * - R7 cancelled and paid with no request: the refund owed, unless it was rescheduled away.
+ * - R7 cancelled and paid with no request: the refund owed, unless it was rescheduled away,
+ *   or the advisee cancelled at or after S, which reads as a session that began (R5, R6).
  * - R8 a request exists (open first, else the newest): its status, never a second request.
  * - R9 refunded with no request: the refund on record.
  * - R2 booked, paid, now ≤ S − 24 h: cancel for the whole charge.
@@ -201,10 +219,10 @@ const STARTED: ReadonlySet<ApiBooking["state"]> = new Set(["IN_PROGRESS", "COMPL
  */
 export function bookingExit({ booking, invoice, cases, now }: BookingExitInput): BookingExit {
   const startsAt = new Date(booking.startTime);
+  if (invoice === undefined) return { kind: "waiting" };
   if (booking.state === "PENDING_PAYMENT" && !isPaid(invoice)) {
     return now < startsAt.getTime() ? { kind: "cancel" } : { kind: "none" };
   }
-  if (invoice === undefined) return { kind: "waiting" };
   if (!isPaid(invoice)) {
     if (booking.state === "CANCELLED") return { kind: "none" };
     return { kind: "paidElsewhere", receipt: invoice === null ? "missing" : "unpaid" };
@@ -212,7 +230,9 @@ export function bookingExit({ booking, invoice, cases, now }: BookingExitInput):
   if (cases === undefined) return { kind: "waiting" };
   if (rescheduledAway(booking, invoice)) return { kind: "rescheduled" };
 
-  const cancelled = booking.state === "CANCELLED";
+  const lateCancel = cancelledAfterStart(booking);
+  // A cancellation under §8; the advisee's own after the start is not one.
+  const cancelled = booking.state === "CANCELLED" && !lateCancel;
   const refund = currentRefundCase(cases);
   if (refund) {
     const type: RefundCaseType = cancelled ? "cancellation" : "report";
@@ -234,8 +254,8 @@ export function bookingExit({ booking, invoice, cases, now }: BookingExitInput):
     return { kind: "claim", share, by, refundSatang: refundFor(share, invoice) };
   }
 
-  // Paid and still on from here: BOOKED until it starts, then under way or over.
-  const started = now >= startsAt.getTime() || STARTED.has(booking.state);
+  // Paid and still on from here (or called off once it began): BOOKED until it starts, then under way or over.
+  const started = lateCancel || now >= startsAt.getTime() || STARTED.has(booking.state);
   if (!started) {
     const fullUntil = fullRefundUntil(booking);
     const share: RefundShare = now <= fullUntil.getTime() ? "full" : "half";
@@ -275,7 +295,26 @@ export type RescheduleWay = "slots" | "withheld";
  * and one still loading its invoice is offered nothing yet.
  */
 export function rescheduleWay({ booking, invoice, now }: Omit<BookingExitInput, "cases">): RescheduleWay | null {
-  if (!isCancellable(booking.state) || now > fullRefundUntil(booking).getTime()) return null;
+  if (invoice === undefined || !isCancellable(booking.state) || now > fullRefundUntil(booking).getTime()) return null;
   if (isPaid(invoice)) return "withheld";
   return booking.state === "PENDING_PAYMENT" ? "slots" : null;
+}
+
+/**
+ * The §8 line still running for a booking whose money only support can
+ * settle here: an email stops no clock. Until S − 24 h a cancel refunds in
+ * full, until S it refunds half the service fee, then a problem can be
+ * reported until E + 7 days. A cancelled booking has none left.
+ */
+export type RunningDeadline = { readonly rule: "full" | "start" | "report"; readonly at: Date };
+
+export function runningDeadline(booking: ApiBooking, now: number): RunningDeadline | null {
+  if (booking.state === "CANCELLED") return null;
+  const startsAt = new Date(booking.startTime);
+  if (now < startsAt.getTime() && !STARTED.has(booking.state)) {
+    const fullUntil = fullRefundUntil(booking);
+    return now <= fullUntil.getTime() ? { rule: "full", at: fullUntil } : { rule: "start", at: startsAt };
+  }
+  const until = reportUntil(booking);
+  return now <= until.getTime() ? { rule: "report", at: until } : null;
 }

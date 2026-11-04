@@ -1,12 +1,14 @@
 "use client";
 
-import { CreditCard, type LucideIcon } from "lucide-react";
+import { CreditCard, Mail, type LucideIcon } from "lucide-react";
 import { useFormatter, useTranslations } from "next-intl";
 import { Children, createContext, Fragment, useContext, type ReactNode } from "react";
 
 import { AUTH_LINK, authPill } from "@/components/auth/auth-split";
+import { runningDeadline } from "@/components/bookings/booking-exit";
 import { baht } from "@/components/bookings/booking-flow";
 import { Figures } from "@/components/figures";
+import { Button } from "@/components/ui/button";
 import { PILL_LG, SHEET_W, SHEET_X } from "@/components/payment/invoice-screens";
 import type { ApiAdviseeInvoice, ApiBooking } from "@/lib/api/types";
 import { cn } from "@/lib/utils";
@@ -81,6 +83,27 @@ export function useSupportMail(invoiceNumber: string): string {
   return `mailto:${l("footerEmailAddress")}?subject=${subject}`;
 }
 
+/** Where support is the way on, the §8 line its email does not stop, said beside it (`runningDeadline`). */
+export function useDeadlineLine(): (booking: ApiBooking, now: number) => string | null {
+  const t = useTranslations("bookingRefund");
+  const when = useRefundFormat();
+  return (booking, now) => {
+    const running = runningDeadline(booking, now);
+    return running ? t(`deadline.${running.rule}`, { date: when.deadline(running.at) }) : null;
+  };
+}
+
+/** Support is an email, not a step in the app, so the button says so and carries the envelope. */
+export function MailSupportPill({ href }: { readonly href: string }) {
+  const t = useTranslations("bookingRefund");
+  return (
+    <Button className={refundPill("solid")} nativeButton={false} render={<a href={href} />}>
+      <Mail aria-hidden className="size-4 lg:size-5" />
+      {t("actions.mailSupport")}
+    </Button>
+  );
+}
+
 /** The head from `lg`: two cells (head and sections), or one across the card. */
 type HeadShape = "split" | "wide";
 
@@ -142,15 +165,35 @@ export function RefundCard({
 }
 
 /** Breaks only between the parts. A part keeps whole while it fits a line, and wraps inside itself once it does not. */
-function MetaParts({ parts }: { readonly parts: readonly string[] }) {
+function MetaParts({ parts, className }: { readonly parts: readonly string[]; readonly className?: string }) {
   return parts.map((part, index) => (
     <Fragment key={part}>
       {index > 0 ? " " : null}
-      <span className="inline-block">
+      <span className={cn("inline-block", className)}>
         <Figures>{index < parts.length - 1 ? `${part}\u{a0}·` : part}</Figures>
       </span>
     </Fragment>
   ));
+}
+
+const BONE = "rounded bg-muted text-transparent select-none";
+
+/**
+ * A skeleton's bone that keeps a real line's height: the text is there only
+ * to give the line its type's box (Thai glyphs, and figures in the Latin face
+ * as the card sets them), and does not show.
+ */
+export function Bone({ text }: { readonly text: string }) {
+  return (
+    <span className={BONE}>
+      <Figures>{text}</Figures>
+    </span>
+  );
+}
+
+/** A meta line's bones, which break where the line itself would (`RefundHead`). */
+export function MetaBones({ parts }: { readonly parts: readonly string[] }) {
+  return <MetaParts className={BONE} parts={parts} />;
 }
 
 /**
@@ -275,17 +318,18 @@ export function RefundFacts({
 
 /**
  * From `lg` the right cell is as tall as the head beside it. Its last section
- * grows into that height (`RefundSection`) and its box or list spreads down
- * it, so it ends on the head's last line, at the head's own bottom inset.
+ * grows into that height (`RefundSection`), and so does its box or list, whose
+ * rows keep their own gap from the top. What ends it (a box's total, a link
+ * under a list) sits on the cell's bottom inset, the head's own.
  */
-const CELL_SPREAD = "lg:group-data-[cell=sections]/cell:grow lg:group-data-[cell=sections]/cell:justify-between";
+const CELL_GROW = "lg:group-data-[cell=sections]/cell:grow";
 
 export type RefundBoxLine = { readonly label: string; readonly value: string };
 
-/** The half refund's lines on the receipt's faint ground; it sits in a `RefundSection`, which heads it. */
+/** The half refund's lines on the receipt's faint ground, at its row gap; it sits in a `RefundSection`, which heads it. */
 export function RefundBox({ lines, total }: { readonly lines: readonly RefundBoxLine[]; readonly total: RefundBoxLine }) {
   return (
-    <dl className={cn("flex flex-col gap-1.5 rounded-xl bg-muted/50 p-2.5 md:gap-2 md:p-3 lg:gap-4 lg:p-5", CELL_SPREAD)}>
+    <dl className={cn("flex flex-col gap-1.5 rounded-xl bg-muted/50 p-2.5 md:gap-2 md:p-3 lg:gap-4 lg:p-5", CELL_GROW)}>
       {lines.map((line) => (
         <div className="flex items-baseline justify-between gap-4" key={line.label}>
           <dt className="min-w-0 text-xs text-muted-foreground lg:text-frame-meta">{line.label}</dt>
@@ -294,7 +338,7 @@ export function RefundBox({ lines, total }: { readonly lines: readonly RefundBox
           </dd>
         </div>
       ))}
-      <div className="flex items-baseline justify-between gap-4 border-t border-border pt-3 lg:pt-4">
+      <div className="mt-auto flex items-baseline justify-between gap-4 border-t border-border pt-3 lg:pt-4">
         <dt className="text-xs font-semibold text-foreground lg:text-frame-body">{total.label}</dt>
         <dd className="font-latin text-sm font-semibold tabular-nums text-foreground lg:text-frame-figure">{total.value}</dd>
       </div>
@@ -349,7 +393,7 @@ export function RefundSection({ heading, children }: { readonly heading: ReactNo
  * stands, and a third row that ends the list takes that cell's whole text.
  */
 const LIST_LAYOUT = {
-  cell: cn("flex flex-col gap-3.5", CELL_SPREAD),
+  cell: cn("flex flex-col gap-3.5", CELL_GROW),
   split:
     "flex flex-col gap-3.5 lg:-mx-10 lg:grid lg:grid-cols-4 lg:gap-x-0 lg:gap-y-6 lg:*:odd:pl-10 lg:*:not-last:odd:pr-3 lg:*:even:pl-3 lg:*:even:pr-10 lg:*:last:pr-10 lg:*:nth-3:border-l lg:*:nth-3:border-transparent lg:*:nth-3:last:col-span-2",
   wide: "flex flex-col gap-3.5 lg:grid lg:grid-cols-4 lg:gap-6",
@@ -439,11 +483,11 @@ export function RefundActions({
       {help ? (
         <p className="text-center text-xs text-muted-foreground lg:text-frame-label">
           {t("helpPrompt")}{" "}
-          {/* 44 tall to tap, overhanging its line by 10 each way: the line grows only a little, and the gap keeps the link off the button above. */}
+          {/* 44 tall to tap, overhanging its line by half of what 44 has over it each way, so the line keeps the receipt's own height. */}
           <a
             className={cn(
               AUTH_LINK,
-              "-my-2.5 inline-flex min-h-11 items-center rounded-sm outline-none focus-visible:ring-3 focus-visible:ring-ring/50",
+              "my-[calc((1lh_-_2.75rem)/2)] inline-flex min-h-11 items-center rounded-sm outline-none focus-visible:ring-3 focus-visible:ring-ring/50",
             )}
             href={mail}
           >

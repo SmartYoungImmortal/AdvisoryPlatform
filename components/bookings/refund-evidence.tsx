@@ -4,7 +4,7 @@ import { FileText, Plus, X } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { useId, useRef, useState, type ReactNode, type RefObject } from "react";
 
-import { refundPill } from "@/components/bookings/refund-sheet";
+import { Bone, refundPill } from "@/components/bookings/refund-sheet";
 import { Figures } from "@/components/figures";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -115,14 +115,23 @@ function FileName({ name }: { readonly name: string }) {
 }
 
 /**
+ * The picker's boxes, which the page's skeleton builds its bones in
+ * (`EvidenceBones`). From `lg` the capsule hugs its words: across a cell it
+ * would outsize the pills under the card.
+ */
+const SHELL = "flex flex-col gap-3";
+const CAPSULE = cn(refundPill("outline"), "relative inline-flex items-center justify-center lg:w-auto lg:self-start");
+const CAPSULE_ICON = "size-4 lg:size-5";
+const SMALL_PRINT = "text-xs lg:text-frame-label";
+
+/**
  * The real file input sits inside the capsule, out of sight but in the tab
  * order, so the capsule takes its focus ring. A locked picker keeps its focus
  * and refuses the dialog instead of going `disabled`, which would drop focus.
- * From `lg` the capsule hugs its words: across a cell it would outsize the
- * pills under the card.
  */
 function EvidenceShell({
   label,
+  note,
   busy = false,
   locked,
   onPick,
@@ -131,6 +140,8 @@ function EvidenceShell({
   children,
 }: {
   readonly label: string;
+  /** Said under the capsule, before the limits, and read with them as the input's description. */
+  readonly note?: string;
   readonly busy?: boolean;
   readonly locked: boolean;
   readonly onPick: (files: File[]) => void;
@@ -139,22 +150,23 @@ function EvidenceShell({
   readonly children: readonly ReactNode[];
 }) {
   const t = useTranslations("bookingRefund");
+  const noteId = useId();
   const limitsId = useId();
 
   return (
-    <div aria-busy={busy || undefined} className="flex flex-col gap-3">
+    <div aria-busy={busy || undefined} className={SHELL}>
       {children.length > 0 ? <ul className="-mx-2 flex flex-col">{children}</ul> : null}
       <label
         className={cn(
-          refundPill("outline"),
-          "relative inline-flex cursor-pointer items-center justify-center has-focus-visible:ring-3 has-focus-visible:ring-ring/50 has-aria-disabled:cursor-not-allowed lg:w-auto lg:self-start",
+          CAPSULE,
+          "cursor-pointer has-focus-visible:ring-3 has-focus-visible:ring-ring/50 has-aria-disabled:cursor-not-allowed",
         )}
       >
-        <Plus aria-hidden className="size-4 lg:size-5" />
+        <Plus aria-hidden className={CAPSULE_ICON} />
         {busy ? t("busy.uploading") : label}
         <Input
           accept={ACCEPT}
-          aria-describedby={limitsId}
+          aria-describedby={note ? `${noteId} ${limitsId}` : limitsId}
           aria-disabled={locked || undefined}
           className="sr-only"
           multiple
@@ -170,10 +182,31 @@ function EvidenceShell({
           type="file"
         />
       </label>
-      <p className="text-xs text-muted-foreground lg:text-frame-label" id={limitsId}>
-        <Figures>{t("attachments.limits")}</Figures>
-      </p>
+      <div className={cn(SMALL_PRINT, "text-muted-foreground")}>
+        {note ? <p id={noteId}>{note}</p> : null}
+        <p id={limitsId}>
+          <Figures>{t("attachments.limits")}</Figures>
+        </p>
+      </div>
       <Problems problems={problems} />
+    </div>
+  );
+}
+
+/** A form's picker before anything is picked, with nothing to press: the capsule and the limits under it. */
+export function EvidenceBones() {
+  const t = useTranslations("bookingRefund");
+  return (
+    <div className={SHELL}>
+      <span className={cn(CAPSULE, "border-transparent bg-muted text-transparent select-none")}>
+        <span className={CAPSULE_ICON} />
+        {t("attachments.add")}
+      </span>
+      <div className={SMALL_PRINT}>
+        <p>
+          <Bone text={t("attachments.limits")} />
+        </p>
+      </div>
     </div>
   );
 }
@@ -302,6 +335,8 @@ function LiveEvidence({ refundId }: LiveEvidenceProps) {
         busy={uploading}
         label={t("attachments.addMore")}
         locked={uploading || saved === undefined}
+        // A draft's files wait for the form and can be taken off; these go up at the pick, for good.
+        note={t("attachments.instant")}
         onPick={(files) => void pick(files)}
         problems={failedToLoad ? [...problems, { key: "loadFailed" }] : problems}
       >

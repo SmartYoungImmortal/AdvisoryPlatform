@@ -162,11 +162,12 @@ describe("the booking popup's one way out (FE #114)", () => {
     expect(said(container)).toMatch(/ยกเลิกได้ คืนเต็มจำนวน ถึง \S+ 6 พ\.ย\. 2569 · 16:00/);
     expect(said(container)).not.toContain("คำขอคืนเงิน / สถานะ");
     // A paid booking's move is withheld (the API would read the moved original as owed its refund),
-    // and where the move would be the card gives the way to another time, by the same deadline.
+    // and where the move would be the card gives the way to another time and what it costs; the deadline is said once.
     expect(capsules("เปลี่ยนเวลานัด")).toHaveLength(0);
     expect(capsules("ขอเปลี่ยนเวลานัด")).toHaveLength(0);
     const plain = said(container).replaceAll("⁠", "");
-    expect(plain).toMatch(/ต้องการเวลาอื่น ยกเลิกรับเงินคืนเต็มจำนวนได้ถึง \S+ 6 พ\.ย\. 2569 · 16:00 แล้วจองเวลาใหม่/);
+    expect(plain).toContain("ต้องการเวลาอื่น ยกเลิกแล้วจองใหม่ นัดใหม่ชำระแยก ส่วนเงินนัดนี้คืนเมื่อทีมงานยืนยัน");
+    expect(plain.match(/6 พ\.ย\. 2569 · 16:00/g)).toHaveLength(1);
     expect(plain).not.toContain("ระบบ");
   });
 
@@ -255,6 +256,17 @@ describe("the booking popup's one way out (FE #114)", () => {
     expect(said(container)).not.toContain("คำขอคืนเงิน / สถานะ");
   });
 
+  it("names a refused request as a request, not as a refund on its way", () => {
+    const booking = bookingAt(YESTERDAY);
+    reads.invoice = paidFor(booking);
+    reads.cases = [{ ...openCase, status: "REJECTED", resolvedAt: "2026-11-04T03:00:00Z" }];
+    const { container } = show(booking);
+
+    const rows = toRefundPage(container);
+    expect(rows).toHaveLength(1);
+    expect(rows[0].textContent).toBe("คำขอคืนเงิน ฿1,000 · ไม่อนุมัติ");
+  });
+
   it("says inside the last day that cancelling returns half the session's fee, until the start", () => {
     const booking = bookingAt(new Date(now + 5 * HOUR).toISOString());
     reads.invoice = paidFor(booking);
@@ -297,10 +309,88 @@ describe("the booking popup's one way out (FE #114)", () => {
     expect(said(container)).not.toContain("฿1,400");
   });
 
-  it("still shows today's price on a held slot while it waits for payment", () => {
+  it("still shows today's price on a held slot with no receipt, waiting for payment", () => {
     const service = { id: "service", priceSatang: 140_000, name: "Service" } as ApiPublicService;
+    reads.invoice = null;
     const { container } = show(bookingAt(THREE_DAYS_OUT, { state: "PENDING_PAYMENT" }), service);
     expect(said(container)).toContain("ราคาบริการ ฿1,400");
+  });
+
+  it("offers a held slot nothing, no cancel, no move and no price, while its receipt is still being read", () => {
+    const booking = bookingAt(THREE_DAYS_OUT, { state: "PENDING_PAYMENT" });
+    const service = { id: "service", priceSatang: 140_000, name: "Service" } as ApiPublicService;
+    const entry = (state: ApiBooking["state"]) => (
+      <NextIntlClientProvider formats={formats} locale="th" messages={messages} timeZone="Asia/Bangkok">
+        <BookingSheet entry={{ booking: { ...booking, state }, service, advisor: undefined }} onChanged={() => undefined} />
+      </NextIntlClientProvider>
+    );
+    const { container, rerender } = render(entry("PENDING_PAYMENT"));
+
+    for (const exit of ["ยกเลิกการจอง", "ยกเลิกและรับเงินคืน", "เปลี่ยนเวลานัด"]) expect(capsules(exit)).toHaveLength(0);
+    expect(said(container)).not.toContain("฿1,400");
+
+    // Paid in another tab before this list was read: the receipt lands paid, and the paid rules follow.
+    reads.invoice = paidFor(booking, { amountSatang: 80_000 });
+    rerender(entry("PENDING_PAYMENT"));
+    expect(capsules("ยกเลิกและรับเงินคืน")).toHaveLength(1);
+    expect(capsules("ยกเลิกการจอง")).toHaveLength(0);
+    expect(said(container)).toContain("ชำระแล้ว ฿800");
+  });
+
+  it("keeps a held slot's paid receipt through a failed read again, never falling back to the plain cancel", () => {
+    const booking = bookingAt(THREE_DAYS_OUT, { state: "PENDING_PAYMENT" });
+    reads.invoice = paidFor(booking, { amountSatang: 80_000 });
+    const card = () => (
+      <NextIntlClientProvider formats={formats} locale="th" messages={messages} timeZone="Asia/Bangkok">
+        <BookingSheet entry={{ booking, service: undefined, advisor: undefined }} onChanged={() => undefined} />
+      </NextIntlClientProvider>
+    );
+    const { container, rerender } = render(card());
+    expect(capsules("ยกเลิกและรับเงินคืน")).toHaveLength(1);
+
+    reads.invoice = undefined;
+    reads.invoiceError = new ApiError(503, "down");
+    rerender(card());
+    expect(capsules("ยกเลิกการจอง")).toHaveLength(0);
+    expect(capsules("ยกเลิกและรับเงินคืน")).toHaveLength(1);
+    expect(said(container)).toContain("ชำระแล้ว ฿800");
+    expect(said(container)).toContain(messages.bookings.moneyRead.invoice.retry);
+  });
+
+  it("offers a held slot whose first receipt read failed the retry and no way out", () => {
+    reads.invoiceError = new ApiError(503, "down");
+    const { container } = show(bookingAt(THREE_DAYS_OUT, { state: "PENDING_PAYMENT" }));
+    expect(said(container)).toContain(messages.bookings.moneyRead.invoice.retry);
+    expect(screen.getByRole("button", { name: "ลองอีกครั้ง" })).toBeTruthy();
+    for (const exit of ["ยกเลิกการจอง", "ยกเลิกและรับเงินคืน", "เปลี่ยนเวลานัด"]) expect(capsules(exit)).toHaveLength(0);
+  });
+
+  it("reads a held slot whose receipt reads paid again, once, so its header and main capsule can follow the server", () => {
+    const booking = bookingAt(THREE_DAYS_OUT, { state: "PENDING_PAYMENT" });
+    reads.invoice = paidFor(booking);
+    const changed = vi.fn();
+    const card = () => (
+      <NextIntlClientProvider formats={formats} locale="th" messages={messages} timeZone="Asia/Bangkok">
+        <BookingSheet entry={{ booking, service: undefined, advisor: undefined }} onChanged={() => changed()} />
+      </NextIntlClientProvider>
+    );
+    const { rerender } = render(card());
+    rerender(card());
+    expect(changed).toHaveBeenCalledTimes(1);
+  });
+
+  it("never reads a held slot with an unpaid receipt again on its own", () => {
+    const changed = vi.fn();
+    reads.invoice = null;
+    render(
+      <NextIntlClientProvider formats={formats} locale="th" messages={messages} timeZone="Asia/Bangkok">
+        <BookingSheet
+          entry={{ booking: bookingAt(THREE_DAYS_OUT, { state: "PENDING_PAYMENT" }), service: undefined, advisor: undefined }}
+          onChanged={changed}
+        />
+      </NextIntlClientProvider>,
+    );
+    expect(changed).not.toHaveBeenCalled();
   });
 
   it("says a failed money read failed, with a retry, instead of today's list price", () => {
@@ -352,7 +442,21 @@ describe("the booking popup's one way out (FE #114)", () => {
     expect(said(container)).toContain(messages.bookings.moneyRead.requests.forbidden);
     expect(said(container)).not.toContain("ยอดที่ชำระของการจองนี้");
     expect(screen.getByRole("button", { name: "ติดต่อฝ่ายช่วยเหลือ" })).toBeTruthy();
+    // One way to support: the help line would only say the payment line's link again.
+    expect(container.querySelectorAll('a[href^="mailto:"]')).toHaveLength(1);
+    expect(said(container)).not.toContain(messages.bookings.helpPrompt);
+    // An email stops no clock: the full refund's line, three days out, is said beside it.
+    expect(said(container).replaceAll("⁠", "")).toMatch(/ยกเลิกถึง \S+ 6 พ\.ย\. 2569 · 16:00 ได้คืนเต็มจำนวน เวลานี้ไม่หยุดระหว่างรออีเมลตอบ/);
     for (const exit of ["ยกเลิกการจอง", "ยกเลิกและรับเงินคืน", "เปลี่ยนเวลานัด"]) expect(capsules(exit)).toHaveLength(0);
+  });
+
+  it("keeps the help line where the payment line's failure offers a retry, not support", () => {
+    const booking = bookingAt(THREE_DAYS_OUT);
+    reads.invoice = paidFor(booking);
+    reads.casesError = new ApiError(503, "down");
+    const { container } = show(booking);
+    expect(said(container)).toContain(messages.bookings.helpPrompt);
+    expect(said(container)).not.toContain("รออีเมลตอบ");
   });
 
   it("offers a retry when the refund requests fail to load, naming them", () => {
@@ -374,6 +478,7 @@ describe("the booking popup's one way out (FE #114)", () => {
       const { container } = show(booking);
 
       expect(said(container)).toContain(messages.bookings.paidUnshown);
+      expect(said(container).replaceAll("⁠", "")).toMatch(/ยกเลิกถึง \S+ 6 พ\.ย\. 2569 · 16:00 ได้คืนเต็มจำนวน เวลานี้ไม่หยุดระหว่างรออีเมลตอบ/);
       expect(screen.queryByRole("link", { name: "ดูใบเสร็จ" })).toBeNull();
       for (const exit of ["ยกเลิกการจอง", "ยกเลิกและรับเงินคืน", "เปลี่ยนเวลานัด"]) expect(capsules(exit)).toHaveLength(0);
       expect(toRefundPage(container)).toHaveLength(0);

@@ -577,7 +577,13 @@
       "uploadFailed": "Couldn't upload {name}. Try again.",
       "uploadRefused": "{name} couldn't be attached. This request no longer takes evidence, or it already has all its files.",
       "uploadSignIn": "{name} wasn't uploaded because your session expired. Sign in again and attach it once more.",
-      "loadFailed": "Couldn't load the evidence you attached"
+      "loadFailed": "Couldn't load the evidence you attached",
+      "instant": "Files go to the team as soon as you pick them and can't be removed."
+    },
+    "deadline": {
+      "full": "Cancel by {date} for a full refund. Email doesn't pause that.",
+      "start": "Cancel before {date} for 50% of the fee. Email doesn't pause that.",
+      "report": "Email won't pause the report window, open until {date}."
     },
     "progress": {
       "heading": "Progress",
@@ -603,7 +609,7 @@
         "confirm": "Once our team confirms",
         "approve": "If approved",
         "pending": "Waiting for our team to send it back, then on your card issuer's schedule",
-        "done": "Not on your statement yet? Your card issuer may take a few more days"
+        "done": "Not on your statement yet? Your card issuer may take a few more days"
       }
     },
     "actions": {
@@ -615,7 +621,8 @@
       "toBookings": "Go to my bookings",
       "retry": "Try again",
       "check": "Check its status",
-      "signIn": "Sign in again"
+      "signIn": "Sign in again",
+      "mailSupport": "Email support"
     },
     "busy": {
       "loading": "Loading booking and payment…",
@@ -635,13 +642,13 @@
       "cancelFailed": "Couldn't cancel. Your booking is unchanged. Try again.",
       "cancelledOnly": "Your booking is cancelled, but the refund didn't go through. Press Get {amount} back again.",
       "cancelledOnlySignIn": "Your booking is cancelled, but your session expired before the refund was sent. Sign in again, then press Get {amount} back.",
-      "cancelledOnlyRefused": "Your booking is cancelled, but the {amount} refund wasn't accepted. Contact support.",
+      "cancelledOnlyRefused": "Your booking is cancelled, but the {amount} refund couldn't be sent. Contact support.",
       "cancelledMeanwhile": "This booking is now cancelled. The refund above follows who cancelled it and when.",
       "claimFailed": "The refund didn't go through. Try again.",
       "sendFailed": "Couldn't send your request. Try again.",
       "signIn": "Your session has expired, so nothing was sent. Sign in again, then come back to this page.",
       "refundNotFound": "We couldn't find a refundable receipt for this booking. Contact support.",
-      "refundRefused": "This request wasn't accepted. Contact support.",
+      "refundRefused": "This request couldn't be sent. Contact support.",
       "offerHalf": "The full-refund window has just closed. Cancelling now gives {amount} back. Nothing was cancelled; check the amount and press again.",
       "offerStarted": "This session has started, so it can no longer be cancelled. Nothing was cancelled. If something went wrong, you can report it here.",
       "alreadyOpen": "A refund request for this booking was already open. Its status is above.",
@@ -667,7 +674,7 @@
       "paidElsewhereTitle": "Paid on the earlier booking",
       "paidElsewhereBody": "This booking came from a reschedule, so its payment stays with the earlier booking and can't be handled on this page. Contact support about this booking.",
       "paidUnshownTitle": "What you paid can't be shown here",
-      "paidUnshownBody": "This booking is confirmed, but the receipt on file isn't the one you paid, so its money can't be handled on this page. Contact support about this booking.",
+      "paidUnshownBody": "This booking is confirmed, but its receipt on file isn't the one you paid, so its money can't be handled on this page. Contact support about this booking.",
       "closedTitle": "The refund window has closed",
       "closedBody": "Refunds could be requested until {date}, 7 days after the session ended.",
       "nothingTitle": "Nothing to refund",
@@ -1031,8 +1038,8 @@
       }
     },
     "paidElsewhere": "Paid on the booking this one replaced. Contact support about this booking.",
-    "paidUnshown": "This booking is confirmed, but the receipt on file isn't the one you paid. Contact support about this booking.",
-    "rescheduleWithheld": "Want another time? Cancel for a full refund until {date}, then book a new one.",
+    "paidUnshown": "This booking is confirmed, but its receipt on file isn't the one you paid. Contact support about this booking.",
+    "rescheduleWithheld": "Another time? Cancel, rebook and pay again. This refund comes once confirmed.",
     "detailsAdvisorLabel": "Advisor",
     "detailsServiceLabel": "Service",
     "detailsLoadingValue": "Loading…",
@@ -1092,8 +1099,9 @@
       "cancelFull": "Cancel for a full refund until {date}",
       "cancelHalf": "Cancel for 50% of the service fee back until {date}",
       "report": "Report a problem and request a refund until {date}",
-      "claim": "This booking was cancelled. You get {amount} back",
+      "claim": "This booking was cancelled. You get {amount} back",
       "status": "Refund {amount} · {stage}",
+      "statusRejected": "Refund request {amount} · Not approved",
       "refunded": "Refunded {amount}"
     }
   },

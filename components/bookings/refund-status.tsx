@@ -9,6 +9,7 @@ import type { BookingExit, RefundStage } from "@/components/bookings/booking-exi
 import { EvidencePicker, RefundAlert } from "@/components/bookings/refund-evidence";
 import {
   cardName,
+  MailSupportPill,
   RefundActions,
   RefundCard,
   RefundFacts,
@@ -129,7 +130,6 @@ export function RefundStatusMode({
 }): ReactNode {
   const t = useTranslations("bookingRefund");
   const b = useTranslations("bookings");
-  const tr = useTranslations("transactions");
   const when = useRefundFormat();
   const mail = useSupportMail(invoice.invoiceNumber);
   const steps = useSteps(booking, invoice, exit);
@@ -188,11 +188,7 @@ export function RefundStatusMode({
             {b("viewReceipt")}
           </Button>
         ) : null}
-        {look.main === "support" ? (
-          <Button className={refundPill("solid")} nativeButton={false} render={<a href={mail} />}>
-            {tr("contactSupport")}
-          </Button>
-        ) : null}
+        {look.main === "support" ? <MailSupportPill href={mail} /> : null}
       </RefundActions>
     </>
   );

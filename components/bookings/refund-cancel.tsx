@@ -23,6 +23,7 @@ import {
 } from "@/components/bookings/refund-actions";
 import {
   cardName,
+  MailSupportPill,
   RefundActions,
   RefundBox,
   RefundCard,
@@ -85,10 +86,13 @@ const CLAIM_META = { full: "meta.claimFull", half: "meta.claimHalf" } as const s
  */
 const NOW_PILL = "-my-0.5 py-0.5 text-foreground max-lg:leading-4 lg:-my-1 lg:px-3 lg:py-1 lg:text-frame-label";
 
-/** `self-start`: from `lg` the right cell's section is a column, which would stretch it across. */
+/**
+ * `self-start`: from `lg` the right cell's section is a column, which would stretch it across. There the link
+ * ends the cell, and its tap box hangs below its line by its overhang, so the line sits on the head's last.
+ */
 const TERMS_LINK = cn(
   AUTH_LINK,
-  "inline-flex min-h-11 items-center self-start rounded-sm text-xs outline-none focus-visible:ring-3 focus-visible:ring-ring/50 lg:text-frame-label",
+  "inline-flex min-h-11 items-center self-start rounded-sm text-xs outline-none focus-visible:ring-3 focus-visible:ring-ring/50 lg:text-frame-label lg:group-data-[cell=sections]/cell:mb-[calc((1lh_-_2.75rem)/2)]",
 );
 
 /** What the press does and what then waits on the team, said in the line above the button, before it is pressed. */
@@ -102,7 +106,7 @@ type Owed = { readonly share: RefundShare; readonly refundSatang: number };
  * A half refund's box answers its amount, so it takes the right cell, level
  * with the head; the rule or the steps (`children`) then run under both
  * cells. A full refund needs no box, and they take the right cell. Either
- * way the right cell spreads down to end level with the head.
+ * way the right cell grows to end level with the head, its rows at their own gap.
  */
 function OwedCard({
   head,
@@ -157,6 +161,7 @@ export function CancelRefundMode({
   notice,
   stillOffered,
   reread,
+  rereadFailed = false,
   onNotice,
   onOpened,
   onCancelledOnly,
@@ -169,6 +174,8 @@ export function CancelRefundMode({
   readonly stillOffered: (at: number) => boolean;
   /** Read the booking and its money again, so the page shows where they stand now. */
   readonly reread: () => void;
+  /** The booking's read again failed, so a check waiting on it is over and can be pressed again. */
+  readonly rereadFailed?: boolean;
   /** A line the page keeps above its buttons, whatever mode it moves to. */
   readonly onNotice: (notice: string) => void;
   /** `at`: the press, when the cancel stood. */
@@ -241,8 +248,11 @@ export function CancelRefundMode({
     }
   }
 
+  // A check waits on the booking's next answer; a read that failed instead ends it.
+  const checking = held?.checking === true && !rereadFailed;
+
   function check() {
-    if (!held || held.checking) return;
+    if (!held || checking) return;
     setAttempt({ ...held, checking: true });
     reread();
   }
@@ -296,13 +306,13 @@ export function CancelRefundMode({
           </Button>
         ) : held?.then === "check" ? (
           <Button
-            aria-busy={held.checking || undefined}
+            aria-busy={checking || undefined}
             className={refundPill("solid")}
-            disabled={held.checking}
+            disabled={checking}
             onClick={check}
             type="button"
           >
-            {held.checking ? t("busy.checking") : t("actions.check")}
+            {checking ? t("busy.checking") : t("actions.check")}
           </Button>
         ) : (
           <Button
@@ -345,7 +355,6 @@ export function ClaimMode({
   readonly onOpened: (opened: OpenedRefund) => void;
 }) {
   const t = useTranslations("bookingRefund");
-  const tr = useTranslations("transactions");
   const when = useRefundFormat();
   const refundLine = useRefundLine(invoice);
   const supportMail = useSupportMail(invoice.invoiceNumber);
@@ -420,9 +429,7 @@ export function ClaimMode({
             {t("actions.signIn")}
           </Button>
         ) : toSupport ? (
-          <Button className={refundPill("solid")} nativeButton={false} render={<a href={supportMail} />}>
-            {tr("contactSupport")}
-          </Button>
+          <MailSupportPill href={supportMail} />
         ) : (
           <Button
             aria-busy={working || undefined}
