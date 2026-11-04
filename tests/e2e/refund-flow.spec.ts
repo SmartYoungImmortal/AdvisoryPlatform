@@ -25,6 +25,29 @@ async function shown(locator: Locator) {
 /** One row of the card at 1440 as drawn: a step's two lines and the gap after them. */
 const ROW = 64;
 
+/** WCAG contrast of an element's text on its own background, both as computed. */
+async function contrast(locator: Locator) {
+  return locator.evaluate((element) => {
+    const style = getComputedStyle(element);
+    const channels = (colour: string) => {
+      const probe = document.createElement("canvas").getContext("2d");
+      if (!probe) throw new Error("no 2d context");
+      probe.fillStyle = colour;
+      probe.fillRect(0, 0, 1, 1);
+      return [...probe.getImageData(0, 0, 1, 1).data.slice(0, 3)];
+    };
+    const luminance = (colour: string) => {
+      const [r, g, b] = channels(colour).map((value) => {
+        const c = value / 255;
+        return c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4;
+      });
+      return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+    };
+    const [light, dark] = [luminance(style.color), luminance(style.backgroundColor)].sort((a, b) => b - a);
+    return (light + 0.05) / (dark + 0.05);
+  });
+}
+
 /** Next keeps an empty route announcer in the alert role, so an alert is found by what it says. */
 function alertSaying(page: Page, text: string) {
   return page.getByRole("alert").filter({ hasText: text });
@@ -47,6 +70,9 @@ for (const size of sizes) {
       const popup = page.getByRole("dialog");
       await expect(popup.getByText(/^ยกเลิกได้ คืนเต็มจำนวน ถึง /)).toBeVisible();
       await expect(popup.getByRole("button", { name: "ยกเลิกการจอง", exact: true })).toHaveCount(0);
+      // A paid booking moves through support: the API would read the moved original as owed its refund.
+      await expect(popup.getByRole("button", { name: "เปลี่ยนเวลานัด", exact: true })).toHaveCount(0);
+      await expect(popup.getByRole("button", { name: "ขอเปลี่ยนเวลานัด", exact: true })).toHaveAttribute("href", /^mailto:/);
       await popup.getByRole("button", { name: "ยกเลิกและรับเงินคืน", exact: true }).click();
       await expect(page).toHaveURL(new RegExp(`/bookings/refund\\?bookingId=${ids.booking}$`));
 
@@ -56,6 +82,9 @@ for (const size of sizes) {
       const rows = page.getByRole("listitem").filter({ has: page.getByText("ตอนนี้", { exact: true }) });
       await expect(rows).toHaveCount(1);
       await expect(rows).toContainText("คืนเต็มจำนวน");
+      const nowPill = page.getByText("ตอนนี้", { exact: true });
+      expect(await contrast(nowPill), "the now pill's ink on its ground").toBeGreaterThanOrEqual(4.5);
+      expect((await shown(nowPill)).fontSize, "no smaller than the row's sub line").toBe(12);
       await expect(page.getByRole("navigation", { name: /breadcrumb|เส้นทาง/i })).toHaveCount(0);
 
       const amount = await shown(page.getByText("฿1,000", { exact: true }));
@@ -135,6 +164,34 @@ test("a cancel that stood while the refund did not lands on one press to claim i
   expect(api.calls).toEqual([`POST /bookings/${ids.booking}/cancel`, "POST /refunds"]);
 });
 
+test("an advisor's cancel that got there first files nothing, and the page claims the whole charge it owes", async ({ page }) => {
+  const api = await open(page, { startsIn: before.hours(5), cancelAnswer: "taken" });
+  await page.getByRole("button", { name: "ยกเลิกและรับเงินคืน ฿400" }).click();
+  await expect(page.getByRole("heading", { level: 1 })).toHaveText("การจองนี้ยกเลิกแล้ว");
+  await expect(alertSaying(page, "การจองนี้ถูกยกเลิกแล้ว ยอดคืนด้านบนคิดตามผู้ยกเลิกและเวลาที่ยกเลิก")).toBeVisible();
+  await expect(page.getByRole("button", { name: "รับเงินคืน ฿1,000" })).toBeVisible();
+  await expect(page.getByText("฿400")).toHaveCount(0);
+  expect(api.calls).toEqual([`POST /bookings/${ids.booking}/cancel`]);
+});
+
+test("a booked appointment with no receipt of its own is paid on the earlier booking: support, no cancel, no price", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await mockRefundApi(page, { startsIn: before.days(3), invoice: null });
+  await page.goto(`/bookings?bookingId=${ids.booking}`);
+  const popup = page.getByRole("dialog");
+  await expect(popup.getByText("ชำระไว้กับการจองเดิมก่อนเปลี่ยนเวลา ยกเลิกหรือขอคืนเงินผ่านฝ่ายช่วยเหลือ")).toBeVisible();
+  for (const name of ["ยกเลิกการจอง", "ยกเลิกและรับเงินคืน", "เปลี่ยนเวลานัด", "ขอเปลี่ยนเวลานัด"]) {
+    await expect(popup.getByRole("button", { name, exact: true })).toHaveCount(0);
+  }
+  await expect(popup.getByText(/฿/)).toHaveCount(0);
+
+  await page.goto(refundPage);
+  await expect(page.getByText("ชำระไว้กับการจองเดิม", { exact: true })).toBeVisible();
+  const support = page.getByRole("button", { name: "ติดต่อฝ่ายช่วยเหลือ" });
+  await expect(support).toHaveAttribute("href", /^mailto:/);
+  expect((await shown(support)).height).toBeGreaterThanOrEqual(44);
+});
+
 test("a cancel that did not go through says the booking is unchanged", async ({ page }) => {
   const api = await open(page, { startsIn: before.days(3), cancelAnswer: "fail" });
   await page.getByRole("button", { name: "ยกเลิกและรับเงินคืน ฿1,000" }).click();
@@ -183,7 +240,10 @@ test.describe("a request's status", () => {
   test("a rejected request ends at the team, with support as the way on", async ({ page }) => {
     await open(page, { startsIn: -before.days(2), state: "COMPLETED", cases: [{ status: "REJECTED", createdAgo: before.days(1) }] });
     await expect(page.getByRole("heading", { level: 1 })).toHaveText("ไม่อนุมัติคืนเงิน");
-    await expect(page.getByRole("link", { name: "ติดต่อฝ่ายช่วยเหลือ" }).first()).toHaveAttribute("href", /INV-2026-001104/);
+    await expect(page.getByText("ถ้ามีคำถามเกี่ยวกับผลนี้ ติดต่อฝ่ายช่วยเหลือ")).toBeVisible();
+    // One way to support: the pill, with no help line under it saying the same.
+    await expect(page.locator('a[href^="mailto:"]')).toHaveCount(1);
+    await expect(page.getByRole("button", { name: "ติดต่อฝ่ายช่วยเหลือ" })).toHaveAttribute("href", /INV-2026-001104/);
   });
 
   test("a refunded invoice points at its receipt", async ({ page }) => {
@@ -220,14 +280,22 @@ test.describe("at 1440 the card's two cells end level", () => {
     ["claim, full", { startsIn: before.days(2), cancelled: { by: "advisor", before: before.days(2) + before.hours(1) } }],
     ["status of a cancellation", { startsIn: before.days(2), cancelled: { by: "advisee", before: before.days(3) }, cases: [{ status: "OPEN", createdAgo: before.hours(5) }] }],
     ["report", { startsIn: -before.hours(2) }],
+    ["report of a recorded no-show", { startsIn: -before.hours(2), state: "NO_SHOW" }],
     ["status of a report", { startsIn: -before.days(1), cases: [{ status: "OPEN", createdAgo: before.hours(5) }] }],
+    ["status, approved", { startsIn: -before.days(2), state: "COMPLETED", cases: [{ status: "APPROVED", createdAgo: before.days(1) }] }],
+    ["status, rejected", { startsIn: -before.days(2), state: "COMPLETED", cases: [{ status: "REJECTED", createdAgo: before.days(1) }] }],
+    ["refunded with no request, after the session", { startsIn: -before.days(2), state: "COMPLETED", invoice: { status: "refunded", refundSatang: 100_000 } }],
+    ["refunded with no request, cancelled", { startsIn: before.days(2), cancelled: { by: "advisor", before: before.days(3) }, invoice: { status: "refunded", refundSatang: 100_000 } }],
   ];
   for (const [name, scene] of scenes) {
     test(name, async ({ page }) => {
       await open(page, scene);
       await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
       const ends = await cellEnds(page);
-      expect(Math.abs(ends.left - ends.right), `left ends at ${ends.left}, right at ${ends.right}`).toBeLessThanOrEqual(ROW);
+      // A card with no right cell has its head across the width, and nothing stands beside it to end level with.
+      if (ends.right > 0) {
+        expect(Math.abs(ends.left - ends.right), `left ends at ${ends.left}, right at ${ends.right}`).toBeLessThanOrEqual(ROW);
+      }
       if (ends.foot !== null) expect(ends.foot, "the foot starts under both cells").toBeGreaterThanOrEqual(Math.max(ends.left, ends.right));
     });
   }
@@ -274,15 +342,19 @@ test("past seven days after the end the window is closed, with the day it closed
   await expect(page.getByRole("button", { name: "ส่งคำขอคืนเงิน" })).toHaveCount(0);
 });
 
-test("a booking that is not this account's is not found, and a failed read can be retried", async ({ page }) => {
-  await open(page, { startsIn: before.days(3), bookingStatus: 404 });
+test("a booking that is not this account's is not found, with a 44 px way to the bookings at 390", async ({ page }) => {
+  await open(page, { startsIn: before.days(3), bookingStatus: 404 }, 390);
   await expect(page.getByText("ไม่พบการจองนี้")).toBeVisible();
-  await expect(page.getByRole("link", { name: "ไปที่การจองของฉัน" })).toHaveAttribute("href", "/bookings");
+  const pill = page.getByRole("button", { name: "ไปที่การจองของฉัน" }).filter({ hasText: "ไปที่การจองของฉัน" });
+  await expect(pill).toHaveAttribute("href", "/bookings");
+  expect((await shown(pill)).height).toBeGreaterThanOrEqual(44);
 });
 
-test("a failed read offers to try again", async ({ page }) => {
-  await open(page, { startsIn: before.days(3), bookingStatus: 500 });
-  await expect(page.getByRole("button", { name: "ลองอีกครั้ง" })).toBeVisible();
+test("a failed read offers to try again, 44 px tall at 390", async ({ page }) => {
+  await open(page, { startsIn: before.days(3), bookingStatus: 500 }, 390);
+  const retry = page.getByRole("button", { name: "ลองอีกครั้ง" });
+  await expect(retry).toBeVisible();
+  expect((await shown(retry)).height).toBeGreaterThanOrEqual(44);
 });
 
 test("the popup of a finished booking offers one way to report, with the last day", async ({ page }) => {

@@ -44,8 +44,8 @@ export type RefundScenario = {
     readonly card?: boolean;
   } | null;
   readonly cases?: readonly { readonly status: CaseStatus; readonly createdAgo: number }[];
-  /** How the API answers a cancel and a new request. */
-  readonly cancelAnswer?: "ok" | "fail";
+  /** How the API answers a cancel and a new request. `taken`: the advisor cancelled first, so the cancel meets a 409. */
+  readonly cancelAnswer?: "ok" | "fail" | "taken";
   readonly openAnswer?: "ok" | "fail";
   /** Status the booking read answers with, for not-found and error states. */
   readonly bookingStatus?: 200 | 404 | 500;
@@ -164,6 +164,12 @@ export async function mockRefundApi(page: Page, scenario: RefundScenario): Promi
     if (path === `bookings/${ids.booking}/cancel` && method === "POST") {
       calls.push(`POST /bookings/${ids.booking}/cancel`);
       if (scenario.cancelAnswer === "fail") return json(route, "Service unavailable", 503);
+      if (scenario.cancelAnswer === "taken") {
+        state = "CANCELLED";
+        cancelledAt = iso(NOW - 60_000);
+        cancelledBy = ids.advisor;
+        return json(route, "Cannot move this booking to CANCELLED", 409);
+      }
       state = "CANCELLED";
       cancelledAt = iso(NOW);
       cancelledBy = ids.advisee;
