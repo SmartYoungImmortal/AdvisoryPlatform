@@ -135,7 +135,8 @@ const cases: readonly Case[] = [
   { name: "advisor cancelled: claim the whole charge", arrange: () => { const b = cancelledBy("advisor", HOUR, DAY); answer(b, invoiceFor(b)); }, heading: (w) => w.head.claim },
   { name: "cancelled early by the advisee with no request: claim in full", arrange: () => { const b = cancelledBy("advisee", 3 * DAY, DAY); answer(b, invoiceFor(b)); }, heading: (w) => w.head.claim },
   { name: "cancelled late by the advisee with no request: claim half", arrange: () => { const b = cancelledBy("advisee", 3 * HOUR, DAY); answer(b, invoiceFor(b)); }, heading: (w) => w.head.claim },
-  { name: "open request on a cancellation: refunding", arrange: () => { const b = cancelledBy("advisee", 6 * DAY, DAY); answer(b, invoiceFor(b), [request("OPEN")]); }, heading: (w) => w.stage.refunding },
+  { name: "marked completed in the room's early minutes, before its start time: report a problem", arrange: () => { const b = bookingAt(5 * 60_000, { state: "COMPLETED" }); answer(b, invoiceFor(b)); }, heading: (w) => w.head.report },
+  { name: "open request on a cancellation: requested", arrange: () => { const b = cancelledBy("advisee", 6 * DAY, DAY); answer(b, invoiceFor(b), [request("OPEN")]); }, heading: (w) => w.stage.requested },
   { name: "open reported problem: reviewing", arrange: () => { const b = bookingAt(-DAY); answer(b, invoiceFor(b), [request("OPEN")]); }, heading: (w) => w.stage.reviewing },
   { name: "approved request", arrange: () => { const b = bookingAt(-DAY, { state: "COMPLETED" }); answer(b, invoiceFor(b), [request("APPROVED")]); }, heading: (w) => w.stage.approved },
   { name: "rejected request", arrange: () => { const b = bookingAt(-DAY, { state: "COMPLETED" }); answer(b, invoiceFor(b), [request("REJECTED")]); }, heading: (w) => w.stage.rejected },
@@ -169,6 +170,21 @@ describe.each(["th", "en"] as const)("/bookings/refund in %s", (locale) => {
   });
 });
 
+describe("nothing to refund says why", () => {
+  it("says a rescheduled booking's payment moved with it, and only for a real reschedule", () => {
+    const b = cancelledBy("advisee", 3 * DAY, DAY);
+    answer(b, invoiceFor(b, { session: { startTime: new Date(NOW + 9 * DAY).toISOString(), endTime: new Date(NOW + 9 * DAY + HOUR).toISOString() } }));
+    show("th");
+    expect(screen.getByText(th.bookingRefund.states.nothingRescheduled)).toBeTruthy();
+    cleanup();
+
+    answer(bookingAt(3 * DAY, { state: "PENDING_PAYMENT" }), null);
+    show("th");
+    expect(screen.getByText(th.bookingRefund.states.nothingUnpaid)).toBeTruthy();
+    expect(screen.queryByText(th.bookingRefund.states.nothingRescheduled)).toBeNull();
+  });
+});
+
 describe("while the money loads", () => {
   it("shows the card's shape and offers nothing", () => {
     const b = bookingAt(3 * DAY);
@@ -197,7 +213,7 @@ describe("a move to another booking on the same page (FE #108)", () => {
     api.answers.set(`bookings/${other}`, { data: ended });
     api.answers.set(`payment/invoices/for-booking/${other}`, { data: invoiceFor(ended) });
     show("th");
-    expect(screen.getByRole("heading", { level: 1 }).textContent).toBe(th.bookingRefund.stage.refunding);
+    expect(screen.getByRole("heading", { level: 1 }).textContent).toBe(th.bookingRefund.stage.requested);
 
     api.answers.set("refunds/me", { data: [] });
     act(() => nav.push(`/bookings/refund?bookingId=${other}`));

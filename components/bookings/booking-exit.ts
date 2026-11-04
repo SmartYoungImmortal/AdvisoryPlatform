@@ -22,12 +22,17 @@ const DAY = 24 * HOUR;
 
 export type RefundShare = "full" | "half";
 
-/** Where a refund request stands, in the words the advisee reads. */
-export type RefundStage = "refunding" | "reviewing" | "approved" | "refunded" | "rejected";
+/**
+ * Where a refund request stands, in the words the advisee reads. Approving a
+ * request moves no money yet (API #86), so nothing before `refunded` says the
+ * money is on its way: `requested` and `reviewing` wait on the team,
+ * `approved` waits on the refund itself.
+ */
+export type RefundStage = "requested" | "reviewing" | "approved" | "refunded" | "rejected";
 
 /**
- * A cancellation under the rule is money owed and says "refunding"; only a
- * reported problem is reviewed. Which one a request is follows from the
+ * A cancellation under the rule is money owed, which the team confirms; only
+ * a reported problem is reviewed. Which one a request is follows from the
  * booking: a request on a cancelled booking is the cancellation's refund.
  */
 export type RefundCaseType = "cancellation" | "report";
@@ -36,7 +41,8 @@ export type RefundCaseType = "cancellation" | "report";
  * The one way out of a booking that the screens offer, and what it pays.
  *
  * - `waiting`: the invoice or the requests are still loading; nothing is offered yet.
- * - `none`: nothing to do about money (unpaid and started, rescheduled away, …).
+ * - `none`: an unpaid booking with nothing left to do (started, or already off).
+ * - `rescheduled`: moved to a new time; its payment went with it.
  * - `cancel`: unpaid and not started; the plain cancel, nothing about money.
  * - `cancelRefund`: paid, booked and not started; cancelling refunds `refundSatang`.
  * - `report`: started, up to `until`; a problem can be reported for at most `maxSatang`.
@@ -48,6 +54,7 @@ export type RefundCaseType = "cancellation" | "report";
 export type BookingExit =
   | { readonly kind: "waiting" }
   | { readonly kind: "none" }
+  | { readonly kind: "rescheduled" }
   | { readonly kind: "cancel" }
   | {
       readonly kind: "cancelRefund";
@@ -153,10 +160,11 @@ function stageOf(refund: ApiRefundCase, type: RefundCaseType, invoice: ApiAdvise
   if (invoice.status === "refunded") return "refunded";
   if (refund.status === "APPROVED") return "approved";
   if (refund.status === "REJECTED") return "rejected";
-  return type === "cancellation" ? "refunding" : "reviewing";
+  return type === "cancellation" ? "requested" : "reviewing";
 }
 
-const REPORTABLE: ReadonlySet<ApiBooking["state"]> = new Set(["BOOKED", "IN_PROGRESS", "COMPLETED", "NO_SHOW"]);
+/** States that say the session began (or is over) whatever the clock says: the room opens 10 minutes early. */
+const STARTED: ReadonlySet<ApiBooking["state"]> = new Set(["IN_PROGRESS", "COMPLETED", "NO_SHOW"]);
 
 /**
  * The one way out of a booking, from /terms §8 and the clock (S = start, E = end):
@@ -168,7 +176,7 @@ const REPORTABLE: ReadonlySet<ApiBooking["state"]> = new Set(["BOOKED", "IN_PROG
  * - R9 refunded with no request: the refund on record.
  * - R2 booked, paid, now ≤ S − 24 h: cancel for the whole charge.
  * - R3 booked, paid, S − 24 h < now < S: cancel for half the service fee.
- * - R4 from S, or once in progress: no cancel anywhere.
+ * - R4 from S, or once the session's state says it began: no cancel anywhere.
  * - R5 from S to E + 7 days: report a problem, for at most the whole charge.
  * - R6 after E + 7 days: closed.
  */
@@ -182,7 +190,7 @@ export function bookingExit({ booking, invoice, cases, now }: BookingExitInput):
     return isCancellable(booking.state) && now < startsAt.getTime() ? { kind: "cancel" } : { kind: "none" };
   }
   if (cases === undefined) return { kind: "waiting" };
-  if (rescheduledAway(booking, invoice)) return { kind: "none" };
+  if (rescheduledAway(booking, invoice)) return { kind: "rescheduled" };
 
   const cancelled = booking.state === "CANCELLED";
   const refund = currentRefundCase(cases);
@@ -206,16 +214,40 @@ export function bookingExit({ booking, invoice, cases, now }: BookingExitInput):
     return { kind: "claim", share, by, refundSatang: refundFor(share, invoice) };
   }
 
-  const started = now >= startsAt.getTime() || booking.state === "IN_PROGRESS";
+  // Paid and still on from here: BOOKED until it starts, then under way or over.
+  const started = now >= startsAt.getTime() || STARTED.has(booking.state);
   if (!started) {
-    if (booking.state !== "BOOKED") return { kind: "none" };
     const fullUntil = fullRefundUntil(booking);
     const share: RefundShare = now <= fullUntil.getTime() ? "full" : "half";
     return { kind: "cancelRefund", share, refundSatang: refundFor(share, invoice), fullUntil, startsAt };
   }
-  if (!REPORTABLE.has(booking.state)) return { kind: "none" };
   const until = reportUntil(booking);
   return now <= until.getTime()
     ? { kind: "report", maxSatang: invoice.amountSatang, until }
     : { kind: "closed", closedAt: until };
+}
+
+/**
+ * Whether what a page shows is still what a press would do: the same way out,
+ * at the same share. A page left open can cross the 24-hour line or the start
+ * while it waits, and the API's cancel checks neither (API bookings.service.ts
+ * `cancel`), so a press acts only on the offer it was shown.
+ */
+export function sameOffer(shown: BookingExit, current: BookingExit): boolean {
+  if (shown.kind !== current.kind) return false;
+  return shown.kind !== "cancelRefund" || (current.kind === "cancelRefund" && shown.share === current.share);
+}
+
+/**
+ * /terms §8: an advisee may move a booking once, at no cost, while it is at
+ * least 24 hours away. A reschedule replaces the booking and the replacement
+ * carries the first one's invoice, which is made only after a booking exists,
+ * so a booking younger than its invoice has had its one move. Until the
+ * invoice is known (undefined) it is not offered. The API checks neither the
+ * time nor the count yet (API bookings.service.ts `reschedule`).
+ */
+export function canReschedule({ booking, invoice, now }: Omit<BookingExitInput, "cases">): boolean {
+  if (!isCancellable(booking.state) || now > fullRefundUntil(booking).getTime()) return false;
+  if (invoice === undefined) return false;
+  return invoice === null || Date.parse(invoice.createdAt) >= Date.parse(booking.createdAt);
 }

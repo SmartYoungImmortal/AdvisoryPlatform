@@ -124,13 +124,12 @@ function RefundContent({ booking, reload }: { readonly booking: ApiBooking; read
     if (money.error) return <RefundFailed bookingId={booking.id} retry={money.reload} />;
     return <RefundSkeleton bookingId={booking.id} />;
   }
-  if (!invoice || exit.kind === "none" || exit.kind === "cancel") {
-    const paid = invoice?.status === "paid" || invoice?.status === "refunded";
+  if (!invoice || exit.kind === "none" || exit.kind === "cancel" || exit.kind === "rescheduled") {
     return (
       <BookingDetailState
         action={back}
         back={back}
-        body={paid ? t("states.nothingRescheduled") : t("states.nothingUnpaid")}
+        body={exit.kind === "rescheduled" ? t("states.nothingRescheduled") : t("states.nothingUnpaid")}
         title={t("states.nothingTitle")}
       />
     );

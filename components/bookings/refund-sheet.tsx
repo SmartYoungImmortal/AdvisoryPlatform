@@ -63,6 +63,16 @@ export function cardName(card: NonNullable<ApiAdviseeInvoice["card"]>): string {
   return `${card.brand} •••• ${card.lastDigits}`;
 }
 
+/** "฿1,000 back to Visa •••• 1111": the refund step, in every list of steps that has one. */
+export function useRefundLine(invoice: ApiAdviseeInvoice): (satang: number) => string {
+  const t = useTranslations("bookingRefund");
+  const when = useRefundFormat();
+  return (satang) =>
+    invoice.card
+      ? t("progress.refund", { amount: when.baht(satang), card: cardName(invoice.card) })
+      : t("progress.refundNoCard", { amount: when.baht(satang) });
+}
+
 export function useSupportMail(invoiceNumber: string): string {
   const tr = useTranslations("transactions");
   const l = useTranslations("landing");

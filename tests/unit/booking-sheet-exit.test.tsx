@@ -188,7 +188,7 @@ describe("the booking popup's one way out (FE #114)", () => {
         cancelledByUserId: "advisee",
         blocksAvailability: false,
       }),
-      "เงินคืน ฿1,000 · กำลังคืนเงิน",
+      "เงินคืน ฿1,000 · ส่งเรื่องคืนเงินแล้ว",
     ],
     ["a reported problem's", bookingAt(YESTERDAY), "เงินคืน ฿1,000 · รอทีมงานตรวจสอบ"],
   ])("shows %s request already sent as one row to where it stands, and no way out", (_, booking, row) => {

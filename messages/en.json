@@ -529,9 +529,9 @@
       "report": "Report a problem and request a refund"
     },
     "stage": {
-      "refunding": "Refund on its way",
+      "requested": "Refund requested",
       "reviewing": "Being reviewed",
-      "approved": "Approved, refund on its way",
+      "approved": "Approved · refund pending",
       "refunded": "Refunded",
       "rejected": "Refund not approved"
     },
@@ -542,9 +542,10 @@
       "claimOther": "The advisor or our team cancelled, so you get the full amount back",
       "report": "The most you can ask back · we reply within 14 business days · report by {date}",
       "status": {
-        "refunding": "Coming back to you",
-        "reviewing": "Amount requested",
-        "approved": "Coming back to you",
+        "requested": "Amount requested · our team confirms it within 14 business days",
+        "reviewing": "Amount requested · we reply within 14 business days",
+        "approved": "Amount requested · goes back to {card}",
+        "approvedNoCard": "Amount requested · goes back to your original payment method",
         "refunded": "Amount refunded",
         "rejected": "Amount requested"
       }
@@ -610,22 +611,24 @@
       "heading": "Progress",
       "cancellation": {
         "cancelled": "Booking cancelled",
-        "refund": "Our team refunds {amount}",
-        "refundSub": "Within 14 business days",
-        "arrive": "Money back on {card}",
-        "arriveNoCard": "Money back to your original payment method"
+        "confirm": "Our team confirms the refund",
+        "confirmSub": "Within 14 business days"
       },
       "report": {
         "sent": "Request sent",
         "review": "The Advisory team reviews it",
-        "reviewSub": "From the attendance records and chat, with an answer within 14 business days",
-        "refund": "Refund to your card",
-        "refundNoCard": "Refund to your original payment method",
-        "refundSub": "If approved"
+        "reviewSub": "From the attendance records and chat, with an answer within 14 business days"
       },
       "approved": "Approved",
       "rejected": "Not approved",
-      "bankSub": "On your card issuer's schedule"
+      "refund": "{amount} back to {card}",
+      "refundNoCard": "{amount} back to your original payment method",
+      "refundSub": {
+        "confirm": "Once our team confirms",
+        "approve": "If approved",
+        "pending": "Waiting to be sent back, then on your card issuer's schedule",
+        "done": "Not on your statement yet? Your card issuer may take a few more days"
+      }
     },
     "actions": {
       "confirmCancel": "Cancel and get {amount} back",
@@ -644,8 +647,8 @@
       "uploading": "Uploading…"
     },
     "announce": {
-      "cancelled": "Cancelled. {amount} is on its way back.",
-      "claimed": "Done. {amount} is on its way back.",
+      "cancelled": "Cancelled. Your {amount} refund is requested, and our team confirms it within 14 business days.",
+      "claimed": "Your {amount} refund is requested, and our team confirms it within 14 business days.",
       "reported": "Request sent. We'll reply within 14 business days.",
       "attached": "{count, plural, one {# file attached} other {# files attached}}"
     },

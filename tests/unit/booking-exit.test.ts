@@ -3,8 +3,10 @@ import {
   REFUND_POLICY,
   bookingExit,
   bookingPopupHref,
+  canReschedule,
   currentRefundCase,
   refundHref,
+  sameOffer,
   type BookingExitInput,
 } from "@/components/bookings/booking-exit";
 import { terms } from "@/lib/legal/terms";
@@ -107,6 +109,12 @@ describe("R4 there is no cancel from the start time or once the session runs", (
   it("offers no cancel for a session the advisor started early", () => {
     expect(exit({ now: S - HOUR, booking: { ...booking, state: "IN_PROGRESS" } })).toMatchObject({ kind: "report" });
   });
+
+  it.each(["COMPLETED", "NO_SHOW"] as const)("reads a %s session before its start time as started, open to a report", (state) => {
+    expect(exit({ now: S - 5 * 60_000, booking: { ...booking, state } })).toEqual({
+      kind: "report", maxSatang: 100_000, until: new Date(E + 7 * DAY),
+    });
+  });
 });
 
 describe("R5 from the start to 7 days after the end a problem can be reported", () => {
@@ -152,9 +160,9 @@ describe("R7 a cancelled, paid booking with no request is owed its refund", () =
     expect(exit({ booking: cancelledBooking("advisee", S - 5 * HOUR) })).toMatchObject({ share: "half", by: "advisee", refundSatang: 40_000 });
   });
 
-  it("says nothing about money for a booking rescheduled to a new time", () => {
+  it("says the booking moved, and nothing about money, for one rescheduled to a new time", () => {
     const moved = { ...invoice, session: { startTime: new Date(S + 2 * DAY).toISOString(), endTime: new Date(E + 2 * DAY).toISOString() } };
-    expect(exit({ booking: cancelledBooking("advisee", S - 3 * DAY), invoice: moved, cases: [refundCase("OPEN", "2026-11-05T00:00:00Z")] })).toEqual({ kind: "none" });
+    expect(exit({ booking: cancelledBooking("advisee", S - 3 * DAY), invoice: moved, cases: [refundCase("OPEN", "2026-11-05T00:00:00Z")] })).toEqual({ kind: "rescheduled" });
   });
 
   it("matches the session's time by instant, not by how it is written", () => {
@@ -164,10 +172,10 @@ describe("R7 a cancelled, paid booking with no request is owed its refund", () =
 });
 
 describe("R8 a booking with a request shows its status and is never requested again", () => {
-  it("reads a request on a cancelled booking as the cancellation's refund, refunding", () => {
+  it("reads an open request on a cancelled booking as the cancellation's refund, requested and not yet moving", () => {
     const open = refundCase("OPEN", "2026-11-04T13:56:00Z");
     expect(exit({ booking: cancelledBooking("advisee", S - 6 * DAY), cases: [open] })).toEqual({
-      kind: "status", refund: open, type: "cancellation", stage: "refunding", refundSatang: 100_000,
+      kind: "status", refund: open, type: "cancellation", stage: "requested", refundSatang: 100_000,
     });
   });
 
@@ -221,6 +229,51 @@ describe("R9 a refunded invoice with no request shows the refund on record", () 
 
   it("falls back to the charge when the invoice names no refund amount", () => {
     expect(exit({ invoice: { ...invoice, status: "refunded" }, now: E + 30 * DAY })).toEqual({ kind: "refunded", refundSatang: 100_000 });
+  });
+});
+
+describe("a press acts only on the offer it was shown", () => {
+  it("still stands while the clock stays on the same side of every line", () => {
+    expect(sameOffer(exit({ now: S - 3 * DAY }), exit({ now: S - 2 * DAY }))).toBe(true);
+    expect(sameOffer(exit({ now: E }), exit({ now: E + DAY }))).toBe(true);
+  });
+
+  it("no longer stands once the 24-hour line is crossed, though it is still a cancel", () => {
+    expect(sameOffer(exit({ now: S - DAY - 2 * 60_000 }), exit({ now: S - DAY + 2 * 60_000 }))).toBe(false);
+  });
+
+  it("no longer stands once the session has started", () => {
+    expect(sameOffer(exit({ now: S - 60_000 }), exit({ now: S + 60_000 }))).toBe(false);
+  });
+});
+
+describe("§8 one free reschedule, at least 24 hours ahead", () => {
+  const can = (input: Partial<Omit<BookingExitInput, "cases">>) =>
+    canReschedule({ booking, invoice, now: S - 3 * DAY, ...input });
+
+  it("is offered on a paid booking three days ahead, and at exactly 24 hours", () => {
+    expect(can({})).toBe(true);
+    expect(can({ now: S - DAY })).toBe(true);
+  });
+
+  it("is not offered inside 24 hours, where a move would turn a half refund into a full one", () => {
+    expect(can({ now: S - DAY + 1 })).toBe(false);
+    expect(can({ now: S - 5 * HOUR })).toBe(false);
+  });
+
+  it("is not offered on a booking that is already the one move, younger than the invoice it carried over", () => {
+    expect(can({ booking: { ...booking, createdAt: "2026-11-03T00:00:00Z" } })).toBe(false);
+  });
+
+  it("is offered on an unpaid booking with no receipt, and on a held slot", () => {
+    expect(can({ invoice: null })).toBe(true);
+    expect(can({ invoice: null, booking: { ...booking, state: "PENDING_PAYMENT" } })).toBe(true);
+  });
+
+  it("waits for the invoice, and is never offered on a booking that is off or under way", () => {
+    expect(can({ invoice: undefined })).toBe(false);
+    expect(can({ booking: { ...booking, state: "IN_PROGRESS" } })).toBe(false);
+    expect(can({ booking: cancelledBooking("advisee", S - 4 * DAY) })).toBe(false);
   });
 });
 

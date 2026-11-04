@@ -34,11 +34,17 @@ afterEach(() => {
 /** Cancelled 4 Nov 20:56, asked 4 Nov 21:00, answered 6 Nov 10:15, all Bangkok time. */
 const AT = { cancelled: "2026-11-04T13:56:00.000Z", asked: "2026-11-04T14:00:00.000Z", answered: "2026-11-06T03:15:00.000Z" };
 const SESSION = { startTime: "2026-11-11T03:30:00.000Z", endTime: "2026-11-11T04:30:00.000Z" };
-const CASE_STATUS = { refunding: "OPEN", reviewing: "OPEN", approved: "APPROVED", refunded: "APPROVED", rejected: "REJECTED" } as const;
+const CASE_STATUS = { requested: "OPEN", reviewing: "OPEN", approved: "APPROVED", refunded: "APPROVED", rejected: "REJECTED" } as const;
 
-type Scene = { readonly type: RefundCaseType; readonly stage: RefundStage; readonly card?: boolean };
+type Scene = {
+  readonly type: RefundCaseType;
+  readonly stage: RefundStage;
+  readonly card?: boolean;
+  /** The request's own status, when it differs from what the stage implies. */
+  readonly caseStatus?: ApiRefundCase["status"];
+};
 
-function scene({ type, stage, card = true }: Scene) {
+function scene({ type, stage, card = true, caseStatus = CASE_STATUS[stage] }: Scene) {
   const cancelled = type === "cancellation";
   const booking: ApiBooking = {
     ...SESSION, id: "15638839-49d1-4553-b79c-59821ff58f2e", serviceId: "s", advisorId: "a", adviseeId: "me", createdAt: AT.cancelled,
@@ -51,8 +57,8 @@ function scene({ type, stage, card = true }: Scene) {
     createdAt: AT.cancelled, paidAt: AT.cancelled, session: SESSION, card: card ? { brand: "Visa", lastDigits: "1111" } : null,
     service: { id: "s", name: "วางแผนการเงินส่วนบุคคล" }, advisor: { id: "a", displayName: "ณัฐพงษ์ ดวงดี" },
   };
-  const resolved = CASE_STATUS[stage] === "OPEN" ? null : AT.answered;
-  const refund: ApiRefundCase = { id: `case-${type}-${stage}`, invoiceId: invoice.id, reason: "", status: CASE_STATUS[stage], createdAt: AT.asked, resolvedAt: resolved };
+  const resolved = caseStatus === "OPEN" ? null : AT.answered;
+  const refund: ApiRefundCase = { id: `case-${type}-${stage}`, invoiceId: invoice.id, reason: "", status: caseStatus, createdAt: AT.asked, resolvedAt: resolved };
   const exit: BookingExit = { kind: "status", refund, type, stage, refundSatang: 100_000 };
   return { booking, invoice, exit, refund };
 }
@@ -85,16 +91,22 @@ const settle = () => act(async () => {});
 const VISA = "Visa •••• 1111";
 
 /** Each step's words and the line under them, as the advisee should read them. */
+const REFUND = `คืนเงิน ฿1,000 เข้า ${VISA}`;
 const WORDS = {
   cancelled: ["ยกเลิกการจองแล้ว", "4 พ.ย. 2569 · 20:56"],
-  refund: ["ทีมงานคืนเงิน ฿1,000", "ภายใน 14 วันทำการ"],
-  arrive: [`เงินเข้า ${VISA}`, "ตามรอบของธนาคารผู้ออกบัตร"],
+  confirm: ["ทีมงานยืนยันการคืนเงิน", "ภายใน 14 วันทำการ"],
   sent: ["ส่งคำขอแล้ว", "4 พ.ย. 2569 · 21:00"],
   review: ["ทีมงาน Advisory ตรวจสอบ", "จากบันทึกการเข้าร่วมและแชต แจ้งผลภายใน 14 วันทำการ"],
   approved: ["อนุมัติแล้ว", "6 พ.ย. 2569 · 10:15"],
-  toCard: ["คืนเงินเข้าบัตร", "ถ้าอนุมัติ"],
   rejected: ["ไม่อนุมัติ", "6 พ.ย. 2569 · 10:15"],
+  refundOnceConfirmed: [REFUND, "เมื่อทีมงานยืนยัน"],
+  refundIfApproved: [REFUND, "ถ้าอนุมัติ"],
+  refundPending: [REFUND, "รอดำเนินการคืนเงิน แล้วเงินเข้าตามรอบของธนาคารผู้ออกบัตร"],
+  refundDone: [REFUND, "ถ้ายังไม่เห็นในรายการบัตร ธนาคารผู้ออกบัตรอาจใช้เวลาเพิ่ม"],
 } as const;
+
+/** Nothing on the page may say the money is moving before the invoice says refunded (API #86). */
+const MOVING = ["กำลังคืน", "ทีมงานคืนเงิน"];
 
 const BACK = { name: "กลับไปที่การจอง", href: "/bookings?bookingId=15638839-49d1-4553-b79c-59821ff58f2e" };
 /** The pills under the card, main one first: only the main one is solid. */
@@ -112,24 +124,26 @@ type Expected = Scene & {
 };
 
 const STAGES: readonly Expected[] = [
-  { type: "cancellation", stage: "refunding", head: "กำลังคืนเงิน", meta: "ยอดที่กำลังคืน", steps: [["cancelled", "done"], ["refund", "current"], ["arrive", "next"]], pills: "back" },
-  { type: "cancellation", stage: "approved", head: "อนุมัติแล้ว กำลังคืนเงิน", meta: "ยอดที่กำลังคืน", steps: [["cancelled", "done"], ["refund", "current"], ["arrive", "next"]], pills: "back" },
-  { type: "cancellation", stage: "refunded", head: "คืนเงินแล้ว", meta: "ยอดที่คืนแล้ว", steps: [["cancelled", "done"], ["refund", "done"], ["arrive", "done"]], pills: "receipt" },
+  { type: "cancellation", stage: "requested", head: "ส่งเรื่องคืนเงินแล้ว", meta: "ยอดที่ขอคืน · ทีมงานยืนยันภายใน 14 วันทำการ", steps: [["cancelled", "done"], ["confirm", "current"], ["refundOnceConfirmed", "next"]], pills: "back" },
+  { type: "cancellation", stage: "approved", head: "อนุมัติแล้ว · รอคืนเงิน", meta: `ยอดที่ขอคืน · จะคืนเข้า ${VISA}`, steps: [["cancelled", "done"], ["approved", "done"], ["refundPending", "current"]], pills: "back" },
+  { type: "cancellation", stage: "refunded", head: "คืนเงินแล้ว", meta: "ยอดที่คืนแล้ว", steps: [["cancelled", "done"], ["approved", "done"], ["refundDone", "done"]], pills: "receipt" },
   { type: "cancellation", stage: "rejected", head: "ไม่อนุมัติคืนเงิน", meta: "ยอดที่ขอคืน", steps: [["cancelled", "done"], ["rejected", "rejected"]], pills: "support" },
-  { type: "report", stage: "reviewing", head: "รอทีมงานตรวจสอบ", meta: "ยอดที่ขอคืน", steps: [["sent", "done"], ["review", "current"], ["toCard", "next"]], pills: "back" },
-  { type: "report", stage: "approved", head: "อนุมัติแล้ว กำลังคืนเงิน", meta: "ยอดที่กำลังคืน", steps: [["sent", "done"], ["approved", "done"], ["toCard", "current"]], pills: "back" },
-  { type: "report", stage: "refunded", head: "คืนเงินแล้ว", meta: "ยอดที่คืนแล้ว", steps: [["sent", "done"], ["approved", "done"], ["toCard", "done"]], pills: "receipt" },
+  { type: "report", stage: "reviewing", head: "รอทีมงานตรวจสอบ", meta: "ยอดที่ขอคืน · ทีมงานแจ้งผลภายใน 14 วันทำการ", steps: [["sent", "done"], ["review", "current"], ["refundIfApproved", "next"]], pills: "back" },
+  { type: "report", stage: "approved", head: "อนุมัติแล้ว · รอคืนเงิน", meta: `ยอดที่ขอคืน · จะคืนเข้า ${VISA}`, steps: [["sent", "done"], ["approved", "done"], ["refundPending", "current"]], pills: "back" },
+  { type: "report", stage: "refunded", head: "คืนเงินแล้ว", meta: "ยอดที่คืนแล้ว", steps: [["sent", "done"], ["approved", "done"], ["refundDone", "done"]], pills: "receipt" },
   { type: "report", stage: "rejected", head: "ไม่อนุมัติคืนเงิน", meta: "ยอดที่ขอคืน", steps: [["sent", "done"], ["rejected", "rejected"]], pills: "support" },
+  { type: "report", stage: "refunded", caseStatus: "OPEN", head: "คืนเงินแล้ว", meta: "ยอดที่คืนแล้ว", steps: [["sent", "done"], ["refundDone", "done"]], pills: "receipt" },
 ];
 
 describe("RefundStatusMode", () => {
-  it.each(STAGES)("$type $stage: says $head, its steps and their marks, and offers who to turn to next", async (expected) => {
+  it.each(STAGES)("$type $stage (request $caseStatus): says $head, its steps and their marks, and offers who to turn to next", async (expected) => {
     show(scene(expected));
     await settle();
 
     expect(screen.getByRole("heading", { level: 1 }).textContent).toBe(expected.head);
+    if (expected.stage !== "refunded") for (const word of MOVING) expect(document.body.textContent).not.toContain(word);
     expect(screen.getByText("฿1,000", { selector: "p" })).toBeTruthy();
-    expect(screen.getByText(expected.meta)).toBeTruthy();
+    expect([...document.querySelectorAll("h1 ~ p")].map((line) => line.textContent)).toContain(expected.meta);
     expect(steps()).toEqual(
       expected.steps.map(([words, mark]) => ({ title: WORDS[words][0], sub: WORDS[words][1], mark, current: mark === "current" })),
     );
@@ -151,7 +165,7 @@ describe("RefundStatusMode", () => {
   });
 
   it("never says a cancellation is being reviewed, and takes no evidence for one", async () => {
-    for (const stage of ["refunding", "approved", "refunded", "rejected"] as const) {
+    for (const stage of ["requested", "approved", "refunded", "rejected"] as const) {
       const view = show(scene({ type: "cancellation", stage }));
       await settle();
       expect(document.body.textContent).not.toContain("ตรวจสอบ");
@@ -163,14 +177,15 @@ describe("RefundStatusMode", () => {
   });
 
   it("names the payment method instead of a card when there is none", async () => {
-    const cancellation = show(scene({ type: "cancellation", stage: "refunding", card: false }));
+    const cancellation = show(scene({ type: "cancellation", stage: "requested", card: false }));
     await settle();
-    expect(steps()[2].title).toBe("เงินเข้าช่องทางที่ชำระ");
+    expect(steps()[2].title).toBe("คืนเงิน ฿1,000 เข้าช่องทางที่ชำระ");
     cancellation.unmount();
 
-    show(scene({ type: "report", stage: "reviewing", card: false }));
+    show(scene({ type: "report", stage: "approved", card: false }));
     await settle();
-    expect(steps()[2].title).toBe("คืนเงินเข้าช่องทางที่ชำระ");
+    expect(steps()[2].title).toBe("คืนเงิน ฿1,000 เข้าช่องทางที่ชำระ");
+    expect(screen.getByText("ยอดที่ขอคืน · จะคืนเข้าช่องทางที่ชำระ")).toBeTruthy();
   });
 
   it("shows a refund with no request on record as done, with the receipt as its only button", () => {
@@ -178,7 +193,7 @@ describe("RefundStatusMode", () => {
     show({ booking, invoice, exit: { kind: "refunded", refundSatang: 60_000 } });
     expect(screen.getByRole("heading", { level: 1 }).textContent).toBe("คืนเงินแล้ว");
     expect(screen.getByText("฿600", { selector: "p" })).toBeTruthy();
-    expect(steps()).toEqual([{ title: WORDS.arrive[0], sub: WORDS.arrive[1], mark: "done", current: false }]);
+    expect(steps()).toEqual([{ title: `คืนเงิน ฿600 เข้า ${VISA}`, sub: WORDS.refundDone[1], mark: "done", current: false }]);
     expect(pills().map(({ name }) => name)).toEqual(["ดูใบเสร็จ"]);
   });
 

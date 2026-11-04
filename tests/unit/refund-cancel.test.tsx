@@ -344,13 +344,14 @@ describe("ClaimMode", () => {
     expect(onOpened).toHaveBeenCalledExactlyOnceWith(refund);
   });
 
-  it("previews what happens: cancelled at its time, the team refunds, the money reaches the card", () => {
+  it("previews what happens: cancelled at its time, the team confirms, then the refund, with no word that money moves yet", () => {
     renderClaim();
     const rows = rowsUnder("ความคืบหน้า");
+    expect(document.body.textContent).not.toContain("กำลังคืน");
     expect(rows.map((row) => row.textContent)).toEqual([
       "ยกเลิกการจองแล้ว4 พ.ย. 2569 · 20:56",
-      "ทีมงานคืนเงิน ฿1,000ภายใน 14 วันทำการ",
-      "เงินเข้า Visa •••• 1111ตามรอบของธนาคารผู้ออกบัตร",
+      "ทีมงานยืนยันการคืนเงินภายใน 14 วันทำการ",
+      "คืนเงิน ฿1,000 เข้า Visa •••• 1111เมื่อทีมงานยืนยัน",
     ]);
     expect(rows[0].closest("ol")).toBeTruthy();
   });
@@ -366,7 +367,7 @@ describe("ClaimMode", () => {
       "ค่าบริการแพลตฟอร์ม · ไม่คืน": "฿0",
       "รวมได้คืน": "฿400",
     });
-    expect(rowsUnder("ความคืบหน้า")[2].textContent).toContain("เงินเข้าช่องทางที่ชำระ");
+    expect(rowsUnder("ความคืบหน้า")[2].textContent).toContain("คืนเงิน ฿400 เข้าช่องทางที่ชำระ");
 
     await act(async () => screen.getByRole("button", { name: "รับเงินคืน ฿400" }).click());
     expect(actions.openRefundOnce).toHaveBeenCalledWith(

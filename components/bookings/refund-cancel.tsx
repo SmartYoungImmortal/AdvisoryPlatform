@@ -9,7 +9,6 @@ import { AUTH_LINK } from "@/components/auth/auth-split";
 import { bookingPopupHref, type BookingExit, type RefundShare } from "@/components/bookings/booking-exit";
 import { cancelThenRefund, openRefundOnce, type CancelRefundResult } from "@/components/bookings/refund-actions";
 import {
-  cardName,
   RefundActions,
   RefundBox,
   RefundCard,
@@ -20,6 +19,7 @@ import {
   RefundSection,
   refundPill,
   useRefundFormat,
+  useRefundLine,
 } from "@/components/bookings/refund-sheet";
 import { StatusPill } from "@/components/mobile/status-pill";
 import { Button } from "@/components/ui/button";
@@ -230,6 +230,7 @@ export function ClaimMode({
 }) {
   const t = useTranslations("bookingRefund");
   const when = useRefundFormat();
+  const refundLine = useRefundLine(invoice);
   const [attempt, setAttempt] = useState<ClaimAttempt>("ready");
   const pressed = useRef(false);
 
@@ -267,20 +268,8 @@ export function ClaimMode({
         <RefundSection heading={t("progress.heading")}>
           <RefundList ordered>
             <RefundRow icon={CircleCheckBig} sub={cancelledAt} title={t("progress.cancellation.cancelled")} tone="success" />
-            <RefundRow
-              icon={Circle}
-              sub={t("progress.cancellation.refundSub")}
-              title={t("progress.cancellation.refund", { amount })}
-            />
-            <RefundRow
-              icon={Circle}
-              sub={t("progress.bankSub")}
-              title={
-                invoice.card
-                  ? t("progress.cancellation.arrive", { card: cardName(invoice.card) })
-                  : t("progress.cancellation.arriveNoCard")
-              }
-            />
+            <RefundRow icon={Circle} sub={t("progress.cancellation.confirmSub")} title={t("progress.cancellation.confirm")} />
+            <RefundRow icon={Circle} sub={t("progress.refundSub.confirm")} title={refundLine(exit.refundSatang)} />
           </RefundList>
         </RefundSection>
       </RefundCard>

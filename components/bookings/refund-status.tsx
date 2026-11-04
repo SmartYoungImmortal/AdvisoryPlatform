@@ -18,6 +18,7 @@ import {
   RefundSection,
   refundPill,
   useRefundFormat,
+  useRefundLine,
   useSupportMail,
   type RefundTone,
 } from "@/components/bookings/refund-sheet";
@@ -29,7 +30,7 @@ type StatusExit = Extract<BookingExit, { kind: "status" | "refunded" }>;
 
 /** Who acts next decides the main button: nobody once the money is back, support after a no. */
 const STAGE = {
-  refunding: { icon: Clock3, tone: "primary", main: "back" },
+  requested: { icon: Clock3, tone: "primary", main: "back" },
   reviewing: { icon: Clock3, tone: "primary", main: "back" },
   approved: { icon: Clock3, tone: "primary", main: "back" },
   refunded: { icon: CircleCheckBig, tone: "success", main: "receipt" },
@@ -50,62 +51,57 @@ const MARK = {
 
 type Step = { readonly mark: Mark; readonly title: string; readonly sub?: string };
 
-/** Where a report's refund stands once it is not turned down. */
-const REPORT_REFUND_MARK = {
-  refunding: "next",
-  reviewing: "next",
-  approved: "current",
-  refunded: "done",
-} as const satisfies Record<Exclude<RefundStage, "rejected">, Mark>;
+/**
+ * The refund step by stage. Nothing has moved until the invoice says
+ * refunded: an approval only waits on the refund (API #86), and the bank's
+ * timing is only spoken of once the money is sent.
+ */
+const REFUND_STEP = {
+  requested: { mark: "next", sub: "progress.refundSub.confirm" },
+  reviewing: { mark: "next", sub: "progress.refundSub.approve" },
+  approved: { mark: "current", sub: "progress.refundSub.pending" },
+  refunded: { mark: "done", sub: "progress.refundSub.done" },
+} as const satisfies Record<Exclude<RefundStage, "rejected">, { readonly mark: Mark; readonly sub: string }>;
 
 function useSteps(booking: ApiBooking, invoice: ApiAdviseeInvoice, exit: StatusExit): Step[] {
   const t = useTranslations("bookingRefund");
   const when = useRefundFormat();
+  const refundLine = useRefundLine(invoice);
   const stamp = (date: string | null) => (date === null ? undefined : when.stamp(date));
 
-  const arrive: Step = {
-    mark: "done",
-    title: invoice.card
-      ? t("progress.cancellation.arrive", { card: cardName(invoice.card) })
-      : t("progress.cancellation.arriveNoCard"),
-    sub: t("progress.bankSub"),
-  };
-  if (exit.kind === "refunded") return [arrive];
+  const refundStep = (stage: keyof typeof REFUND_STEP): Step => ({
+    mark: REFUND_STEP[stage].mark,
+    title: refundLine(exit.refundSatang),
+    sub: t(REFUND_STEP[stage].sub),
+  });
+  if (exit.kind === "refunded") return [refundStep("refunded")];
 
-  const { refund, stage } = exit;
+  const { refund, stage, type } = exit;
   const first: Step =
-    exit.type === "cancellation"
+    type === "cancellation"
       ? { mark: "done", title: t("progress.cancellation.cancelled"), sub: stamp(booking.cancelledAt) }
       : { mark: "done", title: t("progress.report.sent"), sub: stamp(refund.createdAt) };
   if (stage === "rejected") {
     return [first, { mark: "rejected", title: t("progress.rejected"), sub: stamp(refund.resolvedAt) }];
   }
 
-  if (exit.type === "cancellation") {
-    const refunded = stage === "refunded";
-    return [
-      first,
-      {
-        mark: refunded ? "done" : "current",
-        title: t("progress.cancellation.refund", { amount: when.baht(exit.refundSatang) }),
-        sub: t("progress.cancellation.refundSub"),
-      },
-      { ...arrive, mark: refunded ? "done" : "next" },
-    ];
+  // A ruling is shown only when there was one: a refund can reach the invoice while its request is still open.
+  let ruling: Step | undefined;
+  if (refund.status === "APPROVED") {
+    ruling = { mark: "done", title: t("progress.approved"), sub: stamp(refund.resolvedAt) };
+  } else if (stage !== "refunded") {
+    ruling =
+      type === "cancellation"
+        ? { mark: "current", title: t("progress.cancellation.confirm"), sub: t("progress.cancellation.confirmSub") }
+        : { mark: "current", title: t("progress.report.review"), sub: t("progress.report.reviewSub") };
   }
+  return ruling ? [first, ruling, refundStep(stage)] : [first, refundStep(stage)];
+}
 
-  const decided = stage === "approved" || stage === "refunded";
-  return [
-    first,
-    decided
-      ? { mark: "done", title: t("progress.approved"), sub: stamp(refund.resolvedAt) }
-      : { mark: "current", title: t("progress.report.review"), sub: t("progress.report.reviewSub") },
-    {
-      mark: REPORT_REFUND_MARK[stage],
-      title: invoice.card ? t("progress.report.refund") : t("progress.report.refundNoCard"),
-      sub: t("progress.report.refundSub"),
-    },
-  ];
+function useStatusMeta(invoice: ApiAdviseeInvoice, stage: RefundStage): string {
+  const t = useTranslations("bookingRefund");
+  if (stage !== "approved") return t(`meta.status.${stage}`);
+  return invoice.card ? t("meta.status.approved", { card: cardName(invoice.card) }) : t("meta.status.approvedNoCard");
 }
 
 export function RefundStatusMode({
@@ -125,8 +121,8 @@ export function RefundStatusMode({
   const when = useRefundFormat();
   const mail = useSupportMail(invoice.invoiceNumber);
   const steps = useSteps(booking, invoice, exit);
-
   const stage: RefundStage = exit.kind === "refunded" ? "refunded" : exit.stage;
+  const meta = useStatusMeta(invoice, stage);
   const look = STAGE[stage];
   const back = bookingPopupHref(booking.id);
   // Only a report the team is still reading takes more evidence.
@@ -139,7 +135,7 @@ export function RefundStatusMode({
           <RefundHead
             amount={when.baht(exit.refundSatang)}
             icon={look.icon}
-            meta={t(`meta.status.${stage}`)}
+            meta={meta}
             title={t(`stage.${stage}`)}
             tone={look.tone}
           >
