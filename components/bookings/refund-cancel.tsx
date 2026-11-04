@@ -3,7 +3,7 @@
 import { Circle, CircleCheckBig, CircleX, RotateCcw } from "lucide-react";
 import Link from "next/link";
 import { useTranslations } from "next-intl";
-import { useRef, useState } from "react";
+import { useRef, useState, type ReactNode } from "react";
 
 import { AUTH_LINK } from "@/components/auth/auth-split";
 import { bookingPopupHref, type BookingExit, type RefundShare } from "@/components/bookings/booking-exit";
@@ -63,32 +63,35 @@ const TERMS_LINK = cn(
 
 type Owed = { readonly share: RefundShare; readonly refundSatang: number };
 
-function OwedFacts({
-  booking,
-  invoice,
-  owed,
-}: {
-  readonly booking: ApiBooking;
-  readonly invoice: ApiAdviseeInvoice;
-  readonly owed: Owed;
-}) {
+/**
+ * A half refund's box answers its amount, so it takes the right cell, level
+ * with the head; the rule or the steps (`children`) then run under both
+ * cells. A full refund needs no box, and they take the right cell. Either
+ * way the two cells end within a row of each other.
+ */
+function OwedCard({ head, owed, children }: { readonly head: ReactNode; readonly owed: Owed; readonly children: ReactNode }) {
+  if (owed.share === "full") return <RefundCard head={head}>{children}</RefundCard>;
+  return (
+    <RefundCard foot={children} head={head}>
+      <HalfBox owed={owed} />
+    </RefundCard>
+  );
+}
+
+function HalfBox({ owed }: { readonly owed: Owed }) {
   const t = useTranslations("bookingRefund");
   const when = useRefundFormat();
 
   return (
-    <>
-      <RefundFacts booking={booking} invoice={invoice} />
-      {owed.share === "half" ? (
-        <RefundBox
-          heading={t("box.heading")}
-          lines={[
-            { label: t("box.service"), value: when.baht(owed.refundSatang) },
-            { label: t("box.fee"), value: when.baht(0) },
-          ]}
-          total={{ label: t("box.total"), value: when.baht(owed.refundSatang) }}
-        />
-      ) : null}
-    </>
+    <RefundSection heading={t("box.heading")}>
+      <RefundBox
+        lines={[
+          { label: t("box.service"), value: when.baht(owed.refundSatang) },
+          { label: t("box.fee"), value: when.baht(0) },
+        ]}
+        total={{ label: t("box.total"), value: when.baht(owed.refundSatang) }}
+      />
+    </RefundSection>
   );
 }
 
@@ -190,7 +193,7 @@ export function CancelRefundMode({
 
   return (
     <>
-      <RefundCard
+      <OwedCard
         head={
           <RefundHead
             amount={amount}
@@ -199,9 +202,10 @@ export function CancelRefundMode({
             title={t(exit.share === "full" ? "head.cancelFull" : "head.cancelHalf")}
             tone="primary"
           >
-            <OwedFacts booking={booking} invoice={invoice} owed={exit} />
+            <RefundFacts booking={booking} invoice={invoice} />
           </RefundHead>
         }
+        owed={exit}
       >
         <RefundSection heading={t("policy.heading")}>
           <RefundList>
@@ -224,7 +228,7 @@ export function CancelRefundMode({
             {t("policy.termsLink")}
           </Link>
         </RefundSection>
-      </RefundCard>
+      </OwedCard>
       <RefundActions invoiceNumber={invoice.invoiceNumber}>
         <Alert text={notice} />
         <p className="text-center text-xs text-muted-foreground lg:text-frame-label">{t("policy.final")}</p>
@@ -299,7 +303,7 @@ export function ClaimMode({
 
   return (
     <>
-      <RefundCard
+      <OwedCard
         head={
           <RefundHead
             amount={amount}
@@ -308,9 +312,10 @@ export function ClaimMode({
             title={t("head.claim")}
             tone="primary"
           >
-            <OwedFacts booking={booking} invoice={invoice} owed={exit} />
+            <RefundFacts booking={booking} invoice={invoice} />
           </RefundHead>
         }
+        owed={exit}
       >
         <RefundSection heading={t("progress.heading")}>
           <RefundList ordered>
@@ -319,7 +324,7 @@ export function ClaimMode({
             <RefundRow icon={Circle} sub={t("progress.refundSub.confirm")} title={refundLine(exit.refundSatang)} />
           </RefundList>
         </RefundSection>
-      </RefundCard>
+      </OwedCard>
       <RefundActions invoiceNumber={invoice.invoiceNumber}>
         <Alert text={attempt === "failed" ? t("errors.claimFailed") : notice} />
         <Button

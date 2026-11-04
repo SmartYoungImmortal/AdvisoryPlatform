@@ -145,6 +145,14 @@ export function RefundStatusMode({
             <RefundFacts booking={booking} invoice={invoice} />
           </RefundHead>
         }
+        // Under both cells: beside the steps it would leave the head's cell short by its own height.
+        foot={
+          evidenceFor ? (
+            <RefundSection heading={t("attachments.label")}>
+              <EvidencePicker refundId={evidenceFor} />
+            </RefundSection>
+          ) : undefined
+        }
       >
         <RefundSection heading={t("progress.heading")}>
           <RefundList ordered>
@@ -160,11 +168,6 @@ export function RefundStatusMode({
             ))}
           </RefundList>
         </RefundSection>
-        {evidenceFor ? (
-          <RefundSection heading={t("attachments.label")}>
-            <EvidencePicker refundId={evidenceFor} />
-          </RefundSection>
-        ) : null}
       </RefundCard>
 
       <RefundActions invoiceNumber={invoice.invoiceNumber}>

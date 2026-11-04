@@ -143,17 +143,23 @@ function Sheet({ card = invoice.card }: { readonly card?: ApiAdviseeInvoice["car
             tone="primary"
           >
             <RefundFacts booking={booking} invoice={{ ...invoice, card }} />
-            <RefundBox
-              heading={t("box.heading")}
-              lines={[
-                { label: t("box.service"), value: when.baht(40_000) },
-                { label: t("box.fee"), value: when.baht(0) },
-              ]}
-              total={{ label: t("box.total"), value: when.baht(40_000) }}
-            />
           </RefundHead>
         }
+        aside={
+          <RefundSection heading={t("attachments.label")}>
+            <p>{t("attachments.limits")}</p>
+          </RefundSection>
+        }
       >
+        <RefundSection heading={t("box.heading")}>
+          <RefundBox
+            lines={[
+              { label: t("box.service"), value: when.baht(40_000) },
+              { label: t("box.fee"), value: when.baht(0) },
+            ]}
+            total={{ label: t("box.total"), value: when.baht(40_000) }}
+          />
+        </RefundSection>
         <RefundSection heading={t("policy.heading")}>
           <RefundList>
             <RefundRow
@@ -287,14 +293,33 @@ describe("RefundCard", () => {
     expect(headCell?.className).not.toContain("border-l");
   });
 
-  it("puts each section under a dashed rule that the first drops from lg", () => {
+  it("puts each section under a dashed rule that only the right cell's first drops from lg", () => {
     inLocale("th", <Sheet />);
-    for (const name of ["เงื่อนไขการยกเลิก", "ความคืบหน้า"]) {
+    for (const name of ["ยอดที่ได้คืน", "เงื่อนไขการยกเลิก", "ความคืบหน้า", "หลักฐาน (ไม่บังคับ)"]) {
       const section = screen.getByRole("heading", { level: 2, name }).closest("section");
       expect(section?.className).toContain("border-t");
       expect(section?.className).toContain("border-dashed");
-      expect(section?.className).toContain("lg:first:border-t-0");
+      expect(section?.className).toContain("lg:group-data-[cell=sections]/cell:first:border-t-0");
+      expect(section?.className).not.toContain("lg:first:border-t-0");
     }
+    const sectionsCell = screen.getByRole("heading", { level: 2, name: "ยอดที่ได้คืน" }).closest("section")?.parentElement;
+    expect(sectionsCell?.getAttribute("data-cell")).toBe("sections");
+    expect(sectionsCell?.className).toContain("group/cell");
+  });
+
+  it("from lg sets the aside under the head in the left cell, and on a phone after the sections", () => {
+    inLocale("th", <Sheet />);
+    const card = screen.getByRole("article");
+    const [headCell, sectionsCell, asideCell] = [...card.children];
+    expect(headCell.querySelector("h1")).toBeTruthy();
+    expect(within(sectionsCell as HTMLElement).getByRole("heading", { level: 2, name: "เงื่อนไขการยกเลิก" })).toBeTruthy();
+    expect(within(asideCell as HTMLElement).getByRole("heading", { level: 2, name: "หลักฐาน (ไม่บังคับ)" })).toBeTruthy();
+    expect(card.className).toContain("lg:grid-rows-[auto_1fr]");
+    expect(headCell.className).toContain("lg:row-start-1");
+    expect(sectionsCell.className).toContain("lg:row-span-2");
+    expect(asideCell.className).toContain("lg:col-start-1");
+    expect(asideCell.className).toContain("lg:row-start-2");
+    expect(asideCell.getAttribute("data-cell")).toBeNull();
   });
 });
 

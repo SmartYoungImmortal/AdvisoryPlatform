@@ -149,6 +149,11 @@ export function ReportMode({
             <RefundFacts booking={booking} invoice={invoice} />
           </RefundHead>
         }
+        aside={
+          <RefundSection heading={t("attachments.label")}>
+            <EvidencePicker disabled={busy} files={files} onChange={setFiles} />
+          </RefundSection>
+        }
       >
         <form
           className="flex flex-col"
@@ -218,10 +223,6 @@ export function ReportMode({
                 </p>
               </div>
             </div>
-          </RefundSection>
-
-          <RefundSection heading={t("attachments.label")}>
-            <EvidencePicker disabled={busy} files={files} onChange={setFiles} />
           </RefundSection>
         </form>
       </RefundCard>

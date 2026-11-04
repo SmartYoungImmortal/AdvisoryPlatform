@@ -84,25 +84,51 @@ export function useSupportMail(invoiceNumber: string): string {
  * From `lg` the page is the bookings' wide column, so the sheet opens into
  * two cells (head left, sections right behind a dashed rule) rather than
  * stretching one receipt across it.
+ *
+ * Two places keep the cells ending level, as the receipt's sheet does. From
+ * `lg`, `aside` sits under the head in the left cell, and `foot` runs across
+ * the whole card under both. On a phone both follow the other sections, in
+ * the order the task is done.
  */
 export function RefundCard({
   head,
+  aside,
+  foot,
   children,
   className,
 }: {
   readonly head: ReactNode;
+  readonly aside?: ReactNode;
+  readonly foot?: ReactNode;
   readonly children: ReactNode;
   readonly className?: string;
 }) {
   return (
     <article
       className={cn(
-        "flex w-full flex-col rounded-card border border-hero-card-border bg-card shadow-hero-card lg:grid lg:grid-cols-2",
+        "flex w-full flex-col rounded-card border border-hero-card-border bg-card shadow-hero-card lg:grid lg:grid-cols-2 lg:grid-rows-[auto_1fr_auto]",
         className,
       )}
     >
-      <div className="flex min-w-0 flex-col">{head}</div>
-      <div className="flex min-w-0 flex-col lg:border-l lg:border-dashed lg:border-border">{children}</div>
+      <div className="flex min-w-0 flex-col lg:col-start-1 lg:row-start-1" data-cell="head">
+        {head}
+      </div>
+      <div
+        className="group/cell flex min-w-0 flex-col lg:col-start-2 lg:row-span-2 lg:row-start-1 lg:border-l lg:border-dashed lg:border-border"
+        data-cell="sections"
+      >
+        {children}
+      </div>
+      {aside ? (
+        <div className="flex min-w-0 flex-col lg:col-start-1 lg:row-start-2" data-cell="aside">
+          {aside}
+        </div>
+      ) : null}
+      {foot ? (
+        <div className="flex min-w-0 flex-col lg:col-span-2 lg:row-start-3" data-cell="foot">
+          {foot}
+        </div>
+      ) : null}
     </article>
   );
 }
@@ -201,46 +227,37 @@ export function RefundFacts({
 
 export type RefundBoxLine = { readonly label: string; readonly value: string };
 
-export function RefundBox({
-  heading,
-  lines,
-  total,
-}: {
-  readonly heading?: string;
-  readonly lines: readonly RefundBoxLine[];
-  readonly total: RefundBoxLine;
-}) {
+/** The half refund's lines on the receipt's faint ground; it sits in a `RefundSection`, which heads it. */
+export function RefundBox({ lines, total }: { readonly lines: readonly RefundBoxLine[]; readonly total: RefundBoxLine }) {
   return (
-    <div className="mt-4 md:mt-5 lg:mt-7">
-      {heading ? <h2 className="mb-1.5 text-xs font-medium text-muted-foreground md:mb-2 lg:mb-4 lg:text-frame-label">{heading}</h2> : null}
-      <dl className="flex flex-col gap-1.5 rounded-xl bg-muted/50 p-2.5 md:gap-2 md:p-3 lg:gap-4 lg:p-5">
-        {lines.map((line) => (
-          <div className="flex items-baseline justify-between gap-4" key={line.label}>
-            <dt className="min-w-0 text-xs text-muted-foreground lg:text-frame-meta">{line.label}</dt>
-            <dd className="shrink-0 text-right font-latin text-xs whitespace-nowrap text-foreground tabular-nums lg:text-frame-meta">
-              {line.value}
-            </dd>
-          </div>
-        ))}
-        <div className="flex items-baseline justify-between gap-4 border-t border-border pt-3 lg:pt-4">
-          <dt className="text-xs font-semibold text-foreground lg:text-frame-body">{total.label}</dt>
-          <dd className="font-latin text-sm font-semibold tabular-nums text-foreground lg:text-frame-figure">{total.value}</dd>
+    <dl className="flex flex-col gap-1.5 rounded-xl bg-muted/50 p-2.5 md:gap-2 md:p-3 lg:gap-4 lg:p-5">
+      {lines.map((line) => (
+        <div className="flex items-baseline justify-between gap-4" key={line.label}>
+          <dt className="min-w-0 text-xs text-muted-foreground lg:text-frame-meta">{line.label}</dt>
+          <dd className="shrink-0 text-right font-latin text-xs whitespace-nowrap text-foreground tabular-nums lg:text-frame-meta">
+            {line.value}
+          </dd>
         </div>
-      </dl>
-    </div>
+      ))}
+      <div className="flex items-baseline justify-between gap-4 border-t border-border pt-3 lg:pt-4">
+        <dt className="text-xs font-semibold text-foreground lg:text-frame-body">{total.label}</dt>
+        <dd className="font-latin text-sm font-semibold tabular-nums text-foreground lg:text-frame-figure">{total.value}</dd>
+      </div>
+    </dl>
   );
 }
 
 /**
- * From `lg` the first section sits at the top of the card's right cell, whose
+ * From `lg` the first section of the card's right cell sits at its top, whose
  * dashed edge already divides it from the head, so it drops its own rule and
- * starts level with the head.
+ * starts level with the head. A section under the head (`aside`) keeps its rule.
  */
 export function RefundSection({ heading, children }: { readonly heading: string; readonly children: ReactNode }) {
   return (
     <section
       className={cn(
-        "border-t border-dashed border-border pt-2.5 pb-3 md:pt-3 md:pb-4 lg:pt-6 lg:pb-9 lg:first:border-t-0 lg:first:pt-9",
+        "border-t border-dashed border-border pt-2.5 pb-3 md:pt-3 md:pb-4 lg:pt-6 lg:pb-9",
+        "lg:group-data-[cell=sections]/cell:first:border-t-0 lg:group-data-[cell=sections]/cell:first:pt-9",
         SHEET_X,
       )}
     >

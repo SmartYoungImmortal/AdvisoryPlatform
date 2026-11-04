@@ -22,6 +22,9 @@ async function shown(locator: Locator) {
   });
 }
 
+/** One row of the card at 1440 as drawn: a step's two lines and the gap after them. */
+const ROW = 64;
+
 /** Next keeps an empty route announcer in the alert role, so an alert is found by what it says. */
 function alertSaying(page: Page, text: string) {
   return page.getByRole("alert").filter({ hasText: text });
@@ -72,7 +75,7 @@ for (const size of sizes) {
       expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBe(size.width);
 
       await confirm.click();
-      await expect(title).toHaveText("กำลังคืนเงิน");
+      await expect(title).toHaveText("ส่งเรื่องคืนเงินแล้ว");
       await expect(page).toHaveURL(new RegExp(`/bookings/refund\\?bookingId=${ids.booking}$`));
       await expect(page.getByRole("list").filter({ hasText: "ยกเลิกการจองแล้ว" }).getByRole("listitem")).toHaveCount(3);
       await expect(page.getByText("รอทีมงานตรวจสอบ")).toHaveCount(0);
@@ -144,7 +147,7 @@ test("a booking the advisor cancelled is owed the whole charge with one press", 
   await expect(page.getByRole("heading", { level: 1 })).toHaveText("การจองนี้ยกเลิกแล้ว");
   await expect(page.getByRole("textbox")).toHaveCount(0);
   await page.getByRole("button", { name: "รับเงินคืน ฿1,000" }).click();
-  await expect(page.getByRole("heading", { level: 1 })).toHaveText("กำลังคืนเงิน");
+  await expect(page.getByRole("heading", { level: 1 })).toHaveText("ส่งเรื่องคืนเงินแล้ว");
   expect(api.calls).toEqual(["POST /refunds"]);
   expect(api.reasons[0]?.split("\n")[0]).toBe("ที่ปรึกษาหรือทีมงานยกเลิก · คืนเต็มจำนวน ฿1,000");
 });
@@ -170,9 +173,11 @@ test.describe("a request's status", () => {
     await expect(page.getByText("แนบหลักฐานเพิ่ม")).toBeVisible();
   });
 
-  test("an approved request is on its way back", async ({ page }) => {
+  test("an approved request waits on the refund, and never says the money is back or on its way", async ({ page }) => {
     await open(page, { startsIn: -before.days(2), state: "COMPLETED", cases: [{ status: "APPROVED", createdAgo: before.days(1) }] });
-    await expect(page.getByRole("heading", { level: 1 })).toHaveText("อนุมัติแล้ว กำลังคืนเงิน");
+    await expect(page.getByRole("heading", { level: 1 })).toHaveText("อนุมัติแล้ว · รอคืนเงิน");
+    await expect(page.getByText("รอดำเนินการคืนเงิน แล้วเงินเข้าตามรอบของธนาคารผู้ออกบัตร")).toBeVisible();
+    await expect(page.getByText(/คืนเงินแล้ว|กำลังคืน/)).toHaveCount(0);
   });
 
   test("a rejected request ends at the team, with support as the way on", async ({ page }) => {
@@ -186,6 +191,55 @@ test.describe("a request's status", () => {
     await expect(page.getByRole("heading", { level: 1 })).toHaveText("คืนเงินแล้ว");
     // A capsule that is a link: Base UI draws it as an anchor in the button role.
     await expect(page.getByRole("button", { name: "ดูใบเสร็จ" })).toHaveAttribute("href", `/transactions/detail?id=${ids.invoice}`);
+  });
+});
+
+/**
+ * Where each cell's last section ends, on screen. The grid gives both cells
+ * one height, so the gap between the two is the blank the shorter one shows.
+ * A foot runs under both and is no cell's.
+ */
+async function cellEnds(page: Page) {
+  return page.locator("article").first().evaluate((card) => {
+    const end = (cell: string) =>
+      Math.max(0, ...[...card.querySelectorAll(`:scope > [data-cell="${cell}"] section`)].map((section) => section.getBoundingClientRect().bottom));
+    const foot = card.querySelector(':scope > [data-cell="foot"]');
+    return {
+      left: Math.round(Math.max(end("head"), end("aside"))),
+      right: Math.round(end("sections")),
+      foot: foot ? Math.round(foot.getBoundingClientRect().top) : null,
+    };
+  });
+}
+
+test.describe("at 1440 the card's two cells end level", () => {
+  const scenes: readonly (readonly [string, RefundScenario])[] = [
+    ["cancel, full", { startsIn: before.days(3) }],
+    ["cancel, half", { startsIn: before.hours(5) }],
+    ["claim, half", { startsIn: before.days(1), cancelled: { by: "advisee", before: before.hours(3) } }],
+    ["claim, full", { startsIn: before.days(2), cancelled: { by: "advisor", before: before.days(2) + before.hours(1) } }],
+    ["status of a cancellation", { startsIn: before.days(2), cancelled: { by: "advisee", before: before.days(3) }, cases: [{ status: "OPEN", createdAgo: before.hours(5) }] }],
+    ["report", { startsIn: -before.hours(2) }],
+    ["status of a report", { startsIn: -before.days(1), cases: [{ status: "OPEN", createdAgo: before.hours(5) }] }],
+  ];
+  for (const [name, scene] of scenes) {
+    test(name, async ({ page }) => {
+      await open(page, scene);
+      await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
+      const ends = await cellEnds(page);
+      expect(Math.abs(ends.left - ends.right), `left ends at ${ends.left}, right at ${ends.right}`).toBeLessThanOrEqual(ROW);
+      if (ends.foot !== null) expect(ends.foot, "the foot starts under both cells").toBeGreaterThanOrEqual(Math.max(ends.left, ends.right));
+    });
+  }
+
+  test("on a phone the half refund reads head, box, then the rule, one under the other", async ({ page }) => {
+    await open(page, { startsIn: before.hours(5) }, 390);
+    await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
+    const order = await page.locator("article").first().evaluate((card) =>
+      [...card.querySelectorAll("h1, h2")].map((heading) => [heading.textContent, Math.round(heading.getBoundingClientRect().top)] as const),
+    );
+    expect(order.map(([name]) => name)).toEqual(["ยกเลิกการจอง · คืน 50% ของค่าบริการ", "ยอดที่ได้คืน", "เงื่อนไขการยกเลิก"]);
+    expect(order.map(([, y]) => y)).toEqual([...order.map(([, y]) => y)].sort((a, b) => a - b));
   });
 });
 
