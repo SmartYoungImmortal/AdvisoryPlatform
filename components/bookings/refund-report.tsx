@@ -209,9 +209,10 @@ export function ReportMode({
                     key={option.value}
                   >
                     <span className="flex min-w-0 flex-1 flex-col gap-0.5">
-                      <span className="text-sm text-pretty text-foreground lg:text-frame-meta">{t(`reasons.${option.value}`)}</span>
+                      {/* Balanced, not pretty: Chrome's pretty still left a Thai hint's last word alone on its line at 390. */}
+                      <span className="text-sm text-balance text-foreground lg:text-frame-meta">{t(`reasons.${option.value}`)}</span>
                       {"hint" in option ? (
-                        <span className="text-xs text-pretty text-muted-foreground lg:text-frame-label">{t(option.hint)}</span>
+                        <span className="text-xs text-balance text-muted-foreground lg:text-frame-label">{t(option.hint)}</span>
                       ) : null}
                     </span>
                     <RadioGroupItem className="size-5" value={option.value} />
