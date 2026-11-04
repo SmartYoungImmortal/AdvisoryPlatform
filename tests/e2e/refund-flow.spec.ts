@@ -243,6 +243,30 @@ test.describe("at 1440 the card's two cells end level", () => {
   });
 });
 
+test.describe("in English at 390", () => {
+  const scenes: readonly (readonly [string, RefundScenario, string])[] = [
+    ["cancel, half", { startsIn: before.hours(5) }, "Cancel booking · 50% of the service fee back"],
+    ["status, approved", { startsIn: -before.days(2), state: "COMPLETED", cases: [{ status: "APPROVED", createdAgo: before.days(1) }] }, "Approved · refund pending"],
+    ["status, open cancellation", { startsIn: before.days(2), cancelled: { by: "advisee", before: before.days(3) }, cases: [{ status: "OPEN", createdAgo: before.hours(5) }] }, "Refund requested"],
+  ];
+  for (const [name, scene, heading] of scenes) {
+    test(name, async ({ page }) => {
+      await page.addInitScript(() => window.localStorage.setItem("advisory.locale", "en"));
+      await open(page, scene, 390);
+      await expect(page.getByRole("heading", { level: 1 })).toHaveText(heading);
+      await expect(page.getByText(/bookingRefund\.|bookings\.[a-z]/)).toHaveCount(0);
+      expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBe(390);
+      const spill = await page.locator("article").first().evaluate((card) => {
+        const edge = card.getBoundingClientRect();
+        return [...card.querySelectorAll("h1, h2, p, dt, dd")]
+          .filter((node) => node.scrollWidth > node.clientWidth + 1 || node.getBoundingClientRect().right > edge.right + 1)
+          .map((node) => node.textContent);
+      });
+      expect(spill, "no line runs past its box or the card").toEqual([]);
+    });
+  }
+});
+
 test("past seven days after the end the window is closed, with the day it closed", async ({ page }) => {
   await open(page, { startsIn: -before.days(8) });
   await expect(page.getByText("เลยระยะขอคืนเงินแล้ว")).toBeVisible();
