@@ -288,20 +288,23 @@ export function RefundRow({
   readonly current?: boolean;
   readonly trailing?: ReactNode;
 }) {
+  // `trailing` follows the title on its line, so in a row that runs the card's whole width it stays with the words it marks.
   return (
     <li aria-current={current || undefined} className="flex items-start gap-3">
       <Icon aria-hidden className={cn("size-5 shrink-0 lg:mt-0.5", TONE[tone].icon)} />
       <div className="flex min-w-0 flex-1 flex-col gap-0.5">
-        <p className={cn("text-sm lg:text-frame-meta", current ? "font-medium text-foreground" : "text-muted-foreground")}>
-          <Figures>{title}</Figures>
-        </p>
+        <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+          <p className={cn("min-w-0 text-sm lg:text-frame-meta", current ? "font-medium text-foreground" : "text-muted-foreground")}>
+            <Figures>{title}</Figures>
+          </p>
+          {trailing}
+        </div>
         {sub ? (
           <p className="text-xs text-muted-foreground lg:text-frame-label">
             <Figures>{sub}</Figures>
           </p>
         ) : null}
       </div>
-      {trailing}
     </li>
   );
 }

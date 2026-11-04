@@ -351,7 +351,7 @@ function PaymentLine({
     <p className="mt-1 text-xs text-muted-foreground lg:text-frame-label" role="status">
       {t("moneyFailed")}{" "}
       <Button
-        className="h-auto border-0 px-0 py-1.5 align-baseline text-xs font-medium lg:text-frame-label"
+        className="-my-3 h-11 border-0 px-0 align-middle text-xs font-medium lg:text-frame-label"
         onClick={money.reload}
         type="button"
         variant="link"

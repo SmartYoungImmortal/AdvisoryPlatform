@@ -349,6 +349,8 @@ describe("RefundRow", () => {
     expect(within(rows[0]).getByText("ตอนนี้")).toBeTruthy();
     expect(rows[0].querySelector("p")?.className).toContain("font-medium");
     expect(rows[0].querySelector("p")?.className).toContain("text-foreground");
+    // The pill rides on the title's line, never pushed to the far edge of a row that spans the card.
+    expect(within(rows[0]).getByText("ตอนนี้").parentElement).toBe(rows[0].querySelector("p")?.parentElement);
     for (const row of rows.slice(1)) {
       expect(row.getAttribute("aria-current")).toBeNull();
       expect(within(row).queryByText("ตอนนี้")).toBeNull();
