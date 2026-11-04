@@ -314,12 +314,28 @@ describe("RefundCard", () => {
     expect(headCell.querySelector("h1")).toBeTruthy();
     expect(within(sectionsCell as HTMLElement).getByRole("heading", { level: 2, name: "เงื่อนไขการยกเลิก" })).toBeTruthy();
     expect(within(asideCell as HTMLElement).getByRole("heading", { level: 2, name: "หลักฐาน (ไม่บังคับ)" })).toBeTruthy();
-    expect(card.className).toContain("lg:grid-rows-[auto_1fr]");
+    expect(card.className).toContain("lg:grid-rows-[auto_1fr_auto]");
     expect(headCell.className).toContain("lg:row-start-1");
     expect(sectionsCell.className).toContain("lg:row-span-2");
     expect(asideCell.className).toContain("lg:col-start-1");
     expect(asideCell.className).toContain("lg:row-start-2");
-    expect(asideCell.getAttribute("data-cell")).toBeNull();
+    // Only the right cell is "sections", whose first section drops its rule.
+    expect(asideCell.getAttribute("data-cell")).toBe("aside");
+  });
+
+  it("from lg runs a foot under both cells, last on a phone", () => {
+    inLocale(
+      "th",
+      <RefundCard foot={<RefundSection heading="ท้าย">{null}</RefundSection>} head={<h1>หัว</h1>}>
+        <RefundSection heading="ขวา">{null}</RefundSection>
+      </RefundCard>,
+    );
+    const card = screen.getByRole("article");
+    const foot = card.lastElementChild!;
+    expect(foot.getAttribute("data-cell")).toBe("foot");
+    expect(foot.className).toContain("lg:col-span-2");
+    expect(foot.className).toContain("lg:row-start-3");
+    expect(within(foot as HTMLElement).getByRole("heading", { level: 2 }).textContent).toBe("ท้าย");
   });
 });
 
