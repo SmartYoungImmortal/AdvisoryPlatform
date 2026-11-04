@@ -18,10 +18,9 @@ import { useId, useState, type ReactNode } from "react";
 
 import { DESKTOP_TYPE_LIFT } from "@/components/account/account-shell";
 import { AUTH_LINK } from "@/components/auth/auth-split";
-import { refundHref, type BookingExit } from "@/components/bookings/booking-exit";
+import { canReschedule, refundHref, type BookingExit } from "@/components/bookings/booking-exit";
 import {
   baht,
-  isCancellable,
   liveAdvisorHref,
   liveServiceHref,
   BOOKING_BUCKET,
@@ -31,7 +30,7 @@ import { CancellationFeedback } from "@/components/bookings/cancellation-feedbac
 import { useRefundFormat } from "@/components/bookings/refund-sheet";
 import { RescheduleSlots } from "@/components/bookings/reschedule-booking";
 import { useBookingCancellation } from "@/components/bookings/use-booking-cancellation";
-import { useBookingExit } from "@/components/bookings/use-booking-exit";
+import { useBookingExit, type BookingMoney } from "@/components/bookings/use-booking-exit";
 import { faceFor } from "@/components/chat/chat-avatar";
 import { chatWithHref } from "@/components/chat/chat-data";
 import { Figures } from "@/components/figures";
@@ -39,7 +38,7 @@ import { SHEET_W, SHEET_X } from "@/components/payment/invoice-screens";
 import { invoiceHref } from "@/components/payment/transactions-data";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogClose, DialogContent } from "@/components/ui/dialog";
-import type { ApiAdviseeInvoice, ApiBooking, ApiPublicAdvisor, ApiPublicService } from "@/lib/api/types";
+import type { ApiBooking, ApiPublicAdvisor, ApiPublicService } from "@/lib/api/types";
 import { cn } from "@/lib/utils";
 import { useBookingMeeting } from "@/components/bookings/use-booking-meeting";
 
@@ -335,17 +334,32 @@ function MoneyNote({
 function PaymentLine({
   booking,
   service,
-  invoice,
+  money,
   exit,
 }: {
   readonly booking: ApiBooking;
   readonly service: ApiPublicService | undefined;
-  readonly invoice: ApiAdviseeInvoice | null | undefined;
+  readonly money: BookingMoney;
   readonly exit: BookingExit;
 }) {
   const t = useTranslations("bookings");
   const tr = useTranslations("transactions");
   const format = useFormatter();
+  const { invoice } = money;
+  // A failed read says so with a way to ask again: today's list price in its place would pass for what was paid.
+  const failed = money.error ? (
+    <p className="mt-1 text-xs text-muted-foreground lg:text-frame-label" role="status">
+      {t("moneyFailed")}{" "}
+      <Button
+        className="h-auto border-0 px-0 py-1.5 align-baseline text-xs font-medium lg:text-frame-label"
+        onClick={money.reload}
+        type="button"
+        variant="link"
+      >
+        {t("detailsRetry")}
+      </Button>
+    </p>
+  ) : null;
 
   if (invoice) {
     return (
@@ -356,10 +370,11 @@ function PaymentLine({
         <Link className="font-medium text-primary underline-offset-4 hover:underline" href={invoiceHref(invoice.id)}>
           {t("viewReceipt")}
         </Link>
-        <MoneyNote bookingId={booking.id} chargedSatang={invoice.amountSatang} exit={exit} />
+        {failed ?? <MoneyNote bookingId={booking.id} chargedSatang={invoice.amountSatang} exit={exit} />}
       </Line>
     );
   }
+  if (failed) return <Line icon={Banknote}>{failed}</Line>;
   if (!service) return null;
   return (
     <Line icon={Banknote}>
@@ -438,7 +453,8 @@ export function BookingSheet({
   const start = new Date(booking.startTime);
   const minutes = Math.round((Date.parse(booking.endTime) - start.getTime()) / 60_000);
   const ahead = bookingPhase(booking, now) === "ahead";
-  const changeable = ahead && isCancellable(booking.state);
+  // §8: once, and only while the start is 24 hours or more away (a later move would turn half a refund into all of it).
+  const changeable = canReschedule({ booking, invoice: money.invoice, now });
   // Only a held time goes in a calendar: an unpaid one may never happen.
   const keepable = ahead && (booking.state === "BOOKED" || booking.state === "IN_PROGRESS");
   const stamp = (iso: string) =>
@@ -503,7 +519,7 @@ export function BookingSheet({
           <ChevronRight aria-hidden className="size-4 shrink-0 text-muted-foreground lg:size-5" />
         </Link>
         <Line icon={Clock3}>{t("detailsDuration", { count: minutes })}</Line>
-        <PaymentLine booking={booking} exit={exit} invoice={money.invoice} service={service} />
+        <PaymentLine booking={booking} exit={exit} money={money} service={service} />
         <Line icon={CalendarPlus}>
           <span className="text-muted-foreground">{t("detailsCreatedLabel")}</span> <Figures>{stamp(booking.createdAt)}</Figures>
         </Line>

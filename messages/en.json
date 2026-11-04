@@ -1009,6 +1009,7 @@
     "detailsFailedTitle": "Unable to load booking",
     "detailsFailedBody": "Please try again.",
     "detailsRetry": "Try again",
+    "moneyFailed": "Couldn't load what was paid or refunded.",
     "detailsAdvisorLabel": "Advisor",
     "detailsServiceLabel": "Service",
     "detailsLoadingValue": "Loading…",

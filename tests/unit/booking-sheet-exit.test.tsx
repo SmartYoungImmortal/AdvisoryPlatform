@@ -2,7 +2,7 @@ import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { NextIntlClientProvider } from "next-intl";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import type { ApiAdviseeInvoice, ApiBooking, ApiRefundCase } from "@/lib/api/types";
+import type { ApiAdviseeInvoice, ApiBooking, ApiPublicService, ApiRefundCase } from "@/lib/api/types";
 import { formats } from "@/lib/i18n/requests";
 import messages from "@/messages/th.json";
 
@@ -14,14 +14,18 @@ import messages from "@/messages/th.json";
 const reads = vi.hoisted(() => ({
   invoice: undefined as ApiAdviseeInvoice | null | undefined,
   cases: [] as readonly ApiRefundCase[] | undefined,
+  /** The invoice read failed (a 500, or no answer). */
+  invoiceError: null as Error | null,
+  reloads: [] as string[],
 }));
 vi.mock("@/lib/api/use-resource", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@/lib/api/use-resource")>()),
   useResource: (key: string) => {
     let data: unknown;
-    if (key.startsWith("payment/invoices/for-booking/")) data = reads.invoice;
+    let error: Error | null = null;
+    if (key.startsWith("payment/invoices/for-booking/")) [data, error] = [reads.invoice, reads.invoiceError];
     else if (key.startsWith("refunds/me")) data = reads.cases;
-    return { data, loading: data === undefined, error: null, reload: () => undefined };
+    return { data, loading: data === undefined && error === null, error, reload: () => reads.reloads.push(key) };
   },
 }));
 vi.mock("@/components/bookings/use-booking-meeting", () => ({
@@ -109,10 +113,10 @@ const THREE_DAYS_OUT = "2026-11-07T09:00:00Z";
 /** Tuesday 3 Nov 2026, 15:00 to 16:00 in Bangkok: yesterday. */
 const YESTERDAY = "2026-11-03T08:00:00Z";
 
-function show(booking: ApiBooking) {
+function show(booking: ApiBooking, service?: ApiPublicService) {
   return render(
     <NextIntlClientProvider formats={formats} locale="th" messages={messages} timeZone="Asia/Bangkok">
-      <BookingSheet entry={{ booking, service: undefined, advisor: undefined }} now={now} onChanged={() => undefined} />
+      <BookingSheet entry={{ booking, service, advisor: undefined }} now={now} onChanged={() => undefined} />
     </NextIntlClientProvider>,
   );
 }
@@ -128,6 +132,8 @@ afterEach(() => {
   cleanup();
   reads.invoice = undefined;
   reads.cases = [];
+  reads.invoiceError = null;
+  reads.reloads.length = 0;
 });
 
 describe("the booking popup's one way out (FE #114)", () => {
@@ -214,6 +220,31 @@ describe("the booking popup's one way out (FE #114)", () => {
     expect(said(container)).toMatch(/ยกเลิกได้ คืน 50% ของค่าบริการ ถึง \S+ 4 พ\.ย\. 2569 · 17:00/);
     expect(said(container)).not.toContain("คืนเต็มจำนวน");
     expect(capsules("ยกเลิกการจอง")).toHaveLength(0);
+    // §8 moves a booking free only 24 hours or more ahead: moving it now and cancelling later would turn ฿400 into ฿1,000.
+    expect(capsules("เปลี่ยนเวลานัด")).toHaveLength(0);
+  });
+
+  it("offers no second move on a booking that is already its one reschedule", () => {
+    const booking = bookingAt(THREE_DAYS_OUT, { createdAt: "2026-11-02T03:00:00Z" });
+    reads.invoice = paidFor(booking);
+    show(booking);
+    expect(capsules("ยกเลิกและรับเงินคืน")).toHaveLength(1);
+    expect(capsules("เปลี่ยนเวลานัด")).toHaveLength(0);
+  });
+
+  it("says a failed money read failed, with a retry, instead of today's list price", () => {
+    const booking = bookingAt(THREE_DAYS_OUT);
+    reads.invoiceError = new Error("500");
+    const service = { id: "service", priceSatang: 140_000, name: "Service" } as ApiPublicService;
+    const { container } = show(booking, service);
+
+    expect(said(container)).not.toContain("฿1,400");
+    expect(said(container)).not.toContain("ราคาบริการ");
+    expect(screen.getByText("โหลดยอดที่ชำระและเงินคืนไม่สำเร็จ", { exact: false })).toBeTruthy();
+    for (const exit of ["ยกเลิกการจอง", "ยกเลิกและรับเงินคืน", "เปลี่ยนเวลานัด"]) expect(capsules(exit)).toHaveLength(0);
+
+    fireEvent.click(screen.getByRole("button", { name: "ลองอีกครั้ง" }));
+    expect(reads.reloads.some((key) => key.startsWith("payment/invoices/for-booking/"))).toBe(true);
   });
 
   it("offers no cancel once an unpaid booking's time has begun", () => {

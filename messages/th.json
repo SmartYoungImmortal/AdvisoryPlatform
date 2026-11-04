@@ -485,6 +485,7 @@
     "detailsFailedTitle": "โหลดรายละเอียดการจองไม่สำเร็จ",
     "detailsFailedBody": "กรุณาลองอีกครั้ง",
     "detailsRetry": "ลองอีกครั้ง",
+    "moneyFailed": "โหลดยอดที่ชำระและเงินคืนไม่สำเร็จ",
     "detailsLoadingValue": "กำลังโหลด…",
     "detailsAdvisorLabel": "ผู้ให้คำปรึกษา",
     "detailsServiceLabel": "บริการ",
