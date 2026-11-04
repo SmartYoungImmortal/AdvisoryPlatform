@@ -1,4 +1,4 @@
-import { cleanup, render, screen } from "@testing-library/react";
+import { act, cleanup, render, screen } from "@testing-library/react";
 import { NextIntlClientProvider, type Messages } from "next-intl";
 import type { ReactNode } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -34,6 +34,29 @@ vi.mock("@/components/account/account-shell", async (original) => ({
   AccountShell: ({ children }: { children: ReactNode }) => children,
 }));
 vi.mock("next/image", () => ({ default: () => null }));
+// The router re-renders whoever reads the search params on a push; a push fires no popstate.
+const nav = vi.hoisted(() => {
+  const readers = new Set<() => void>();
+  return {
+    readers,
+    push(url: string) {
+      window.history.pushState(null, "", url);
+      for (const reader of readers) reader();
+    },
+  };
+});
+vi.mock("next/navigation", async () => {
+  const { useSyncExternalStore } = await import("react");
+  const subscribe = (onChange: () => void) => {
+    nav.readers.add(onChange);
+    return () => {
+      nav.readers.delete(onChange);
+    };
+  };
+  return {
+    useSearchParams: () => new URLSearchParams(useSyncExternalStore(subscribe, () => window.location.search)),
+  };
+});
 
 const { ApiError } = await import("@/lib/api/client");
 const { BookingRefundScreen } = await import("@/components/bookings/booking-refund-screen");
@@ -162,5 +185,26 @@ describe("while the money loads", () => {
     const backs = screen.getAllByRole("link", { name: new RegExp(th.bookingRefund.actions.back) });
     expect(backs.length).toBeGreaterThan(0);
     for (const link of backs) expect(link.getAttribute("href")).toBe(`/bookings?bookingId=${id}`);
+  });
+});
+
+describe("a move to another booking on the same page (FE #108)", () => {
+  it("shows the booking the new query names, not the one the page opened with", () => {
+    const cancelled = cancelledBy("advisee", 6 * DAY, DAY);
+    answer(cancelled, invoiceFor(cancelled), [request("OPEN")]);
+    const other = "1fba6ff8-1d9a-4aff-9a19-752c89fcd30d";
+    const ended = { ...bookingAt(-2 * DAY), id: other };
+    api.answers.set(`bookings/${other}`, { data: ended });
+    api.answers.set(`payment/invoices/for-booking/${other}`, { data: invoiceFor(ended) });
+    show("th");
+    expect(screen.getByRole("heading", { level: 1 }).textContent).toBe(th.bookingRefund.stage.refunding);
+
+    api.answers.set("refunds/me", { data: [] });
+    act(() => nav.push(`/bookings/refund?bookingId=${other}`));
+
+    expect(screen.getByRole("heading", { level: 1 }).textContent).toBe(th.bookingRefund.head.report);
+    for (const link of screen.getAllByRole("link", { name: new RegExp(th.bookingRefund.actions.back) })) {
+      expect(link.getAttribute("href")).toBe(`/bookings?bookingId=${other}`);
+    }
   });
 });

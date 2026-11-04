@@ -1,11 +1,12 @@
 "use client";
 
-import { useCallback, useState, type ReactNode } from "react";
+import { Suspense, useCallback, useState, type ReactNode } from "react";
+import { useSearchParams } from "next/navigation";
 import { useTranslations } from "next-intl";
 
 import { BookingDetailState, DetailColumn } from "@/components/bookings/booking-detail-screen";
 import { bookingExit, bookingPopupHref } from "@/components/bookings/booking-exit";
-import { asUuid, useMountTime, useQueryValue } from "@/components/bookings/booking-flow";
+import { asUuid, useMountTime } from "@/components/bookings/booking-flow";
 import { CancelRefundMode, ClaimMode } from "@/components/bookings/refund-cancel";
 import { ReportMode } from "@/components/bookings/refund-report";
 import { SHEET_W, SHEET_X } from "@/components/payment/invoice-screens";
@@ -24,9 +25,21 @@ import { cn } from "@/lib/utils";
  * popup draws its one way out from, so the page never offers what the popup
  * would not: cancel and get the refund, claim the refund of a cancelled
  * booking, report a problem, or the request's status.
+ *
+ * The id is read with `useSearchParams`, like the receipt page, because a
+ * move to another `?bookingId=` on this same route fires no popstate: a
+ * location subscription would keep showing the booking it opened with.
  */
 export function BookingRefundScreen() {
-  const id = asUuid(useQueryValue("bookingId"));
+  return (
+    <Suspense fallback={<RefundSkeleton />}>
+      <RefundForQuery />
+    </Suspense>
+  );
+}
+
+function RefundForQuery() {
+  const id = asUuid(useSearchParams().get("bookingId"));
   if (!id) return <RefundNotFound />;
   return <RefundData id={id} key={id} />;
 }
@@ -189,7 +202,7 @@ function RefundContent({ booking, reload }: { readonly booking: ApiBooking; read
 }
 
 /** The card's own shape while the booking and its money load: still, no shimmer. */
-function RefundSkeleton({ bookingId }: { readonly bookingId: string }) {
+function RefundSkeleton({ bookingId }: { readonly bookingId?: string }) {
   const t = useTranslations("bookingRefund");
   const back = useBack(bookingId);
   const bone = "rounded bg-muted";
