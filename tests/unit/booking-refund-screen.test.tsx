@@ -129,6 +129,17 @@ afterEach(() => {
 });
 
 const words = { th: th.bookingRefund, en: en.bookingRefund };
+
+/** The way back is the column's own link (the phone's top bar, the desktop's link above the card), never a pill too. */
+function onlyTheTopBack(locale: "th" | "en") {
+  const labels = [words[locale].actions.back, words[locale].actions.toBookings];
+  const named = (role: "button" | "link") => labels.flatMap((name) => screen.queryAllByRole(role, { name }));
+  // The phone's top bar is an icon named by aria-label; a pill carries the words.
+  const [topBar, rest] = [named("button").filter((node) => node.textContent === ""), named("button").filter((node) => node.textContent !== "")];
+  expect(rest).toEqual([]);
+  expect(topBar).toHaveLength(1);
+  expect(named("link")).toHaveLength(1);
+}
 type Case = { readonly name: string; readonly arrange: () => void; readonly heading: (w: typeof th.bookingRefund) => string };
 
 const cases: readonly Case[] = [
@@ -163,6 +174,7 @@ describe.each(["th", "en"] as const)("/bookings/refund in %s", (locale) => {
     expect(document.body.textContent).not.toMatch(/bookingRefund\.|bookings\.[a-z]/);
     expect(problems).toEqual([]);
     expect(screen.queryByRole("navigation", { name: /breadcrumb|เส้นทาง/i })).toBeNull();
+    onlyTheTopBack(locale);
   });
 
   it.each(states)("$name", ({ arrange, heading }) => {
@@ -171,6 +183,7 @@ describe.each(["th", "en"] as const)("/bookings/refund in %s", (locale) => {
     expect(screen.getByText(heading(words[locale]))).toBeTruthy();
     expect(problems).toEqual([]);
     expect(screen.queryByRole("button", { name: /฿/ })).toBeNull();
+    onlyTheTopBack(locale);
   });
 });
 

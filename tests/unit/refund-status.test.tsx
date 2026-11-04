@@ -84,7 +84,7 @@ function steps() {
   });
 }
 
-const pills = () => screen.getAllByRole("button").map((pill) => ({ name: pill.textContent, href: pill.getAttribute("href"), solid: pill.className.includes("bg-hero-action") }));
+const pills = () => screen.queryAllByRole("button").map((pill) => ({ name: pill.textContent, href: pill.getAttribute("href"), solid: pill.className.includes("bg-hero-action") }));
 const settle = () => act(async () => {});
 
 /** cardName keeps the brand and the last four on one line with no-break spaces. */
@@ -108,12 +108,14 @@ const WORDS = {
 /** Nothing on the page may say the money is moving before the invoice says refunded (API #86). */
 const MOVING = ["กำลังคืน", "ทีมงานคืนเงิน"];
 
-const BACK = { name: "กลับไปที่การจอง", href: "/bookings?bookingId=15638839-49d1-4553-b79c-59821ff58f2e" };
-/** The pills under the card, main one first: only the main one is solid. */
+/**
+ * The pills under the card. None while the team or the refund is awaited:
+ * the page's own back link is the way out, never a second one beside it.
+ */
 const PILLS = {
-  back: [{ ...BACK, solid: true }],
-  receipt: [{ name: "ดูใบเสร็จ", href: "/transactions/detail?id=inv-status", solid: true }, { ...BACK, solid: false }],
-  support: [{ name: "ติดต่อฝ่ายช่วยเหลือ", href: null, solid: true }, { ...BACK, solid: false }],
+  none: [],
+  receipt: [{ name: "ดูใบเสร็จ", href: "/transactions/detail?id=inv-status", solid: true }],
+  support: [{ name: "ติดต่อฝ่ายช่วยเหลือ", href: null, solid: true }],
 } as const;
 
 type Expected = Scene & {
@@ -124,12 +126,12 @@ type Expected = Scene & {
 };
 
 const STAGES: readonly Expected[] = [
-  { type: "cancellation", stage: "requested", head: "ส่งเรื่องคืนเงินแล้ว", meta: "ยอดที่ขอคืน · ทีมงานยืนยันภายใน 14 วันทำการ", steps: [["cancelled", "done"], ["confirm", "current"], ["refundOnceConfirmed", "next"]], pills: "back" },
-  { type: "cancellation", stage: "approved", head: "อนุมัติแล้ว · รอคืนเงิน", meta: `ยอดที่ขอคืน · จะคืนเข้า ${VISA}`, steps: [["cancelled", "done"], ["approved", "done"], ["refundPending", "current"]], pills: "back" },
+  { type: "cancellation", stage: "requested", head: "ส่งเรื่องคืนเงินแล้ว", meta: "ยอดที่ขอคืน · ทีมงานยืนยันภายใน 14 วันทำการ", steps: [["cancelled", "done"], ["confirm", "current"], ["refundOnceConfirmed", "next"]], pills: "none" },
+  { type: "cancellation", stage: "approved", head: "อนุมัติแล้ว · รอคืนเงิน", meta: `ยอดที่ขอคืน · จะคืนเข้า ${VISA}`, steps: [["cancelled", "done"], ["approved", "done"], ["refundPending", "current"]], pills: "none" },
   { type: "cancellation", stage: "refunded", head: "คืนเงินแล้ว", meta: "ยอดที่คืนแล้ว", steps: [["cancelled", "done"], ["approved", "done"], ["refundDone", "done"]], pills: "receipt" },
   { type: "cancellation", stage: "rejected", head: "ไม่อนุมัติคืนเงิน", meta: "ยอดที่ขอคืน", steps: [["cancelled", "done"], ["rejected", "rejected"]], pills: "support" },
-  { type: "report", stage: "reviewing", head: "รอทีมงานตรวจสอบ", meta: "ยอดที่ขอคืน · ทีมงานแจ้งผลภายใน 14 วันทำการ", steps: [["sent", "done"], ["review", "current"], ["refundIfApproved", "next"]], pills: "back" },
-  { type: "report", stage: "approved", head: "อนุมัติแล้ว · รอคืนเงิน", meta: `ยอดที่ขอคืน · จะคืนเข้า ${VISA}`, steps: [["sent", "done"], ["approved", "done"], ["refundPending", "current"]], pills: "back" },
+  { type: "report", stage: "reviewing", head: "รอทีมงานตรวจสอบ", meta: "ยอดที่ขอคืน · ทีมงานแจ้งผลภายใน 14 วันทำการ", steps: [["sent", "done"], ["review", "current"], ["refundIfApproved", "next"]], pills: "none" },
+  { type: "report", stage: "approved", head: "อนุมัติแล้ว · รอคืนเงิน", meta: `ยอดที่ขอคืน · จะคืนเข้า ${VISA}`, steps: [["sent", "done"], ["approved", "done"], ["refundPending", "current"]], pills: "none" },
   { type: "report", stage: "refunded", head: "คืนเงินแล้ว", meta: "ยอดที่คืนแล้ว", steps: [["sent", "done"], ["approved", "done"], ["refundDone", "done"]], pills: "receipt" },
   { type: "report", stage: "rejected", head: "ไม่อนุมัติคืนเงิน", meta: "ยอดที่ขอคืน", steps: [["sent", "done"], ["rejected", "rejected"]], pills: "support" },
   { type: "report", stage: "refunded", caseStatus: "OPEN", head: "คืนเงินแล้ว", meta: "ยอดที่คืนแล้ว", steps: [["sent", "done"], ["refundDone", "done"]], pills: "receipt" },

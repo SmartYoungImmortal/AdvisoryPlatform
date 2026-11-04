@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useTranslations } from "next-intl";
 import type { ReactNode } from "react";
 
-import { bookingPopupHref, type BookingExit, type RefundStage } from "@/components/bookings/booking-exit";
+import type { BookingExit, RefundStage } from "@/components/bookings/booking-exit";
 import { EvidencePicker, RefundAlert } from "@/components/bookings/refund-evidence";
 import {
   cardName,
@@ -28,16 +28,20 @@ import type { ApiAdviseeInvoice, ApiBooking } from "@/lib/api/types";
 
 type StatusExit = Extract<BookingExit, { kind: "status" | "refunded" }>;
 
-/** Who acts next decides the main button: nobody once the money is back, support after a no. */
+/**
+ * Who acts next decides the one button: none while the team or the refund is
+ * awaited (the column's back link is the way out), the receipt once the money
+ * is back, support after a no.
+ */
 const STAGE = {
-  requested: { icon: Clock3, tone: "primary", main: "back" },
-  reviewing: { icon: Clock3, tone: "primary", main: "back" },
-  approved: { icon: Clock3, tone: "primary", main: "back" },
+  requested: { icon: Clock3, tone: "primary", main: null },
+  reviewing: { icon: Clock3, tone: "primary", main: null },
+  approved: { icon: Clock3, tone: "primary", main: null },
   refunded: { icon: CircleCheckBig, tone: "success", main: "receipt" },
   rejected: { icon: CircleX, tone: "destructive", main: "support" },
 } as const satisfies Record<
   RefundStage,
-  { readonly icon: LucideIcon; readonly tone: RefundTone; readonly main: "back" | "receipt" | "support" }
+  { readonly icon: LucideIcon; readonly tone: RefundTone; readonly main: "receipt" | "support" | null }
 >;
 
 type Mark = "done" | "current" | "next" | "rejected";
@@ -124,7 +128,6 @@ export function RefundStatusMode({
   const stage: RefundStage = exit.kind === "refunded" ? "refunded" : exit.stage;
   const meta = useStatusMeta(invoice, stage);
   const look = STAGE[stage];
-  const back = bookingPopupHref(booking.id);
   // Only a report the team is still reading takes more evidence.
   const evidenceFor = exit.kind === "status" && exit.type === "report" && stage === "reviewing" ? exit.refund.id : null;
 
@@ -176,17 +179,6 @@ export function RefundStatusMode({
             {tr("contactSupport")}
           </Button>
         ) : null}
-        {/* A refund on record with no request is the receipt's business alone (R9). */}
-        {exit.kind === "refunded" ? null : (
-          <Button
-            className={refundPill(look.main === "back" ? "solid" : "outline")}
-            nativeButton={false}
-            render={<Link href={back} />}
-            variant={look.main === "back" ? "default" : "outline"}
-          >
-            {t("actions.back")}
-          </Button>
-        )}
       </RefundActions>
     </>
   );

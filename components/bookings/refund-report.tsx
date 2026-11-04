@@ -1,11 +1,10 @@
 "use client";
 
 import { RotateCcw } from "lucide-react";
-import Link from "next/link";
 import { useFormatter, useTranslations } from "next-intl";
 import { useId, useRef, useState, type ReactNode } from "react";
 
-import { bookingPopupHref, type BookingExit } from "@/components/bookings/booking-exit";
+import type { BookingExit } from "@/components/bookings/booking-exit";
 import { openRefundOnce } from "@/components/bookings/refund-actions";
 import { EvidencePicker, RefundAlert } from "@/components/bookings/refund-evidence";
 import {
@@ -232,9 +231,6 @@ export function ReportMode({
         {notice && phase !== "failed" ? <RefundAlert className="text-center">{notice}</RefundAlert> : null}
         <Button aria-busy={busy || undefined} className={refundPill("solid")} disabled={busy} focusableWhenDisabled form={formId} type="submit">
           {t(SEND_LABEL[phase])}
-        </Button>
-        <Button className={refundPill("outline")} nativeButton={false} render={<Link href={bookingPopupHref(booking.id)} />} variant="outline">
-          {t("actions.back")}
         </Button>
       </RefundActions>
     </>

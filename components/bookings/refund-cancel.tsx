@@ -331,14 +331,6 @@ export function ClaimMode({
         >
           {working ? t("busy.refunding") : t("actions.claim", { amount })}
         </Button>
-        <Button
-          className={refundPill("outline")}
-          nativeButton={false}
-          render={<Link href={bookingPopupHref(booking.id)} />}
-          variant="outline"
-        >
-          {t("actions.back")}
-        </Button>
       </RefundActions>
     </>
   );

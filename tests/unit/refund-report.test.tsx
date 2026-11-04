@@ -74,7 +74,9 @@ describe("ReportMode", () => {
     expect(screen.getByRole("heading", { level: 1 }).textContent).toBe("แจ้งปัญหาและขอคืนเงิน");
     expect(screen.getByText("฿1,000")).toBeTruthy();
     expect(document.body.textContent).toMatch(/ทีมงานแจ้งผลภายใน 14 วันทำการ · แจ้งได้ถึง \S+ 10 พ\.ย\. 2569 · 16:00/);
-    expect(screen.getByRole("button", { name: "กลับไปที่การจอง" }).getAttribute("href")).toBe(`/bookings?bookingId=${booking.id}`);
+    // The page's own back link is the way out; the form draws no second one.
+    expect(screen.queryByRole("button", { name: "กลับไปที่การจอง" })).toBeNull();
+    expect(screen.getAllByRole("button").filter((pill) => pill.textContent === "ส่งคำขอคืนเงิน")).toHaveLength(1);
   });
 
   it("offers the four reasons of section 8 as rows of at least 44px, none picked, and a send button that can be pressed", () => {

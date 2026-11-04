@@ -228,6 +228,8 @@ export function BookingDetailState({
 }) {
   const t = useTranslations("bookings");
   const pill = "mt-1 h-10 w-auto px-4 text-sm md:h-10 md:px-5 md:text-sm lg:h-12 lg:px-6 lg:text-frame-body";
+  // With `back` the column's own back link is the way out, so the state draws no second one to the same place.
+  const way = action ?? (back ? undefined : { href: "/bookings", label: t("detailsBackToBookings") });
 
   return (
     <DetailColumn back={back}>
@@ -243,16 +245,25 @@ export function BookingDetailState({
           <h1 className="text-base font-semibold text-foreground lg:text-frame-figure">{title}</h1>
           <p className="text-xs text-balance text-muted-foreground lg:text-frame-meta">{body}</p>
         </div>
-        <div className="flex flex-wrap justify-center gap-2">
-          {retry ? (
-            <Button className={cn(authPill(false), pill)} onClick={retry} type="button" variant="outline">
-              {retryLabel ?? t("detailsRetry")}
-            </Button>
-          ) : null}
-          <Button className={cn(authPill(true), pill)} nativeButton={false} render={<Link href={action?.href ?? "/bookings"} />}>
-            {action?.label ?? t("detailsBackToBookings")}
-          </Button>
-        </div>
+        {retry || way ? (
+          <div className="flex flex-wrap justify-center gap-2">
+            {retry ? (
+              <Button
+                className={cn(authPill(!way), pill)}
+                onClick={retry}
+                type="button"
+                variant={way ? "outline" : "default"}
+              >
+                {retryLabel ?? t("detailsRetry")}
+              </Button>
+            ) : null}
+            {way ? (
+              <Button className={cn(authPill(true), pill)} nativeButton={false} render={<Link href={way.href} />}>
+                {way.label}
+              </Button>
+            ) : null}
+          </div>
+        ) : null}
       </div>
     </DetailColumn>
   );

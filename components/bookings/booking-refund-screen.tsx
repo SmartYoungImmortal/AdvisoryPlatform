@@ -55,7 +55,7 @@ function RefundNotFound() {
   const t = useTranslations("bookingRefund");
   const back = useBack();
   return (
-    <BookingDetailState action={back} back={back} body={t("states.notFoundBody")} title={t("states.notFoundTitle")} />
+    <BookingDetailState back={back} body={t("states.notFoundBody")} title={t("states.notFoundTitle")} />
   );
 }
 
@@ -81,7 +81,6 @@ function RefundFailed({ retry, bookingId }: { readonly retry: () => void; readon
   const back = useBack(bookingId);
   return (
     <BookingDetailState
-      action={back}
       back={back}
       body={b("detailsFailedBody")}
       retry={retry}
@@ -155,7 +154,6 @@ function RefundContent({ booking, reload }: { readonly booking: ApiBooking; read
   if (!invoice || exit.kind === "none" || exit.kind === "cancel" || exit.kind === "rescheduled") {
     return (
       <BookingDetailState
-        action={back}
         back={back}
         body={exit.kind === "rescheduled" ? t("states.nothingRescheduled") : t("states.nothingUnpaid")}
         title={t("states.nothingTitle")}
@@ -165,7 +163,6 @@ function RefundContent({ booking, reload }: { readonly booking: ApiBooking; read
   if (exit.kind === "closed") {
     return (
       <BookingDetailState
-        action={back}
         back={back}
         body={t("states.closedBody", { date: format.deadline(exit.closedAt) })}
         title={t("states.closedTitle")}

@@ -425,7 +425,7 @@ describe("ClaimMode", () => {
     expect(screen.getByText("฿1,000").tagName).toBe("P");
     expect(line("ที่ปรึกษาหรือทีมงานเป็นผู้ยกเลิก คุณจึงได้คืนเต็มจำนวน")).toBeTruthy();
     expect(screen.queryByText("รวมได้คืน")).toBeNull();
-    expect(screen.getByRole("button", { name: "กลับไปที่การจอง" }).getAttribute("href")).toBe(POPUP);
+    expect(screen.queryByRole("button", { name: "กลับไปที่การจอง" })).toBeNull();
 
     await pressTwice(screen.getByRole("button", { name: "รับเงินคืน ฿1,000" }));
     expect(actions.openRefundOnce).toHaveBeenCalledTimes(1);
