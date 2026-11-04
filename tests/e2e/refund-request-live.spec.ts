@@ -224,7 +224,7 @@ for (const width of [1440, 390]) {
       if (width === 1440) {
         // Approval is not a transfer (API #86): the page waits on the refund and never says it is done or moving.
         await expect(
-          page.getByText("รอดำเนินการคืนเงิน แล้วเงินเข้าตามรอบของธนาคารผู้ออกบัตร", { exact: true }),
+          page.getByText("รอทีมงานดำเนินการคืนเงิน แล้วเงินเข้าตามรอบของธนาคาร⁠ผู้ออกบัตร", { exact: true }),
         ).toBeVisible();
         await expect(page.getByText(/คืนเงินแล้ว|กำลังคืน/)).toHaveCount(0);
       }

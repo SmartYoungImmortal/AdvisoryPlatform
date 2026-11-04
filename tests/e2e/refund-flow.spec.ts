@@ -70,10 +70,13 @@ for (const size of sizes) {
       const popup = page.getByRole("dialog");
       await expect(popup.getByText(/^ยกเลิกได้ คืนเต็มจำนวน ถึง /)).toBeVisible();
       await expect(popup.getByRole("button", { name: "ยกเลิกการจอง", exact: true })).toHaveCount(0);
-      // A paid booking's move is withheld, said where it would be: the API would read the moved original as owed its refund.
+      // A paid booking's move is withheld (the API would read the moved original as owed its refund);
+      // where it would be, the popup gives the way to another time by the same deadline.
       await expect(popup.getByRole("button", { name: "เปลี่ยนเวลานัด", exact: true })).toHaveCount(0);
       await expect(popup.getByRole("button", { name: "ขอเปลี่ยนเวลานัด", exact: true })).toHaveCount(0);
-      await expect(popup.getByText("การจองที่ชำระแล้วยังเปลี่ยนเวลาเองไม่ได้ เพราะระบบยังย้ายยอดที่ชำระไปเวลาใหม่ไม่ได้")).toBeVisible();
+      const another = popup.getByText(/^ต้องการ⁠เวลา⁠อื่น /);
+      await expect(another).toBeVisible();
+      expect((await another.textContent())?.replaceAll("⁠", "")).toMatch(/^ต้องการเวลาอื่น ยกเลิกรับเงินคืนเต็มจำนวนได้ถึง .+ แล้วจองเวลาใหม่$/);
       await popup.getByRole("button", { name: "ยกเลิกและรับเงินคืน", exact: true }).click();
       await expect(page).toHaveURL(new RegExp(`/bookings/refund\\?bookingId=${ids.booking}$`));
 
@@ -112,7 +115,11 @@ for (const size of sizes) {
       await confirm.click();
       await expect(title).toHaveText("ส่งเรื่องคืนเงินแล้ว");
       await expect(page).toHaveURL(new RegExp(`/bookings/refund\\?bookingId=${ids.booking}$`));
-      await expect(page.getByRole("list").filter({ hasText: "ยกเลิกการจองแล้ว" }).getByRole("listitem")).toHaveCount(3);
+      // The press is a step of its own now done, so the trail after it never reads as the one before it.
+      const trail = page.getByRole("list").filter({ hasText: "ยกเลิกการจองแล้ว" }).getByRole("listitem");
+      await expect(trail).toHaveCount(4);
+      await expect(trail.nth(1)).toContainText("ส่งเรื่องคืนเงินแล้ว");
+      await expect(trail.nth(2)).toHaveAttribute("aria-current", "true");
       await expect(page.getByText("รอทีมงานตรวจสอบ")).toHaveCount(0);
       expect(api.calls).toEqual([`POST /bookings/${ids.booking}/cancel`, "POST /refunds"]);
       expect(api.reasons[0]?.split("\n")[0]).toBe("ยกเลิกก่อนเวลาเริ่ม 24 ชั่วโมงขึ้นไป · คืนเต็มจำนวน ฿1,000");
@@ -139,8 +146,9 @@ for (const size of sizes) {
       await open(page, { startsIn: before.hours(5) }, size.width);
       await expect(page.getByRole("heading", { level: 1 })).toHaveText("ยกเลิกการจอง · คืน 50% ของค่าบริการ");
       await expect(page.getByRole("button", { name: "ยกเลิกและรับเงินคืน ฿400" })).toBeVisible();
-      await expect(page.getByText("ค่าบริการ · คืน 50%")).toBeVisible();
-      await expect(page.getByText("ค่าบริการแพลตฟอร์ม · ไม่คืน")).toBeVisible();
+      // From what was paid to what comes back: each fee with its base, then what of it is refunded.
+      await expect(page.getByText("ค่าบริการ ฿800 · คืน 50%")).toBeVisible();
+      await expect(page.getByText("ค่าบริการแพลตฟอร์ม ฿200 · ไม่คืน")).toBeVisible();
       await expect(page.getByText("รวมได้คืน")).toBeVisible();
       const now = page.getByRole("listitem").filter({ has: page.getByText("ตอนนี้", { exact: true }) });
       await expect(now).toContainText("คืน 50% ของค่าบริการ");
@@ -197,6 +205,22 @@ test("a report sent after another tab opened one says so, and sends none of this
   await expect(page.getByRole("heading", { level: 1 })).toHaveText("รอทีมงานตรวจสอบ");
   await expect(alertSaying(page, "มีคำขอคืนเงินของการจองนี้เปิดอยู่แล้ว รายละเอียดและไฟล์ที่คุณกรอกจึงยังไม่ได้ส่ง")).toBeVisible();
   expect(api.calls).toEqual(["POST /refunds"]);
+});
+
+test("a report pressed again after its first answer was lost is taken as its own, and its files go with it", async ({ page }) => {
+  const api = await open(page, { startsIn: -before.hours(2), openAnswer: "lost" });
+  await page.getByRole("radio", { name: "เข้าห้องไม่ได้เพราะระบบขัดข้อง" }).check();
+  await page.getByRole("textbox").fill("หน้าจอค้าง");
+  await page.locator('input[type="file"]').setInputFiles({ name: "slip.png", mimeType: "image/png", buffer: Buffer.from([137, 80, 78, 71]) });
+  const send = page.getByRole("button", { name: "ส่งคำขอคืนเงิน" });
+  await send.click();
+  await expect(alertSaying(page, "ส่งคำขอไม่สำเร็จ ลองอีกครั้ง")).toBeVisible();
+
+  await send.click();
+  await expect(page.getByRole("heading", { level: 1 })).toHaveText("รอทีมงานตรวจสอบ");
+  await expect(page.getByText("ยังไม่ได้ส่ง")).toHaveCount(0);
+  expect(api.calls).toEqual(["POST /refunds", "POST /refunds", `POST /refunds/${ids.refund}/evidence`]);
+  expect(api.reasons[0]).toBe(api.reasons[1]);
 });
 
 test("an advisor's cancel that got there first files nothing, and the page claims the whole charge it owes", async ({ page }) => {
@@ -270,7 +294,7 @@ test.describe("a request's status", () => {
   test("an approved request waits on the refund, and never says the money is back or on its way", async ({ page }) => {
     await open(page, { startsIn: -before.days(2), state: "COMPLETED", cases: [{ status: "APPROVED", createdAgo: before.days(1) }] });
     await expect(page.getByRole("heading", { level: 1 })).toHaveText("อนุมัติแล้ว · รอคืนเงิน");
-    await expect(page.getByText("รอดำเนินการคืนเงิน แล้วเงินเข้าตามรอบของธนาคารผู้ออกบัตร")).toBeVisible();
+    await expect(page.getByText("รอทีมงานดำเนินการคืนเงิน แล้วเงินเข้าตามรอบของธนาคาร⁠ผู้ออกบัตร")).toBeVisible();
     await expect(page.getByText(/คืนเงินแล้ว|กำลังคืน/)).toHaveCount(0);
   });
 
@@ -344,15 +368,21 @@ test.describe("at 1440 the card's two cells end level", () => {
 
   /**
    * Where each foot row's mark starts, against the head's columns: a two-cell
-   * head's two fact columns then its right cell's text, or a wide head's four
-   * fact columns.
+   * head's two fact columns, then its right cell's text and, for a fourth row,
+   * that cell's second column at the left cell's spacing; or a wide head's
+   * four fact columns.
    */
   async function footOnHead(page: Page) {
     return page.locator("article").first().evaluate((card) => {
       const x = (node: Element | null) => (node ? Math.round(node.getBoundingClientRect().x * 10) / 10 : null);
       const head = card.querySelector(':scope > [data-cell="head"]');
       const facts = [...card.querySelectorAll('[data-cell="head"] dt')].map(x);
-      const columns = head?.hasAttribute("data-wide") ? facts : [facts[0], facts[1], x(card.querySelector('[data-cell="sections"] h2'))];
+      const right = x(card.querySelector('[data-cell="sections"] h2'));
+      const pair = (facts[1] ?? 0) - (facts[0] ?? 0);
+      // The third row carries the right cell's divider as its border, which the fourth does not.
+      const third = card.querySelectorAll('[data-cell="foot"] li')[2];
+      const divider = third ? parseFloat(getComputedStyle(third).borderLeftWidth) : 0;
+      const columns = head?.hasAttribute("data-wide") ? facts : [facts[0], facts[1], right, right === null ? null : right + pair - divider];
       const rows = [...card.querySelectorAll('[data-cell="foot"] li')].map((row) => x(row.querySelector(":scope > svg")));
       return { columns, rows };
     });

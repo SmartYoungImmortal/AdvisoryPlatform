@@ -47,8 +47,12 @@ export type RefundScenario = {
   readonly cases?: readonly { readonly status: CaseStatus; readonly createdAgo: number }[];
   /** How the API answers a cancel and a new request. `taken`: the advisor cancelled first, so the cancel meets a 409. */
   readonly cancelAnswer?: "ok" | "fail" | "taken";
-  /** `taken`: another tab opened a request first, so this one meets the API's 409 for an open request. */
-  readonly openAnswer?: "ok" | "fail" | "taken";
+  /**
+   * `taken`: another tab opened a request first, so this one meets the API's 409 for an open request.
+   * `lost`: the first request commits but its answer never arrives, and the read back after it fails once,
+   * so the next press meets the 409 of this press's own request.
+   */
+  readonly openAnswer?: "ok" | "fail" | "taken" | "lost";
   /** Status the booking read answers with, for not-found and error states. */
   readonly bookingStatus?: 200 | 404 | 500;
 };
@@ -97,6 +101,7 @@ export async function mockRefundApi(page: Page, scenario: RefundScenario): Promi
   }));
   const calls: string[] = [];
   const reasons: string[] = [];
+  let readBackFails = false;
 
   const booking = () => ({
     id: ids.booking,
@@ -186,6 +191,10 @@ export async function mockRefundApi(page: Page, scenario: RefundScenario): Promi
       return current ? json(route, current) : json(route, "Invoice not found", 404);
     }
     if (path === "refunds/me" && method === "GET") {
+      if (readBackFails) {
+        readBackFails = false;
+        return json(route, "Service unavailable", 503);
+      }
       return json(route, page1(searchParams.get("invoiceId") === ids.invoice ? cases : []));
     }
     if (path === "refunds" && method === "POST") {
@@ -193,6 +202,12 @@ export async function mockRefundApi(page: Page, scenario: RefundScenario): Promi
       calls.push("POST /refunds");
       reasons.push(body.reason);
       if (scenario.openAnswer === "fail") return json(route, "Service unavailable", 503);
+      if (scenario.openAnswer === "lost") {
+        if (cases.some((item) => item.status === "OPEN")) return json(route, "A refund case is already open for this invoice", 409);
+        cases.unshift({ id: ids.refund, invoiceId: ids.invoice, reason: body.reason, status: "OPEN", createdAt: iso(NOW), resolvedAt: null });
+        readBackFails = true;
+        return route.abort("failed");
+      }
       if (scenario.openAnswer === "taken") {
         cases.unshift({ id: ids.refund, invoiceId: ids.invoice, reason: "ที่ปรึกษาไม่มา หรือยกเลิกกะทันหัน", status: "OPEN", createdAt: iso(NOW - 60_000), resolvedAt: null });
         return json(route, "A refund case is already open for this invoice", 409);
