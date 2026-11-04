@@ -19,7 +19,8 @@ Case approval is distinct from a payment refund: approving a case only changes i
 
 The screens hold these rules; the API does not check them yet, so another client (or a request crafted by hand) can still do what the screens will not offer.
 
-- `POST /bookings/:id/reschedule` (`bookings.service.ts` `reschedule`) checks neither the 24-hour line nor the one free move of /terms §8. A booking 5 hours out can be moved to next week and then cancelled for the whole charge instead of half.
+- `POST /bookings/:id/reschedule` (`bookings.service.ts` `reschedule`) does not link the replacement booking to the invoice (`service_appointments_on_service_invoices`), and the invoice's session stays the first booking's. So the replacement reads as having no receipt (its popup offers the plain cancel and says nothing about money), and the first booking reads as cancelled by the advisee and owed its refund, because `bookingExit` can only tell a reschedule by the invoice's session moving to the new time. The once-only rule in `canReschedule` also rests on the replacement carrying the invoice. This is the one to fix first.
+- The same route checks neither the 24-hour line nor the one free move of /terms §8. A booking 5 hours out can be moved to next week and then cancelled for the whole charge instead of half; the popup now hides the move inside 24 hours, but only the API can enforce it.
 - `POST /bookings/:id/cancel` (`cancel`) checks no time, so a booking still BOOKED past its start time can still be cancelled. The share is judged later from `cancelledAt`, which lands a network trip after the press, so a press seconds before the 24-hour line can be recorded on the half side of it.
 - `POST /refunds` takes the reason as text; the share and the amount are not checked against `cancelledAt`, and nothing closes the report window 7 days after the end.
 - API #86: approving moves no money, and the refund it adds is always the whole charge.

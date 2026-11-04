@@ -240,11 +240,14 @@ export function sameOffer(shown: BookingExit, current: BookingExit): boolean {
 
 /**
  * /terms §8: an advisee may move a booking once, at no cost, while it is at
- * least 24 hours away. A reschedule replaces the booking and the replacement
- * carries the first one's invoice, which is made only after a booking exists,
- * so a booking younger than its invoice has had its one move. Until the
- * invoice is known (undefined) it is not offered. The API checks neither the
- * time nor the count yet (API bookings.service.ts `reschedule`).
+ * least 24 hours away. Until the invoice is known (undefined) it is not offered.
+ *
+ * The count rests on the invoice: one is made only after its bookings exist
+ * (a package's sessions in the same transaction), so a booking younger than
+ * its invoice can only be a reschedule's replacement that carried it over.
+ * API develop's `reschedule` does not carry it over yet, nor check the time or
+ * the count, so there a replacement reads as having no receipt and this
+ * holds the 24-hour line only (docs/review/refund-request.md, API follow-ups).
  */
 export function canReschedule({ booking, invoice, now }: Omit<BookingExitInput, "cases">): boolean {
   if (!isCancellable(booking.state) || now > fullRefundUntil(booking).getTime()) return false;
