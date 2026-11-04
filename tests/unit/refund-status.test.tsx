@@ -16,6 +16,7 @@ vi.mock("@/lib/api/resources", async (original) => ({ ...(await original<object>
 
 import type { BookingExit, RefundCaseType, RefundStage } from "@/components/bookings/booking-exit";
 import { RefundStatusMode } from "@/components/bookings/refund-status";
+import { ApiError } from "@/lib/api/client";
 import type { ApiAdviseeInvoice, ApiBooking, ApiRefundCase } from "@/lib/api/types";
 import type { RefundEvidence } from "@/lib/api/resources";
 import { invalidate } from "@/lib/api/use-resource";
@@ -100,6 +101,7 @@ const WORDS = {
   review: ["ทีมงาน Advisory ตรวจสอบ", "จากบันทึกการเข้าร่วมและแชต แจ้งผลภายใน 14 วันทำการ"],
   approved: ["อนุมัติแล้ว", "6 พ.ย. 2569 · 10:15"],
   rejected: ["ไม่อนุมัติ", "6 พ.ย. 2569 · 10:15"],
+  rejectedNext: ["ถ้ามีคำถามเกี่ยวกับผลนี้ ติดต่อฝ่ายช่วยเหลือ", "แจ้งเลขใบเสร็จ INV-2026-000123"],
   refundOnceConfirmed: [REFUND, "เมื่อทีมงานยืนยัน"],
   refundIfApproved: [REFUND, "ถ้าอนุมัติ"],
   refundPending: [REFUND, "รอดำเนินการคืนเงิน แล้วเงินเข้าตามรอบของธนาคารผู้ออกบัตร"],
@@ -130,11 +132,11 @@ const STAGES: readonly Expected[] = [
   { type: "cancellation", stage: "requested", head: "ส่งเรื่องคืนเงินแล้ว", meta: "ยอดที่ขอคืน · ทีมงานยืนยันภายใน 14 วันทำการ", steps: [["cancelled", "done"], ["confirm", "current"], ["refundOnceConfirmed", "next"]], pills: "none" },
   { type: "cancellation", stage: "approved", head: "อนุมัติแล้ว · รอคืนเงิน", meta: `ยอดที่ขอคืน · จะคืนเข้า ${VISA}`, steps: [["cancelled", "done"], ["approved", "done"], ["refundPending", "current"]], pills: "none" },
   { type: "cancellation", stage: "refunded", head: "คืนเงินแล้ว", meta: "ยอดที่คืนแล้ว", steps: [["cancelled", "done"], ["approved", "done"], ["refundDone", "done"]], pills: "receipt" },
-  { type: "cancellation", stage: "rejected", head: "ไม่อนุมัติคืนเงิน", meta: "ยอดที่ขอคืน", steps: [["cancelled", "done"], ["rejected", "rejected"]], pills: "support" },
+  { type: "cancellation", stage: "rejected", head: "ไม่อนุมัติคืนเงิน", meta: "ยอดที่ขอคืน", steps: [["cancelled", "done"], ["rejected", "rejected"], ["rejectedNext", "next"]], pills: "support" },
   { type: "report", stage: "reviewing", head: "รอทีมงานตรวจสอบ", meta: "ยอดที่ขอคืน · ทีมงานแจ้งผลภายใน 14 วันทำการ", steps: [["sent", "done"], ["review", "current"], ["refundIfApproved", "next"]], pills: "none" },
   { type: "report", stage: "approved", head: "อนุมัติแล้ว · รอคืนเงิน", meta: `ยอดที่ขอคืน · จะคืนเข้า ${VISA}`, steps: [["sent", "done"], ["approved", "done"], ["refundPending", "current"]], pills: "none" },
   { type: "report", stage: "refunded", head: "คืนเงินแล้ว", meta: "ยอดที่คืนแล้ว", steps: [["sent", "done"], ["approved", "done"], ["refundDone", "done"]], pills: "receipt" },
-  { type: "report", stage: "rejected", head: "ไม่อนุมัติคืนเงิน", meta: "ยอดที่ขอคืน", steps: [["sent", "done"], ["rejected", "rejected"]], pills: "support" },
+  { type: "report", stage: "rejected", head: "ไม่อนุมัติคืนเงิน", meta: "ยอดที่ขอคืน", steps: [["sent", "done"], ["rejected", "rejected"], ["rejectedNext", "next"]], pills: "support" },
   { type: "report", stage: "refunded", caseStatus: "OPEN", head: "คืนเงินแล้ว", meta: "ยอดที่คืนแล้ว", steps: [["sent", "done"], ["refundDone", "done"]], pills: "receipt" },
 ];
 
@@ -156,15 +158,19 @@ describe("RefundStatusMode", () => {
       if (pill.href) expect(shown[i].href).toBe(pill.href);
     }
     expect(screen.queryByRole("button", { name: "ส่งคำขอคืนเงิน" })).toBeNull();
+    // The help line under the buttons, unless the one button already mails support.
+    expect(screen.queryAllByRole("link", { name: "ติดต่อฝ่ายช่วยเหลือ" })).toHaveLength(expected.pills === "support" ? 0 : 1);
   });
 
-  it("mails support about this receipt when the request was turned down, and gives no reason of its own", async () => {
+  it("mails support about this receipt when the request was turned down, once, and gives no reason of its own", async () => {
     show(scene({ type: "report", stage: "rejected" }));
     await settle();
     const mail = screen.getByRole("button", { name: "ติดต่อฝ่ายช่วยเหลือ" }).getAttribute("href") ?? "";
     expect(mail).toMatch(/^mailto:/);
     expect(decodeURIComponent(mail)).toContain("INV-2026-000123");
-    expect(screen.getAllByRole("listitem")).toHaveLength(2);
+    expect(document.querySelectorAll('a[href^="mailto:"]')).toHaveLength(1);
+    expect(screen.queryByText(/มีคำถามเกี่ยวกับการจองนี้/)).toBeNull();
+    expect(screen.getAllByRole("listitem")).toHaveLength(3);
   });
 
   it("never says a cancellation is being reviewed, and takes no evidence for one", async () => {
@@ -196,8 +202,30 @@ describe("RefundStatusMode", () => {
     show({ booking, invoice, exit: { kind: "refunded", refundSatang: 60_000 } });
     expect(screen.getByRole("heading", { level: 1 }).textContent).toBe("คืนเงินแล้ว");
     expect(screen.getByText("฿600", { selector: "p" })).toBeTruthy();
-    expect(steps()).toEqual([{ title: `คืนเงิน ฿600 เข้า ${VISA}`, sub: WORDS.refundDone[1], mark: "done", current: false }]);
+    // Paid at the same moment the fixture's booking was cancelled, so it reads the same stamp.
+    expect(steps()).toEqual([
+      { title: "ชำระเงิน ฿1,000", sub: WORDS.cancelled[1], mark: "done", current: false },
+      { title: `คืนเงิน ฿600 เข้า ${VISA}`, sub: WORDS.refundDone[1], mark: "done", current: false },
+    ]);
     expect(pills().map(({ name }) => name)).toEqual(["ดูใบเสร็จ"]);
+  });
+
+  it("puts a cancelled booking's cancel between the payment and a refund with no request on record", () => {
+    const { booking, invoice } = scene({ type: "cancellation", stage: "refunded" });
+    show({ booking, invoice, exit: { kind: "refunded", refundSatang: 60_000 } });
+    expect(steps()).toEqual([
+      { title: "ชำระเงิน ฿1,000", sub: WORDS.cancelled[1], mark: "done", current: false },
+      { title: WORDS.cancelled[0], sub: WORDS.cancelled[1], mark: "done", current: false },
+      { title: `คืนเงิน ฿600 เข้า ${VISA}`, sub: WORDS.refundDone[1], mark: "done", current: false },
+    ]);
+  });
+
+  it("runs a refund with no request on record under the head, with no half-empty cell beside it", () => {
+    const { booking, invoice } = scene({ type: "report", stage: "refunded" });
+    show({ booking, invoice, exit: { kind: "refunded", refundSatang: 60_000 } });
+    const card = screen.getByRole("heading", { level: 1 }).closest("article");
+    expect(card?.querySelector('[data-cell="sections"]')).toBeNull();
+    expect(card?.querySelector('[data-cell="foot"]')?.textContent).toContain("ความคืบหน้า");
   });
 
   it("puts a notice from the form above the buttons as an alert", async () => {
@@ -269,12 +297,18 @@ describe("EvidencePicker on an open report", () => {
     expect(screen.getByRole("alert").textContent).toBe("แนบได้สูงสุด 5 ไฟล์");
   });
 
-  it("names a file that did not upload", async () => {
-    api.uploadRefundEvidence.mockRejectedValue(new Error("413"));
+  it.each([
+    { name: "a lapsed session", cause: new ApiError(401, "Unauthorized"), says: "ยังไม่ได้อัปโหลด proof.png เพราะเซสชันหมดอายุ เข้าสู่ระบบอีกครั้งแล้วแนบใหม่" },
+    { name: "a request that takes no more", cause: new ApiError(400, "Bad Request"), says: "แนบ proof.png ไม่ได้ คำขอนี้ปิดรับหลักฐานแล้วหรือมีไฟล์ครบแล้ว" },
+    { name: "a file too large", cause: new ApiError(413, "Payload Too Large"), says: "proof.png ใหญ่เกิน 50 MB" },
+    { name: "a server fault", cause: new ApiError(503, "Unavailable"), says: "อัปโหลด proof.png ไม่สำเร็จ ลองอีกครั้ง" },
+    { name: "no network", cause: new TypeError("Failed to fetch"), says: "อัปโหลด proof.png ไม่สำเร็จ ลองอีกครั้ง" },
+  ])("names a file that did not upload after $name, and why", async ({ cause, says }) => {
+    api.uploadRefundEvidence.mockRejectedValue(cause);
     show(open);
     await settle();
     await act(async () => pick(png("proof.png")));
-    expect(screen.getByRole("alert").textContent).toBe("อัปโหลด proof.png ไม่สำเร็จ ลองอีกครั้ง");
+    expect(screen.getByRole("alert").textContent).toBe(says);
     expect(files()).toEqual([]);
   });
 

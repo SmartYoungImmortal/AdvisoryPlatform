@@ -227,7 +227,7 @@ export function BookingDetailState({
   readonly back?: { readonly href: string; readonly label: string };
 }) {
   const t = useTranslations("bookings");
-  const pill = "mt-1 h-10 w-auto px-4 text-sm md:h-10 md:px-5 md:text-sm lg:h-12 lg:px-6 lg:text-frame-body";
+  const pill = "mt-1 h-11 w-auto px-4 text-sm md:h-11 md:px-5 md:text-sm lg:h-12 lg:px-6 lg:text-frame-body";
   // With `back` the column's own back link is the way out, so the state draws no second one to the same place.
   const way = action ?? (back ? undefined : { href: "/bookings", label: t("detailsBackToBookings") });
 

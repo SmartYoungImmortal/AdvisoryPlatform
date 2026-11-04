@@ -78,15 +78,22 @@ function useSteps(booking: ApiBooking, invoice: ApiAdviseeInvoice, exit: StatusE
     title: refundLine(exit.refundSatang),
     sub: t(REFUND_STEP[stage].sub),
   });
-  if (exit.kind === "refunded") return [refundStep("refunded")];
+  const cancelled: Step = { mark: "done", title: t("progress.cancellation.cancelled"), sub: stamp(booking.cancelledAt) };
+  // With no request on record, the money's own trail: what was paid, the cancel if there was one, what came back.
+  if (exit.kind === "refunded") {
+    const paid: Step = { mark: "done", title: t("progress.paid", { amount: when.baht(invoice.amountSatang) }), sub: stamp(invoice.paidAt) };
+    return booking.state === "CANCELLED" ? [paid, cancelled, refundStep("refunded")] : [paid, refundStep("refunded")];
+  }
 
   const { refund, stage, type } = exit;
   const first: Step =
-    type === "cancellation"
-      ? { mark: "done", title: t("progress.cancellation.cancelled"), sub: stamp(booking.cancelledAt) }
-      : { mark: "done", title: t("progress.report.sent"), sub: stamp(refund.createdAt) };
+    type === "cancellation" ? cancelled : { mark: "done", title: t("progress.report.sent"), sub: stamp(refund.createdAt) };
   if (stage === "rejected") {
-    return [first, { mark: "rejected", title: t("progress.rejected"), sub: stamp(refund.resolvedAt) }];
+    return [
+      first,
+      { mark: "rejected", title: t("progress.rejected"), sub: stamp(refund.resolvedAt) },
+      { mark: "next", title: t("progress.rejectedNext"), sub: t("progress.rejectedNextSub", { number: invoice.invoiceNumber }) },
+    ];
   }
 
   // A ruling is shown only when there was one: a refund can reach the invoice while its request is still open.
@@ -130,47 +137,50 @@ export function RefundStatusMode({
   const look = STAGE[stage];
   // Only a report the team is still reading takes more evidence.
   const evidenceFor = exit.kind === "status" && exit.type === "report" && stage === "reviewing" ? exit.refund.id : null;
+  const progress = (
+    <RefundSection heading={t("progress.heading")}>
+      <RefundList ordered>
+        {steps.map((step) => (
+          <RefundRow
+            current={step.mark === "current"}
+            icon={MARK[step.mark].icon}
+            key={step.title}
+            sub={step.sub}
+            title={step.title}
+            tone={MARK[step.mark].tone}
+          />
+        ))}
+      </RefundList>
+    </RefundSection>
+  );
+  const head = (
+    <RefundHead amount={when.baht(exit.refundSatang)} icon={look.icon} meta={meta} title={t(`stage.${stage}`)} tone={look.tone}>
+      <RefundFacts booking={booking} invoice={invoice} />
+    </RefundHead>
+  );
 
   return (
     <>
-      <RefundCard
-        head={
-          <RefundHead
-            amount={when.baht(exit.refundSatang)}
-            icon={look.icon}
-            meta={meta}
-            title={t(`stage.${stage}`)}
-            tone={look.tone}
-          >
-            <RefundFacts booking={booking} invoice={invoice} />
-          </RefundHead>
-        }
-        // Under both cells: beside the steps it would leave the head's cell short by its own height.
-        foot={
-          evidenceFor ? (
-            <RefundSection heading={t("attachments.label")}>
-              <EvidencePicker refundId={evidenceFor} />
-            </RefundSection>
-          ) : undefined
-        }
-      >
-        <RefundSection heading={t("progress.heading")}>
-          <RefundList ordered>
-            {steps.map((step) => (
-              <RefundRow
-                current={step.mark === "current"}
-                icon={MARK[step.mark].icon}
-                key={step.title}
-                sub={step.sub}
-                title={step.title}
-                tone={MARK[step.mark].tone}
-              />
-            ))}
-          </RefundList>
-        </RefundSection>
-      </RefundCard>
+      {exit.kind === "refunded" ? (
+        // A finished refund with no request has too short a trail to stand beside the head: it runs under it.
+        <RefundCard foot={progress} head={head} />
+      ) : (
+        <RefundCard
+          head={head}
+          // Under both cells: beside the steps it would leave the head's cell short by its own height.
+          foot={
+            evidenceFor ? (
+              <RefundSection heading={t("attachments.label")}>
+                <EvidencePicker refundId={evidenceFor} />
+              </RefundSection>
+            ) : undefined
+          }
+        >
+          {progress}
+        </RefundCard>
+      )}
 
-      <RefundActions invoiceNumber={invoice.invoiceNumber}>
+      <RefundActions help={look.main !== "support"} invoiceNumber={invoice.invoiceNumber}>
         {notice ? <RefundAlert className="text-center">{notice}</RefundAlert> : null}
         {look.main === "receipt" ? (
           <Button className={refundPill("solid")} nativeButton={false} render={<Link href={invoiceHref(invoice.id)} />}>

@@ -12,11 +12,12 @@ vi.hoisted(() => {
 });
 
 const actions = vi.hoisted(() => ({ openRefundOnce: vi.fn(), cancelThenRefund: vi.fn() }));
-vi.mock("@/components/bookings/refund-actions", () => actions);
+vi.mock("@/components/bookings/refund-actions", async (original) => ({ ...(await original<object>()), ...actions }));
 const api = vi.hoisted(() => ({ uploadRefundEvidence: vi.fn(), cancelBooking: vi.fn() }));
 vi.mock("@/lib/api/resources", async (original) => ({ ...(await original<object>()), ...api }));
 
 import { ReportMode } from "@/components/bookings/refund-report";
+import { ApiError } from "@/lib/api/client";
 import type { ApiAdviseeInvoice, ApiBooking, ApiRefundCase } from "@/lib/api/types";
 import { formats } from "@/lib/i18n/requests";
 import en from "@/messages/en.json";
@@ -42,12 +43,16 @@ const invoice = {
 } satisfies ApiAdviseeInvoice;
 const opened: ApiRefundCase = { id: "case-9", invoiceId: invoice.id, reason: "", status: "OPEN", createdAt: "2026-11-04T05:00:00.000Z", resolvedAt: null };
 
-function renderForm({ offered = true, notice }: { readonly offered?: boolean; readonly notice?: string } = {}) {
+function renderForm({
+  offered = true,
+  notice,
+  state = booking.state,
+}: { readonly offered?: boolean; readonly notice?: string; readonly state?: ApiBooking["state"] } = {}) {
   const onOpened = vi.fn();
   const exit = { kind: "report", maxSatang: 100_000, until: new Date("2026-11-10T09:00:00.000Z") } as const;
   render(
     <NextIntlClientProvider formats={formats} locale="th" messages={th} timeZone="Asia/Bangkok">
-      <ReportMode booking={booking} exit={exit} invoice={invoice} notice={notice} onOpened={onOpened} stillOffered={() => offered} />
+      <ReportMode booking={{ ...booking, state }} exit={exit} invoice={invoice} notice={notice} onOpened={onOpened} stillOffered={() => offered} />
     </NextIntlClientProvider>,
   );
   return onOpened;
@@ -74,7 +79,8 @@ describe("ReportMode", () => {
     renderForm();
     expect(screen.getByRole("heading", { level: 1 }).textContent).toBe("แจ้งปัญหาและขอคืนเงิน");
     expect(screen.getByText("฿1,000")).toBeTruthy();
-    expect(document.body.textContent).toMatch(/ทีมงานแจ้งผลภายใน 14 วันทำการ · แจ้งได้ถึง \S+ 10 พ\.ย\. 2569 · 16:00/);
+    const meta = screen.getByText((_, node) => node?.tagName === "P" && (node.textContent ?? "").startsWith("ขอคืนได้สูงสุด"));
+    expect(meta.textContent?.replaceAll("\u{a0}", " ")).toMatch(/^ขอคืนได้สูงสุดเท่านี้ · ทีมงานแจ้งผลภายใน 14 วันทำการ · แจ้งได้ถึง \S+ 10 พ\.ย\. 2569 · 16:00$/);
     // The page's own back link is the way out; the form draws no second one.
     expect(screen.queryByRole("button", { name: "กลับไปที่การจอง" })).toBeNull();
     expect(screen.getAllByRole("button").filter((pill) => pill.textContent === "ส่งคำขอคืนเงิน")).toHaveLength(1);
@@ -205,6 +211,82 @@ describe("ReportMode", () => {
     expect(rows()).toContain("proof.png");
     await act(async () => fireEvent.click(send()));
     expect(actions.openRefundOnce).toHaveBeenCalledTimes(2);
+  });
+
+  it.each([
+    { name: "a lapsed session", cause: new ApiError(401, "Unauthorized"), says: "เซสชันหมดอายุ ยังไม่ได้ส่งอะไร เข้าสู่ระบบอีกครั้งแล้วกลับมาที่หน้านี้" },
+    { name: "no disputable receipt", cause: new ApiError(404, "Not Found"), says: "ไม่พบใบเสร็จที่ขอคืนเงินได้ของการจองนี้ ติดต่อฝ่ายช่วยเหลือ" },
+    { name: "someone else's receipt", cause: new ApiError(403, "Forbidden"), says: "ไม่พบใบเสร็จที่ขอคืนเงินได้ของการจองนี้ ติดต่อฝ่ายช่วยเหลือ" },
+    { name: "a refusal", cause: new ApiError(400, "Bad Request"), says: "ระบบไม่รับคำขอนี้ ติดต่อฝ่ายช่วยเหลือ" },
+    { name: "a server fault", cause: new ApiError(503, "Unavailable"), says: "ส่งคำขอไม่สำเร็จ ลองอีกครั้ง" },
+    { name: "a request already open that could not be read back", cause: new ApiError(409, "Conflict"), says: "ส่งคำขอไม่สำเร็จ ลองอีกครั้ง" },
+    { name: "no network", cause: new TypeError("Failed to fetch"), says: "ส่งคำขอไม่สำเร็จ ลองอีกครั้ง" },
+  ])("after $name, says what will help, and asks to try again only when that can", async ({ cause, says }) => {
+    actions.openRefundOnce.mockRejectedValue(cause);
+    renderForm();
+    fireEvent.click(screen.getByRole("radio", { name: "เข้าห้องไม่ได้เพราะระบบขัดข้อง" }));
+    await act(async () => fireEvent.click(send()));
+    expect(screen.getByRole("alert").textContent).toBe(says);
+  });
+
+  it("swaps the send button for a sign-in that comes back to this page once the session has lapsed", async () => {
+    actions.openRefundOnce.mockRejectedValue(new ApiError(401, "Unauthorized"));
+    renderForm();
+    fireEvent.click(screen.getByRole("radio", { name: "เข้าห้องไม่ได้เพราะระบบขัดข้อง" }));
+    await act(async () => fireEvent.click(send()));
+
+    expect(screen.queryByRole("button", { name: "ส่งคำขอคืนเงิน" })).toBeNull();
+    expect(screen.getByRole("button", { name: "เข้าสู่ระบบอีกครั้ง" }).getAttribute("href")).toBe(
+      "/login?next=%2Fbookings%2Frefund%3FbookingId%3D1fba6ff8-1d9a-4aff-9a19-752c89fcd30d",
+    );
+  });
+
+  it("keeps the send button after any other refusal", async () => {
+    actions.openRefundOnce.mockRejectedValue(new ApiError(404, "Not Found"));
+    renderForm();
+    fireEvent.click(screen.getByRole("radio", { name: "เข้าห้องไม่ได้เพราะระบบขัดข้อง" }));
+    await act(async () => fireEvent.click(send()));
+    expect(send()).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "เข้าสู่ระบบอีกครั้ง" })).toBeNull();
+  });
+
+  it.each([
+    { status: 401, says: "ยังไม่ได้อัปโหลด chat.pdf เพราะเซสชันหมดอายุ เข้าสู่ระบบอีกครั้งแล้วแนบใหม่" },
+    { status: 400, says: "แนบ chat.pdf ไม่ได้ คำขอนี้ปิดรับหลักฐานแล้วหรือมีไฟล์ครบแล้ว" },
+    { status: 413, says: "chat.pdf ใหญ่เกิน 50 MB" },
+    { status: 503, says: "อัปโหลด chat.pdf ไม่สำเร็จ ลองอีกครั้ง" },
+  ])("hands the open request back with why a file answered $status did not go", async ({ status, says }) => {
+    actions.openRefundOnce.mockResolvedValue(opened);
+    api.uploadRefundEvidence.mockRejectedValue(new ApiError(status, "refused"));
+    const onOpened = renderForm();
+    attach(file("chat.pdf", "application/pdf"));
+    fireEvent.click(screen.getByRole("radio", { name: "เข้าห้องไม่ได้เพราะระบบขัดข้อง" }));
+    await act(async () => fireEvent.click(send()));
+    expect(onOpened).toHaveBeenCalledExactlyOnceWith(opened, says);
+  });
+
+  it("names the files that failed for one reason together, each reason once", async () => {
+    actions.openRefundOnce.mockResolvedValue(opened);
+    const big = new ApiError(413, "Payload Too Large");
+    api.uploadRefundEvidence.mockRejectedValueOnce(big).mockResolvedValueOnce({}).mockRejectedValueOnce(big).mockRejectedValueOnce(new ApiError(502, "Bad Gateway"));
+    const onOpened = renderForm();
+    attach(file("a.pdf", "application/pdf"), file("b.png", "image/png"), file("c.pdf", "application/pdf"), file("d.png", "image/png"));
+    fireEvent.click(screen.getByRole("radio", { name: "เข้าห้องไม่ได้เพราะระบบขัดข้อง" }));
+    await act(async () => fireEvent.click(send()));
+    // Thai joins a list with no spaces around "และ".
+    expect(onOpened).toHaveBeenCalledExactlyOnceWith(opened, "a.pdfและc.pdf ใหญ่เกิน 50 MB อัปโหลด d.png ไม่สำเร็จ ลองอีกครั้ง");
+  });
+
+  it("tells an advisee the advisor marked absent that a missed session gets nothing back, before the reasons", () => {
+    renderForm({ state: "NO_SHOW" });
+    const line = screen.getByText(/^ที่ปรึกษาบันทึกว่าคุณไม่ได้เข้าร่วมนัดนี้/);
+    expect(line.textContent).toContain("ไม่ได้เงินคืน");
+    expect(line.compareDocumentPosition(screen.getByRole("radiogroup")) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+
+  it.each(["BOOKED", "COMPLETED"] as const)("says nothing of a no-show for a booking that is %s", (state) => {
+    renderForm({ state });
+    expect(screen.queryByText(/ที่ปรึกษาบันทึกว่าคุณไม่ได้เข้าร่วม/)).toBeNull();
   });
 
   it("writes details at 16px on a phone so iOS does not zoom, at the frame's size from lg", () => {

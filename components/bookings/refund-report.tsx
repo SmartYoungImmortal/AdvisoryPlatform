@@ -1,13 +1,15 @@
 "use client";
 
 import { RotateCcw } from "lucide-react";
+import Link from "next/link";
 import { useFormatter, useTranslations } from "next-intl";
 import { useId, useRef, useState, type ReactNode } from "react";
 
-import type { BookingExit } from "@/components/bookings/booking-exit";
-import { openRefundOnce } from "@/components/bookings/refund-actions";
-import { EvidencePicker, RefundAlert } from "@/components/bookings/refund-evidence";
+import { refundHref, signInHref, type BookingExit } from "@/components/bookings/booking-exit";
+import { openRefundOnce, refundFailure, type RefundFailure } from "@/components/bookings/refund-actions";
+import { EvidencePicker, RefundAlert, uploadFault, type UploadFault } from "@/components/bookings/refund-evidence";
 import {
+  REFUND_HEADING,
   RefundActions,
   RefundCard,
   RefundFacts,
@@ -48,14 +50,24 @@ function missingFrom(reason: Reason | null, details: string): "reason" | "detail
   return needsDetails(reason) && details.trim() === "" ? "details" : null;
 }
 
-type Phase = "idle" | "sending" | "uploading" | "failed";
+type Phase =
+  | { readonly kind: "idle" | "sending" | "uploading" }
+  | { readonly kind: "failed"; readonly failure: RefundFailure };
 
 const SEND_LABEL = {
   idle: "actions.send",
   failed: "actions.send",
   sending: "busy.sending",
   uploading: "busy.uploading",
-} as const satisfies Record<Phase, string>;
+} as const satisfies Record<Phase["kind"], string>;
+
+/** Only `retry` asks for another press; the rest say what will help instead. */
+const SEND_FAILED = {
+  signIn: "errors.signIn",
+  notFound: "errors.refundNotFound",
+  refused: "errors.refundRefused",
+  retry: "errors.sendFailed",
+} as const satisfies Record<RefundFailure, string>;
 
 export function ReportMode({
   booking,
@@ -86,38 +98,41 @@ export function ReportMode({
   const [details, setDetails] = useState("");
   const [files, setFiles] = useState<readonly File[]>([]);
   const [tried, setTried] = useState(false);
-  const [phase, setPhase] = useState<Phase>("idle");
+  const [phase, setPhase] = useState<Phase>({ kind: "idle" });
   const sending = useRef(false);
   const group = useRef<HTMLDivElement>(null);
   const field = useRef<HTMLTextAreaElement>(null);
 
   const missing = tried ? missingFrom(reason, details) : null;
-  const busy = phase === "sending" || phase === "uploading";
+  const busy = phase.kind === "sending" || phase.kind === "uploading";
+  const failure = phase.kind === "failed" ? phase.failure : null;
   const detailsRequired = needsDetails(reason);
 
   async function send(chosen: Reason) {
     sending.current = true;
-    setPhase("sending");
+    setPhase({ kind: "sending" });
     const label = t(`reasons.${chosen}`);
     const told = details.trim();
     let refund: ApiRefundCase;
     try {
       refund = await openRefundOnce(invoice.id, told ? `${label}\n\n${told}` : label);
-    } catch {
+    } catch (cause) {
       sending.current = false;
-      setPhase("failed");
+      setPhase({ kind: "failed", failure: refundFailure(cause) });
       return;
     }
-    if (files.length > 0) setPhase("uploading");
-    const failed: string[] = [];
+    if (files.length > 0) setPhase({ kind: "uploading" });
+    const failed = new Map<UploadFault, string[]>();
     for (const file of files) {
       try {
         await uploadRefundEvidence(refund.id, file);
-      } catch {
-        failed.push(file.name);
+      } catch (cause) {
+        const fault = uploadFault(cause);
+        failed.set(fault, [...(failed.get(fault) ?? []), file.name]);
       }
     }
-    onOpened(refund, failed.length > 0 ? t("attachments.uploadFailed", { name: format.list(failed) }) : undefined);
+    const said = [...failed].map(([fault, names]) => t(`attachments.${fault}`, { name: format.list(names) }));
+    onOpened(refund, said.length > 0 ? said.join(" ") : undefined);
   }
 
   function submit() {
@@ -142,10 +157,15 @@ export function ReportMode({
           <RefundHead
             amount={when.baht(exit.maxSatang)}
             icon={RotateCcw}
-            meta={t("meta.report", { date: when.deadline(exit.until) })}
+            // The deadline's own " · " is joined by no-break spaces, so it stays one part.
+            meta={t("meta.report", { date: when.deadline(exit.until) }).split(" · ")}
             title={t("head.report")}
             tone="primary"
           >
+            {/* An advisor-recorded no-show: §8 returns nothing for a missed session, which the amount above would otherwise seem to promise. */}
+            {booking.state === "NO_SHOW" ? (
+              <p className="mt-1.5 text-xs text-pretty text-muted-foreground lg:text-frame-meta">{t("meta.noShow")}</p>
+            ) : null}
             <RefundFacts booking={booking} invoice={invoice} />
           </RefundHead>
         }
@@ -178,7 +198,7 @@ export function ReportMode({
                 aria-describedby={missing === "reason" ? reasonErrorId : undefined}
                 aria-invalid={missing === "reason" || undefined}
                 aria-labelledby={legendId}
-                className="-mx-2 mt-1.5 flex flex-col gap-0.5"
+                className="-mx-2 flex flex-col gap-0.5"
                 onValueChange={(value) => setReason(value as Reason)}
                 ref={group}
                 value={reason}
@@ -189,9 +209,9 @@ export function ReportMode({
                     key={option.value}
                   >
                     <span className="flex min-w-0 flex-1 flex-col gap-0.5">
-                      <span className="text-sm text-foreground lg:text-frame-meta">{t(`reasons.${option.value}`)}</span>
+                      <span className="text-sm text-pretty text-foreground lg:text-frame-meta">{t(`reasons.${option.value}`)}</span>
                       {"hint" in option ? (
-                        <span className="text-xs text-muted-foreground lg:text-frame-label">{t(option.hint)}</span>
+                        <span className="text-xs text-pretty text-muted-foreground lg:text-frame-label">{t(option.hint)}</span>
                       ) : null}
                     </span>
                     <RadioGroupItem className="size-5" value={option.value} />
@@ -201,7 +221,7 @@ export function ReportMode({
             </fieldset>
 
             <div className="mt-4 flex flex-col gap-2 lg:mt-5">
-              <label className="text-sm font-semibold text-foreground lg:text-frame-meta" htmlFor={detailsId}>
+              <label className={REFUND_HEADING} htmlFor={detailsId}>
                 {detailsRequired ? t("form.detailsLabelRequired") : t("form.detailsLabel")}
               </label>
               <Textarea
@@ -228,11 +248,17 @@ export function ReportMode({
       </RefundCard>
 
       <RefundActions invoiceNumber={invoice.invoiceNumber}>
-        {phase === "failed" ? <RefundAlert className="text-center">{t("errors.sendFailed")}</RefundAlert> : null}
-        {notice && phase !== "failed" ? <RefundAlert className="text-center">{notice}</RefundAlert> : null}
-        <Button aria-busy={busy || undefined} className={refundPill("solid")} disabled={busy} focusableWhenDisabled form={formId} type="submit">
-          {t(SEND_LABEL[phase])}
-        </Button>
+        {failure ? <RefundAlert className="text-center">{t(SEND_FAILED[failure])}</RefundAlert> : null}
+        {notice && !failure ? <RefundAlert className="text-center">{notice}</RefundAlert> : null}
+        {failure === "signIn" ? (
+          <Button className={refundPill("solid")} nativeButton={false} render={<Link href={signInHref(refundHref(booking.id))} />}>
+            {t("actions.signIn")}
+          </Button>
+        ) : (
+          <Button aria-busy={busy || undefined} className={refundPill("solid")} disabled={busy} focusableWhenDisabled form={formId} type="submit">
+            {t(SEND_LABEL[phase.kind])}
+          </Button>
+        )}
       </RefundActions>
     </>
   );

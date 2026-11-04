@@ -214,36 +214,40 @@ describe("useRefundFormat", () => {
   it("writes the deadline, the short form and the stamp in Thai on a 24-hour clock, in Bangkok time", () => {
     inLocale("th", <Formatted />);
     const values = readFacts(document.body);
-    expect(values.deadline).toMatch(/^\D+\s10 พ\.ย\. 2569 · 16:00$/);
+    expect(values.deadline).toMatch(/^\D+ 10 พ\.ย\. 2569 · 16:00$/);
     expect(values.short).toBe("10 พ.ย. 10:30");
     expect(values.stamp).toBe("4 พ.ย. 2569 · 20:56");
   });
+
+  it("never lets a line break inside the deadline, in Thai or English", () => {
+    for (const locale of ["th", "en"] as const) {
+      const view = inLocale(locale, <Formatted />);
+      const deadline = screen.getByText("deadline", { selector: "dt" }).nextElementSibling?.textContent ?? "";
+      expect(deadline).toMatch(/2026|2569/);
+      expect(deadline).not.toMatch(/[ \t\n]/);
+      view.unmount();
+    }
+  });
 });
 
+/** True when the nodes come in this order in the page, as a reader or a phone's single column meets them. */
+function inOrder(...nodes: readonly Node[]): boolean {
+  return nodes.every((node, i) => i === 0 || Boolean(nodes[i - 1].compareDocumentPosition(node) & Node.DOCUMENT_POSITION_FOLLOWING));
+}
+
 describe("RefundHead", () => {
-  it("leads with the status line as the page heading, then the amount large, then what the amount is", () => {
+  it("leads with the status line as the page heading, then the amount, then what the amount is", () => {
     inLocale("th", <Sheet />);
     const heading = screen.getByRole("heading", { level: 1 });
     expect(heading.textContent).toBe("ยกเลิกการจอง · คืนเต็มจำนวน");
-    expect(heading.className).toContain("text-xs");
-    expect(heading.className).toContain("lg:text-frame-meta");
-    expect(heading.className).toContain("font-medium");
-
-    const amount = screen.getAllByText("฿1,000").find((node) => node.tagName === "P");
-    expect(amount?.className).toContain("text-2xl");
-    expect(amount?.className).toContain("lg:text-frame-title");
-    expect(screen.getByText("ยอดที่ได้คืนถ้ายกเลิกตอนนี้")).toBeTruthy();
+    const amount = screen.getAllByText("฿1,000").find((node) => node.tagName === "P")!;
+    expect(inOrder(heading, amount, screen.getByText("ยอดที่ได้คืนถ้ายกเลิกตอนนี้"))).toBe(true);
   });
 
-  it("colours only the mark in green, never the words", () => {
-    inLocale(
-      "th",
-      <RefundHead amount="฿1,000" icon={CircleCheckBig} title="คืนเงินแล้ว" tone="success" />,
-    );
-    const heading = screen.getByRole("heading", { level: 1, name: "คืนเงินแล้ว" });
-    expect(heading.className).toContain("text-foreground");
-    expect(heading.className).not.toContain("text-success");
-    expect(heading.querySelector("svg")?.getAttribute("class")).toContain("text-success");
+  it("reads a meta given in parts as one line, the parts joined by a dot", () => {
+    inLocale("th", <RefundHead amount="฿1,000" icon={CircleCheckBig} meta={["ยอดที่ขอคืน", "แจ้งได้ถึง 10 พ.ย."]} title="คืนเงินแล้ว" tone="success" />);
+    const meta = screen.getByText((_, node) => node?.tagName === "P" && (node.textContent ?? "").startsWith("ยอดที่ขอคืน"));
+    expect(meta.textContent?.replaceAll("\u{a0}", " ")).toBe("ยอดที่ขอคืน · แจ้งได้ถึง 10 พ.ย.");
   });
 });
 
@@ -266,175 +270,103 @@ describe("RefundFacts", () => {
     inLocale("th", <RefundFacts booking={booking} invoice={{ ...invoice, card: null }} />);
     expect(readFacts(document.body)["คืนเข้า"]).toBe("ช่องทางที่ชำระ");
   });
-
-  it("lays the facts out on the receipt's two-column grid", () => {
-    const { container } = inLocale("th", <RefundFacts booking={booking} invoice={invoice} />);
-    const grid = container.querySelector("dl");
-    expect(grid?.className).toContain("grid-cols-2");
-    expect(grid?.className).toContain("lg:gap-x-6");
-    expect(grid?.className).toContain("lg:gap-y-5");
-  });
 });
 
 describe("RefundCard", () => {
-  it("is the receipt's card, split from lg into the head and the sections behind a dashed rule", () => {
+  it("reads the head, the sections, then the aside, in the order the task is done", () => {
     inLocale("th", <Sheet />);
     const card = screen.getByRole("article");
-    for (const name of ["rounded-card", "border-hero-card-border", "shadow-hero-card", "bg-card", "lg:grid", "lg:grid-cols-2"]) {
-      expect(card.className).toContain(name);
-    }
-
-    const headCell = screen.getByRole("heading", { level: 1 }).closest("section")?.parentElement;
-    const sectionsCell = screen.getByRole("heading", { level: 2, name: "เงื่อนไขการยกเลิก" }).closest("section")?.parentElement;
-    expect(headCell?.parentElement).toBe(card);
-    expect(sectionsCell?.parentElement).toBe(card);
-    expect(sectionsCell).not.toBe(headCell);
-    expect(sectionsCell?.className).toContain("lg:border-l");
-    expect(sectionsCell?.className).toContain("lg:border-dashed");
-    expect(headCell?.className).not.toContain("border-l");
+    expect([...card.querySelectorAll("h1, h2")].map((heading) => heading.textContent)).toEqual([
+      "ยกเลิกการจอง · คืนเต็มจำนวน",
+      "ยอดที่ได้คืน",
+      "เงื่อนไขการยกเลิก",
+      "ความคืบหน้า",
+      "หลักฐาน (ไม่บังคับ)",
+    ]);
   });
 
-  it("puts each section under a dashed rule that only the right cell's first drops from lg", () => {
-    inLocale("th", <Sheet />);
-    for (const name of ["ยอดที่ได้คืน", "เงื่อนไขการยกเลิก", "ความคืบหน้า", "หลักฐาน (ไม่บังคับ)"]) {
-      const section = screen.getByRole("heading", { level: 2, name }).closest("section");
-      expect(section?.className).toContain("border-t");
-      expect(section?.className).toContain("border-dashed");
-      expect(section?.className).toContain("lg:group-data-[cell=sections]/cell:first:border-t-0");
-      expect(section?.className).not.toContain("lg:first:border-t-0");
-    }
-    const sectionsCell = screen.getByRole("heading", { level: 2, name: "ยอดที่ได้คืน" }).closest("section")?.parentElement;
-    expect(sectionsCell?.getAttribute("data-cell")).toBe("sections");
-    expect(sectionsCell?.className).toContain("group/cell");
-  });
-
-  it("from lg sets the aside under the head in the left cell, and on a phone after the sections", () => {
-    inLocale("th", <Sheet />);
-    const card = screen.getByRole("article");
-    const [headCell, sectionsCell, asideCell] = [...card.children];
-    expect(headCell.querySelector("h1")).toBeTruthy();
-    expect(within(sectionsCell as HTMLElement).getByRole("heading", { level: 2, name: "เงื่อนไขการยกเลิก" })).toBeTruthy();
-    expect(within(asideCell as HTMLElement).getByRole("heading", { level: 2, name: "หลักฐาน (ไม่บังคับ)" })).toBeTruthy();
-    expect(card.className).toContain("lg:grid-rows-[auto_1fr_auto]");
-    expect(headCell.className).toContain("lg:row-start-1");
-    expect(sectionsCell.className).toContain("lg:row-span-2");
-    expect(asideCell.className).toContain("lg:col-start-1");
-    expect(asideCell.className).toContain("lg:row-start-2");
-    // Only the right cell is "sections", whose first section drops its rule.
-    expect(asideCell.getAttribute("data-cell")).toBe("aside");
-  });
-
-  it("from lg runs a foot under both cells, last on a phone", () => {
+  it("names each cell for what it holds, the foot last", () => {
     inLocale(
       "th",
-      <RefundCard foot={<RefundSection heading="ท้าย">{null}</RefundSection>} head={<h1>หัว</h1>}>
+      <RefundCard aside={<RefundSection heading="ใต้หัว">{null}</RefundSection>} foot={<RefundSection heading="ท้าย">{null}</RefundSection>} head={<h1>หัว</h1>}>
         <RefundSection heading="ขวา">{null}</RefundSection>
       </RefundCard>,
     );
-    const card = screen.getByRole("article");
-    const foot = card.lastElementChild!;
-    expect(foot.getAttribute("data-cell")).toBe("foot");
-    expect(foot.className).toContain("lg:col-span-2");
-    expect(foot.className).toContain("lg:row-start-3");
-    expect(within(foot as HTMLElement).getByRole("heading", { level: 2 }).textContent).toBe("ท้าย");
+    const cells = [...screen.getByRole("article").children].map((cell) => [
+      cell.getAttribute("data-cell"),
+      within(cell as HTMLElement).getByRole("heading").textContent,
+    ]);
+    expect(cells).toEqual([
+      ["head", "หัว"],
+      ["sections", "ขวา"],
+      ["aside", "ใต้หัว"],
+      ["foot", "ท้าย"],
+    ]);
+  });
+
+  it("draws no aside or foot it was not given", () => {
+    inLocale(
+      "th",
+      <RefundCard head={<h1>หัว</h1>}>
+        <RefundSection heading="ขวา">{null}</RefundSection>
+      </RefundCard>,
+    );
+    expect([...screen.getByRole("article").children].map((cell) => cell.getAttribute("data-cell"))).toEqual(["head", "sections"]);
   });
 });
 
 describe("RefundRow", () => {
-  it("sets the row in force in ink with the now pill, and the others muted", () => {
+  it("marks the row in force as current, with the now pill after its title and before its line", () => {
     inLocale("th", <Sheet />);
     const policy = screen.getByRole("heading", { level: 2, name: "เงื่อนไขการยกเลิก" }).closest("section")!;
     const rows = within(policy).getAllByRole("listitem");
     expect(rows).toHaveLength(3);
     expect(rows[0].getAttribute("aria-current")).toBe("true");
-    expect(within(rows[0]).getByText("ตอนนี้")).toBeTruthy();
-    expect(rows[0].querySelector("p")?.className).toContain("font-medium");
-    expect(rows[0].querySelector("p")?.className).toContain("text-foreground");
-    // The pill rides on the title's line, never pushed to the far edge of a row that spans the card.
-    expect(within(rows[0]).getByText("ตอนนี้").parentElement).toBe(rows[0].querySelector("p")?.parentElement);
+    expect(rows[0].textContent?.replaceAll("\u{a0}", " ")).toMatch(/^ถึง \S+ 10 พ\.ย\. 2569 · 10:30ตอนนี้คืนเต็มจำนวน$/);
     for (const row of rows.slice(1)) {
       expect(row.getAttribute("aria-current")).toBeNull();
       expect(within(row).queryByText("ตอนนี้")).toBeNull();
-      expect(row.querySelector("p")?.className).toContain("text-muted-foreground");
     }
-    expect(rows[0].textContent).toContain("10 พ.ย. 2569 · 10:30");
-    expect(rows[0].textContent).toContain("คืนเต็มจำนวน");
-    expect(rows[1].textContent).toContain("10 พ.ย. 10:30 ถึง 11 พ.ย. 10:30");
-    expect(rows[2].textContent).toContain("ตั้งแต่ 11 พ.ย. 10:30");
-  });
-
-  it("draws a 20px mark and a 14/12px pair of lines, 14px apart", () => {
-    inLocale("th", <Sheet />);
-    const policy = screen.getByRole("heading", { level: 2, name: "เงื่อนไขการยกเลิก" }).closest("section")!;
-    const list = within(policy).getByRole("list");
-    expect(list.className).toContain("gap-3.5");
-    const [title, sub] = list.querySelectorAll("li:first-child p");
-    expect(list.querySelector("li svg")?.getAttribute("class")).toContain("size-5");
-    expect(title.className).toContain("text-sm");
-    expect(sub.className).toContain("text-xs");
+    expect(rows[1].textContent).toBe("10 พ.ย. 10:30 ถึง 11 พ.ย. 10:30คืน 50% ของค่าบริการ");
+    expect(rows[2].textContent).toBe("ตั้งแต่ 11 พ.ย. 10:30ยกเลิกไม่ได้ ถ้ามีปัญหาขอคืนเงินได้ถึง 7 วันหลังจบ");
   });
 });
 
 describe("RefundBox", () => {
-  it("lists the half refund's lines and the total on the receipt's faint ground", () => {
+  it("lists the half refund's lines, then the total", () => {
     inLocale("th", <Sheet />);
     const box = screen.getByText("รวมได้คืน").closest("dl")!;
-    expect(box.className).toContain("bg-muted/50");
-    expect(box.className).toContain("rounded-xl");
     expect(readFacts(box)).toEqual({
       "ค่าบริการ · คืน 50%": "฿400",
       "ค่าบริการแพลตฟอร์ม · ไม่คืน": "฿0",
       "รวมได้คืน": "฿400",
     });
+    expect(within(box).getAllByRole("term").at(-1)?.textContent).toBe("รวมได้คืน");
   });
 });
 
 describe("RefundActions", () => {
-  it("stacks the capsules 10px apart, then the help line quoting the receipt number", () => {
+  it("sets the buttons first, then the help line, which mails support quoting the receipt number", () => {
     inLocale("th", <Sheet />);
-    const confirm = screen.getByRole("button", { name: "ยกเลิกและรับเงินคืน ฿1,000" });
-    expect(confirm.parentElement?.className).toContain("gap-2.5");
-    expect(screen.getByText(/มีคำถามเกี่ยวกับการจองนี้\?/)).toBeTruthy();
-
     const help = screen.getByRole("link", { name: "ติดต่อฝ่ายช่วยเหลือ" });
+    expect(help.closest("p")?.textContent).toBe("มีคำถามเกี่ยวกับการจองนี้? ติดต่อฝ่ายช่วยเหลือ");
+    expect(inOrder(screen.getByRole("button", { name: "ยกเลิกและรับเงินคืน ฿1,000" }), screen.getByRole("button", { name: "เก็บการจองไว้" }), help)).toBe(true);
+
     const href = help.getAttribute("href") ?? "";
     expect(href.startsWith("mailto:hello@advisory.co.th?subject=")).toBe(true);
     expect(decodeURIComponent(href.split("subject=")[1])).toContain("INV-2026-000123");
-    expect(help.className).toContain("focus-visible:ring-3");
   });
 
-  it("from lg is the receipt's column, centred under the whole card", () => {
-    inLocale("th", <Sheet />);
-    const stack = screen.getByRole("button", { name: "เก็บการจองไว้" }).parentElement?.parentElement;
-    const classes = stack?.className.split(" ") ?? [];
-    for (const name of ["w-full", "lg:mx-auto", "lg:w-144"]) expect(classes).toContain(name);
-    expect(classes).not.toContain("lg:ml-auto");
-    expect(classes).not.toContain("lg:w-1/2");
-  });
-});
-
-describe("refundPill", () => {
-  it("is 44 tall on a phone and an upright tablet and 56 from lg, full width", () => {
-    for (const kind of ["solid", "outline", "danger"] as const) {
-      const pill = refundPill(kind).split(" ");
-      for (const name of ["h-11", "md:h-11", "lg:h-14", "w-full"]) expect(pill).toContain(name);
-    }
-  });
-
-  it("keeps the button's focus ring on a capsule", () => {
-    inLocale("th", <Sheet />);
-    for (const name of ["ยกเลิกและรับเงินคืน ฿1,000", "เก็บการจองไว้"]) {
-      expect(screen.getByRole("button", { name }).className).toContain("focus-visible:ring-3");
-    }
-  });
-
-  it("fills the danger capsule in red with white words, and nothing else in red", () => {
-    const danger = refundPill("danger").split(" ");
-    expect(danger).toContain("bg-destructive");
-    expect(danger).toContain("text-primary-foreground");
-    expect(danger).not.toContain("bg-hero-action");
-    expect(refundPill("solid").split(" ")).toContain("bg-hero-action");
-    expect(refundPill("outline").split(" ")).toContain("border-border");
+  it("drops the help line when told to, for a page whose own button already mails support", () => {
+    inLocale(
+      "th",
+      <RefundActions help={false} invoiceNumber={invoice.invoiceNumber}>
+        <Button type="button">ปุ่ม</Button>
+      </RefundActions>,
+    );
+    expect(screen.getByRole("button", { name: "ปุ่ม" })).toBeTruthy();
+    expect(screen.queryByRole("link")).toBeNull();
+    expect(screen.queryByText(/มีคำถามเกี่ยวกับการจองนี้/)).toBeNull();
   });
 });
 

@@ -2,7 +2,7 @@
 
 import { CreditCard, type LucideIcon } from "lucide-react";
 import { useFormatter, useTranslations } from "next-intl";
-import type { ReactNode } from "react";
+import { Fragment, type ReactNode } from "react";
 
 import { AUTH_LINK, authPill } from "@/components/auth/auth-split";
 import { baht } from "@/components/bookings/booking-flow";
@@ -50,7 +50,8 @@ export function useRefundFormat() {
     },
     day,
     clock,
-    deadline: (date: When) => `${day(date)} · ${clock(date)}`,
+    /** No-break spaces: a wrapping line moves the whole deadline down, never half of it. */
+    deadline: (date: When) => `${day(date)} · ${clock(date)}`.replaceAll(" ", "\u{a0}"),
     short: (date: When) =>
       format.dateTime(new Date(date), { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit", hourCycle: "h23" }),
     stamp: (date: When) =>
@@ -87,8 +88,8 @@ export function useSupportMail(invoiceNumber: string): string {
  *
  * Two places keep the cells ending level, as the receipt's sheet does. From
  * `lg`, `aside` sits under the head in the left cell, and `foot` runs across
- * the whole card under both. On a phone both follow the other sections, in
- * the order the task is done.
+ * the whole card under both, where a `RefundList` lays its rows side by side.
+ * On a phone both follow the other sections, in the order the task is done.
  */
 export function RefundCard({
   head,
@@ -100,7 +101,8 @@ export function RefundCard({
   readonly head: ReactNode;
   readonly aside?: ReactNode;
   readonly foot?: ReactNode;
-  readonly children: ReactNode;
+  /** None: the head takes the whole width and the foot runs under it, so no half-empty cell stands beside it. */
+  readonly children?: ReactNode;
   readonly className?: string;
 }) {
   return (
@@ -110,27 +112,45 @@ export function RefundCard({
         className,
       )}
     >
-      <div className="flex min-w-0 flex-col lg:col-start-1 lg:row-start-1" data-cell="head">
+      <div
+        className={cn("group/head flex min-w-0 flex-col lg:col-start-1 lg:row-start-1", !children && "lg:col-span-2")}
+        data-cell="head"
+        data-wide={children ? undefined : ""}
+      >
         {head}
       </div>
-      <div
-        className="group/cell flex min-w-0 flex-col lg:col-start-2 lg:row-span-2 lg:row-start-1 lg:border-l lg:border-dashed lg:border-border"
-        data-cell="sections"
-      >
-        {children}
-      </div>
+      {children ? (
+        <div
+          className="group/cell flex min-w-0 flex-col lg:col-start-2 lg:row-span-2 lg:row-start-1 lg:border-l lg:border-dashed lg:border-border"
+          data-cell="sections"
+        >
+          {children}
+        </div>
+      ) : null}
       {aside ? (
         <div className="flex min-w-0 flex-col lg:col-start-1 lg:row-start-2" data-cell="aside">
           {aside}
         </div>
       ) : null}
       {foot ? (
-        <div className="flex min-w-0 flex-col lg:col-span-2 lg:row-start-3" data-cell="foot">
+        <div className="group/cell flex min-w-0 flex-col lg:col-span-2 lg:row-start-3" data-cell="foot">
           {foot}
         </div>
       ) : null}
     </article>
   );
+}
+
+/** Breaks only between the parts. A part keeps whole while it fits a line, and wraps inside itself once it does not. */
+function MetaParts({ parts }: { readonly parts: readonly string[] }) {
+  return parts.map((part, index) => (
+    <Fragment key={part}>
+      {index > 0 ? " " : null}
+      <span className="inline-block">
+        <Figures>{index < parts.length - 1 ? `${part}\u{a0}·` : part}</Figures>
+      </span>
+    </Fragment>
+  ));
 }
 
 /** `pt-6`: the receipt's own top inset, which its logo row takes and this sheet has no logo row for. */
@@ -146,7 +166,8 @@ export function RefundHead({
   readonly tone: RefundTone;
   readonly title: string;
   readonly amount: string;
-  readonly meta?: string;
+  /** As parts, the line is set as "a · b · c" and breaks only between them. */
+  readonly meta?: string | readonly string[];
   readonly children?: ReactNode;
 }) {
   const look = TONE[tone];
@@ -162,7 +183,7 @@ export function RefundHead({
       </p>
       {meta ? (
         <p className="mt-1.5 text-xs text-muted-foreground lg:text-frame-meta">
-          <Figures>{meta}</Figures>
+          {typeof meta === "string" ? <Figures>{meta}</Figures> : <MetaParts parts={meta} />}
         </p>
       ) : null}
       {children}
@@ -200,7 +221,7 @@ export function RefundFacts({
   const when = useRefundFormat();
 
   return (
-    <dl className="mt-2.5 grid grid-cols-2 gap-x-5 gap-y-2 md:mt-3 md:gap-y-2.5 lg:mt-7 lg:gap-x-6 lg:gap-y-5">
+    <dl className="mt-2.5 grid grid-cols-2 gap-x-5 gap-y-2 md:mt-3 md:gap-y-2.5 lg:mt-7 lg:gap-x-6 lg:gap-y-5 lg:group-data-wide/head:grid-cols-4">
       <Fact label={tr("advisorLabel")}>{invoice.advisor.displayName}</Fact>
       <Fact label={tr("sessionDateLabel")}>
         <span className="block">
@@ -247,6 +268,9 @@ export function RefundBox({ lines, total }: { readonly lines: readonly RefundBox
   );
 }
 
+/** A section's heading, and a form field's title inside a section, which reads as one of them. */
+export const REFUND_HEADING = "text-xs font-medium text-muted-foreground lg:text-frame-label";
+
 /**
  * From `lg` the first section of the card's right cell sits at its top, whose
  * dashed edge already divides it from the head, so it drops its own rule and
@@ -261,15 +285,20 @@ export function RefundSection({ heading, children }: { readonly heading: string;
         SHEET_X,
       )}
     >
-      <h2 className="text-xs font-medium text-muted-foreground lg:text-frame-label">{heading}</h2>
-      <div className="mt-3 lg:mt-4">{children}</div>
+      <h2 className={REFUND_HEADING}>{heading}</h2>
+      <div className="mt-1.5 md:mt-2 lg:mt-4">{children}</div>
     </section>
   );
 }
 
+/** In the foot, which spans both cells from `lg`, the rows run left to right as one line of time across the card. */
 export function RefundList({ ordered = false, children }: { readonly ordered?: boolean; readonly children: ReactNode }) {
   const List = ordered ? "ol" : "ul";
-  return <List className="flex flex-col gap-3.5">{children}</List>;
+  return (
+    <List className="flex flex-col gap-3.5 lg:group-data-[cell=foot]/cell:grid lg:group-data-[cell=foot]/cell:auto-cols-fr lg:group-data-[cell=foot]/cell:grid-flow-col lg:group-data-[cell=foot]/cell:gap-6">
+      {children}
+    </List>
+  );
 }
 
 export function RefundRow({
@@ -326,9 +355,12 @@ export function refundPill(kind: "solid" | "outline" | "danger"): string {
 export function RefundActions({
   children,
   invoiceNumber,
+  help = true,
 }: {
   readonly children: ReactNode;
   readonly invoiceNumber: string;
+  /** Off when a button above already mails support, which the line would only say again. */
+  readonly help?: boolean;
 }) {
   const t = useTranslations("bookings");
   const tr = useTranslations("transactions");
@@ -337,15 +369,21 @@ export function RefundActions({
   return (
     <div className={cn("flex w-full flex-col gap-2.5 md:gap-3 lg:mx-auto lg:gap-4", SHEET_W)}>
       <div className="flex flex-col gap-2.5">{children}</div>
-      <p className="text-center text-xs text-muted-foreground lg:text-frame-label">
-        {t("helpPrompt")}{" "}
-        <a
-          className={cn(AUTH_LINK, "rounded-sm py-1.5 outline-none focus-visible:ring-3 focus-visible:ring-ring/50")}
-          href={mail}
-        >
-          {tr("contactSupport")}
-        </a>
-      </p>
+      {help ? (
+        <p className="text-center text-xs text-muted-foreground lg:text-frame-label">
+          {t("helpPrompt")}{" "}
+          {/* 44 tall to tap, overhanging its line by 10 each way: the line grows only a little, and the gap keeps the link off the button above. */}
+          <a
+            className={cn(
+              AUTH_LINK,
+              "-my-2.5 inline-flex min-h-11 items-center rounded-sm outline-none focus-visible:ring-3 focus-visible:ring-ring/50",
+            )}
+            href={mail}
+          >
+            {tr("contactSupport")}
+          </a>
+        </p>
+      ) : null}
     </div>
   );
 }

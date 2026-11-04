@@ -8,6 +8,7 @@ import { refundPill } from "@/components/bookings/refund-sheet";
 import { Figures } from "@/components/figures";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { ApiError } from "@/lib/api/client";
 import { getRefundEvidenceUrl, listRefundEvidence, uploadRefundEvidence, type RefundEvidence } from "@/lib/api/resources";
 import { useLastAnswer, useResource } from "@/lib/api/use-resource";
 import { cn } from "@/lib/utils";
@@ -26,9 +27,19 @@ const FILE_RULES: readonly { readonly fault: FileFault; readonly fails: (file: F
   { fault: "tooLarge", fails: (file) => file.size > BYTES_MAX },
 ];
 
+/** Why the API did not keep a file. Only `uploadFailed` asks for another try. */
+export type UploadFault = "uploadSignIn" | "uploadRefused" | "tooLarge" | "uploadFailed";
+
+/** 400 is a request that takes no more files (resolved, or all five used), or a file the API would not read. */
+const UPLOAD_FAULT: Readonly<Partial<Record<number, UploadFault>>> = { 400: "uploadRefused", 401: "uploadSignIn", 413: "tooLarge" };
+
+export function uploadFault(cause: unknown): UploadFault {
+  return (cause instanceof ApiError ? UPLOAD_FAULT[cause.status] : undefined) ?? "uploadFailed";
+}
+
 type Problem =
   | { readonly key: "tooMany" | "openFailed" | "loadFailed" }
-  | { readonly key: FileFault | "uploadFailed"; readonly name: string };
+  | { readonly key: FileFault | UploadFault; readonly name: string };
 
 /** The files that may join the `held` ones, and why each of the rest may not. */
 function sortPicks(picked: readonly File[], held: number): { kept: File[]; problems: Problem[] } {
@@ -107,6 +118,8 @@ function FileName({ name }: { readonly name: string }) {
  * The real file input sits inside the capsule, out of sight but in the tab
  * order, so the capsule takes its focus ring. A locked picker keeps its focus
  * and refuses the dialog instead of going `disabled`, which would drop focus.
+ * From `lg` the capsule hugs its words: across a cell it would outsize the
+ * pills under the card.
  */
 function EvidenceShell({
   label,
@@ -134,7 +147,7 @@ function EvidenceShell({
       <label
         className={cn(
           refundPill("outline"),
-          "relative inline-flex cursor-pointer items-center justify-center has-focus-visible:ring-3 has-focus-visible:ring-ring/50 has-aria-disabled:cursor-not-allowed",
+          "relative inline-flex cursor-pointer items-center justify-center has-focus-visible:ring-3 has-focus-visible:ring-ring/50 has-aria-disabled:cursor-not-allowed lg:w-auto lg:self-start",
         )}
       >
         <Plus aria-hidden className="size-4 lg:size-5" />
@@ -259,8 +272,8 @@ function LiveEvidence({ refundId }: LiveEvidenceProps) {
         const row = await uploadRefundEvidence(refundId, file);
         landed += 1;
         setAdded((previous) => [...previous, row]);
-      } catch {
-        failed.push({ key: "uploadFailed", name: file.name });
+      } catch (cause) {
+        failed.push({ key: uploadFault(cause), name: file.name });
       }
     }
     setProblems([...sorted.problems, ...failed]);
