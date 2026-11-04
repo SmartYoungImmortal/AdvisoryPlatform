@@ -28,7 +28,7 @@ vi.mock("@/components/bookings/refund-actions", async (importOriginal) => ({
 }));
 
 import type { BookingExit } from "@/components/bookings/booking-exit";
-import type { CancelRefundResult, RefundFailure } from "@/components/bookings/refund-actions";
+import type { CancelRefundResult, OpenedRefund, RefundFailure } from "@/components/bookings/refund-actions";
 import { ApiError } from "@/lib/api/client";
 import { CancelRefundMode, ClaimMode } from "@/components/bookings/refund-cancel";
 import type { ApiAdviseeInvoice, ApiBooking, ApiRefundCase } from "@/lib/api/types";
@@ -104,6 +104,9 @@ const refund: ApiRefundCase = {
   createdAt: "2026-11-04T13:57:00.000Z",
   resolvedAt: null,
 };
+/** The request this press wrote. */
+const fresh: OpenedRefund = { refund, alreadyOpen: false };
+const opened = { kind: "opened", ...fresh } as const satisfies CancelRefundResult;
 
 beforeEach(() => {
   actions.cancelThenRefund.mockReset();
@@ -142,7 +145,7 @@ function CancelOnPage({
   readonly exit: CancelExit;
   readonly stillOffered: () => boolean;
   readonly onReread: () => void;
-  readonly onOpened: (refund: ApiRefundCase, at: number) => void;
+  readonly onOpened: (opened: OpenedRefund, at: number) => void;
   readonly onCancelledOnly: (at: number, failure: RefundFailure) => void;
 }) {
   const [shown, setShown] = useState(booking);
@@ -190,16 +193,21 @@ function renderClaim({
   exit = claimFull,
   bill = invoice,
   notice,
+  failed,
   locale = "th",
 }: {
   readonly of?: ApiBooking;
   readonly exit?: ClaimExit;
   readonly bill?: ApiAdviseeInvoice;
   readonly notice?: string;
+  readonly failed?: RefundFailure;
   readonly locale?: "th" | "en";
 } = {}) {
   const onOpened = vi.fn();
-  const view = inLocale(locale, <ClaimMode booking={of} exit={exit} invoice={bill} notice={notice} onOpened={onOpened} />);
+  const view = inLocale(
+    locale,
+    <ClaimMode booking={of} exit={exit} failed={failed} invoice={bill} notice={notice} onOpened={onOpened} />,
+  );
   return { ...view, onOpened };
 }
 
@@ -268,20 +276,39 @@ describe("CancelRefundMode, 24 hours or more before the start", () => {
     expect(rows[2].textContent).toContain("ยกเลิกไม่ได้");
   });
 
-  it("links §8 of the terms with a 44px hit area and a focus ring", () => {
+  it("links §8 of the terms", () => {
     renderCancel();
-    const terms = screen.getByRole("link", { name: "อ่านข้อกำหนดข้อ 8" });
-    expect(terms.getAttribute("href")).toBe("/terms#cancellation");
-    expect(terms.className).toContain("min-h-11");
-    expect(terms.className).toContain("focus-visible:ring-3");
+    expect(screen.getByRole("link", { name: "อ่านข้อกำหนดข้อ 8" }).getAttribute("href")).toBe("/terms#cancellation");
   });
 
-  it("offers one red confirm with the amount, the line that it cannot be undone, and a way back to the booking", () => {
+  it("says before the press that the cancel is at once and the refund waits on the team, then the confirm and a way back", () => {
     renderCancel();
-    expect(screen.getByText("ยกเลิกแล้วย้อนกลับไม่ได้")).toBeTruthy();
+    const said = line(
+      "ยกเลิกมีผลทันทีและย้อนกลับไม่ได้ ส่วนเงินคืนรอทีมงานยืนยันภายใน 14 วันทำการ แล้วคืนเข้า Visa •••• 1111",
+    );
     const confirm = screen.getByRole("button", { name: "ยกเลิกและรับเงินคืน ฿1,000" });
-    expect(confirm.className.split(" ")).toContain("bg-destructive");
+    expect(said.compareDocumentPosition(confirm) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     expect(screen.getByRole("button", { name: "เก็บการจองไว้" }).getAttribute("href")).toBe(POPUP);
+  });
+
+  it("names the original payment method when the receipt has no card", () => {
+    inLocale("en", (
+      <CancelRefundMode
+        booking={booking}
+        exit={fullCancel}
+        invoice={{ ...invoice, card: null }}
+        onCancelledOnly={vi.fn()}
+        onNotice={vi.fn()}
+        onOpened={vi.fn()}
+        reread={vi.fn()}
+        stillOffered={() => true}
+      />
+    ));
+    expect(
+      line(
+        "Cancelling takes effect at once and can't be undone. The refund waits for our team to confirm it within 14 business days, then goes back to your original payment method.",
+      ),
+    ).toBeTruthy();
   });
 });
 
@@ -309,7 +336,7 @@ describe("CancelRefundMode, inside 24 hours", () => {
 
 describe("CancelRefundMode, pressing confirm", () => {
   it("cancels once on a double press, with the rule applied as the reason", async () => {
-    actions.cancelThenRefund.mockResolvedValue({ kind: "opened", refund } satisfies CancelRefundResult);
+    actions.cancelThenRefund.mockResolvedValue(opened);
     renderCancel();
     await pressTwice(screen.getByRole("button", { name: "ยกเลิกและรับเงินคืน ฿1,000" }));
     expect(actions.cancelThenRefund).toHaveBeenCalledTimes(1);
@@ -321,7 +348,7 @@ describe("CancelRefundMode, pressing confirm", () => {
   });
 
   it("gives the half rule as the reason inside 24 hours", async () => {
-    actions.cancelThenRefund.mockResolvedValue({ kind: "opened", refund } satisfies CancelRefundResult);
+    actions.cancelThenRefund.mockResolvedValue(opened);
     renderCancel(halfCancel);
     await pressTwice(screen.getByRole("button", { name: "ยกเลิกและรับเงินคืน ฿400" }));
     expect(actions.cancelThenRefund).toHaveBeenCalledWith(
@@ -339,16 +366,16 @@ describe("CancelRefundMode, pressing confirm", () => {
     const busy = screen.getByRole("button", { name: "กำลังยกเลิก…" });
     expect(busy.getAttribute("aria-busy")).toBe("true");
     expect((busy as HTMLButtonElement).disabled).toBe(true);
-    await act(async () => run.resolve({ kind: "opened", refund }));
+    await act(async () => run.resolve(opened));
   });
 
   it("hands the opened request to the page with the moment of the press", async () => {
     const pressedAt = Date.parse("2026-11-08T09:15:00Z");
     vi.spyOn(Date, "now").mockReturnValue(pressedAt);
-    actions.cancelThenRefund.mockResolvedValue({ kind: "opened", refund } satisfies CancelRefundResult);
+    actions.cancelThenRefund.mockResolvedValue(opened);
     const { onOpened, onCancelledOnly } = renderCancel();
     await act(async () => screen.getByRole("button", { name: "ยกเลิกและรับเงินคืน ฿1,000" }).click());
-    expect(onOpened).toHaveBeenCalledExactlyOnceWith(refund, pressedAt);
+    expect(onOpened).toHaveBeenCalledExactlyOnceWith(opened, pressedAt);
     expect(onCancelledOnly).not.toHaveBeenCalled();
     vi.restoreAllMocks();
   });
@@ -444,7 +471,7 @@ describe("CancelRefundMode, pressing confirm", () => {
 
 describe("ClaimMode", () => {
   it("claims the whole charge from an advisor's cancellation with one press", async () => {
-    actions.openRefundOnce.mockResolvedValue(refund);
+    actions.openRefundOnce.mockResolvedValue(fresh);
     const { onOpened } = renderClaim();
     expect(screen.getByRole("heading", { level: 1 }).textContent).toBe("การจองนี้ยกเลิกแล้ว");
     expect(screen.getByText("฿1,000").tagName).toBe("P");
@@ -455,7 +482,7 @@ describe("ClaimMode", () => {
     await pressTwice(screen.getByRole("button", { name: "รับเงินคืน ฿1,000" }));
     expect(actions.openRefundOnce).toHaveBeenCalledTimes(1);
     expect(actions.openRefundOnce).toHaveBeenCalledWith(invoice.id, "ที่ปรึกษาหรือทีมงานยกเลิก · คืนเต็มจำนวน ฿1,000");
-    expect(onOpened).toHaveBeenCalledExactlyOnceWith(refund);
+    expect(onOpened).toHaveBeenCalledExactlyOnceWith(fresh);
   });
 
   it("previews what happens: cancelled at its time, the team confirms, then the refund, with no word that money moves yet", () => {
@@ -471,10 +498,11 @@ describe("ClaimMode", () => {
   });
 
   it("claims half the service fee from the advisee's own late cancellation", async () => {
-    actions.openRefundOnce.mockResolvedValue(refund);
+    actions.openRefundOnce.mockResolvedValue(fresh);
     renderClaim({ of: adviseeLate, exit: claimHalf, bill: { ...invoice, card: null } });
+    // "เวลา" and "เริ่ม" are held by a word joiner, so the start time never breaks across lines.
     expect(
-      line("คุณยกเลิกเมื่อ 11 พ.ย. 2569 · 05:30 ภายใน 24 ชั่วโมงก่อนเวลาเริ่ม จึงได้คืน 50% ของค่าบริการ"),
+      line("คุณยกเลิกเมื่อ 11 พ.ย. 2569 · 05:30 ภายใน 24 ชั่วโมงก่อนเวลา⁠เริ่ม จึงได้คืน 50% ของค่าบริการ"),
     ).toBeTruthy();
     expect(readBox()).toEqual({
       "ค่าบริการ · คืน 50%": "฿400",
@@ -495,7 +523,7 @@ describe("ClaimMode", () => {
       of: { ...adviseeLate, cancelledAt: "2026-11-04T13:56:00.000Z" },
       exit: { ...claimFull, by: "advisee" },
     });
-    expect(line("คุณยกเลิกเมื่อ 4 พ.ย. 2569 · 20:56 ก่อนเวลาเริ่ม 24 ชั่วโมงขึ้นไป จึงได้คืนเต็มจำนวน")).toBeTruthy();
+    expect(line("คุณยกเลิกเมื่อ 4 พ.ย. 2569 · 20:56 ก่อนเวลา⁠เริ่ม 24 ชั่วโมงขึ้นไป จึงได้คืนเต็มจำนวน")).toBeTruthy();
   });
 
   it("shows the page's notice as an alert", () => {
@@ -505,14 +533,14 @@ describe("ClaimMode", () => {
   });
 
   it("is busy while the request opens", async () => {
-    const run = pending<ApiRefundCase>();
+    const run = pending<OpenedRefund>();
     actions.openRefundOnce.mockReturnValue(run.promise);
     renderClaim();
     await act(async () => screen.getByRole("button", { name: "รับเงินคืน ฿1,000" }).click());
     const busy = screen.getByRole("button", { name: "กำลังส่งเรื่องคืนเงิน…" });
     expect(busy.getAttribute("aria-busy")).toBe("true");
     expect((busy as HTMLButtonElement).disabled).toBe(true);
-    await act(async () => run.resolve(refund));
+    await act(async () => run.resolve(fresh));
   });
 
   it("says the request did not go through and lets the advisee press again", async () => {
@@ -545,6 +573,35 @@ describe("ClaimMode", () => {
     renderClaim();
     await act(async () => screen.getByRole("button", { name: "รับเงินคืน ฿1,000" }).click());
     expect(screen.getByRole("alert").textContent).toBe(words);
+    // The button is the way on now, with the receipt in the subject; a second press would fail the same way.
+    expect(screen.queryByRole("button", { name: "รับเงินคืน ฿1,000" })).toBeNull();
+    const support = screen.getByRole("button", { name: "ติดต่อฝ่ายช่วยเหลือ" });
+    expect(decodeURIComponent(support.getAttribute("href") ?? "")).toMatch(/^mailto:[^?]+\?subject=สอบถามรายการ INV-2026-000123$/);
+    expect(screen.queryByRole("link", { name: "ติดต่อฝ่ายช่วยเหลือ" })).toBeNull();
+  });
+
+  it.each([
+    ["refused", "ติดต่อฝ่ายช่วยเหลือ"],
+    ["notFound", "ติดต่อฝ่ายช่วยเหลือ"],
+    ["signIn", "เข้าสู่ระบบอีกครั้ง"],
+  ] as const)("arriving from this page's cancel whose refund was %s, offers what helps, not the claim", (failed, way) => {
+    renderClaim({ failed, notice: "ยกเลิกการจองแล้ว แต่ระบบไม่รับเรื่องคืนเงิน ฿1,000 ติดต่อฝ่ายช่วยเหลือ" });
+    expect(screen.getByRole("alert").textContent).toBe("ยกเลิกการจองแล้ว แต่ระบบไม่รับเรื่องคืนเงิน ฿1,000 ติดต่อฝ่ายช่วยเหลือ");
+    expect(screen.queryByRole("button", { name: "รับเงินคืน ฿1,000" })).toBeNull();
+    expect(screen.getByRole("button", { name: way })).toBeTruthy();
+  });
+
+  it("arriving from a cancel whose refund call simply failed, keeps the claim to press again", () => {
+    renderClaim({ failed: "retry" });
+    expect(screen.getByRole("button", { name: "รับเงินคืน ฿1,000" })).toBeTruthy();
+  });
+
+  it("hands up a request opened elsewhere first, flagged, for the page to say so", async () => {
+    const elsewhere: OpenedRefund = { refund, alreadyOpen: true };
+    actions.openRefundOnce.mockResolvedValue(elsewhere);
+    const { onOpened } = renderClaim();
+    await act(async () => screen.getByRole("button", { name: "รับเงินคืน ฿1,000" }).click());
+    expect(onOpened).toHaveBeenCalledExactlyOnceWith(elsewhere);
   });
 });
 

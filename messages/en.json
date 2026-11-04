@@ -502,14 +502,14 @@
     },
     "meta": {
       "cancel": "What you get back if you cancel now",
-      "claimFull": "You cancelled on {date}, at least 24 hours before the start, so you get the full amount back",
-      "claimHalf": "You cancelled on {date}, within 24 hours of the start, so you get 50% of the service fee back",
+      "claimFull": "You cancelled on {date}, at least 24 hours before the start, so you get the full amount back",
+      "claimHalf": "You cancelled on {date}, within 24 hours of the start, so you get 50% of the service fee back",
       "claimOther": "The advisor or our team cancelled, so you get the full amount back",
-      "report": "The most you can ask back · we reply within 14 business days · report by {date}",
+      "report": "The most you can ask back · we reply within 14 business days · report by {date}",
       "noShow": "The advisor recorded that you didn't attend. Missing a session without notice, or joining after half of it, isn't refunded. This form is for an advisor who didn't come or a platform failure.",
       "status": {
-        "requested": "Amount requested · our team confirms it within 14 business days",
-        "reviewing": "Amount requested · we reply within 14 business days",
+        "requested": "Amount requested · our team confirms it within 14 business days",
+        "reviewing": "Amount requested · we reply within 14 business days",
         "approved": "Amount requested · goes back to {card}",
         "approvedNoCard": "Amount requested · goes back to your original payment method",
         "refunded": "Amount refunded",
@@ -518,6 +518,7 @@
     },
     "facts": {
       "refundTo": "Refund to",
+      "paidWith": "Paid with",
       "paymentMethod": "Original payment method"
     },
     "policy": {
@@ -532,11 +533,12 @@
       },
       "started": {
         "when": "From {date}",
-        "what": "No cancelling. If something goes wrong, you can request a refund up to 7 days after it ends"
+        "what": "No cancelling. If something goes wrong, you can request a refund up to 7 days after it ends"
       },
       "now": "Now",
       "termsLink": "Read section 8 of the terms",
-      "final": "A cancellation can't be undone"
+      "final": "Cancelling takes effect at once and can't be undone. The refund waits for our team to confirm it within 14 business days, then goes back to {card}.",
+      "finalNoCard": "Cancelling takes effect at once and can't be undone. The refund waits for our team to confirm it within 14 business days, then goes back to your original payment method."
     },
     "box": {
       "heading": "Your refund",
@@ -564,10 +566,10 @@
       "label": "Evidence (optional)",
       "add": "Attach evidence",
       "addMore": "Attach more evidence",
-      "limits": "JPG, PNG, WebP or PDF, up to 5 files, 50 MB each",
+      "limits": "JPG, PNG, WebP or PDF, up to 5 files, 50 MB each",
       "remove": "Remove {name}",
-      "tooMany": "You can attach up to 5 files",
-      "tooLarge": "{name} is over 50 MB",
+      "tooMany": "You can attach up to 5 files",
+      "tooLarge": "{name} is over 50 MB",
       "wrongType": "{name} isn't a JPG, PNG, WebP or PDF file",
       "empty": "{name} is empty",
       "uploadFailed": "Couldn't upload {name}. Try again.",
@@ -580,17 +582,15 @@
       "cancellation": {
         "cancelled": "Booking cancelled",
         "confirm": "Our team confirms the refund",
-        "confirmSub": "Within 14 business days"
+        "confirmSub": "Within 14 business days"
       },
       "report": {
         "sent": "Request sent",
         "review": "The Advisory team reviews it",
-        "reviewSub": "From the attendance records and chat, with an answer within 14 business days"
+        "reviewSub": "From the attendance records and chat, with an answer within 14 business days"
       },
       "approved": "Approved",
       "rejected": "Not approved",
-      "rejectedNext": "Questions about this decision? Contact support",
-      "rejectedNextSub": "Quote receipt {number}",
       "paid": "Paid {amount}",
       "refund": "{amount} back to {card}",
       "refundNoCard": "{amount} back to your original payment method",
@@ -630,31 +630,42 @@
       "cancelFailed": "Couldn't cancel. Your booking is unchanged. Try again.",
       "cancelledOnly": "Your booking is cancelled, but the refund didn't go through. Press Get {amount} back again.",
       "cancelledOnlySignIn": "Your booking is cancelled, but your session expired before the refund was sent. Sign in again, then press Get {amount} back.",
-      "cancelledOnlyRefused": "Your booking is cancelled, but the {amount} refund wasn't accepted. Contact support.",
+      "cancelledOnlyRefused": "Your booking is cancelled, but the {amount} refund wasn't accepted. Contact support.",
       "cancelledMeanwhile": "This booking is now cancelled. The refund above follows who cancelled it and when.",
       "claimFailed": "The refund didn't go through. Try again.",
       "sendFailed": "Couldn't send your request. Try again.",
       "signIn": "Your session has expired, so nothing was sent. Sign in again, then come back to this page.",
-      "refundNotFound": "We couldn't find a refundable receipt for this booking. Contact support.",
-      "refundRefused": "This request wasn't accepted. Contact support.",
+      "refundNotFound": "We couldn't find a refundable receipt for this booking. Contact support.",
+      "refundRefused": "This request wasn't accepted. Contact support.",
       "offerHalf": "The full-refund window has just closed. Cancelling now gives {amount} back. Nothing was cancelled; check the amount and press again.",
-      "offerStarted": "This session has started, so it can no longer be cancelled. Nothing was cancelled. If something went wrong, you can report it here."
+      "offerStarted": "This session has started, so it can no longer be cancelled. Nothing was cancelled. If something went wrong, you can report it here.",
+      "alreadyOpen": "A refund request for this booking was already open. Its status is above.",
+      "alreadyOpenReport": "A refund request for this booking was already open, so your details and files weren't sent. Its status is above.",
+      "rereadFailed": "Couldn't load the latest status. Below is what was loaded before.",
+      "rereadSignIn": "Your session has expired. Below is what was loaded before.",
+      "rereadRefused": "The latest status couldn't be loaded. Below is what was loaded before."
     },
     "states": {
       "notFoundTitle": "Booking not found",
       "notFoundBody": "It may belong to another account, or the link may be wrong.",
       "loadFailed": "Couldn't load this booking",
       "moneyFailed": "Couldn't load what was paid or refunded",
-      "moneyFailedBody": "Your booking is unchanged. Try again.",
+      "moneyFailedBody": "Nothing has changed. Try loading it again.",
+      "loadRefusedBody": "This booking couldn't be opened. Nothing has changed. Contact support and our team will look into it.",
+      "moneyRefusedBody": "What was paid for this booking couldn't be opened. Nothing has changed. Contact support and our team will look into it.",
       "signInTitle": "Your session has expired",
       "signInBody": "Sign in again to see this booking.",
       "paidElsewhereTitle": "Paid on the earlier booking",
-      "paidElsewhereBody": "This booking came from a reschedule, so its payment stays with the earlier booking. Contact support to cancel or get a refund.",
+      "paidElsewhereBody": "This booking came from a reschedule, so its payment stays with the earlier booking and can't be handled on this page. Contact support about this booking.",
       "closedTitle": "The refund window has closed",
-      "closedBody": "Refunds could be requested until {date}, 7 days after the session ended.",
+      "closedBody": "Refunds could be requested until {date}, 7 days after the session ended.",
       "nothingTitle": "Nothing to refund",
       "nothingUnpaid": "This booking wasn't paid for.",
       "nothingRescheduled": "This booking moved to a new time, and its payment moved with it."
+    },
+    "supportSubject": {
+      "booking": "Question about my booking: {service} on {date} · {id}",
+      "id": "Question about booking {id}"
     },
     "ruleLine": {
       "full": "Cancelled at least 24 hours before the start · full refund {amount}",
@@ -994,9 +1005,10 @@
     "detailsFailedBody": "Please try again.",
     "detailsRetry": "Try again",
     "moneyFailed": "Couldn't load what was paid or refunded.",
-    "paidElsewhere": "Paid on the booking this one replaced. Cancel or get a refund through support.",
-    "rescheduleSupport": "Ask to reschedule",
-    "rescheduleSubject": "Reschedule request: {service} on {date}",
+    "moneySignIn": "Your session has expired, so what was paid couldn't load.",
+    "moneyRefused": "What was paid for this booking couldn't be loaded.",
+    "paidElsewhere": "Paid on the booking this one replaced. Contact support about this booking.",
+    "rescheduleWithheld": "A paid booking can't be moved here yet, because its payment can't follow it to a new time.",
     "detailsAdvisorLabel": "Advisor",
     "detailsServiceLabel": "Service",
     "detailsLoadingValue": "Loading…",

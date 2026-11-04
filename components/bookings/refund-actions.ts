@@ -24,31 +24,46 @@ export function refundFailure(cause: unknown): RefundFailure {
 }
 
 /**
+ * The request the invoice's money now hangs on. `alreadyOpen`: it is not the
+ * one this press wrote but one opened before it (another tab, another press),
+ * so nothing this press carried, its reason or its files, is in it.
+ */
+export type OpenedRefund = { readonly refund: ApiRefundCase; readonly alreadyOpen: boolean };
+
+/** A failure the POST may have committed behind: no answer, a timeout, a server fault. */
+function mayHaveCommitted(cause: unknown): boolean {
+  return !(cause instanceof ApiError) || cause.status === 408 || cause.status >= 500;
+}
+
+/**
  * Open the invoice's refund request, once.
  *
- * A failed POST may still have committed, and the API refuses a second open
- * request on the same invoice, so before anything is offered again the
- * invoice's requests are read: an open one there is this request. Only when
- * none is open does the POST's own error come back.
+ * The API keeps one open request per invoice. After a POST that may have
+ * committed, the open request on the invoice is this one. After a 409 it is
+ * someone else's, so it is taken as the request but flagged. Only when none
+ * is open, or the refusal says nothing was written, does the POST's own
+ * error come back.
  */
-export async function openRefundOnce(invoiceId: string, reason: string): Promise<ApiRefundCase> {
-  let opened: ApiRefundCase;
+export async function openRefundOnce(invoiceId: string, reason: string): Promise<OpenedRefund> {
+  let opened: OpenedRefund;
   try {
-    opened = await openRefundCase({ invoiceId, reason }, AbortSignal.timeout(TIMEOUT));
+    opened = { refund: await openRefundCase({ invoiceId, reason }, AbortSignal.timeout(TIMEOUT)), alreadyOpen: false };
   } catch (error) {
+    const conflict = error instanceof ApiError && error.status === 409;
+    if (!conflict && !mayHaveCommitted(error)) throw error;
     const found = await listMyRefundCases({ invoiceId, limit: 100 }, AbortSignal.timeout(TIMEOUT)).then(
       (page) => page.items.find((item) => item.status === "OPEN"),
       () => undefined,
     );
     if (!found) throw error;
-    opened = found;
+    opened = { refund: found, alreadyOpen: conflict };
   }
   invalidate("refunds/me");
   return opened;
 }
 
 export type CancelRefundResult =
-  | { readonly kind: "opened"; readonly refund: ApiRefundCase }
+  | { readonly kind: "opened"; readonly refund: ApiRefundCase; readonly alreadyOpen: boolean }
   | { readonly kind: "notCancelled"; readonly outcome: Exclude<CancellationOutcome, "cancelled"> }
   | { readonly kind: "foundCancelled" }
   | { readonly kind: "cancelledOnly"; readonly failure: RefundFailure };
@@ -76,7 +91,7 @@ export async function cancelThenRefund(bookingId: string, invoiceId: string, rea
   invalidate("bookings/");
   invalidate("payment/invoices");
   try {
-    return { kind: "opened", refund: await openRefundOnce(invoiceId, reason) };
+    return { kind: "opened", ...(await openRefundOnce(invoiceId, reason)) };
   } catch (cause) {
     return { kind: "cancelledOnly", failure: refundFailure(cause) };
   }

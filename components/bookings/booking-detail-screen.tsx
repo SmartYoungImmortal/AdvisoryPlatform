@@ -16,7 +16,7 @@ import { Button } from "@/components/ui/button";
 import { getAdvisor, getBooking, getService } from "@/lib/api/resources";
 import type { ApiBooking, ApiPublicAdvisor, ApiPublicService } from "@/lib/api/types";
 import { invalidate, useLastAnswer, useResource } from "@/lib/api/use-resource";
-import { asUuid, useMountTime, useQueryValue } from "@/components/bookings/booking-flow";
+import { asUuid, useQueryValue } from "@/components/bookings/booking-flow";
 import { cn } from "@/lib/utils";
 
 /** The phone's side margin, and the tablet's; the account column owns the inset from `lg`. */
@@ -45,7 +45,8 @@ export function DetailColumn({
   children,
 }: {
   readonly crumb?: string;
-  readonly back?: { readonly href: string; readonly label: string };
+  /** `fromLg: false`: the page's own button already goes there, so from `lg` it draws no second way back. */
+  readonly back?: { readonly href: string; readonly label: string; readonly fromLg?: boolean };
   readonly children: ReactNode;
 }) {
   const t = useTranslations("bookings");
@@ -61,13 +62,15 @@ export function DetailColumn({
           <AccountShell active="bookings">
             <div className={cn("flex w-full flex-col lg:mx-auto", back ? cn("lg:w-full", FEED_COLUMN) : SHEET_W)}>
               {back ? (
-                <Link
-                  className="hidden w-fit items-center gap-1.5 rounded-md text-frame-meta text-muted-foreground outline-none transition-colors hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/50 lg:inline-flex"
-                  href={back.href}
-                >
-                  <ChevronLeft aria-hidden className="size-5" />
-                  {back.label}
-                </Link>
+                back.fromLg === false ? null : (
+                  <Link
+                    className="hidden w-fit items-center gap-1.5 rounded-md text-frame-meta text-muted-foreground outline-none transition-colors hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/50 lg:inline-flex"
+                    href={back.href}
+                  >
+                    <ChevronLeft aria-hidden className="size-5" />
+                    {back.label}
+                  </Link>
+                )
               ) : (
                 <nav aria-label={tr("breadcrumbLabel")} className="hidden text-frame-meta text-muted-foreground lg:block">
                   <ol className="flex flex-wrap items-center gap-1.5">
@@ -144,7 +147,6 @@ function BookingDetailData({ bookingId }: { readonly bookingId: string }) {
 
 /** The booking with its service and advisor joined, as the calendar's card. */
 function BookingDetailContent({ booking, reload }: { readonly booking: ApiBooking; readonly reload: () => void }) {
-  const now = useMountTime();
   const fetchService = useCallback((signal: AbortSignal) => getService(booking.serviceId, signal), [booking.serviceId]);
   const fetchAdvisor = useCallback((signal: AbortSignal) => getAdvisor(booking.advisorId, signal), [booking.advisorId]);
   const service = useResource<ApiPublicService>(`services/${booking.serviceId}`, fetchService);
@@ -159,7 +161,7 @@ function BookingDetailContent({ booking, reload }: { readonly booking: ApiBookin
 
   return (
     <DetailColumn crumb={service.data?.name}>
-      <BookingSheet entry={entry} now={now} onChanged={changed} />
+      <BookingSheet entry={entry} onChanged={changed} />
     </DetailColumn>
   );
 }
@@ -228,11 +230,13 @@ export function BookingDetailState({
 }) {
   const t = useTranslations("bookings");
   const pill = "mt-1 h-11 w-auto px-4 text-sm md:h-11 md:px-5 md:text-sm lg:h-12 lg:px-6 lg:text-frame-body";
-  // With `back` the column's own back link is the way out, so the state draws no second one to the same place.
+  // With `back` the column's own back link is the way out, so the state draws no second one to the same place;
+  // a state whose own button goes where the back link would leaves the button, the bigger of the two.
   const way = action ?? (back ? undefined : { href: "/bookings", label: t("detailsBackToBookings") });
+  const column = back && way?.href === back.href ? { ...back, fromLg: false } : back;
 
   return (
-    <DetailColumn back={back}>
+    <DetailColumn back={column}>
       <div
         aria-live="polite"
         className="flex w-full flex-col items-center justify-center gap-3 px-6 py-12 text-center lg:gap-5 lg:rounded-2xl lg:border lg:border-border lg:py-20"

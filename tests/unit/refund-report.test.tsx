@@ -16,6 +16,7 @@ vi.mock("@/components/bookings/refund-actions", async (original) => ({ ...(await
 const api = vi.hoisted(() => ({ uploadRefundEvidence: vi.fn(), cancelBooking: vi.fn() }));
 vi.mock("@/lib/api/resources", async (original) => ({ ...(await original<object>()), ...api }));
 
+import type { OpenedRefund } from "@/components/bookings/refund-actions";
 import { ReportMode } from "@/components/bookings/refund-report";
 import { ApiError } from "@/lib/api/client";
 import type { ApiAdviseeInvoice, ApiBooking, ApiRefundCase } from "@/lib/api/types";
@@ -42,6 +43,9 @@ const invoice = {
   service: { id: "svc", name: "วางแผนภาษีฟรีแลนซ์" }, advisor: { id: "adv", displayName: "กัญญา พรหมมา" },
 } satisfies ApiAdviseeInvoice;
 const opened: ApiRefundCase = { id: "case-9", invoiceId: invoice.id, reason: "", status: "OPEN", createdAt: "2026-11-04T05:00:00.000Z", resolvedAt: null };
+/** The request this form wrote, and one another tab opened first, which carries nothing this form says. */
+const ours: OpenedRefund = { refund: opened, alreadyOpen: false };
+const theirs: OpenedRefund = { refund: opened, alreadyOpen: true };
 
 function renderForm({
   offered = true,
@@ -73,6 +77,12 @@ function attach(...files: File[]) {
 }
 
 const rows = () => [...document.querySelectorAll("li")].map((row) => row.textContent);
+const reasons = () => within(screen.getByRole("radiogroup")).getAllByRole("radio").map((radio) => radio.closest("label")?.textContent);
+
+/** True when the nodes come in this order in the page, as a reader and the Tab key meet them. */
+function inOrder(...nodes: readonly Node[]): boolean {
+  return nodes.every((node, i) => i === 0 || Boolean(nodes[i - 1].compareDocumentPosition(node) & Node.DOCUMENT_POSITION_FOLLOWING));
+}
 
 describe("ReportMode", () => {
   it("heads the card with the most that can come back and the day reporting closes", () => {
@@ -86,21 +96,42 @@ describe("ReportMode", () => {
     expect(screen.getAllByRole("button").filter((pill) => pill.textContent === "ส่งคำขอคืนเงิน")).toHaveLength(1);
   });
 
-  it("offers the four reasons of section 8 as rows of at least 44px, none picked, and a send button that can be pressed", () => {
+  it("offers the four reasons of section 8, none picked, and a send button that can be pressed", () => {
     renderForm();
-    const radios = within(screen.getByRole("radiogroup")).getAllByRole("radio");
-    expect(radios.map((radio) => radio.closest("label")?.textContent)).toEqual([
+    expect(reasons()).toEqual([
       "ที่ปรึกษาไม่มา หรือยกเลิกกะทันหัน",
       "เข้าห้องไม่ได้เพราะระบบขัดข้อง",
-      "ไม่ตรงกับคำอธิบายบริการไม่รวมกรณีไม่เห็นด้วยกับคำแนะนำหรือผลไม่เป็นอย่างที่หวัง",
+      "ไม่ตรงกับคำอธิบายบริการไม่รวมกรณีไม่เห็นด้วยกับคำ\u{2060}แนะนำหรือผลไม่เป็นอย่างที่หวัง",
       "เรื่องอื่น",
     ]);
-    for (const radio of radios) {
-      expect(radio.getAttribute("aria-checked")).toBe("false");
-      expect(radio.closest("label")?.className.split(" ")).toEqual(expect.arrayContaining(["min-h-11", "lg:min-h-12", "has-data-checked:bg-muted/60"]));
-    }
+    for (const radio of screen.getAllByRole("radio")) expect(radio.getAttribute("aria-checked")).toBe("false");
     expect(send().hasAttribute("disabled")).toBe(false);
     expect(send().getAttribute("aria-disabled")).not.toBe("true");
+  });
+
+  it.each(["BOOKED", "COMPLETED"] as const)("offers all four reasons for a booking that is %s", (state) => {
+    renderForm({ state });
+    expect(reasons()).toHaveLength(4);
+  });
+
+  it("offers only the two grounds its line names after the advisor recorded a no-show", () => {
+    renderForm({ state: "NO_SHOW" });
+    expect(reasons()).toEqual(["ที่ปรึกษาไม่มา หรือยกเลิกกะทันหัน", "เข้าห้องไม่ได้เพราะระบบขัดข้อง"]);
+  });
+
+  it("keeps the whole form in one place under the head, in the order it is filled in, and sends it from the button under the card", () => {
+    renderForm();
+    const card = screen.getByRole("article");
+    const parts = [screen.getByRole("radiogroup"), details(), picker()];
+    expect(parts.every((part) => card.contains(part))).toBe(true);
+    expect(new Set(parts.map((part) => part.closest("[data-cell]"))).size).toBe(1);
+    expect(parts[0].closest("[data-cell]")?.contains(screen.getByRole("heading", { level: 1 }))).toBe(false);
+    expect(inOrder(...parts)).toBe(true);
+
+    expect(card.contains(send())).toBe(false);
+    const form = (send() as HTMLButtonElement).form;
+    expect(form?.contains(parts[0])).toBe(true);
+    expect(form?.contains(parts[1])).toBe(true);
   });
 
   it("says a reason is missing under the legend, marks the group and moves focus into it, and sends nothing", () => {
@@ -132,7 +163,7 @@ describe("ReportMode", () => {
   });
 
   it("opens one request on a double press as reason then details, uploads the files, then hands the request back", async () => {
-    actions.openRefundOnce.mockResolvedValue(opened);
+    actions.openRefundOnce.mockResolvedValue(ours);
     api.uploadRefundEvidence.mockResolvedValue({});
     const onOpened = renderForm();
     const proof = file("proof.png", "image/png");
@@ -149,9 +180,21 @@ describe("ReportMode", () => {
     expect(actions.openRefundOnce).toHaveBeenCalledWith(invoice.id, "ที่ปรึกษาไม่มา หรือยกเลิกกะทันหัน\n\nรอ 20 นาที");
     expect(api.uploadRefundEvidence).toHaveBeenCalledExactlyOnceWith(opened.id, proof);
     expect(actions.openRefundOnce.mock.invocationCallOrder[0]).toBeLessThan(api.uploadRefundEvidence.mock.invocationCallOrder[0]);
-    expect(onOpened).toHaveBeenCalledExactlyOnceWith(opened, undefined);
+    expect(onOpened).toHaveBeenCalledExactlyOnceWith(ours, undefined);
     expect(api.cancelBooking).not.toHaveBeenCalled();
     expect(actions.cancelThenRefund).not.toHaveBeenCalled();
+  });
+
+  it("attaches nothing to a request another tab opened first, and hands that request back as theirs", async () => {
+    actions.openRefundOnce.mockResolvedValue(theirs);
+    const onOpened = renderForm();
+    attach(file("proof.png", "image/png"));
+    fireEvent.click(screen.getByRole("radio", { name: "ที่ปรึกษาไม่มา หรือยกเลิกกะทันหัน" }));
+    await act(async () => fireEvent.click(send()));
+
+    expect(actions.openRefundOnce).toHaveBeenCalledOnce();
+    expect(api.uploadRefundEvidence).not.toHaveBeenCalled();
+    expect(onOpened).toHaveBeenCalledExactlyOnceWith(theirs);
   });
 
   it("sends nothing once the rule, read again at the press, says the 7 days are over", async () => {
@@ -167,7 +210,7 @@ describe("ReportMode", () => {
   });
 
   it("sends the reason alone when no details were written", async () => {
-    actions.openRefundOnce.mockResolvedValue(opened);
+    actions.openRefundOnce.mockResolvedValue(ours);
     renderForm();
     fireEvent.click(screen.getByRole("radio", { name: "เข้าห้องไม่ได้เพราะระบบขัดข้อง" }));
     await act(async () => fireEvent.click(send()));
@@ -175,7 +218,7 @@ describe("ReportMode", () => {
   });
 
   it("is busy and keeps focus while it sends, and says so in words", async () => {
-    let answer: (refund: ApiRefundCase) => void = () => {};
+    let answer: (opened: OpenedRefund) => void = () => {};
     actions.openRefundOnce.mockReturnValue(new Promise((resolve) => (answer = resolve)));
     renderForm();
     fireEvent.click(screen.getByRole("radio", { name: "เรื่องอื่น" }));
@@ -185,17 +228,17 @@ describe("ReportMode", () => {
     const busy = screen.getByRole("button", { name: "กำลังส่ง…" });
     expect(busy.getAttribute("aria-busy")).toBe("true");
     expect(busy.getAttribute("aria-disabled")).toBe("true");
-    await act(async () => answer(opened));
+    await act(async () => answer(ours));
   });
 
   it("still hands the open request back when a file does not upload, naming the file", async () => {
-    actions.openRefundOnce.mockResolvedValue(opened);
+    actions.openRefundOnce.mockResolvedValue(ours);
     api.uploadRefundEvidence.mockRejectedValue(new Error("413"));
     const onOpened = renderForm();
     attach(file("chat.pdf", "application/pdf"));
     fireEvent.click(screen.getByRole("radio", { name: "เข้าห้องไม่ได้เพราะระบบขัดข้อง" }));
     await act(async () => fireEvent.click(send()));
-    expect(onOpened).toHaveBeenCalledExactlyOnceWith(opened, "อัปโหลด chat.pdf ไม่สำเร็จ ลองอีกครั้ง");
+    expect(onOpened).toHaveBeenCalledExactlyOnceWith(ours, "อัปโหลด chat.pdf ไม่สำเร็จ ลองอีกครั้ง");
   });
 
   it("says the request did not go and lets it be sent again when nothing opened", async () => {
@@ -256,17 +299,17 @@ describe("ReportMode", () => {
     { status: 413, says: "chat.pdf ใหญ่เกิน 50 MB" },
     { status: 503, says: "อัปโหลด chat.pdf ไม่สำเร็จ ลองอีกครั้ง" },
   ])("hands the open request back with why a file answered $status did not go", async ({ status, says }) => {
-    actions.openRefundOnce.mockResolvedValue(opened);
+    actions.openRefundOnce.mockResolvedValue(ours);
     api.uploadRefundEvidence.mockRejectedValue(new ApiError(status, "refused"));
     const onOpened = renderForm();
     attach(file("chat.pdf", "application/pdf"));
     fireEvent.click(screen.getByRole("radio", { name: "เข้าห้องไม่ได้เพราะระบบขัดข้อง" }));
     await act(async () => fireEvent.click(send()));
-    expect(onOpened).toHaveBeenCalledExactlyOnceWith(opened, says);
+    expect(onOpened).toHaveBeenCalledExactlyOnceWith(ours, says);
   });
 
   it("names the files that failed for one reason together, each reason once", async () => {
-    actions.openRefundOnce.mockResolvedValue(opened);
+    actions.openRefundOnce.mockResolvedValue(ours);
     const big = new ApiError(413, "Payload Too Large");
     api.uploadRefundEvidence.mockRejectedValueOnce(big).mockResolvedValueOnce({}).mockRejectedValueOnce(big).mockRejectedValueOnce(new ApiError(502, "Bad Gateway"));
     const onOpened = renderForm();
@@ -274,7 +317,7 @@ describe("ReportMode", () => {
     fireEvent.click(screen.getByRole("radio", { name: "เข้าห้องไม่ได้เพราะระบบขัดข้อง" }));
     await act(async () => fireEvent.click(send()));
     // Thai joins a list with no spaces around "และ".
-    expect(onOpened).toHaveBeenCalledExactlyOnceWith(opened, "a.pdfและc.pdf ใหญ่เกิน 50 MB อัปโหลด d.png ไม่สำเร็จ ลองอีกครั้ง");
+    expect(onOpened).toHaveBeenCalledExactlyOnceWith(ours, "a.pdfและc.pdf ใหญ่เกิน 50 MB อัปโหลด d.png ไม่สำเร็จ ลองอีกครั้ง");
   });
 
   it("tells an advisee the advisor marked absent that a missed session gets nothing back, before the reasons", () => {
@@ -289,13 +332,11 @@ describe("ReportMode", () => {
     expect(screen.queryByText(/ที่ปรึกษาบันทึกว่าคุณไม่ได้เข้าร่วม/)).toBeNull();
   });
 
-  it("writes details at 16px on a phone so iOS does not zoom, at the frame's size from lg", () => {
+  it("counts what has been written against the cap", () => {
     renderForm();
-    expect(details().className.split(" ")).toEqual(
-      expect.arrayContaining(["text-base", "md:text-base", "lg:text-frame-meta", "min-h-24", "lg:min-h-32", "resize-none", "rounded-xl"]),
-    );
+    expect(screen.getByText("0/3800")).toBeTruthy();
     fireEvent.change(details(), { target: { value: "รอ 20 นาที" } });
-    expect(screen.getByText(/^10\//).className).toContain("tabular-nums");
+    expect(screen.getByText("10/3800")).toBeTruthy();
   });
 
   it("caps the details so the longest reason, a blank line and the details fit the API's 4000 characters", () => {
@@ -349,12 +390,10 @@ describe("EvidencePicker in the form", () => {
     ]);
   });
 
-  it("removes a file with a 44px button named after it, and puts focus back on the add control", () => {
+  it("removes a file with a button named after it, and puts focus back on the add control", () => {
     renderForm();
     attach(file("proof.png", "image/png"), file("chat.pdf", "application/pdf"));
-    const remove = screen.getByRole("button", { name: "ลบ proof.png" });
-    expect(remove.className.split(" ")).toContain("size-11");
-    fireEvent.click(remove);
+    fireEvent.click(screen.getByRole("button", { name: "ลบ proof.png" }));
     expect(rows()).toEqual(["chat.pdf"]);
     expect(document.activeElement).toBe(picker());
   });

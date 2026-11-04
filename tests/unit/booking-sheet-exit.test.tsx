@@ -1,8 +1,9 @@
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { NextIntlClientProvider } from "next-intl";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import "./support/scroll-trigger";
 
+import { ApiError } from "@/lib/api/client";
 import type { ApiAdviseeInvoice, ApiBooking, ApiPublicService, ApiRefundCase } from "@/lib/api/types";
 import { formats } from "@/lib/i18n/requests";
 import en from "@/messages/en.json";
@@ -52,10 +53,10 @@ vi.hoisted(() => {
   });
 });
 
-import { BookingSheet } from "@/components/bookings/booking-sheet";
+import { BookingDialog, BookingSheet } from "@/components/bookings/booking-sheet";
 
 const HOUR = 3_600_000;
-/** Wednesday 4 Nov 2026, 12:00 in Bangkok. */
+/** Wednesday 4 Nov 2026, 12:00 in Bangkok: the clock the card reads when it opens. */
 const now = Date.parse("2026-11-04T05:00:00Z");
 const BOOKING_ID = "15638839-49d1-4553-b79c-59821ff58f2e";
 const refundPage = `/bookings/refund?bookingId=${BOOKING_ID}`;
@@ -118,7 +119,7 @@ const YESTERDAY = "2026-11-03T08:00:00Z";
 function show(booking: ApiBooking, service?: ApiPublicService) {
   return render(
     <NextIntlClientProvider formats={formats} locale="th" messages={messages} timeZone="Asia/Bangkok">
-      <BookingSheet entry={{ booking, service, advisor: undefined }} now={now} onChanged={() => undefined} />
+      <BookingSheet entry={{ booking, service, advisor: undefined }} onChanged={() => undefined} />
     </NextIntlClientProvider>,
   );
 }
@@ -130,8 +131,14 @@ const said = (container: HTMLElement) => (container.textContent ?? "").replaceAl
 /** Every way on to the booking's refund page. */
 const toRefundPage = (container: HTMLElement) => container.querySelectorAll(`a[href="${refundPage}"]`);
 
+beforeEach(() => {
+  vi.useFakeTimers({ toFake: ["Date"] });
+  vi.setSystemTime(now);
+});
+
 afterEach(() => {
   cleanup();
+  vi.useRealTimers();
   reads.invoice = undefined;
   reads.cases = [];
   reads.invoiceError = null;
@@ -151,12 +158,30 @@ describe("the booking popup's one way out (FE #114)", () => {
     expect(capsules("ยกเลิกการจอง")).toHaveLength(0);
     expect(said(container)).toMatch(/ยกเลิกได้ คืนเต็มจำนวน ถึง \S+ 6 พ\.ย\. 2569 · 16:00/);
     expect(said(container)).not.toContain("คำขอคืนเงิน / สถานะ");
-    // Moving a paid booking goes through support: the API would read the moved original as owed its refund.
+    // A paid booking's move is withheld, and the card says why where the move would be: the API
+    // would read the moved original as owed its refund, and no staff route can move it instead.
     expect(capsules("เปลี่ยนเวลานัด")).toHaveLength(0);
-    const move = capsules("ขอเปลี่ยนเวลานัด");
-    expect(move).toHaveLength(1);
-    expect(move[0].getAttribute("href")).toMatch(/^mailto:[^?]+\?subject=/);
-    expect(decodeURIComponent(move[0].getAttribute("href") ?? "")).toContain("ขอเปลี่ยนเวลานัด");
+    expect(capsules("ขอเปลี่ยนเวลานัด")).toHaveLength(0);
+    expect(said(container)).toContain("การจองที่ชำระแล้วยังเปลี่ยนเวลาเองไม่ได้ เพราะระบบยังย้ายยอดที่ชำระไปเวลาใหม่ไม่ได้");
+  });
+
+  it("judges the 24-hour line by when the popup opens, not by when the list behind it was loaded", () => {
+    const booking = bookingAt(new Date(now + 24 * HOUR + 50_000).toISOString());
+    reads.invoice = paidFor(booking);
+    const entry = { booking, service: undefined, advisor: undefined };
+    const dialog = (open: boolean) => (
+      <NextIntlClientProvider formats={formats} locale="th" messages={messages} timeZone="Asia/Bangkok">
+        <BookingDialog entry={entry} onChanged={() => undefined} onOpenChange={() => undefined} open={open} />
+      </NextIntlClientProvider>
+    );
+    const { rerender } = render(dialog(false));
+
+    vi.setSystemTime(now + 60_000);
+    rerender(dialog(true));
+    const card = said(document.body);
+    expect(card).toMatch(/ยกเลิกได้ คืน 50% ของค่าบริการ ถึง/);
+    expect(card).not.toContain("คืนเต็มจำนวน");
+    expect(card).not.toContain("การจองที่ชำระแล้วยังเปลี่ยนเวลาเองไม่ได้");
   });
 
   it("moves an unpaid booking in place, over the advisor's open slots", () => {
@@ -244,7 +269,7 @@ describe("the booking popup's one way out (FE #114)", () => {
     const service = { id: "service", priceSatang: 140_000, name: "Service" } as ApiPublicService;
     const { container } = show(booking, service);
 
-    expect(said(container)).toContain("ชำระไว้กับการจองเดิมก่อนเปลี่ยนเวลา ยกเลิกหรือขอคืนเงินผ่านฝ่ายช่วยเหลือ");
+    expect(said(container)).toContain("ชำระไว้กับการจองเดิมก่อนเปลี่ยนเวลา ติดต่อฝ่ายช่วยเหลือเรื่องการจองนี้");
     expect(said(container)).not.toContain("฿1,400");
     for (const exit of ["ยกเลิกการจอง", "ยกเลิกและรับเงินคืน", "เปลี่ยนเวลานัด", "ขอเปลี่ยนเวลานัด"]) expect(capsules(exit)).toHaveLength(0);
     expect(toRefundPage(container)).toHaveLength(0);
@@ -260,7 +285,7 @@ describe("the booking popup's one way out (FE #114)", () => {
     reads.invoice = paidFor(booking, { amountSatang: 80_000 });
     rerender(
       <NextIntlClientProvider formats={formats} locale="th" messages={messages} timeZone="Asia/Bangkok">
-        <BookingSheet entry={{ booking, service, advisor: undefined }} now={now} onChanged={() => undefined} />
+        <BookingSheet entry={{ booking, service, advisor: undefined }} onChanged={() => undefined} />
       </NextIntlClientProvider>,
     );
     expect(said(container)).toContain("฿800");
@@ -286,6 +311,39 @@ describe("the booking popup's one way out (FE #114)", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "ลองอีกครั้ง" }));
     expect(reads.reloads.some((key) => key.startsWith("payment/invoices/for-booking/"))).toBe(true);
+  });
+
+  it("asks a lapsed session to sign in again, back to this popup, rather than to retry what would fail the same way", () => {
+    reads.invoiceError = new ApiError(401, "Unauthorized");
+    const { container } = show(bookingAt(THREE_DAYS_OUT));
+
+    expect(said(container)).toContain("เซสชันหมดอายุ จึงโหลดยอดที่ชำระไม่ได้");
+    expect(screen.queryByRole("button", { name: "ลองอีกครั้ง" })).toBeNull();
+    const signIn = screen.getByRole("button", { name: "เข้าสู่ระบบอีกครั้ง" });
+    expect(signIn.getAttribute("href")).toBe(`/login?next=${encodeURIComponent(`/bookings?bookingId=${BOOKING_ID}`)}`);
+  });
+
+  it("sends a refused money read to support, with the booking in the subject, and offers no retry", () => {
+    reads.invoiceError = new ApiError(403, "Forbidden");
+    const service = { id: "service", priceSatang: 140_000, name: "Service" } as ApiPublicService;
+    const { container } = show(bookingAt(THREE_DAYS_OUT), service);
+
+    expect(said(container)).toContain("ระบบไม่ให้โหลดยอดที่ชำระของการจองนี้");
+    expect(screen.queryByRole("button", { name: "ลองอีกครั้ง" })).toBeNull();
+    const support = screen.getByRole("button", { name: "ติดต่อฝ่ายช่วยเหลือ" });
+    expect(decodeURIComponent(support.getAttribute("href") ?? "")).toMatch(/^mailto:[^?]+\?subject=สอบถามการจอง Service วันที่ 7 พ\.ย\. 2569$/);
+  });
+
+  it("shows no list price on a cancelled booking with no receipt of its own, which would pass for what was paid", () => {
+    const service = { id: "service", priceSatang: 140_000, name: "Service" } as ApiPublicService;
+    reads.invoice = null;
+    const { container } = show(
+      bookingAt(THREE_DAYS_OUT, { state: "CANCELLED", cancelledAt: "2026-11-02T03:00:00Z", cancelledByUserId: "advisee" }),
+      service,
+    );
+
+    expect(said(container)).not.toContain("ราคาบริการ");
+    expect(said(container)).not.toContain("฿1,400");
   });
 
   it("offers no cancel once an unpaid booking's time has begun", () => {
@@ -391,7 +449,7 @@ describe("the booking popup's one way out (FE #114)", () => {
     reads.invoice = paidFor(booking);
     const { container } = render(
       <NextIntlClientProvider formats={formats} locale="en" messages={en} timeZone="Asia/Bangkok">
-        <BookingSheet entry={{ booking, service: undefined, advisor: undefined }} now={now} onChanged={() => undefined} />
+        <BookingSheet entry={{ booking, service: undefined, advisor: undefined }} onChanged={() => undefined} />
       </NextIntlClientProvider>,
     );
     expect(said(container)).not.toContain("THB");

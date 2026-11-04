@@ -308,7 +308,7 @@ function LiveEvidence({ refundId }: LiveEvidenceProps) {
         {rows.map((file) => (
           <FileRow key={file.objectKey}>
             <Button
-              className="h-auto min-h-11 w-full min-w-0 justify-start gap-3 rounded-xl px-2 py-2 text-left font-normal hover:bg-muted/60 lg:min-h-12"
+              className="h-auto min-h-11 w-full min-w-0 justify-start gap-3 rounded-xl px-2 py-2 text-left font-normal hover:bg-muted/60 lg:min-h-12 lg:w-fit lg:max-w-full"
               onClick={() => void open(file)}
               type="button"
               variant="ghost"

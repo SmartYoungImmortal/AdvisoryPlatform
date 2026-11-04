@@ -20,6 +20,7 @@ import {
   useRefundFormat,
   useRefundLine,
   useSupportMail,
+  type CardFact,
   type RefundTone,
 } from "@/components/bookings/refund-sheet";
 import { invoiceHref } from "@/components/payment/transactions-data";
@@ -31,18 +32,21 @@ type StatusExit = Extract<BookingExit, { kind: "status" | "refunded" }>;
 /**
  * Who acts next decides the one button: none while the team or the refund is
  * awaited (the column's back link is the way out), the receipt once the money
- * is back, support after a no.
+ * is back, support after a no. After a no the card is only what was paid with.
  */
 const STAGE = {
-  requested: { icon: Clock3, tone: "primary", main: null },
-  reviewing: { icon: Clock3, tone: "primary", main: null },
-  approved: { icon: Clock3, tone: "primary", main: null },
-  refunded: { icon: CircleCheckBig, tone: "success", main: "receipt" },
-  rejected: { icon: CircleX, tone: "destructive", main: "support" },
+  requested: { icon: Clock3, tone: "primary", main: null, card: "refundTo" },
+  reviewing: { icon: Clock3, tone: "primary", main: null, card: "refundTo" },
+  approved: { icon: Clock3, tone: "primary", main: null, card: "refundTo" },
+  refunded: { icon: CircleCheckBig, tone: "success", main: "receipt", card: "refundTo" },
+  rejected: { icon: CircleX, tone: "destructive", main: "support", card: "paidWith" },
 } as const satisfies Record<
   RefundStage,
-  { readonly icon: LucideIcon; readonly tone: RefundTone; readonly main: "receipt" | "support" | null }
+  { readonly icon: LucideIcon; readonly tone: RefundTone; readonly main: "receipt" | "support" | null; readonly card: CardFact }
 >;
+
+/** The fewest steps that stand level beside the head from `lg`; a shorter trail runs under it. */
+const STEPS_BESIDE_HEAD = 3;
 
 type Mark = "done" | "current" | "next" | "rejected";
 
@@ -88,13 +92,7 @@ function useSteps(booking: ApiBooking, invoice: ApiAdviseeInvoice, exit: StatusE
   const { refund, stage, type } = exit;
   const first: Step =
     type === "cancellation" ? cancelled : { mark: "done", title: t("progress.report.sent"), sub: stamp(refund.createdAt) };
-  if (stage === "rejected") {
-    return [
-      first,
-      { mark: "rejected", title: t("progress.rejected"), sub: stamp(refund.resolvedAt) },
-      { mark: "next", title: t("progress.rejectedNext"), sub: t("progress.rejectedNextSub", { number: invoice.invoiceNumber }) },
-    ];
-  }
+  if (stage === "rejected") return [first, { mark: "rejected", title: t("progress.rejected"), sub: stamp(refund.resolvedAt) }];
 
   // A ruling is shown only when there was one: a refund can reach the invoice while its request is still open.
   let ruling: Step | undefined;
@@ -155,14 +153,14 @@ export function RefundStatusMode({
   );
   const head = (
     <RefundHead amount={when.baht(exit.refundSatang)} icon={look.icon} meta={meta} title={t(`stage.${stage}`)} tone={look.tone}>
-      <RefundFacts booking={booking} invoice={invoice} />
+      <RefundFacts booking={booking} card={look.card} invoice={invoice} />
     </RefundHead>
   );
 
   return (
     <>
-      {exit.kind === "refunded" ? (
-        // A finished refund with no request has too short a trail to stand beside the head: it runs under it.
+      {exit.kind === "refunded" || steps.length < STEPS_BESIDE_HEAD ? (
+        // A trail too short to end level beside the head (a refund with no request, a refusal) runs under it.
         <RefundCard foot={progress} head={head} />
       ) : (
         <RefundCard

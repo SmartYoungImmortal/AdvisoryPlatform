@@ -269,9 +269,9 @@ describe("§8 one free reschedule, at least 24 hours ahead", () => {
     rescheduleWay({ booking, invoice, now: S - 3 * DAY, ...input });
   const held = { ...booking, state: "PENDING_PAYMENT" as const };
 
-  it("asks support to move a paid booking, three days ahead and at exactly 24 hours", () => {
-    expect(way({})).toBe("support");
-    expect(way({ now: S - DAY })).toBe("support");
+  it("withholds a paid booking's move, and says so, three days ahead and at exactly 24 hours", () => {
+    expect(way({})).toBe("withheld");
+    expect(way({ now: S - DAY })).toBe("withheld");
   });
 
   it("moves an unpaid booking over the slots, a held slot even before its invoice is known", () => {

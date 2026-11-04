@@ -146,11 +146,6 @@ function Sheet({ card = invoice.card }: { readonly card?: ApiAdviseeInvoice["car
             <RefundFacts booking={booking} invoice={{ ...invoice, card }} />
           </RefundHead>
         }
-        aside={
-          <RefundSection heading={t("attachments.label")}>
-            <p>{t("attachments.limits")}</p>
-          </RefundSection>
-        }
       >
         <RefundSection heading={t("box.heading")}>
           <RefundBox
@@ -270,10 +265,17 @@ describe("RefundFacts", () => {
     inLocale("th", <RefundFacts booking={booking} invoice={{ ...invoice, card: null }} />);
     expect(readFacts(document.body)["คืนเข้า"]).toBe("ช่องทางที่ชำระ");
   });
+
+  it("names the card only as what was paid with when told no money goes back to it", () => {
+    inLocale("th", <RefundFacts booking={booking} card="paidWith" invoice={invoice} />);
+    const facts = readFacts(document.body);
+    expect(Object.keys(facts)).toEqual(["ที่ปรึกษา", "วันที่นัด", "บริการ", "ชำระด้วย"]);
+    expect(facts["ชำระด้วย"]).toBe("Visa •••• 1111");
+  });
 });
 
 describe("RefundCard", () => {
-  it("reads the head, the sections, then the aside, in the order the task is done", () => {
+  it("reads the head, then the sections, in the order the task is done", () => {
     inLocale("th", <Sheet />);
     const card = screen.getByRole("article");
     expect([...card.querySelectorAll("h1, h2")].map((heading) => heading.textContent)).toEqual([
@@ -281,14 +283,13 @@ describe("RefundCard", () => {
       "ยอดที่ได้คืน",
       "เงื่อนไขการยกเลิก",
       "ความคืบหน้า",
-      "หลักฐาน (ไม่บังคับ)",
     ]);
   });
 
   it("names each cell for what it holds, the foot last", () => {
     inLocale(
       "th",
-      <RefundCard aside={<RefundSection heading="ใต้หัว">{null}</RefundSection>} foot={<RefundSection heading="ท้าย">{null}</RefundSection>} head={<h1>หัว</h1>}>
+      <RefundCard foot={<RefundSection heading="ท้าย">{null}</RefundSection>} head={<h1>หัว</h1>}>
         <RefundSection heading="ขวา">{null}</RefundSection>
       </RefundCard>,
     );
@@ -299,12 +300,34 @@ describe("RefundCard", () => {
     expect(cells).toEqual([
       ["head", "หัว"],
       ["sections", "ขวา"],
-      ["aside", "ใต้หัว"],
       ["foot", "ท้าย"],
     ]);
   });
 
-  it("draws no aside or foot it was not given", () => {
+  it("keeps a foot's list a list, its rows in the order given", () => {
+    inLocale(
+      "th",
+      <RefundCard
+        foot={
+          <RefundSection heading="ท้าย">
+            <RefundList ordered>
+              {["หนึ่ง", "สอง", "สาม"].map((title) => (
+                <RefundRow icon={CircleCheckBig} key={title} title={title} />
+              ))}
+            </RefundList>
+          </RefundSection>
+        }
+        head={<h1>หัว</h1>}
+      >
+        <RefundSection heading="ขวา">{null}</RefundSection>
+      </RefundCard>,
+    );
+    const list = within(screen.getByRole("article")).getByRole("list");
+    expect(list.tagName).toBe("OL");
+    expect(within(list).getAllByRole("listitem").map((row) => row.textContent)).toEqual(["หนึ่ง", "สอง", "สาม"]);
+  });
+
+  it("draws no foot it was not given", () => {
     inLocale(
       "th",
       <RefundCard head={<h1>หัว</h1>}>
@@ -385,6 +408,12 @@ describe("in English", () => {
     inLocale("en", <Sheet card={null} />);
     expect(readFacts(screen.getAllByRole("term")[0].closest("dl")!)["Refund to"]).toBe("Original payment method");
   });
+
+  it("names the card it was paid with", () => {
+    const { errors } = inLocale("en", <RefundFacts booking={booking} card="paidWith" invoice={invoice} />);
+    expect(errors).toEqual([]);
+    expect(readFacts(document.body)["Paid with"]).toBe("Visa •••• 1111");
+  });
 });
 
 type Tree = { readonly [key: string]: string | Tree };
@@ -446,7 +475,7 @@ describe("messages", () => {
   it("sizes files in MB", () => {
     for (const tree of [thTree, enTree]) {
       const words = strings((tree.bookingRefund as Tree).attachments);
-      expect(words.some((text) => text.includes("50 MB"))).toBe(true);
+      expect(words.some((text) => /50\sMB/.test(text))).toBe(true);
       expect(words.some((text) => text.includes("MiB"))).toBe(false);
     }
   });

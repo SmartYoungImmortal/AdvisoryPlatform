@@ -18,14 +18,16 @@ import { useId, useState, type ReactNode } from "react";
 
 import { DESKTOP_TYPE_LIFT } from "@/components/account/account-shell";
 import { AUTH_LINK } from "@/components/auth/auth-split";
-import { refundHref, rescheduleWay, type BookingExit } from "@/components/bookings/booking-exit";
+import { bookingPopupHref, refundHref, rescheduleWay, signInHref, type BookingExit } from "@/components/bookings/booking-exit";
 import {
   liveAdvisorHref,
   liveServiceHref,
+  useMountTime,
   BOOKING_BUCKET,
 } from "@/components/bookings/booking-flow";
 import { downloadBookingCalendar } from "@/components/bookings/booking-calendar";
 import { CancellationFeedback } from "@/components/bookings/cancellation-feedback";
+import { refundFailure } from "@/components/bookings/refund-actions";
 import { useRefundFormat } from "@/components/bookings/refund-sheet";
 import { RescheduleSlots } from "@/components/bookings/reschedule-booking";
 import { useBookingCancellation } from "@/components/bookings/use-booking-cancellation";
@@ -324,40 +326,92 @@ function MoneyNote({
   );
 }
 
+/** 44 tall to press, in a 12 px line: it overhangs the line rather than growing it. */
+const LINE_ACTION = "-my-3 h-11 border-0 px-0 align-middle text-xs font-medium lg:text-frame-label";
+
+/**
+ * A failed money read, and the one thing that helps: pressing again after a
+ * network or server fault, signing in after a lapsed session, support after
+ * a refusal. Today's list price in its place would pass for what was paid.
+ */
+function MoneyFailed({
+  error,
+  bookingId,
+  reload,
+  supportHref,
+}: {
+  readonly error: Error;
+  readonly bookingId: string;
+  readonly reload: () => void;
+  readonly supportHref: string;
+}) {
+  const t = useTranslations("bookings");
+  const tr = useTranslations("transactions");
+  const failure = refundFailure(error);
+  let said: string;
+  let action: ReactNode;
+  switch (failure) {
+    case "retry":
+      said = t("moneyFailed");
+      action = (
+        <Button className={LINE_ACTION} onClick={reload} type="button" variant="link">
+          {t("detailsRetry")}
+        </Button>
+      );
+      break;
+    case "signIn":
+      said = t("moneySignIn");
+      action = (
+        <Button
+          className={LINE_ACTION}
+          nativeButton={false}
+          render={<Link href={signInHref(bookingPopupHref(bookingId))} />}
+          variant="link"
+        >
+          {t("cancellationLogin")}
+        </Button>
+      );
+      break;
+    default:
+      said = t("moneyRefused");
+      action = (
+        <Button className={LINE_ACTION} nativeButton={false} render={<a href={supportHref} />} variant="link">
+          {tr("contactSupport")}
+        </Button>
+      );
+  }
+  return (
+    <p className="mt-1 text-xs text-muted-foreground lg:text-frame-label" role="status">
+      {said} {action}
+    </p>
+  );
+}
+
 /**
  * What was paid and how it stands, with the way to its receipt and what the
- * money does now. An unpaid booking with no invoice shows the service's price
- * now, since the appointment itself records no amount; a booking past its
- * hold never does, since that price would pass for what was paid.
+ * money does now. A held slot (unpaid, no invoice) shows the service's price
+ * now, since the appointment itself records no amount; any other booking
+ * without its receipt never does, since that price would pass for what was paid.
  */
 function PaymentLine({
   booking,
   service,
   money,
   exit,
+  supportHref,
 }: {
   readonly booking: ApiBooking;
   readonly service: ApiPublicService | undefined;
   readonly money: BookingMoney;
   readonly exit: BookingExit;
+  readonly supportHref: string;
 }) {
   const t = useTranslations("bookings");
   const tr = useTranslations("transactions");
   const when = useRefundFormat();
   const { invoice } = money;
-  // A failed read says so with a way to ask again: today's list price in its place would pass for what was paid.
   const failed = money.error ? (
-    <p className="mt-1 text-xs text-muted-foreground lg:text-frame-label" role="status">
-      {t("moneyFailed")}{" "}
-      <Button
-        className="-my-3 h-11 border-0 px-0 align-middle text-xs font-medium lg:text-frame-label"
-        onClick={money.reload}
-        type="button"
-        variant="link"
-      >
-        {t("detailsRetry")}
-      </Button>
-    </p>
+    <MoneyFailed bookingId={booking.id} error={money.error} reload={money.reload} supportHref={supportHref} />
   ) : null;
 
   if (invoice) {
@@ -381,8 +435,7 @@ function PaymentLine({
       </Line>
     );
   }
-  if (invoice === undefined && booking.state !== "PENDING_PAYMENT") return null;
-  if (!service) return null;
+  if (booking.state !== "PENDING_PAYMENT" || !service) return null;
   return (
     <Line icon={Banknote}>
       {t("detailsPriceLabel")}{" "}
@@ -421,16 +474,18 @@ function useMoneyExit(exit: BookingExit): { readonly label: string; readonly cla
  * `inDialog`: the card is the dialog's own surface, so it drops its border
  * and shadow, and its heading is an `h2` under the page's `h1`, named by
  * `titleId` for the dialog to be labelled by.
+ *
+ * The clock is read when the card mounts, which over the calendar is when the
+ * popup opens: a list left open for an hour would otherwise judge the
+ * 24-hour line and the start by when the list was loaded.
  */
 export function BookingSheet({
   entry,
-  now,
   onChanged,
   inDialog = false,
   titleId,
 }: {
   readonly entry: BookingEntry;
-  readonly now: number;
   /** The booking changed (new time, called off): read it, and whatever lists it, again. */
   readonly onChanged: () => void;
   readonly inDialog?: boolean;
@@ -441,6 +496,7 @@ export function BookingSheet({
   const l = useTranslations("landing");
   const format = useFormatter();
   const clock = useClock();
+  const now = useMountTime();
   const ways = useWaysOn(entry, now);
   const MainIcon = ways.main.icon;
   const call = useBookingMeeting(entry.booking, now);
@@ -526,7 +582,13 @@ export function BookingSheet({
           <ChevronRight aria-hidden className="size-4 shrink-0 text-muted-foreground lg:size-5" />
         </Link>
         <Line icon={Clock3}>{t("detailsDuration", { count: minutes })}</Line>
-        <PaymentLine booking={booking} exit={exit} money={money} service={service} />
+        <PaymentLine
+          booking={booking}
+          exit={exit}
+          money={money}
+          service={service}
+          supportHref={`${supportMail}?subject=${subject}`}
+        />
         <Line icon={CalendarPlus}>
           <span className="text-muted-foreground">{t("detailsCreatedLabel")}</span> <Figures>{stamp(booking.createdAt)}</Figures>
         </Line>
@@ -538,64 +600,60 @@ export function BookingSheet({
       </div>
 
       {more.length > 0 || keepable || move || cancellable || moneyExit ? (
-        <div className={cn("flex flex-wrap gap-2 lg:gap-3", UNDER_TEXT)}>
-          {more.map((way) => (
-            <Button className={MORE_PILL} key={way.href} nativeButton={false} render={<Link href={way.href} />} variant="ghost">
-              {way.label}
-            </Button>
-          ))}
-          {keepable ? (
-            <Button
-              className={MORE_PILL}
-              onClick={() => downloadBookingCalendar(booking, service?.name ?? t("detailsTitle"))}
-              type="button"
-              variant="ghost"
-            >
-              {t("detailCalendar")}
-            </Button>
-          ) : null}
-          {move === "support" ? (
-            <Button
-              className={MORE_PILL}
-              nativeButton={false}
-              render={<a href={`${supportMail}?subject=${encodeURIComponent(t("rescheduleSubject", about))}`} />}
-              variant="ghost"
-            >
-              {t("rescheduleSupport")}
-            </Button>
-          ) : null}
-          {move === "slots" ? (
-            <Button
-              aria-expanded={panel === "reschedule"}
-              className={MORE_PILL}
-              onClick={() => setPanel((open) => (open === "reschedule" ? "none" : "reschedule"))}
-              type="button"
-              variant="ghost"
-            >
-              {t("reschedule")}
-            </Button>
-          ) : null}
-          {cancellable ? (
-            <Button
-              aria-expanded={panel === "cancel"}
-              className={CANCEL_PILL}
-              disabled={cancellation.blocked}
-              onClick={() => setPanel((open) => (open === "cancel" ? "none" : "cancel"))}
-              type="button"
-              variant="ghost"
-            >
-              {t("detailsCancel")}
-            </Button>
-          ) : null}
-          {moneyExit ? (
-            <Button
-              className={moneyExit.className}
-              nativeButton={false}
-              render={<Link href={refundHref(booking.id)} />}
-              variant="ghost"
-            >
-              {moneyExit.label}
-            </Button>
+        <div className={cn("flex flex-col gap-2 lg:gap-3", UNDER_TEXT)}>
+          <div className="flex flex-wrap gap-2 lg:gap-3">
+            {more.map((way) => (
+              <Button className={MORE_PILL} key={way.href} nativeButton={false} render={<Link href={way.href} />} variant="ghost">
+                {way.label}
+              </Button>
+            ))}
+            {keepable ? (
+              <Button
+                className={MORE_PILL}
+                onClick={() => downloadBookingCalendar(booking, service?.name ?? t("detailsTitle"))}
+                type="button"
+                variant="ghost"
+              >
+                {t("detailCalendar")}
+              </Button>
+            ) : null}
+            {move === "slots" ? (
+              <Button
+                aria-expanded={panel === "reschedule"}
+                className={MORE_PILL}
+                onClick={() => setPanel((open) => (open === "reschedule" ? "none" : "reschedule"))}
+                type="button"
+                variant="ghost"
+              >
+                {t("reschedule")}
+              </Button>
+            ) : null}
+            {cancellable ? (
+              <Button
+                aria-expanded={panel === "cancel"}
+                className={CANCEL_PILL}
+                disabled={cancellation.blocked}
+                onClick={() => setPanel((open) => (open === "cancel" ? "none" : "cancel"))}
+                type="button"
+                variant="ghost"
+              >
+                {t("detailsCancel")}
+              </Button>
+            ) : null}
+            {moneyExit ? (
+              <Button
+                className={moneyExit.className}
+                nativeButton={false}
+                render={<Link href={refundHref(booking.id)} />}
+                variant="ghost"
+              >
+                {moneyExit.label}
+              </Button>
+            ) : null}
+          </div>
+          {/* Where the move would be: said, not hidden, so nobody hunts for it. */}
+          {move === "withheld" ? (
+            <p className="text-xs text-balance text-muted-foreground lg:text-frame-label">{t("rescheduleWithheld")}</p>
           ) : null}
         </div>
       ) : null}
@@ -672,13 +730,11 @@ export function BookingSheet({
  */
 export function BookingDialog({
   entry,
-  now,
   open,
   onOpenChange,
   onChanged,
 }: {
   readonly entry: BookingEntry | null;
-  readonly now: number;
   readonly open: boolean;
   readonly onOpenChange: (open: boolean) => void;
   readonly onChanged: () => void;
@@ -704,7 +760,7 @@ export function BookingDialog({
               </DialogClose>
             </div>
             {/* Keyed by the booking, so the next one opens with its prompts closed. */}
-            <BookingSheet entry={entry} inDialog key={entry.booking.id} now={now} onChanged={onChanged} titleId={title} />
+            <BookingSheet entry={entry} inDialog key={entry.booking.id} onChanged={onChanged} titleId={title} />
           </div>
         ) : null}
       </DialogContent>

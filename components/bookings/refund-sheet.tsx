@@ -2,7 +2,7 @@
 
 import { CreditCard, type LucideIcon } from "lucide-react";
 import { useFormatter, useTranslations } from "next-intl";
-import { Fragment, type ReactNode } from "react";
+import { createContext, Fragment, useContext, type ReactNode } from "react";
 
 import { AUTH_LINK, authPill } from "@/components/auth/auth-split";
 import { baht } from "@/components/bookings/booking-flow";
@@ -81,60 +81,60 @@ export function useSupportMail(invoiceNumber: string): string {
   return `mailto:${l("footerEmailAddress")}?subject=${subject}`;
 }
 
+/** The head from `lg`: two cells (head and sections), or one across the card. */
+type HeadShape = "split" | "wide";
+
+/** The head a foot runs under, whose columns a list in the foot puts its rows on. */
+const FootUnder = createContext<HeadShape | null>(null);
+
 /**
  * From `lg` the page is the bookings' wide column, so the sheet opens into
  * two cells (head left, sections right behind a dashed rule) rather than
  * stretching one receipt across it.
  *
- * Two places keep the cells ending level, as the receipt's sheet does. From
- * `lg`, `aside` sits under the head in the left cell, and `foot` runs across
- * the whole card under both, where a `RefundList` lays its rows side by side.
- * On a phone both follow the other sections, in the order the task is done.
+ * `foot` runs across the whole card under the cells, its lists on the head's
+ * columns. On a phone it follows the other sections, in the order the task is
+ * done.
  */
 export function RefundCard({
   head,
-  aside,
   foot,
   children,
   className,
 }: {
   readonly head: ReactNode;
-  readonly aside?: ReactNode;
   readonly foot?: ReactNode;
   /** None: the head takes the whole width and the foot runs under it, so no half-empty cell stands beside it. */
   readonly children?: ReactNode;
   readonly className?: string;
 }) {
+  const shape: HeadShape = children ? "split" : "wide";
+
   return (
     <article
       className={cn(
-        "flex w-full flex-col rounded-card border border-hero-card-border bg-card shadow-hero-card lg:grid lg:grid-cols-2 lg:grid-rows-[auto_1fr_auto]",
+        "flex w-full flex-col rounded-card border border-hero-card-border bg-card shadow-hero-card lg:grid lg:grid-cols-2",
         className,
       )}
     >
       <div
-        className={cn("group/head flex min-w-0 flex-col lg:col-start-1 lg:row-start-1", !children && "lg:col-span-2")}
+        className={cn("group/head flex min-w-0 flex-col lg:col-start-1 lg:row-start-1", shape === "wide" && "lg:col-span-2")}
         data-cell="head"
-        data-wide={children ? undefined : ""}
+        data-wide={shape === "wide" ? "" : undefined}
       >
         {head}
       </div>
       {children ? (
         <div
-          className="group/cell flex min-w-0 flex-col lg:col-start-2 lg:row-span-2 lg:row-start-1 lg:border-l lg:border-dashed lg:border-border"
+          className="group/cell flex min-w-0 flex-col lg:col-start-2 lg:row-start-1 lg:border-l lg:border-dashed lg:border-border"
           data-cell="sections"
         >
           {children}
         </div>
       ) : null}
-      {aside ? (
-        <div className="flex min-w-0 flex-col lg:col-start-1 lg:row-start-2" data-cell="aside">
-          {aside}
-        </div>
-      ) : null}
       {foot ? (
-        <div className="group/cell flex min-w-0 flex-col lg:col-span-2 lg:row-start-3" data-cell="foot">
-          {foot}
+        <div className="flex min-w-0 flex-col lg:col-span-2 lg:row-start-2" data-cell="foot">
+          <FootUnder value={shape}>{foot}</FootUnder>
         </div>
       ) : null}
     </article>
@@ -153,7 +153,31 @@ function MetaParts({ parts }: { readonly parts: readonly string[] }) {
   ));
 }
 
-/** `pt-6`: the receipt's own top inset, which its logo row takes and this sheet has no logo row for. */
+/**
+ * The card's type and spacing, without its colours. The page's skeleton
+ * builds its bones in these same boxes, so the page does not jump when the
+ * booking and its money land.
+ */
+export const REFUND_SHAPE = {
+  /** `pt-6`: the receipt's own top inset, which its logo row takes and this sheet has no logo row for. */
+  head: cn("flex flex-col pt-6 pb-3 md:pb-4 lg:pt-9 lg:pb-8", SHEET_X),
+  status: "flex items-center gap-1.5 text-xs font-medium lg:gap-2 lg:text-frame-meta",
+  statusIcon: "size-4 shrink-0 lg:size-5",
+  amount: "font-latin mt-1.5 text-2xl font-semibold tracking-tight tabular-nums lg:mt-2 lg:text-frame-title",
+  meta: "mt-1.5 text-xs lg:text-frame-meta",
+  facts:
+    "mt-2.5 grid grid-cols-2 gap-x-5 gap-y-2 md:mt-3 md:gap-y-2.5 lg:mt-7 lg:gap-x-6 lg:gap-y-5 lg:group-data-wide/head:grid-cols-4",
+  fact: "flex min-w-0 flex-col gap-1",
+  term: "text-xs lg:text-frame-label",
+  value: "text-xs text-balance break-words lg:text-frame-meta",
+  row: "flex items-start gap-3",
+  rowIcon: "size-5 shrink-0 lg:mt-0.5",
+  rowText: "flex min-w-0 flex-1 flex-col gap-0.5",
+  rowLine: "flex flex-wrap items-center gap-x-2 gap-y-1",
+  rowTitle: "min-w-0 text-sm text-balance lg:text-frame-meta",
+  rowSub: "text-xs text-balance lg:text-frame-label",
+} as const;
+
 export function RefundHead({
   icon: Icon,
   tone,
@@ -173,16 +197,14 @@ export function RefundHead({
   const look = TONE[tone];
 
   return (
-    <section className={cn("flex flex-col pt-6 pb-3 md:pb-4 lg:pt-9 lg:pb-8", SHEET_X)}>
-      <h1 className={cn("flex items-center gap-1.5 text-xs font-medium lg:gap-2 lg:text-frame-meta", look.ink)}>
-        <Icon aria-hidden className={cn("size-4 shrink-0 lg:size-5", look.icon)} />
+    <section className={REFUND_SHAPE.head}>
+      <h1 className={cn(REFUND_SHAPE.status, look.ink)}>
+        <Icon aria-hidden className={cn(REFUND_SHAPE.statusIcon, look.icon)} />
         {title}
       </h1>
-      <p className="font-latin mt-1.5 text-2xl font-semibold tracking-tight tabular-nums text-hero-ink lg:mt-2 lg:text-frame-title">
-        {amount}
-      </p>
+      <p className={cn(REFUND_SHAPE.amount, "text-hero-ink")}>{amount}</p>
       {meta ? (
-        <p className="mt-1.5 text-xs text-muted-foreground lg:text-frame-meta">
+        <p className={cn(REFUND_SHAPE.meta, "text-muted-foreground")}>
           {typeof meta === "string" ? <Figures>{meta}</Figures> : <MetaParts parts={meta} />}
         </p>
       ) : null}
@@ -201,27 +223,32 @@ function Fact({
   readonly className?: string;
 }) {
   return (
-    <div className="flex min-w-0 flex-col gap-1">
-      <dt className="text-xs text-muted-foreground lg:text-frame-label">{label}</dt>
-      <dd className={cn("text-xs break-words text-foreground lg:text-frame-meta", className)}>{children}</dd>
+    <div className={REFUND_SHAPE.fact}>
+      <dt className={cn(REFUND_SHAPE.term, "text-muted-foreground")}>{label}</dt>
+      <dd className={cn(REFUND_SHAPE.value, "text-foreground", className)}>{children}</dd>
     </div>
   );
 }
+
+/** What the card fact calls the card: where the money goes back, or only how it was paid once none will. */
+export type CardFact = "refundTo" | "paidWith";
 
 /** The booking's hours, not the invoice's: a rescheduled booking's invoice still names the first time. */
 export function RefundFacts({
   booking,
   invoice,
+  card = "refundTo",
 }: {
   readonly booking: ApiBooking;
   readonly invoice: ApiAdviseeInvoice;
+  readonly card?: CardFact;
 }) {
   const t = useTranslations("bookingRefund");
   const tr = useTranslations("transactions");
   const when = useRefundFormat();
 
   return (
-    <dl className="mt-2.5 grid grid-cols-2 gap-x-5 gap-y-2 md:mt-3 md:gap-y-2.5 lg:mt-7 lg:gap-x-6 lg:gap-y-5 lg:group-data-wide/head:grid-cols-4">
+    <dl className={REFUND_SHAPE.facts}>
       <Fact label={tr("advisorLabel")}>{invoice.advisor.displayName}</Fact>
       <Fact label={tr("sessionDateLabel")}>
         <span className="block">
@@ -233,14 +260,14 @@ export function RefundFacts({
       </Fact>
       <Fact label={tr("serviceLabel")}>{invoice.service.name}</Fact>
       {invoice.card ? (
-        <Fact className="font-latin" label={t("facts.refundTo")}>
+        <Fact className="font-latin" label={t(`facts.${card}`)}>
           <span className="inline-flex items-center gap-2">
             <CreditCard aria-hidden className="size-4 text-muted-foreground" />
             {cardName(invoice.card)}
           </span>
         </Fact>
       ) : (
-        <Fact label={t("facts.refundTo")}>{t("facts.paymentMethod")}</Fact>
+        <Fact label={t(`facts.${card}`)}>{t("facts.paymentMethod")}</Fact>
       )}
     </dl>
   );
@@ -271,34 +298,52 @@ export function RefundBox({ lines, total }: { readonly lines: readonly RefundBox
 /** A section's heading, and a form field's title inside a section, which reads as one of them. */
 export const REFUND_HEADING = "text-xs font-medium text-muted-foreground lg:text-frame-label";
 
+/** A section's dashed rule and insets. */
+export const REFUND_SECTION = cn("border-t border-dashed border-border pt-2.5 pb-3 md:pt-3 md:pb-4 lg:pt-6 lg:pb-9", SHEET_X);
+
+/** From a section's heading down to what it heads. */
+export const REFUND_UNDER_HEADING = "mt-1.5 md:mt-2 lg:mt-4";
+
 /**
  * From `lg` the first section of the card's right cell sits at its top, whose
  * dashed edge already divides it from the head, so it drops its own rule and
- * starts level with the head. A section under the head (`aside`) keeps its rule.
+ * starts level with the head. A section in the foot keeps its rule.
  */
-export function RefundSection({ heading, children }: { readonly heading: string; readonly children: ReactNode }) {
+export function RefundSection({ heading, children }: { readonly heading: ReactNode; readonly children: ReactNode }) {
   return (
     <section
       className={cn(
-        "border-t border-dashed border-border pt-2.5 pb-3 md:pt-3 md:pb-4 lg:pt-6 lg:pb-9",
+        REFUND_SECTION,
         "lg:group-data-[cell=sections]/cell:first:border-t-0 lg:group-data-[cell=sections]/cell:first:pt-9",
-        SHEET_X,
       )}
     >
       <h2 className={REFUND_HEADING}>{heading}</h2>
-      <div className="mt-1.5 md:mt-2 lg:mt-4">{children}</div>
+      <div className={REFUND_UNDER_HEADING}>{children}</div>
     </section>
   );
 }
 
-/** In the foot, which spans both cells from `lg`, the rows run left to right as one line of time across the card. */
+/**
+ * Where a list's rows go from `lg`. In a cell they run down it. In the foot
+ * they run left to right as one line of time, each on a column of the head
+ * above. A wide head's columns are its four facts, so the list takes their
+ * grid. Under a two-cell head the list undoes its section's inset and spans
+ * the card in quarters, one cell to each pair. The first two rows then take
+ * the left cell's fact columns: the cell's inset outside, its gap split at
+ * the quarter. The third takes the right cell's text, past where that cell's
+ * rule stands.
+ */
+const LIST_LAYOUT = {
+  cell: "flex flex-col gap-3.5",
+  split:
+    "flex flex-col gap-3.5 lg:-mx-10 lg:grid lg:grid-cols-4 lg:gap-x-0 lg:gap-y-6 lg:*:nth-[3n+1]:pr-3 lg:*:nth-[3n+1]:pl-10 lg:*:nth-[3n+2]:pr-10 lg:*:nth-[3n+2]:pl-3 lg:*:nth-[3n]:col-span-2 lg:*:nth-[3n]:border-l lg:*:nth-[3n]:border-transparent lg:*:nth-[3n]:px-10",
+  wide: "flex flex-col gap-3.5 lg:grid lg:grid-cols-4 lg:gap-6",
+} as const satisfies Record<HeadShape | "cell", string>;
+
 export function RefundList({ ordered = false, children }: { readonly ordered?: boolean; readonly children: ReactNode }) {
   const List = ordered ? "ol" : "ul";
-  return (
-    <List className="flex flex-col gap-3.5 lg:group-data-[cell=foot]/cell:grid lg:group-data-[cell=foot]/cell:auto-cols-fr lg:group-data-[cell=foot]/cell:grid-flow-col lg:group-data-[cell=foot]/cell:gap-6">
-      {children}
-    </List>
-  );
+  const under = useContext(FootUnder);
+  return <List className={LIST_LAYOUT[under ?? "cell"]}>{children}</List>;
 }
 
 export function RefundRow({
@@ -319,17 +364,17 @@ export function RefundRow({
 }) {
   // `trailing` follows the title on its line, so in a row that runs the card's whole width it stays with the words it marks.
   return (
-    <li aria-current={current || undefined} className="flex items-start gap-3">
-      <Icon aria-hidden className={cn("size-5 shrink-0 lg:mt-0.5", TONE[tone].icon)} />
-      <div className="flex min-w-0 flex-1 flex-col gap-0.5">
-        <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
-          <p className={cn("min-w-0 text-sm lg:text-frame-meta", current ? "font-medium text-foreground" : "text-muted-foreground")}>
+    <li aria-current={current || undefined} className={REFUND_SHAPE.row}>
+      <Icon aria-hidden className={cn(REFUND_SHAPE.rowIcon, TONE[tone].icon)} />
+      <div className={REFUND_SHAPE.rowText}>
+        <div className={REFUND_SHAPE.rowLine}>
+          <p className={cn(REFUND_SHAPE.rowTitle, current ? "font-medium text-foreground" : "text-muted-foreground")}>
             <Figures>{title}</Figures>
           </p>
           {trailing}
         </div>
         {sub ? (
-          <p className="text-xs text-muted-foreground lg:text-frame-label">
+          <p className={cn(REFUND_SHAPE.rowSub, "text-muted-foreground")}>
             <Figures>{sub}</Figures>
           </p>
         ) : null}

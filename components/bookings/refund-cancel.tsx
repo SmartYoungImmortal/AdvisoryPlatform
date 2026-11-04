@@ -18,9 +18,11 @@ import {
   openRefundOnce,
   refundFailure,
   type CancelRefundResult,
+  type OpenedRefund,
   type RefundFailure,
 } from "@/components/bookings/refund-actions";
 import {
+  cardName,
   RefundActions,
   RefundBox,
   RefundCard,
@@ -32,10 +34,11 @@ import {
   refundPill,
   useRefundFormat,
   useRefundLine,
+  useSupportMail,
 } from "@/components/bookings/refund-sheet";
 import { StatusPill } from "@/components/mobile/status-pill";
 import { Button } from "@/components/ui/button";
-import type { ApiAdviseeInvoice, ApiBooking, ApiRefundCase } from "@/lib/api/types";
+import type { ApiAdviseeInvoice, ApiBooking } from "@/lib/api/types";
 import { cn } from "@/lib/utils";
 
 type NotCancelled = Extract<CancelRefundResult, { kind: "notCancelled" }>["outcome"];
@@ -76,8 +79,11 @@ const CLAIM_FAILED = {
 
 const CLAIM_META = { full: "meta.claimFull", half: "meta.claimHalf" } as const satisfies Record<RefundShare, string>;
 
-/** The accent ground with ink, not blue on blue (4.2:1), and the label step from `lg`, as its row's sub line. */
-const NOW_PILL = "text-foreground lg:px-3 lg:py-1 lg:text-frame-label";
+/**
+ * The accent ground with ink, not blue on blue (4.2:1), and the label step from `lg`, as its row's sub line.
+ * Below `lg` 20 px tall, inside its title's 21 px line, so the row keeps the other rows' rhythm.
+ */
+const NOW_PILL = "py-0.5 text-foreground max-lg:leading-4 lg:px-3 lg:py-1 lg:text-frame-label";
 
 const TERMS_LINK = cn(
   AUTH_LINK,
@@ -149,7 +155,7 @@ export function CancelRefundMode({
   /** A line the page keeps above its buttons, whatever mode it moves to. */
   readonly onNotice: (notice: string) => void;
   /** `at`: the press, when the cancel stood. */
-  readonly onOpened: (refund: ApiRefundCase, at: number) => void;
+  readonly onOpened: (opened: OpenedRefund, at: number) => void;
   readonly onCancelledOnly: (at: number, failure: RefundFailure) => void;
 }) {
   const t = useTranslations("bookingRefund");
@@ -200,7 +206,7 @@ export function CancelRefundMode({
     pressed.current = false;
     switch (result.kind) {
       case "opened":
-        onOpened(result.refund, at);
+        onOpened(result, at);
         return;
       case "cancelledOnly":
         onCancelledOnly(at, result.failure);
@@ -265,7 +271,10 @@ export function CancelRefundMode({
       </OwedCard>
       <RefundActions invoiceNumber={invoice.invoiceNumber}>
         <Alert text={notice} />
-        <p className="text-center text-xs text-muted-foreground lg:text-frame-label">{t("policy.final")}</p>
+        {/* What the press does now and what waits on the team, said before it: cancelling is at once, the refund is not. */}
+        <p className="text-center text-xs text-balance text-muted-foreground lg:text-frame-label">
+          {invoice.card ? t("policy.final", { card: cardName(invoice.card) }) : t("policy.finalNoCard")}
+        </p>
         {held?.then === "lock" ? (
           <Button className={refundPill("solid")} nativeButton={false} render={<Link href={signIn} />}>
             {t("actions.signIn")}
@@ -309,17 +318,22 @@ export function ClaimMode({
   invoice,
   exit,
   notice,
+  failed,
   onOpened,
 }: {
   readonly booking: ApiBooking;
   readonly invoice: ApiAdviseeInvoice;
   readonly exit: Extract<BookingExit, { kind: "claim" }>;
   readonly notice?: string | null;
-  readonly onOpened: (refund: ApiRefundCase) => void;
+  /** How this page's own refund call failed after its cancel stood, which `notice` already says. */
+  readonly failed?: RefundFailure;
+  readonly onOpened: (opened: OpenedRefund) => void;
 }) {
   const t = useTranslations("bookingRefund");
+  const tr = useTranslations("transactions");
   const when = useRefundFormat();
   const refundLine = useRefundLine(invoice);
+  const supportMail = useSupportMail(invoice.invoiceNumber);
   const [attempt, setAttempt] = useState<ClaimAttempt>("ready");
   const pressed = useRef(false);
 
@@ -328,7 +342,10 @@ export function ClaimMode({
   const cancelledAt = booking.cancelledAt === null ? undefined : when.stamp(booking.cancelledAt);
   const adviseeMeta = cancelledAt === undefined ? undefined : t(CLAIM_META[exit.share], { date: cancelledAt });
   const working = attempt === "working";
-  const failure = attempt === "ready" || attempt === "working" ? undefined : attempt;
+  const pressedFailure = attempt === "ready" || attempt === "working" ? undefined : attempt;
+  const failure = pressedFailure ?? (attempt === "ready" ? failed : undefined);
+  // After a refusal pressing again fails the same way: support is the way on, so it takes the button.
+  const toSupport = failure === "refused" || failure === "notFound";
 
   function claim() {
     if (pressed.current) return;
@@ -365,11 +382,15 @@ export function ClaimMode({
           </RefundList>
         </RefundSection>
       </OwedCard>
-      <RefundActions invoiceNumber={invoice.invoiceNumber}>
-        <Alert text={failure ? t(CLAIM_FAILED[failure]) : notice} />
+      <RefundActions help={!toSupport} invoiceNumber={invoice.invoiceNumber}>
+        <Alert text={pressedFailure ? t(CLAIM_FAILED[pressedFailure]) : notice} />
         {failure === "signIn" ? (
           <Button className={refundPill("solid")} nativeButton={false} render={<Link href={signInHref(refundHref(booking.id))} />}>
             {t("actions.signIn")}
+          </Button>
+        ) : toSupport ? (
+          <Button className={refundPill("solid")} nativeButton={false} render={<a href={supportMail} />}>
+            {tr("contactSupport")}
           </Button>
         ) : (
           <Button

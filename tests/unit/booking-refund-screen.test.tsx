@@ -199,13 +199,15 @@ describe.each(["th", "en"] as const)("/bookings/refund in %s", (locale) => {
     onlyTheTopBack(locale);
   });
 
-  it("someone else's booking: not found, with a 44 px way to the bookings as well as the top back", () => {
+  it("someone else's booking: not found, with one way to the bookings from lg, the pill, and the phone's top back", () => {
     answer({ error: new ApiError(404, "Booking not found") }, null);
     show(locale);
     expect(screen.getByText(words[locale].states.notFoundTitle)).toBeTruthy();
     const pill = screen.getAllByRole("button", { name: words[locale].actions.toBookings }).filter((node) => node.textContent !== "");
     expect(pill).toHaveLength(1);
     expect(pill[0].getAttribute("href")).toBe("/bookings");
+    // The column's desktop back link would go to the same place as the pill, so it is not drawn.
+    expect(screen.queryAllByRole("link", { name: words[locale].actions.toBookings })).toEqual([]);
     expect(problems).toEqual([]);
   });
 });
@@ -233,7 +235,27 @@ describe("a failure says what helps next", () => {
     answer({ error: new ApiError(400, "bad request") }, null);
     show("th");
     expect(screen.getByText(th.bookingRefund.states.loadFailed)).toBeTruthy();
+    expect(screen.getByText(th.bookingRefund.states.loadRefusedBody)).toBeTruthy();
     expect(screen.queryByRole("button", { name: th.bookingRefund.actions.retry })).toBeNull();
+    const support = screen.getByRole("button", { name: th.transactions.contactSupport });
+    expect(decodeURIComponent(support.getAttribute("href") ?? "")).toMatch(new RegExp(`^mailto:[^?]+\\?subject=สอบถามการจอง ${id}$`));
+  });
+
+  it("sends a refused money read to support, not to a retry that would be refused again", () => {
+    answer(bookingAt(3 * DAY), { error: new ApiError(403, "Forbidden") });
+    show("th");
+    expect(screen.getByText(th.bookingRefund.states.moneyFailed)).toBeTruthy();
+    expect(screen.getByText(th.bookingRefund.states.moneyRefusedBody)).toBeTruthy();
+    expect(screen.queryByRole("button", { name: th.bookingRefund.actions.retry })).toBeNull();
+    expect(screen.getByRole("button", { name: th.transactions.contactSupport }).getAttribute("href")).toMatch(/^mailto:/);
+  });
+
+  it("says nothing has changed when the money of a cancelled booking will not load", () => {
+    const b = cancelledBy("advisee", 3 * DAY, DAY);
+    answer(b, { error: new ApiError(500, "down") });
+    show("th");
+    expect(screen.getByText(th.bookingRefund.states.moneyFailedBody)).toBeTruthy();
+    expect(document.body.textContent).not.toContain("การจองยังอยู่เหมือนเดิม");
   });
 
   it("names a failed money read as the money, not the booking, and reads the money again on retry", async () => {
@@ -246,11 +268,15 @@ describe("a failure says what helps next", () => {
     expect(api.reloads).not.toContain(`bookings/${id}`);
   });
 
-  it("sends a booking paid on the earlier one to support, with no cancel and no price", () => {
+  it("sends a booking paid on the earlier one to support, naming it in the subject, with no cancel and no price", () => {
     answer(bookingAt(3 * DAY), null);
+    api.answers.set("services/service", { data: { id: "service", name: "วางแผนภาษี", priceSatang: 100_000 } });
     show("th");
     expect(screen.getByText(th.bookingRefund.states.paidElsewhereBody)).toBeTruthy();
-    expect(screen.getByRole("button", { name: th.transactions.contactSupport }).getAttribute("href")).toMatch(/^mailto:/);
+    const support = screen.getByRole("button", { name: th.transactions.contactSupport });
+    expect(decodeURIComponent(support.getAttribute("href") ?? "")).toMatch(
+      new RegExp(`^mailto:[^?]+\\?subject=สอบถามการจอง วางแผนภาษี วันที่ \\S+\\s7\\sพ\\.ย\\.\\s2569 · ${id}$`),
+    );
     expect(document.body.textContent).not.toMatch(/฿|ยกเลิกการจอง/);
   });
 });
@@ -363,6 +389,80 @@ describe("what the page files after its own press", () => {
     expect(screen.getByRole("alert").textContent).toBe(
       "ยกเลิกการจองแล้ว แต่เซสชันหมดอายุก่อนส่งเรื่องคืนเงิน เข้าสู่ระบบอีกครั้งแล้วกดรับเงินคืน ฿1,000",
     );
+    expect(screen.getByRole("button", { name: th.bookingRefund.actions.signIn })).toBeTruthy();
+  });
+
+  it("claims the half its own late cancel is owed, before the booking is read again", async () => {
+    const b = bookingAt(5 * HOUR);
+    answer(b, invoiceFor(b));
+    show("th");
+    actions.cancelThenRefund.mockResolvedValue({ kind: "cancelledOnly", failure: "retry" });
+    await press("ยกเลิกและรับเงินคืน ฿400");
+
+    expect(screen.getByRole("heading", { level: 1 }).textContent).toBe(th.bookingRefund.head.claim);
+    expect(screen.getByRole("button", { name: "รับเงินคืน ฿400" })).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "รับเงินคืน ฿1,000" })).toBeNull();
+  });
+
+  it("after a cancel whose refund was refused, offers support as the button, not a claim that would be refused again", async () => {
+    const b = bookingAt(3 * DAY);
+    answer(b, invoiceFor(b));
+    show("th");
+    actions.cancelThenRefund.mockResolvedValue({ kind: "cancelledOnly", failure: "refused" });
+    await press("ยกเลิกและรับเงินคืน ฿1,000");
+
+    expect(screen.getByRole("heading", { level: 1 }).textContent).toBe(th.bookingRefund.head.claim);
+    expect(screen.queryByRole("button", { name: "รับเงินคืน ฿1,000" })).toBeNull();
+    expect(screen.getByRole("button", { name: th.transactions.contactSupport }).getAttribute("href")).toMatch(
+      /^mailto:[^?]+\?subject=/,
+    );
+  });
+
+  it("says a request was already open, and announces no success of its own, when another tab got there first", async () => {
+    const b = bookingAt(3 * DAY);
+    answer(b, invoiceFor(b));
+    const view = show("th");
+    actions.cancelThenRefund.mockResolvedValue({ kind: "opened", refund: request("OPEN"), alreadyOpen: true });
+    await press("ยกเลิกและรับเงินคืน ฿1,000");
+
+    expect(screen.getByRole("heading", { level: 1 }).textContent).toBe(th.bookingRefund.stage.requested);
+    expect(screen.getByRole("alert").textContent).toBe(th.bookingRefund.errors.alreadyOpen);
+    expect(view.container.querySelector('[aria-live="polite"]')?.textContent).toBe("");
+  });
+
+  it("keeps the status it just reached when the booking's read again fails, with a line and a retry", async () => {
+    const b = bookingAt(3 * DAY);
+    answer(b, invoiceFor(b));
+    const view = show("th");
+    actions.cancelThenRefund.mockResolvedValue({ kind: "opened", refund: request("OPEN"), alreadyOpen: false });
+    await press("ยกเลิกและรับเงินคืน ฿1,000");
+    expect(screen.getByRole("heading", { level: 1 }).textContent).toBe(th.bookingRefund.stage.requested);
+
+    api.answers.set(`bookings/${id}`, { error: new ApiError(503, "down") });
+    api.answers.set(`payment/invoices/for-booking/${id}`, { error: new ApiError(503, "down") });
+    view.rerender(page("th"));
+
+    expect(screen.getByRole("heading", { level: 1 }).textContent).toBe(th.bookingRefund.stage.requested);
+    expect(screen.queryByText(th.bookingRefund.states.loadFailed)).toBeNull();
+    expect(screen.queryByText(th.bookingRefund.states.moneyFailed)).toBeNull();
+    expect(screen.getByText(th.bookingRefund.errors.rereadFailed, { exact: false })).toBeTruthy();
+    api.reloads.length = 0;
+    await press(th.bookingRefund.actions.retry);
+    expect(api.reloads).toEqual(expect.arrayContaining([`bookings/${id}`, `payment/invoices/for-booking/${id}`]));
+  });
+
+  it("keeps what it showed when the session lapses on a read again, and offers to sign in from the line", () => {
+    const b = cancelledBy("advisee", 6 * DAY, DAY);
+    answer(b, invoiceFor(b), [request("OPEN")]);
+    const view = show("th");
+    api.answers.set(`bookings/${id}`, { error: new ApiError(401, "unauthenticated") });
+    view.rerender(page("th"));
+
+    expect(screen.getByRole("heading", { level: 1 }).textContent).toBe(th.bookingRefund.stage.requested);
+    expect(screen.getByText(th.bookingRefund.errors.rereadSignIn, { exact: false })).toBeTruthy();
+    expect(screen.getByRole("button", { name: th.bookingRefund.actions.signIn }).getAttribute("href")).toBe(
+      `/login?next=${encodeURIComponent(`/bookings/refund?bookingId=${id}`)}`,
+    );
   });
 });
 
@@ -388,6 +488,11 @@ describe("while the money loads", () => {
     show("th");
     expect(screen.getByRole("status").textContent).toBe(th.bookingRefund.busy.loading);
     expect(screen.queryAllByRole("button").filter((node) => /฿|ยกเลิก/.test(node.textContent ?? ""))).toEqual([]);
+    // The bones hold placeholder glyphs for their line heights; a screen reader hears only the status.
+    const bones = screen.queryAllByText(/กกก/);
+    expect(bones.length).toBeGreaterThan(0);
+    for (const bone of bones) expect(bone.closest('[aria-hidden="true"]')).not.toBeNull();
+    expect(screen.queryByRole("article")).toBeNull();
   });
 
   it("goes back to the booking's popup, never to a breadcrumb trail", () => {

@@ -569,7 +569,6 @@ export function MyBookingsScreen() {
       <BottomBar className="lg:hidden" role="user" selected="bookings" />
       <BookingDialog
         entry={openEntry}
-        now={now}
         onChanged={changed}
         onOpenChange={openChange}
         open={dialogOpen || linked !== undefined}

@@ -251,24 +251,24 @@ export function sameOffer(shown: BookingExit, current: BookingExit): boolean {
   return shown.kind !== "cancelRefund" || (current.kind === "cancelRefund" && shown.share === current.share);
 }
 
-/** How a booking can move to another time: in place over the advisor's slots, or by asking support. */
-export type RescheduleWay = "slots" | "support";
+/** Whether a booking can move to another time: in place over the advisor's slots, or not yet, with the reason said. */
+export type RescheduleWay = "slots" | "withheld";
 
 /**
  * /terms §8: an advisee may move a booking once, at no cost, while it is at
  * least 24 hours away.
  *
- * A paid booking's move goes through support. API develop's `reschedule`
- * cancels the original as the advisee and marks it no other way, so the
- * original would read as the advisee's own early cancel, its whole charge
- * owed, while the new session goes ahead (docs/review/refund-request.md, API
- * follow-ups). An unpaid booking owes nothing either way, so it moves in
- * place. One paid on the booking it replaced has had its move. Until the
- * invoice is known nothing is offered.
+ * A paid booking's move is withheld. API develop's `reschedule` cancels the
+ * original as the advisee and marks it no other way, so the original would
+ * read as the advisee's own early cancel, its whole charge owed, while the
+ * new session goes ahead; and no staff route can move one for them
+ * (docs/review/refund-request.md, API follow-ups). An unpaid booking owes
+ * nothing either way, so it moves in place. One paid on the booking it
+ * replaced has had its move. Until the invoice is known nothing is said.
  */
 export function rescheduleWay({ booking, invoice, now }: Omit<BookingExitInput, "cases">): RescheduleWay | null {
   if (!isCancellable(booking.state) || now > fullRefundUntil(booking).getTime()) return null;
   if (booking.state === "PENDING_PAYMENT") return "slots";
   if (!invoice) return null;
-  return isPaid(invoice) ? "support" : "slots";
+  return isPaid(invoice) ? "withheld" : "slots";
 }

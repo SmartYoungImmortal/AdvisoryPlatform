@@ -1,15 +1,33 @@
 "use client";
 
-import { useCallback, useEffect, useRef } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 import { bookingExit, type BookingExit } from "@/components/bookings/booking-exit";
 import { ApiError } from "@/lib/api/client";
 import { getMyBookingInvoice, listMyRefundCases } from "@/lib/api/resources";
 import type { ApiAdviseeInvoice, ApiBooking, ApiRefundCase } from "@/lib/api/types";
-import { useLastAnswer, useResource } from "@/lib/api/use-resource";
+import { useLastAnswer, useResource, type Resource } from "@/lib/api/use-resource";
 
 export function isNotFound(cause: unknown): boolean {
   return cause instanceof ApiError && cause.status === 404;
+}
+
+/** One empty list for every unpaid invoice, so a reader can tell "no change" by identity. */
+const NO_CASES: readonly ApiRefundCase[] = [];
+
+/**
+ * `useLastAnswer`, held to one request: while `key` is read again its last
+ * answer stands in, but an answer to another key never does. An unpaid
+ * invoice's requests (none) are no answer for the paid one's, which would
+ * otherwise read as unclaimed until they load.
+ */
+function useLastAnswerTo<T>(key: string, resource: Resource<T>): T | undefined {
+  const [last, setLast] = useState<{ readonly key: string; readonly data: T }>();
+  if (resource.data !== undefined && (last?.key !== key || last.data !== resource.data)) {
+    setLast({ key, data: resource.data });
+  }
+  if (resource.data !== undefined) return resource.data;
+  return resource.loading && last?.key === key ? last.data : undefined;
 }
 
 export type BookingMoney = {
@@ -50,8 +68,9 @@ export function useBookingMoney(bookingId: string): BookingMoney {
         : Promise.resolve([]),
     [paidId],
   );
-  const cases = useResource<readonly ApiRefundCase[]>(`refunds/me?invoiceId=${paidId ?? "unpaid"}`, fetchCases);
-  const knownCases = useLastAnswer(cases);
+  const casesKey = `refunds/me?invoiceId=${paidId ?? "unpaid"}`;
+  const cases = useResource<readonly ApiRefundCase[]>(casesKey, fetchCases);
+  const knownCases = useLastAnswerTo(casesKey, cases);
   const { reload: reloadInvoice } = invoice;
   const { reload: reloadCases } = cases;
   const reload = useCallback(() => {
@@ -72,7 +91,7 @@ export function useBookingMoney(bookingId: string): BookingMoney {
 
   return {
     invoice: knownInvoice,
-    cases: paidId ? knownCases : [],
+    cases: paidId ? knownCases : NO_CASES,
     error: invoice.error ?? (paidId ? cases.error : null),
     reload,
   };

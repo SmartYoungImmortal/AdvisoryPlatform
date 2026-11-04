@@ -27,18 +27,31 @@ beforeEach(() => {
 describe("openRefundOnce", () => {
   it("opens the request with the invoice and the reason, and drops the cached requests", async () => {
     calls.open.mockResolvedValue(opened);
-    await expect(openRefundOnce(invoiceId, reason)).resolves.toBe(opened);
+    await expect(openRefundOnce(invoiceId, reason)).resolves.toEqual({ refund: opened, alreadyOpen: false });
     expect(calls.open).toHaveBeenCalledWith({ invoiceId, reason }, expect.any(AbortSignal));
     expect(calls.log).toEqual(["POST refunds"]);
     expect(calls.invalidate).toHaveBeenCalledWith("refunds/me");
   });
 
-  it("reads the invoice's requests after a lost response and returns the one that committed", async () => {
-    calls.open.mockRejectedValue(new ApiUnreachableError("response lost"));
+  it.each([
+    ["a lost response", new ApiUnreachableError("response lost")],
+    ["a timeout", new ApiError(408, "Request Timeout")],
+    ["a server fault", new ApiError(502, "Bad Gateway")],
+  ])("reads the invoice's requests after %s and returns the one that committed, as this one", async (_, cause) => {
+    calls.open.mockRejectedValue(cause);
     calls.list.mockResolvedValue(page([{ ...opened, status: "REJECTED", id: "old" }, opened]));
-    await expect(openRefundOnce(invoiceId, reason)).resolves.toBe(opened);
+    await expect(openRefundOnce(invoiceId, reason)).resolves.toEqual({ refund: opened, alreadyOpen: false });
     expect(calls.log).toEqual(["POST refunds", "GET refunds/me"]);
     expect(calls.list).toHaveBeenCalledWith({ invoiceId, limit: 100 }, expect.any(AbortSignal));
+  });
+
+  it("takes the open request after a 409 as someone else's, so the caller can say this press wrote nothing", async () => {
+    const other = { ...opened, id: "other-tab", reason: "ที่ปรึกษาไม่มา หรือยกเลิกกะทันหัน" };
+    calls.open.mockRejectedValue(new ApiError(409, "A refund case is already open for this invoice"));
+    calls.list.mockResolvedValue(page([other]));
+    await expect(openRefundOnce(invoiceId, reason)).resolves.toEqual({ refund: other, alreadyOpen: true });
+    expect(calls.log).toEqual(["POST refunds", "GET refunds/me"]);
+    expect(calls.invalidate).toHaveBeenCalledWith("refunds/me");
   });
 
   it("gives back the POST's own error when no open request exists", async () => {
@@ -48,6 +61,17 @@ describe("openRefundOnce", () => {
     await expect(openRefundOnce(invoiceId, reason)).rejects.toBe(refused);
     expect(calls.log).toEqual(["POST refunds", "GET refunds/me"]);
     expect(calls.invalidate).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    ["a lapsed session", new ApiError(401, "Unauthorized")],
+    ["a receipt that is not this account's", new ApiError(404, "Not Found")],
+    ["a refusal", new ApiError(400, "reason too long")],
+  ])("gives back %s as it came, with no read: nothing was written", async (_, cause) => {
+    calls.open.mockRejectedValue(cause);
+    calls.list.mockResolvedValue(page([opened]));
+    await expect(openRefundOnce(invoiceId, reason)).rejects.toBe(cause);
+    expect(calls.log).toEqual(["POST refunds"]);
   });
 
   it("gives back the POST's error when the requests cannot be read either", async () => {
@@ -63,7 +87,11 @@ describe("cancelThenRefund", () => {
   it("cancels, then opens the refund, in that order", async () => {
     calls.cancel.mockResolvedValue({ ...booked, state: "CANCELLED" });
     calls.open.mockResolvedValue(opened);
-    await expect(cancelThenRefund(bookingId, invoiceId, reason)).resolves.toEqual({ kind: "opened", refund: opened });
+    await expect(cancelThenRefund(bookingId, invoiceId, reason)).resolves.toEqual({
+      kind: "opened",
+      refund: opened,
+      alreadyOpen: false,
+    });
     expect(calls.log).toEqual(["POST cancel", "POST refunds"]);
     expect(calls.cancel).toHaveBeenCalledWith(bookingId, expect.any(AbortSignal));
     expect(calls.open).toHaveBeenCalledWith({ invoiceId, reason }, expect.any(AbortSignal));
@@ -107,8 +135,23 @@ describe("cancelThenRefund", () => {
     calls.cancel.mockResolvedValue({ ...booked, state: "CANCELLED" });
     calls.open.mockRejectedValue(new ApiUnreachableError("response lost"));
     calls.list.mockResolvedValue(page([opened]));
-    await expect(cancelThenRefund(bookingId, invoiceId, reason)).resolves.toEqual({ kind: "opened", refund: opened });
+    await expect(cancelThenRefund(bookingId, invoiceId, reason)).resolves.toEqual({
+      kind: "opened",
+      refund: opened,
+      alreadyOpen: false,
+    });
     expect(calls.log).toEqual(["POST cancel", "POST refunds", "GET refunds/me"]);
+  });
+
+  it("hands up a request another tab opened first, flagged, after this page's own cancel stood", async () => {
+    calls.cancel.mockResolvedValue({ ...booked, state: "CANCELLED" });
+    calls.open.mockRejectedValue(new ApiError(409, "already open"));
+    calls.list.mockResolvedValue(page([opened]));
+    await expect(cancelThenRefund(bookingId, invoiceId, reason)).resolves.toEqual({
+      kind: "opened",
+      refund: opened,
+      alreadyOpen: true,
+    });
   });
 });
 
