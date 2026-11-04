@@ -44,6 +44,12 @@ describe("R10 nothing is offered while the money is still loading", () => {
     expect(exit({ cases: undefined })).toEqual({ kind: "waiting" });
   });
 
+  it("never waits on the invoice of a held slot, which its own state says is unpaid", () => {
+    const held = { ...booking, state: "PENDING_PAYMENT" as const };
+    expect(exit({ booking: held, invoice: undefined, cases: undefined })).toEqual({ kind: "cancel" });
+    expect(exit({ booking: held, invoice: undefined, now: S })).toEqual({ kind: "none" });
+  });
+
   it("never waits on requests for an unpaid booking, which has none", () => {
     expect(exit({ invoice: null, cases: undefined })).toEqual({ kind: "cancel" });
   });

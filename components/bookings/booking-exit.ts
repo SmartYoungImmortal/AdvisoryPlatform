@@ -173,8 +173,10 @@ const REPORTABLE: ReadonlySet<ApiBooking["state"]> = new Set(["BOOKED", "IN_PROG
  * - R6 after E + 7 days: closed.
  */
 export function bookingExit({ booking, invoice, cases, now }: BookingExitInput): BookingExit {
-  if (invoice === undefined) return { kind: "waiting" };
   const startsAt = new Date(booking.startTime);
+  // A held slot is unpaid by its own state, so its cancel never waits on (or fails with) the invoice read.
+  if (booking.state === "PENDING_PAYMENT") return now < startsAt.getTime() ? { kind: "cancel" } : { kind: "none" };
+  if (invoice === undefined) return { kind: "waiting" };
 
   if (!isPaid(invoice)) {
     return isCancellable(booking.state) && now < startsAt.getTime() ? { kind: "cancel" } : { kind: "none" };
