@@ -165,6 +165,21 @@ export function listOwnSkillProofs(signal?: AbortSignal): Promise<Paginated<ApiO
   return api.get("advisors/me/skill-proofs", { query: { page: 1, limit: 100 }, signal });
 }
 
+/**
+ * Each skill once, as its latest document stands: the first document sent for
+ * a skill claims it, and one sent again after a rejection is the review that
+ * counts now. In the order the skills were first claimed (the API's order,
+ * which a `Map` keeps when a later document replaces an earlier one).
+ */
+export function latestPerSkill(proofs: readonly ApiOwnSkillProof[]): ApiOwnSkillProof[] {
+  const bySkill = new Map<string, ApiOwnSkillProof>();
+  for (const proof of proofs) {
+    const held = bySkill.get(proof.skillId);
+    if (!held || proof.createdAt.localeCompare(held.createdAt) >= 0) bySkill.set(proof.skillId, proof);
+  }
+  return [...bySkill.values()];
+}
+
 /** `GET /skills` in one page of up to 100: the API's default page is 20, which a picker would cut short. */
 export function listSkillCatalogue(signal?: AbortSignal): Promise<Paginated<ApiNamedRecord>> {
   return api.get("skills", { query: { page: 1, limit: 100 }, signal });

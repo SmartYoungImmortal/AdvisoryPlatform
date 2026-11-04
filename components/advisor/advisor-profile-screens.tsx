@@ -52,6 +52,7 @@ import {
 } from "@/lib/api/advisor-work";
 import { ApiError, type Paginated } from "@/lib/api/client";
 import {
+  latestPerSkill,
   listOwnSkillProofs,
   listSkillCatalogue,
   submitSkillProof,
@@ -79,21 +80,6 @@ const PROOF_INK: Record<SkillProofReviewStatus, string> = {
 /** What the API takes as a proof (`skill-proofs.constants.ts`), checked here first. */
 const PROOF_TYPES: readonly string[] = ["image/jpeg", "image/png", "application/pdf"];
 const PROOF_MAX_BYTES = 50 * 1024 * 1024;
-
-/**
- * Each skill once, as its latest document stands: the first document sent for
- * a skill claims it, and one sent again after a rejection is the review that
- * counts now. In the order the skills were first claimed (the API's order,
- * which a `Map` keeps when a later document replaces an earlier one).
- */
-function latestPerSkill(proofs: readonly ApiOwnSkillProof[]): ApiOwnSkillProof[] {
-  const bySkill = new Map<string, ApiOwnSkillProof>();
-  for (const proof of proofs) {
-    const held = bySkill.get(proof.skillId);
-    if (!held || proof.createdAt.localeCompare(held.createdAt) >= 0) bySkill.set(proof.skillId, proof);
-  }
-  return [...bySkill.values()];
-}
 
 /**
  * `/advisor/skills`: the skills on the advisor's page, under the profile, laid
