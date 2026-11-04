@@ -145,7 +145,8 @@
       "tooLarge": "{name} ใหญ่เกิน 50 MB",
       "wrongType": "{name} ไม่ใช่ไฟล์ JPG, PNG, WebP หรือ PDF",
       "empty": "{name} เป็นไฟล์ว่าง",
-      "uploadFailed": "อัปโหลด {name} ไม่สำเร็จ ลองอีกครั้ง"
+      "uploadFailed": "อัปโหลด {name} ไม่สำเร็จ ลองอีกครั้ง",
+      "loadFailed": "โหลดหลักฐานที่แนบไว้ไม่สำเร็จ"
     },
     "progress": {
       "heading": "ความคืบหน้า",

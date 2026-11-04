@@ -603,7 +603,8 @@
       "tooLarge": "{name} is over 50 MB",
       "wrongType": "{name} isn't a JPG, PNG, WebP or PDF file",
       "empty": "{name} is empty",
-      "uploadFailed": "Couldn't upload {name}. Try again."
+      "uploadFailed": "Couldn't upload {name}. Try again.",
+      "loadFailed": "Couldn't load the evidence you attached"
     },
     "progress": {
       "heading": "Progress",
