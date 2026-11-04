@@ -3,10 +3,11 @@ import {
   REFUND_POLICY,
   bookingExit,
   bookingPopupHref,
-  canReschedule,
   currentRefundCase,
   refundHref,
+  rescheduleWay,
   sameOffer,
+  signInHref,
   type BookingExitInput,
 } from "@/components/bookings/booking-exit";
 import { terms } from "@/lib/legal/terms";
@@ -52,27 +53,43 @@ describe("R10 nothing is offered while the money is still loading", () => {
     expect(exit({ booking: held, invoice: undefined, now: S })).toEqual({ kind: "none" });
   });
 
-  it("never waits on requests for an unpaid booking, which has none", () => {
-    expect(exit({ invoice: null, cases: undefined })).toEqual({ kind: "cancel" });
+  it("never waits on requests for an unpaid receipt, which has none", () => {
+    expect(exit({ invoice: { ...invoice, status: "pending" }, cases: undefined })).toEqual({ kind: "cancel" });
   });
 });
 
 describe("R1 an unpaid booking keeps the plain cancel until it starts", () => {
+  const pending = { ...invoice, status: "pending" as const };
+  const failed = { ...invoice, status: "failed" as const };
+
   it.each([
-    ["no receipt", null],
-    ["a pending receipt", { ...invoice, status: "pending" as const }],
-    ["a failed receipt", { ...invoice, status: "failed" as const }],
-  ])("offers the plain cancel with %s", (_, unpaid) => {
-    expect(exit({ invoice: unpaid, booking: { ...booking, state: "PENDING_PAYMENT" } })).toEqual({ kind: "cancel" });
+    ["a held slot with no receipt", { ...booking, state: "PENDING_PAYMENT" as const }, null],
+    ["a held slot with a pending receipt", { ...booking, state: "PENDING_PAYMENT" as const }, pending],
+    ["a booked one with a pending receipt", booking, pending],
+    ["a booked one with a failed receipt", booking, failed],
+  ])("offers the plain cancel on %s", (_, unpaid, receipt) => {
+    expect(exit({ booking: unpaid, invoice: receipt })).toEqual({ kind: "cancel" });
   });
 
-  it("offers nothing once the start has passed", () => {
+  it("offers nothing once the start has passed, whatever says it is unpaid", () => {
     expect(exit({ invoice: null, booking: { ...booking, state: "PENDING_PAYMENT" }, now: S })).toEqual({ kind: "none" });
+    expect(exit({ invoice: failed, now: S })).toEqual({ kind: "none" });
+    expect(exit({ invoice: pending, now: S + HOUR })).toEqual({ kind: "none" });
   });
 
   it("offers nothing on an unpaid booking that is already cancelled", () => {
     expect(exit({ invoice: null, booking: cancelledBooking("advisee", S - 3 * DAY) })).toEqual({ kind: "none" });
   });
+});
+
+describe("a booking past its hold with no receipt of its own was paid on the one it replaced", () => {
+  it.each(["BOOKED", "IN_PROGRESS", "COMPLETED", "NO_SHOW"] as const)(
+    "sends a %s one to support, before and after the start, never to the plain cancel",
+    (state) => {
+      expect(exit({ booking: { ...booking, state }, invoice: null })).toEqual({ kind: "paidElsewhere" });
+      expect(exit({ booking: { ...booking, state }, invoice: null, now: E + DAY })).toEqual({ kind: "paidElsewhere" });
+    },
+  );
 });
 
 describe("R2 a paid booking cancelled 24 hours or more ahead refunds the whole charge", () => {
@@ -248,32 +265,33 @@ describe("a press acts only on the offer it was shown", () => {
 });
 
 describe("§8 one free reschedule, at least 24 hours ahead", () => {
-  const can = (input: Partial<Omit<BookingExitInput, "cases">>) =>
-    canReschedule({ booking, invoice, now: S - 3 * DAY, ...input });
+  const way = (input: Partial<Omit<BookingExitInput, "cases">>) =>
+    rescheduleWay({ booking, invoice, now: S - 3 * DAY, ...input });
+  const held = { ...booking, state: "PENDING_PAYMENT" as const };
 
-  it("is offered on a paid booking three days ahead, and at exactly 24 hours", () => {
-    expect(can({})).toBe(true);
-    expect(can({ now: S - DAY })).toBe(true);
+  it("asks support to move a paid booking, three days ahead and at exactly 24 hours", () => {
+    expect(way({})).toBe("support");
+    expect(way({ now: S - DAY })).toBe("support");
+  });
+
+  it("moves an unpaid booking over the slots, a held slot even before its invoice is known", () => {
+    expect(way({ booking: held, invoice: undefined })).toBe("slots");
+    expect(way({ invoice: { ...invoice, status: "failed" } })).toBe("slots");
   });
 
   it("is not offered inside 24 hours, where a move would turn a half refund into a full one", () => {
-    expect(can({ now: S - DAY + 1 })).toBe(false);
-    expect(can({ now: S - 5 * HOUR })).toBe(false);
+    expect(way({ now: S - DAY + 1 })).toBeNull();
+    expect(way({ booking: held, now: S - 5 * HOUR })).toBeNull();
   });
 
-  it("is not offered on a booking that is already the one move, younger than the invoice it carried over", () => {
-    expect(can({ booking: { ...booking, createdAt: "2026-11-03T00:00:00Z" } })).toBe(false);
-  });
-
-  it("is offered on an unpaid booking with no receipt, and on a held slot", () => {
-    expect(can({ invoice: null })).toBe(true);
-    expect(can({ invoice: null, booking: { ...booking, state: "PENDING_PAYMENT" } })).toBe(true);
+  it("is not offered on a booking paid on the one it replaced, which has had its move", () => {
+    expect(way({ invoice: null })).toBeNull();
   });
 
   it("waits for the invoice, and is never offered on a booking that is off or under way", () => {
-    expect(can({ invoice: undefined })).toBe(false);
-    expect(can({ booking: { ...booking, state: "IN_PROGRESS" } })).toBe(false);
-    expect(can({ booking: cancelledBooking("advisee", S - 4 * DAY) })).toBe(false);
+    expect(way({ invoice: undefined })).toBeNull();
+    expect(way({ booking: { ...booking, state: "IN_PROGRESS" } })).toBeNull();
+    expect(way({ booking: cancelledBooking("advisee", S - 4 * DAY) })).toBeNull();
   });
 });
 
@@ -281,6 +299,10 @@ describe("links", () => {
   it("names the refund page and the booking's popup", () => {
     expect(refundHref(booking.id)).toBe(`/bookings/refund?bookingId=${booking.id}`);
     expect(bookingPopupHref(booking.id)).toBe(`/bookings?bookingId=${booking.id}`);
+  });
+
+  it("signs in and comes back to the page it was sent from", () => {
+    expect(signInHref(refundHref(booking.id))).toBe(`/login?next=%2Fbookings%2Frefund%3FbookingId%3D${booking.id}`);
   });
 });
 

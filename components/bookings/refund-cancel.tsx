@@ -6,8 +6,20 @@ import { useTranslations } from "next-intl";
 import { useRef, useState, type ReactNode } from "react";
 
 import { AUTH_LINK } from "@/components/auth/auth-split";
-import { bookingPopupHref, type BookingExit, type RefundShare } from "@/components/bookings/booking-exit";
-import { cancelThenRefund, openRefundOnce, type CancelRefundResult } from "@/components/bookings/refund-actions";
+import {
+  bookingPopupHref,
+  refundHref,
+  signInHref,
+  type BookingExit,
+  type RefundShare,
+} from "@/components/bookings/booking-exit";
+import {
+  cancelThenRefund,
+  openRefundOnce,
+  refundFailure,
+  type CancelRefundResult,
+  type RefundFailure,
+} from "@/components/bookings/refund-actions";
 import {
   RefundActions,
   RefundBox,
@@ -52,9 +64,20 @@ type CancelAttempt =
   | { readonly kind: "working" }
   | { readonly kind: "held"; readonly on: ApiBooking; readonly then: Exclude<Then, "retry">; readonly checking: boolean };
 
-type ClaimAttempt = "ready" | "working" | "failed";
+/** After a refused press, what it asks for next (`refundFailure`). */
+type ClaimAttempt = "ready" | "working" | RefundFailure;
+
+const CLAIM_FAILED = {
+  retry: "errors.claimFailed",
+  signIn: "errors.signIn",
+  notFound: "errors.refundNotFound",
+  refused: "errors.refundRefused",
+} as const satisfies Record<RefundFailure, string>;
 
 const CLAIM_META = { full: "meta.claimFull", half: "meta.claimHalf" } as const satisfies Record<RefundShare, string>;
+
+/** The accent ground with ink, not blue on blue (4.2:1), and the label step from `lg`, as its row's sub line. */
+const NOW_PILL = "text-foreground lg:px-3 lg:py-1 lg:text-frame-label";
 
 const TERMS_LINK = cn(
   AUTH_LINK,
@@ -125,8 +148,9 @@ export function CancelRefundMode({
   readonly reread: () => void;
   /** A line the page keeps above its buttons, whatever mode it moves to. */
   readonly onNotice: (notice: string) => void;
-  readonly onOpened: (refund: ApiRefundCase) => void;
-  readonly onCancelledOnly: () => void;
+  /** `at`: the press, when the cancel stood. */
+  readonly onOpened: (refund: ApiRefundCase, at: number) => void;
+  readonly onCancelledOnly: (at: number, failure: RefundFailure) => void;
 }) {
   const t = useTranslations("bookingRefund");
   const words = useTranslations();
@@ -134,6 +158,7 @@ export function CancelRefundMode({
   const [attempt, setAttempt] = useState<CancelAttempt>({ kind: "ready" });
   const pressed = useRef(false);
   const heldOn = useRef<ApiBooking | null>(null);
+  const signIn = signInHref(refundHref(booking.id));
 
   const amount = when.baht(exit.refundSatang);
   const held = attempt.kind === "held" && attempt.on === booking ? attempt : undefined;
@@ -159,30 +184,39 @@ export function CancelRefundMode({
     },
   ] as const;
 
+  function hold(then: Exclude<Then, "retry">) {
+    heldOn.current = booking;
+    setAttempt({ kind: "held", on: booking, then, checking: false });
+    if (then === "reread") reread();
+  }
+
   async function confirm() {
+    const at = Date.now();
     // The refs shut a second press in the same task, before React has drawn the busy or held button.
-    if (pressed.current || heldOn.current === booking || !stillOffered(Date.now())) return;
+    if (pressed.current || heldOn.current === booking || !stillOffered(at)) return;
     pressed.current = true;
     setAttempt({ kind: "working" });
     const result = await cancelThenRefund(booking.id, invoice.id, t(`ruleLine.${exit.share}`, { amount }));
     pressed.current = false;
-    if (result.kind === "opened") {
-      onOpened(result.refund);
-      return;
+    switch (result.kind) {
+      case "opened":
+        onOpened(result.refund, at);
+        return;
+      case "cancelledOnly":
+        onCancelledOnly(at, result.failure);
+        return;
+      case "foundCancelled":
+        // Not this page's share to file: the booking, read again, says who cancelled and when.
+        onNotice(t("errors.cancelledMeanwhile"));
+        hold("reread");
+        return;
+      case "notCancelled": {
+        const refused = REFUSED[result.outcome];
+        onNotice(words(refused.key));
+        if (refused.then === "retry") setAttempt({ kind: "ready" });
+        else hold(refused.then);
+      }
     }
-    if (result.kind === "cancelledOnly") {
-      onCancelledOnly();
-      return;
-    }
-    const refused = REFUSED[result.outcome];
-    onNotice(words(refused.key));
-    if (refused.then === "retry") {
-      setAttempt({ kind: "ready" });
-      return;
-    }
-    heldOn.current = booking;
-    setAttempt({ kind: "held", on: booking, then: refused.then, checking: false });
-    if (refused.then === "reread") reread();
   }
 
   function check() {
@@ -219,7 +253,7 @@ export function CancelRefundMode({
                   sub={row.sub}
                   title={row.title}
                   tone={current ? "primary" : "muted"}
-                  trailing={current ? <StatusPill tone="accent">{t("policy.now")}</StatusPill> : undefined}
+                  trailing={current ? <StatusPill className={NOW_PILL} tone="accent">{t("policy.now")}</StatusPill> : undefined}
                 />
               );
             })}
@@ -232,7 +266,11 @@ export function CancelRefundMode({
       <RefundActions invoiceNumber={invoice.invoiceNumber}>
         <Alert text={notice} />
         <p className="text-center text-xs text-muted-foreground lg:text-frame-label">{t("policy.final")}</p>
-        {held?.then === "check" ? (
+        {held?.then === "lock" ? (
+          <Button className={refundPill("solid")} nativeButton={false} render={<Link href={signIn} />}>
+            {t("actions.signIn")}
+          </Button>
+        ) : held?.then === "check" ? (
           <Button
             aria-busy={held.checking || undefined}
             className={refundPill("solid")}
@@ -290,14 +328,15 @@ export function ClaimMode({
   const cancelledAt = booking.cancelledAt === null ? undefined : when.stamp(booking.cancelledAt);
   const adviseeMeta = cancelledAt === undefined ? undefined : t(CLAIM_META[exit.share], { date: cancelledAt });
   const working = attempt === "working";
+  const failure = attempt === "ready" || attempt === "working" ? undefined : attempt;
 
   function claim() {
     if (pressed.current) return;
     pressed.current = true;
     setAttempt("working");
-    openRefundOnce(invoice.id, t(`ruleLine.${rule}`, { amount })).then(onOpened, () => {
+    openRefundOnce(invoice.id, t(`ruleLine.${rule}`, { amount })).then(onOpened, (cause: unknown) => {
       pressed.current = false;
-      setAttempt("failed");
+      setAttempt(refundFailure(cause));
     });
   }
 
@@ -305,12 +344,13 @@ export function ClaimMode({
     <>
       <OwedCard
         head={
+          // A cancelled booking reads in the receipt's red, wherever its state is named.
           <RefundHead
             amount={amount}
-            icon={RotateCcw}
+            icon={CircleX}
             meta={exit.by === "other" ? t("meta.claimOther") : adviseeMeta}
             title={t("head.claim")}
-            tone="primary"
+            tone="destructive"
           >
             <RefundFacts booking={booking} invoice={invoice} />
           </RefundHead>
@@ -326,16 +366,22 @@ export function ClaimMode({
         </RefundSection>
       </OwedCard>
       <RefundActions invoiceNumber={invoice.invoiceNumber}>
-        <Alert text={attempt === "failed" ? t("errors.claimFailed") : notice} />
-        <Button
-          aria-busy={working || undefined}
-          className={refundPill("solid")}
-          disabled={working}
-          onClick={claim}
-          type="button"
-        >
-          {working ? t("busy.refunding") : t("actions.claim", { amount })}
-        </Button>
+        <Alert text={failure ? t(CLAIM_FAILED[failure]) : notice} />
+        {failure === "signIn" ? (
+          <Button className={refundPill("solid")} nativeButton={false} render={<Link href={signInHref(refundHref(booking.id))} />}>
+            {t("actions.signIn")}
+          </Button>
+        ) : (
+          <Button
+            aria-busy={working || undefined}
+            className={refundPill("solid")}
+            disabled={working}
+            onClick={claim}
+            type="button"
+          >
+            {working ? t("busy.refunding") : t("actions.claim", { amount })}
+          </Button>
+        )}
       </RefundActions>
     </>
   );

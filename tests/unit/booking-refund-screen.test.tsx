@@ -30,7 +30,10 @@ vi.mock("@/lib/api/use-resource", () => ({
   },
 }));
 const actions = vi.hoisted(() => ({ cancelThenRefund: vi.fn(), openRefundOnce: vi.fn() }));
-vi.mock("@/components/bookings/refund-actions", () => actions);
+vi.mock("@/components/bookings/refund-actions", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/components/bookings/refund-actions")>()),
+  ...actions,
+}));
 vi.mock("@/components/account/app-frame", () => ({ AppFrame: ({ children }: { children: ReactNode }) => children }));
 vi.mock("@/components/account/account-shell", async (original) => ({
   ...(await original<object>()),
@@ -103,8 +106,8 @@ function answer(booking: ApiBooking | Answer, invoice: ApiAdviseeInvoice | null 
 }
 
 const problems: string[] = [];
-function show(locale: "th" | "en") {
-  return render(
+function page(locale: "th" | "en") {
+  return (
     <NextIntlClientProvider
       formats={formats}
       locale={locale}
@@ -113,8 +116,16 @@ function show(locale: "th" | "en") {
       timeZone="Asia/Bangkok"
     >
       <BookingRefundScreen />
-    </NextIntlClientProvider>,
+    </NextIntlClientProvider>
   );
+}
+function show(locale: "th" | "en") {
+  return render(page(locale));
+}
+/** A read again answers: the booking comes back as a new object, as the API's next reply would. */
+function rereadAnswers(view: ReturnType<typeof show>, booking: ApiBooking) {
+  api.answers.set(`bookings/${id}`, { data: booking });
+  view.rerender(page("th"));
 }
 
 beforeEach(() => {
@@ -163,8 +174,9 @@ const states: readonly Case[] = [
   { name: "unpaid: nothing to refund", arrange: () => answer(bookingAt(3 * DAY, { state: "PENDING_PAYMENT" }), null), heading: (w) => w.states.nothingTitle },
   { name: "rescheduled away: nothing to refund", arrange: () => { const b = cancelledBy("advisee", 3 * DAY, DAY); answer(b, invoiceFor(b, { session: { startTime: new Date(NOW + 9 * DAY).toISOString(), endTime: new Date(NOW + 9 * DAY + HOUR).toISOString() } })); }, heading: (w) => w.states.nothingTitle },
   { name: "past seven days after the end: closed", arrange: () => { const b = bookingAt(-8 * DAY); answer(b, invoiceFor(b)); }, heading: (w) => w.states.closedTitle },
-  { name: "someone else's booking: not found", arrange: () => answer({ error: new ApiError(404, "Booking not found") }, null), heading: (w) => w.states.notFoundTitle },
   { name: "a failed read: try again", arrange: () => answer({ error: new ApiError(500, "down") }, null), heading: (w) => w.states.loadFailed },
+  { name: "a failed money read: its own title", arrange: () => answer(bookingAt(3 * DAY), { error: new ApiError(503, "down") }), heading: (w) => w.states.moneyFailed },
+  { name: "booked with no receipt of its own: paid on the earlier booking", arrange: () => answer(bookingAt(3 * DAY), null), heading: (w) => w.states.paidElsewhereTitle },
 ];
 
 describe.each(["th", "en"] as const)("/bookings/refund in %s", (locale) => {
@@ -185,6 +197,61 @@ describe.each(["th", "en"] as const)("/bookings/refund in %s", (locale) => {
     expect(problems).toEqual([]);
     expect(screen.queryByRole("button", { name: /฿/ })).toBeNull();
     onlyTheTopBack(locale);
+  });
+
+  it("someone else's booking: not found, with a 44 px way to the bookings as well as the top back", () => {
+    answer({ error: new ApiError(404, "Booking not found") }, null);
+    show(locale);
+    expect(screen.getByText(words[locale].states.notFoundTitle)).toBeTruthy();
+    const pill = screen.getAllByRole("button", { name: words[locale].actions.toBookings }).filter((node) => node.textContent !== "");
+    expect(pill).toHaveLength(1);
+    expect(pill[0].getAttribute("href")).toBe("/bookings");
+    expect(problems).toEqual([]);
+  });
+});
+
+describe("a failure says what helps next", () => {
+  const signIn = `/login?next=${encodeURIComponent(`/bookings/refund?bookingId=${id}`)}`;
+
+  it.each([
+    ["the booking", () => answer({ error: new ApiError(401, "unauthenticated") }, null)],
+    ["its money", () => answer(bookingAt(3 * DAY), { error: new ApiError(401, "unauthenticated") })],
+  ])("asks to sign in again when the session lapsed reading %s, with no retry", (_, arrange) => {
+    arrange();
+    show("th");
+    expect(screen.getByText(th.bookingRefund.states.signInTitle)).toBeTruthy();
+    expect(screen.getByRole("button", { name: th.bookingRefund.actions.signIn }).getAttribute("href")).toBe(signIn);
+    expect(screen.queryByRole("button", { name: th.bookingRefund.actions.retry })).toBeNull();
+  });
+
+  it("offers to try again only where it can help", () => {
+    answer({ error: new ApiError(500, "down") }, null);
+    show("th");
+    expect(screen.getByRole("button", { name: th.bookingRefund.actions.retry })).toBeTruthy();
+    cleanup();
+
+    answer({ error: new ApiError(400, "bad request") }, null);
+    show("th");
+    expect(screen.getByText(th.bookingRefund.states.loadFailed)).toBeTruthy();
+    expect(screen.queryByRole("button", { name: th.bookingRefund.actions.retry })).toBeNull();
+  });
+
+  it("names a failed money read as the money, not the booking, and reads the money again on retry", async () => {
+    answer(bookingAt(3 * DAY), { error: new ApiError(503, "down") });
+    show("th");
+    expect(screen.getByText(th.bookingRefund.states.moneyFailed)).toBeTruthy();
+    expect(screen.queryByText(th.bookingRefund.states.loadFailed)).toBeNull();
+    await act(async () => screen.getByRole("button", { name: th.bookingRefund.actions.retry }).click());
+    expect(api.reloads).toContain(`payment/invoices/for-booking/${id}`);
+    expect(api.reloads).not.toContain(`bookings/${id}`);
+  });
+
+  it("sends a booking paid on the earlier one to support, with no cancel and no price", () => {
+    answer(bookingAt(3 * DAY), null);
+    show("th");
+    expect(screen.getByText(th.bookingRefund.states.paidElsewhereBody)).toBeTruthy();
+    expect(screen.getByRole("button", { name: th.transactions.contactSupport }).getAttribute("href")).toMatch(/^mailto:/);
+    expect(document.body.textContent).not.toMatch(/฿|ยกเลิกการจอง/);
   });
 });
 
@@ -231,6 +298,71 @@ describe("a press acts on the rule at the press, not at the page's opening", () 
 
     expect(api.reloads).toEqual(expect.arrayContaining([`bookings/${id}`, `payment/invoices/for-booking/${id}`]));
     expect(screen.getByRole("alert").textContent).toBe(th.bookings.cancellationChanged);
+  });
+});
+
+describe("what the page files after its own press", () => {
+  const press = (name: string) => act(async () => screen.getByRole("button", { name }).click());
+
+  it("files nothing when the advisor cancelled first, and claims the whole charge the server says is owed", async () => {
+    const b = bookingAt(5 * HOUR);
+    answer(b, invoiceFor(b));
+    const view = show("th");
+    actions.cancelThenRefund.mockResolvedValue({ kind: "foundCancelled" });
+    await press("ยกเลิกและรับเงินคืน ฿400");
+    expect(api.reloads).toEqual(expect.arrayContaining([`bookings/${id}`, `payment/invoices/for-booking/${id}`]));
+
+    rereadAnswers(view, cancelledBy("advisor", HOUR, 5 * HOUR));
+    expect(screen.getByRole("heading", { level: 1 }).textContent).toBe(th.bookingRefund.head.claim);
+    expect(screen.getByRole("button", { name: "รับเงินคืน ฿1,000" })).toBeTruthy();
+    expect(screen.queryByText(/฿400/)).toBeNull();
+    expect(screen.getByRole("alert").textContent).toBe(th.bookingRefund.errors.cancelledMeanwhile);
+    expect(actions.openRefundOnce).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    ["now cancelled", () => cancelledBy("advisee", 5 * HOUR - 60_000, 5 * HOUR), th.bookingRefund.errors.cancelledMeanwhile],
+    ["still on", () => bookingAt(5 * HOUR), th.bookingRefund.errors.cancelFailed],
+  ])("after an unsure cancel, the line says what the check found: %s", async (_, found, line) => {
+    const b = bookingAt(5 * HOUR);
+    answer(b, invoiceFor(b));
+    const view = show("th");
+    actions.cancelThenRefund.mockResolvedValue({ kind: "notCancelled", outcome: "uncertain" });
+    await press("ยกเลิกและรับเงินคืน ฿400");
+    expect(screen.getByRole("alert").textContent).toBe(th.bookings.cancellationUncertain);
+
+    await press(th.bookingRefund.actions.check);
+    rereadAnswers(view, found());
+    expect(screen.getByRole("alert").textContent).toBe(line);
+  });
+
+  it("dates the cancel at the press, and reads the booking again for the server's own time", async () => {
+    const b = bookingAt(3 * DAY);
+    answer(b, invoiceFor(b));
+    show("th");
+    vi.mocked(Date.now).mockReturnValue(NOW + 7 * 60_000);
+    actions.cancelThenRefund.mockResolvedValue({ kind: "opened", refund: { ...request("OPEN"), createdAt: new Date(NOW + 7 * 60_000).toISOString() } });
+    await press("ยกเลิกและรับเงินคืน ฿1,000");
+
+    expect(screen.getByRole("heading", { level: 1 }).textContent).toBe(th.bookingRefund.stage.requested);
+    const cancelled = screen.getByText(th.bookingRefund.progress.cancellation.cancelled).closest("li");
+    expect(cancelled?.textContent).toContain("19:07");
+    expect(cancelled?.textContent).not.toContain("19:00");
+    expect(api.reloads).toEqual(expect.arrayContaining([`bookings/${id}`, `payment/invoices/for-booking/${id}`]));
+  });
+
+  it("reads the booking again after a cancel that stood while its request did not, and says how to go on", async () => {
+    const b = bookingAt(3 * DAY);
+    answer(b, invoiceFor(b));
+    show("th");
+    actions.cancelThenRefund.mockResolvedValue({ kind: "cancelledOnly", failure: "signIn" });
+    await press("ยกเลิกและรับเงินคืน ฿1,000");
+
+    expect(api.reloads).toContain(`bookings/${id}`);
+    expect(screen.getByRole("heading", { level: 1 }).textContent).toBe(th.bookingRefund.head.claim);
+    expect(screen.getByRole("alert").textContent).toBe(
+      "ยกเลิกการจองแล้ว แต่เซสชันหมดอายุก่อนส่งเรื่องคืนเงิน เข้าสู่ระบบอีกครั้งแล้วกดรับเงินคืน ฿1,000",
+    );
   });
 });
 

@@ -28,7 +28,8 @@ async function mockBookingApi(page: Page) {
     startTime: "2026-12-20T03:00:00.000Z",
     endTime: "2026-12-20T03:30:00.000Z",
     unavailableUntil: "2026-12-20T03:30:00.000Z",
-    state: cancelled ? "CANCELLED" : "BOOKED",
+    // Unpaid, as a booking with no receipt is: a booked one without its own receipt was paid on the one it replaced.
+    state: cancelled ? "CANCELLED" : "PENDING_PAYMENT",
     blocksAvailability: !cancelled,
     cancelledAt: cancelled ? "2026-10-17T12:00:00.000Z" : null,
     cancelledByUserId: cancelled ? adviseeId : null,

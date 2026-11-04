@@ -5,6 +5,7 @@ import "./support/scroll-trigger";
 
 import type { ApiAdviseeInvoice, ApiBooking, ApiPublicService, ApiRefundCase } from "@/lib/api/types";
 import { formats } from "@/lib/i18n/requests";
+import en from "@/messages/en.json";
 import messages from "@/messages/th.json";
 
 /**
@@ -150,8 +151,20 @@ describe("the booking popup's one way out (FE #114)", () => {
     expect(capsules("ยกเลิกการจอง")).toHaveLength(0);
     expect(said(container)).toMatch(/ยกเลิกได้ คืนเต็มจำนวน ถึง \S+ 6 พ\.ย\. 2569 · 16:00/);
     expect(said(container)).not.toContain("คำขอคืนเงิน / สถานะ");
-    // Moving the time is not a way out; it stays.
+    // Moving a paid booking goes through support: the API would read the moved original as owed its refund.
+    expect(capsules("เปลี่ยนเวลานัด")).toHaveLength(0);
+    const move = capsules("ขอเปลี่ยนเวลานัด");
+    expect(move).toHaveLength(1);
+    expect(move[0].getAttribute("href")).toMatch(/^mailto:[^?]+\?subject=/);
+    expect(decodeURIComponent(move[0].getAttribute("href") ?? "")).toContain("ขอเปลี่ยนเวลานัด");
+  });
+
+  it("moves an unpaid booking in place, over the advisor's open slots", () => {
+    reads.invoice = null;
+    show(bookingAt(THREE_DAYS_OUT, { state: "PENDING_PAYMENT" }));
     expect(capsules("เปลี่ยนเวลานัด")).toHaveLength(1);
+    expect(capsules("เปลี่ยนเวลานัด")[0].tagName).toBe("BUTTON");
+    expect(capsules("ขอเปลี่ยนเวลานัด")).toHaveLength(0);
   });
 
   it("keeps the plain cancel and its confirm for an unpaid booking, with no word of a refund", () => {
@@ -225,12 +238,39 @@ describe("the booking popup's one way out (FE #114)", () => {
     expect(capsules("เปลี่ยนเวลานัด")).toHaveLength(0);
   });
 
-  it("offers no second move on a booking that is already its one reschedule", () => {
-    const booking = bookingAt(THREE_DAYS_OUT, { createdAt: "2026-11-02T03:00:00Z" });
-    reads.invoice = paidFor(booking);
-    show(booking);
-    expect(capsules("ยกเลิกและรับเงินคืน")).toHaveLength(1);
-    expect(capsules("เปลี่ยนเวลานัด")).toHaveLength(0);
+  it("sends a booking paid on the one it replaced to support: no cancel, no second move, no list price", () => {
+    const booking = bookingAt(THREE_DAYS_OUT);
+    reads.invoice = null;
+    const service = { id: "service", priceSatang: 140_000, name: "Service" } as ApiPublicService;
+    const { container } = show(booking, service);
+
+    expect(said(container)).toContain("ชำระไว้กับการจองเดิมก่อนเปลี่ยนเวลา ยกเลิกหรือขอคืนเงินผ่านฝ่ายช่วยเหลือ");
+    expect(said(container)).not.toContain("฿1,400");
+    for (const exit of ["ยกเลิกการจอง", "ยกเลิกและรับเงินคืน", "เปลี่ยนเวลานัด", "ขอเปลี่ยนเวลานัด"]) expect(capsules(exit)).toHaveLength(0);
+    expect(toRefundPage(container)).toHaveLength(0);
+  });
+
+  it("shows no price on a booked appointment while its receipt is still being read, then what was paid", () => {
+    const booking = bookingAt(THREE_DAYS_OUT);
+    const service = { id: "service", priceSatang: 140_000, name: "Service" } as ApiPublicService;
+    const { container, rerender } = show(booking, service);
+    expect(said(container)).not.toContain("฿1,400");
+    expect(said(container)).not.toContain("ราคาบริการ");
+
+    reads.invoice = paidFor(booking, { amountSatang: 80_000 });
+    rerender(
+      <NextIntlClientProvider formats={formats} locale="th" messages={messages} timeZone="Asia/Bangkok">
+        <BookingSheet entry={{ booking, service, advisor: undefined }} now={now} onChanged={() => undefined} />
+      </NextIntlClientProvider>,
+    );
+    expect(said(container)).toContain("฿800");
+    expect(said(container)).not.toContain("฿1,400");
+  });
+
+  it("still shows today's price on a held slot while it waits for payment", () => {
+    const service = { id: "service", priceSatang: 140_000, name: "Service" } as ApiPublicService;
+    const { container } = show(bookingAt(THREE_DAYS_OUT, { state: "PENDING_PAYMENT" }), service);
+    expect(said(container)).toContain("ราคาบริการ ฿1,400");
   });
 
   it("says a failed money read failed, with a retry, instead of today's list price", () => {
@@ -344,5 +384,17 @@ describe("the booking popup's one way out (FE #114)", () => {
     for (const exit of ["ยกเลิกการจอง", "ยกเลิกและรับเงินคืน"]) expect(capsules(exit)).toHaveLength(0);
     expect(toRefundPage(container)).toHaveLength(0);
     expect(said(container)).not.toMatch(/คืน/);
+  });
+
+  it("writes what was paid with the same ฿ as the refund under it, in English too", () => {
+    const booking = bookingAt(YESTERDAY, { state: "CANCELLED", cancelledByUserId: "advisor-1", cancelledAt: "2026-11-02T08:00:00Z" });
+    reads.invoice = paidFor(booking);
+    const { container } = render(
+      <NextIntlClientProvider formats={formats} locale="en" messages={en} timeZone="Asia/Bangkok">
+        <BookingSheet entry={{ booking, service: undefined, advisor: undefined }} now={now} onChanged={() => undefined} />
+      </NextIntlClientProvider>,
+    );
+    expect(said(container)).not.toContain("THB");
+    expect(said(container).match(/฿1,000/g)?.length).toBeGreaterThanOrEqual(2);
   });
 });

@@ -5,15 +5,15 @@ import { useSearchParams } from "next/navigation";
 import { useTranslations } from "next-intl";
 
 import { BookingDetailState, DetailColumn } from "@/components/bookings/booking-detail-screen";
-import { bookingExit, bookingPopupHref, sameOffer } from "@/components/bookings/booking-exit";
+import { bookingExit, bookingPopupHref, refundHref, sameOffer, signInHref } from "@/components/bookings/booking-exit";
 import { asUuid, useMountTime } from "@/components/bookings/booking-flow";
+import { refundFailure, type RefundFailure } from "@/components/bookings/refund-actions";
 import { CancelRefundMode, ClaimMode } from "@/components/bookings/refund-cancel";
 import { ReportMode } from "@/components/bookings/refund-report";
 import { SHEET_W, SHEET_X } from "@/components/payment/invoice-screens";
 import { useRefundFormat } from "@/components/bookings/refund-sheet";
 import { RefundStatusMode } from "@/components/bookings/refund-status";
-import { isNotFound, useBookingMoney } from "@/components/bookings/use-booking-exit";
-import { ApiError } from "@/lib/api/client";
+import { useBookingMoney } from "@/components/bookings/use-booking-exit";
 import { getBooking } from "@/lib/api/resources";
 import type { ApiBooking, ApiRefundCase } from "@/lib/api/types";
 import { useLastAnswer, useResource } from "@/lib/api/use-resource";
@@ -55,39 +55,69 @@ function RefundNotFound() {
   const t = useTranslations("bookingRefund");
   const back = useBack();
   return (
-    <BookingDetailState back={back} body={t("states.notFoundBody")} title={t("states.notFoundTitle")} />
+    <BookingDetailState
+      action={{ href: "/bookings", label: t("actions.toBookings") }}
+      back={back}
+      body={t("states.notFoundBody")}
+      title={t("states.notFoundTitle")}
+    />
+  );
+}
+
+/** A lapsed session: signing in again, and coming back here, is the only thing that helps. */
+function RefundSignIn({ bookingId }: { readonly bookingId: string }) {
+  const t = useTranslations("bookingRefund");
+  const back = useBack(bookingId);
+  return (
+    <BookingDetailState
+      action={{ href: signInHref(refundHref(bookingId)), label: t("actions.signIn") }}
+      back={back}
+      body={t("states.signInBody")}
+      title={t("states.signInTitle")}
+    />
   );
 }
 
 function RefundData({ id }: { readonly id: string }) {
+  const t = useTranslations("bookingRefund");
+  const b = useTranslations("bookings");
   const fetchBooking = useCallback((signal: AbortSignal) => getBooking(id, signal), [id]);
   const booking = useResource<ApiBooking>(`bookings/${id}`, fetchBooking);
   const shown = useLastAnswer(booking);
 
   if (!shown && booking.loading) return <RefundSkeleton bookingId={id} />;
-  if (isNotFound(booking.error) || isForbidden(booking.error)) return <RefundNotFound />;
-  if (!shown) return <RefundFailed retry={booking.reload} />;
+  // Someone else's booking is a 403 or a 404; either way, for this account it does not exist.
+  const failure = booking.error ? refundFailure(booking.error) : null;
+  if (failure === "notFound") return <RefundNotFound />;
+  if (failure === "signIn") return <RefundSignIn bookingId={id} />;
+  if (!shown) {
+    return (
+      <RefundFailed
+        body={failure === "retry" ? b("detailsFailedBody") : t("errors.refundRefused")}
+        bookingId={id}
+        retry={failure === "retry" ? booking.reload : undefined}
+        title={t("states.loadFailed")}
+      />
+    );
+  }
   return <RefundContent booking={shown} reload={booking.reload} />;
 }
 
-/** Someone else's booking is a 403 or a 404; either way, for this account it does not exist. */
-function isForbidden(cause: unknown): boolean {
-  return cause instanceof ApiError && cause.status === 403;
-}
-
-function RefundFailed({ retry, bookingId }: { readonly retry: () => void; readonly bookingId?: string }) {
+/** `retry` only when pressing again can help: a network failure, a timeout or a server fault. */
+function RefundFailed({
+  title,
+  body,
+  retry,
+  bookingId,
+}: {
+  readonly title: string;
+  readonly body: string;
+  readonly retry?: () => void;
+  readonly bookingId: string;
+}) {
   const t = useTranslations("bookingRefund");
-  const b = useTranslations("bookings");
   const back = useBack(bookingId);
-  return (
-    <BookingDetailState
-      back={back}
-      body={b("detailsFailedBody")}
-      retry={retry}
-      retryLabel={t("actions.retry")}
-      title={t("states.loadFailed")}
-    />
-  );
+  return <BookingDetailState back={back} body={body} retry={retry} retryLabel={t("actions.retry")} title={title} />;
 }
 
 /**
@@ -96,14 +126,26 @@ function RefundFailed({ retry, bookingId }: { readonly retry: () => void; readon
  * line to say about it.
  */
 type Done = {
-  readonly cancelled?: boolean;
+  /** When this page's own cancel stood (the press), shown until the booking is read again. */
+  readonly cancelledAt?: number;
   readonly refund?: ApiRefundCase;
   readonly notice?: string;
   readonly announce?: string;
+  /** The booking answer a re-read was asked on; a newer one settles what the notice says. */
+  readonly rereadOn?: ApiBooking;
 };
+
+const CANCELLED_ONLY = {
+  retry: "errors.cancelledOnly",
+  signIn: "errors.cancelledOnlySignIn",
+  notFound: "errors.cancelledOnlyRefused",
+  refused: "errors.cancelledOnlyRefused",
+} as const satisfies Record<RefundFailure, string>;
 
 function RefundContent({ booking, reload }: { readonly booking: ApiBooking; readonly reload: () => void }) {
   const t = useTranslations("bookingRefund");
+  const tr = useTranslations("transactions");
+  const l = useTranslations("landing");
   const format = useRefundFormat();
   const mounted = useMountTime();
   // The clock the rule is read at: the page's opening, until a press finds the offer has moved on.
@@ -115,18 +157,35 @@ function RefundContent({ booking, reload }: { readonly booking: ApiBooking; read
   const [done, setDone] = useState<Done>({});
 
   const current =
-    done.cancelled && booking.state !== "CANCELLED"
-      ? { ...booking, state: "CANCELLED" as const, cancelledAt: new Date(now).toISOString(), cancelledByUserId: booking.adviseeId }
+    done.cancelledAt !== undefined && booking.state !== "CANCELLED"
+      ? {
+          ...booking,
+          state: "CANCELLED" as const,
+          cancelledAt: new Date(done.cancelledAt).toISOString(),
+          cancelledByUserId: booking.adviseeId,
+        }
       : booking;
   const opened = done.refund;
   const cases = opened && money.cases ? [opened, ...money.cases.filter((item) => item.id !== opened.id)] : money.cases;
   const exit = bookingExit({ booking: current, invoice: money.invoice, cases, now });
   const invoice = money.invoice;
 
-  const reread = useCallback(() => {
+  // A line kept from before a re-read says what the re-read found once it answers: the booking is now
+  // cancelled (its share follows who cancelled and when), or it is still on and the cancel did not go through.
+  let notice = done.notice;
+  if (done.rereadOn && booking !== done.rereadOn) {
+    if (booking.state === "CANCELLED") notice = t("errors.cancelledMeanwhile");
+    else if (exit.kind === "cancelRefund") notice = t("errors.cancelFailed");
+  }
+
+  const refresh = useCallback(() => {
     reload();
     reloadMoney();
   }, [reload, reloadMoney]);
+  const reread = useCallback(() => {
+    setDone((previous) => ({ ...previous, rereadOn: booking }));
+    refresh();
+  }, [booking, refresh]);
 
   /**
    * The rule once more at the moment of a press (`at`, read by the press).
@@ -148,8 +207,27 @@ function RefundContent({ booking, reload }: { readonly booking: ApiBooking; read
   }
 
   if (exit.kind === "waiting") {
-    if (money.error) return <RefundFailed bookingId={booking.id} retry={money.reload} />;
-    return <RefundSkeleton bookingId={booking.id} />;
+    if (!money.error) return <RefundSkeleton bookingId={booking.id} />;
+    const failure = refundFailure(money.error);
+    if (failure === "signIn") return <RefundSignIn bookingId={booking.id} />;
+    return (
+      <RefundFailed
+        body={failure === "retry" ? t("states.moneyFailedBody") : t("errors.refundRefused")}
+        bookingId={booking.id}
+        retry={failure === "retry" ? money.reload : undefined}
+        title={t("states.moneyFailed")}
+      />
+    );
+  }
+  if (exit.kind === "paidElsewhere") {
+    return (
+      <BookingDetailState
+        action={{ href: `mailto:${l("footerEmailAddress")}`, label: tr("contactSupport") }}
+        back={back}
+        body={t("states.paidElsewhereBody")}
+        title={t("states.paidElsewhereTitle")}
+      />
+    );
   }
   if (!invoice || exit.kind === "none" || exit.kind === "cancel" || exit.kind === "rescheduled") {
     return (
@@ -178,17 +256,18 @@ function RefundContent({ booking, reload }: { readonly booking: ApiBooking; read
           booking={booking}
           exit={exit}
           invoice={invoice}
-          notice={done.notice}
-          onNotice={(notice) => setDone({ notice })}
+          notice={notice}
+          onNotice={(line) => setDone({ notice: line })}
           reread={reread}
           stillOffered={stillOffered}
-          onCancelledOnly={() => {
-            setDone({ cancelled: true, notice: t("errors.cancelledOnly", { amount: format.baht(exit.refundSatang) }) });
-            reload();
+          onCancelledOnly={(at, failure) => {
+            setDone({ cancelledAt: at, notice: t(CANCELLED_ONLY[failure], { amount: format.baht(exit.refundSatang) }) });
+            refresh();
           }}
-          onOpened={(refund) =>
-            setDone({ cancelled: true, refund, announce: t("announce.cancelled", { amount: format.baht(exit.refundSatang) }) })
-          }
+          onOpened={(refund, at) => {
+            setDone({ cancelledAt: at, refund, announce: t("announce.cancelled", { amount: format.baht(exit.refundSatang) }) });
+            refresh();
+          }}
         />
       );
       break;
@@ -198,9 +277,13 @@ function RefundContent({ booking, reload }: { readonly booking: ApiBooking; read
           booking={current}
           exit={exit}
           invoice={invoice}
-          notice={done.notice}
+          notice={notice}
           onOpened={(refund) =>
-            setDone({ cancelled: done.cancelled, refund, announce: t("announce.claimed", { amount: format.baht(exit.refundSatang) }) })
+            setDone({
+              cancelledAt: done.cancelledAt,
+              refund,
+              announce: t("announce.claimed", { amount: format.baht(exit.refundSatang) }),
+            })
           }
         />
       );
@@ -211,14 +294,14 @@ function RefundContent({ booking, reload }: { readonly booking: ApiBooking; read
           booking={booking}
           exit={exit}
           invoice={invoice}
-          notice={done.notice}
-          onOpened={(refund, notice) => setDone({ refund, notice, announce: t("announce.reported") })}
+          notice={notice}
+          onOpened={(refund, line) => setDone({ refund, notice: line, announce: t("announce.reported") })}
           stillOffered={stillOffered}
         />
       );
       break;
     default:
-      mode = <RefundStatusMode booking={current} exit={exit} invoice={invoice} notice={done.notice} />;
+      mode = <RefundStatusMode booking={current} exit={exit} invoice={invoice} notice={notice} />;
   }
 
   return (

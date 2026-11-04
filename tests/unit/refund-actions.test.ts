@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ApiError, ApiUnreachableError } from "@/lib/api/client";
 import type { ApiBooking, ApiRefundCase } from "@/lib/api/types";
-import { cancelThenRefund, openRefundOnce } from "@/components/bookings/refund-actions";
+import { cancelThenRefund, openRefundOnce, refundFailure } from "@/components/bookings/refund-actions";
 
 const calls = vi.hoisted(() => ({ cancel: vi.fn(), get: vi.fn(), open: vi.fn(), list: vi.fn(), invalidate: vi.fn(), log: [] as string[] }));
 vi.mock("@/lib/api/resources", () => ({
@@ -79,19 +79,27 @@ describe("cancelThenRefund", () => {
     expect(calls.invalidate).not.toHaveBeenCalled();
   });
 
-  it("counts a cancel whose response was lost but which committed, then opens the refund", async () => {
-    calls.cancel.mockRejectedValue(new ApiUnreachableError("response lost"));
-    calls.get.mockResolvedValue({ ...booked, state: "CANCELLED" });
-    calls.open.mockResolvedValue(opened);
-    await expect(cancelThenRefund(bookingId, invoiceId, reason)).resolves.toMatchObject({ kind: "opened" });
-    expect(calls.log).toEqual(["POST cancel", "GET booking", "POST refunds"]);
+  it.each([
+    ["someone else's cancel, refused with a 409", new ApiError(409, "invalid transition")],
+    ["a cancel whose response was lost", new ApiUnreachableError("response lost")],
+  ])("files nothing after %s that left the booking cancelled", async (_, cause) => {
+    calls.cancel.mockRejectedValue(cause);
+    calls.get.mockResolvedValue({ ...booked, state: "CANCELLED", cancelledByUserId: "advisor" });
+    await expect(cancelThenRefund(bookingId, invoiceId, reason)).resolves.toEqual({ kind: "foundCancelled" });
+    expect(calls.log).toEqual(["POST cancel", "GET booking"]);
+    expect(calls.invalidate).toHaveBeenCalledWith("bookings/");
   });
 
-  it("reports a cancel that stood while the refund did not", async () => {
+  it.each([
+    ["a network failure", new ApiUnreachableError("offline"), "retry"],
+    ["a lapsed session", new ApiError(401, "unauthenticated"), "signIn"],
+    ["no disputable receipt", new ApiError(404, "invoice not found"), "notFound"],
+    ["a refusal", new ApiError(400, "reason too long"), "refused"],
+  ] as const)("reports a cancel that stood while the refund met %s", async (_, cause, failure) => {
     calls.cancel.mockResolvedValue({ ...booked, state: "CANCELLED" });
-    calls.open.mockRejectedValue(new ApiUnreachableError("offline"));
-    calls.list.mockRejectedValue(new ApiUnreachableError("offline"));
-    await expect(cancelThenRefund(bookingId, invoiceId, reason)).resolves.toEqual({ kind: "cancelledOnly" });
+    calls.open.mockRejectedValue(cause);
+    calls.list.mockResolvedValue(page([]));
+    await expect(cancelThenRefund(bookingId, invoiceId, reason)).resolves.toEqual({ kind: "cancelledOnly", failure });
     expect(calls.invalidate).toHaveBeenCalledWith("bookings/");
   });
 
@@ -101,5 +109,19 @@ describe("cancelThenRefund", () => {
     calls.list.mockResolvedValue(page([opened]));
     await expect(cancelThenRefund(bookingId, invoiceId, reason)).resolves.toEqual({ kind: "opened", refund: opened });
     expect(calls.log).toEqual(["POST cancel", "POST refunds", "GET refunds/me"]);
+  });
+});
+
+describe("refundFailure", () => {
+  it.each([
+    ["a network failure", new ApiUnreachableError("offline"), "retry"],
+    ["a server fault", new ApiError(503, "unavailable"), "retry"],
+    ["a request already open, read back on the next press", new ApiError(409, "already open"), "retry"],
+    ["a lapsed session", new ApiError(401, "unauthenticated"), "signIn"],
+    ["a receipt that is not this account's", new ApiError(403, "forbidden"), "notFound"],
+    ["no disputable receipt", new ApiError(404, "invoice not found"), "notFound"],
+    ["a refused request", new ApiError(400, "bad request"), "refused"],
+  ] as const)("asks for the right next step after %s", (_, cause, failure) => {
+    expect(refundFailure(cause)).toBe(failure);
   });
 });

@@ -43,6 +43,7 @@ export type RefundCaseType = "cancellation" | "report";
  * - `waiting`: the invoice or the requests are still loading; nothing is offered yet.
  * - `none`: an unpaid booking with nothing left to do (started, or already off).
  * - `rescheduled`: moved to a new time; its payment went with it.
+ * - `paidElsewhere`: under way or booked with no receipt of its own, so paid on the booking it replaced; support settles it.
  * - `cancel`: unpaid and not started; the plain cancel, nothing about money.
  * - `cancelRefund`: paid, booked and not started; cancelling refunds `refundSatang`.
  * - `report`: started, up to `until`; a problem can be reported for at most `maxSatang`.
@@ -55,6 +56,7 @@ export type BookingExit =
   | { readonly kind: "waiting" }
   | { readonly kind: "none" }
   | { readonly kind: "rescheduled" }
+  | { readonly kind: "paidElsewhere" }
   | { readonly kind: "cancel" }
   | {
       readonly kind: "cancelRefund";
@@ -126,6 +128,11 @@ export function bookingPopupHref(bookingId: string): string {
   return `/bookings?bookingId=${bookingId}`;
 }
 
+/** Sign in again and come back to `next`. */
+export function signInHref(next: string): string {
+  return `/login?next=${encodeURIComponent(next)}`;
+}
+
 function isPaid(invoice: ApiAdviseeInvoice | null): invoice is ApiAdviseeInvoice {
   return invoice?.status === "paid" || invoice?.status === "refunded";
 }
@@ -170,7 +177,12 @@ const STARTED: ReadonlySet<ApiBooking["state"]> = new Set(["IN_PROGRESS", "COMPL
  * The one way out of a booking, from /terms §8 and the clock (S = start, E = end):
  *
  * - R10 nothing while the invoice, or a paid invoice's requests, still load.
- * - R1 unpaid (no receipt, or pending/failed) and before S: the plain cancel. After S, nothing.
+ * - R1 unpaid (a held slot, or a pending/failed receipt) and before S: the plain cancel. After S, nothing.
+ * - A booking past PENDING_PAYMENT with no receipt was paid on the booking it
+ *   replaced: on API develop only a paid charge (`confirmPayment`) or a
+ *   reschedule's replacement leaves PENDING_PAYMENT, and the replacement gets
+ *   no receipt of its own. Its money is on the original, so it offers no
+ *   cancel, no move and no price, only support. A cancelled one is "none".
  * - R7 cancelled and paid with no request: the refund owed, unless it was rescheduled away.
  * - R8 a request exists (open first, else the newest): its status, never a second request.
  * - R9 refunded with no request: the refund on record.
@@ -185,6 +197,7 @@ export function bookingExit({ booking, invoice, cases, now }: BookingExitInput):
   // A held slot is unpaid by its own state, so its cancel never waits on (or fails with) the invoice read.
   if (booking.state === "PENDING_PAYMENT") return now < startsAt.getTime() ? { kind: "cancel" } : { kind: "none" };
   if (invoice === undefined) return { kind: "waiting" };
+  if (invoice === null && booking.state !== "CANCELLED") return { kind: "paidElsewhere" };
 
   if (!isPaid(invoice)) {
     return isCancellable(booking.state) && now < startsAt.getTime() ? { kind: "cancel" } : { kind: "none" };
@@ -238,19 +251,24 @@ export function sameOffer(shown: BookingExit, current: BookingExit): boolean {
   return shown.kind !== "cancelRefund" || (current.kind === "cancelRefund" && shown.share === current.share);
 }
 
+/** How a booking can move to another time: in place over the advisor's slots, or by asking support. */
+export type RescheduleWay = "slots" | "support";
+
 /**
  * /terms §8: an advisee may move a booking once, at no cost, while it is at
- * least 24 hours away. Until the invoice is known (undefined) it is not offered.
+ * least 24 hours away.
  *
- * The count rests on the invoice: one is made only after its bookings exist
- * (a package's sessions in the same transaction), so a booking younger than
- * its invoice can only be a reschedule's replacement that carried it over.
- * API develop's `reschedule` does not carry it over yet, nor check the time or
- * the count, so there a replacement reads as having no receipt and this
- * holds the 24-hour line only (docs/review/refund-request.md, API follow-ups).
+ * A paid booking's move goes through support. API develop's `reschedule`
+ * cancels the original as the advisee and marks it no other way, so the
+ * original would read as the advisee's own early cancel, its whole charge
+ * owed, while the new session goes ahead (docs/review/refund-request.md, API
+ * follow-ups). An unpaid booking owes nothing either way, so it moves in
+ * place. One paid on the booking it replaced has had its move. Until the
+ * invoice is known nothing is offered.
  */
-export function canReschedule({ booking, invoice, now }: Omit<BookingExitInput, "cases">): boolean {
-  if (!isCancellable(booking.state) || now > fullRefundUntil(booking).getTime()) return false;
-  if (invoice === undefined) return false;
-  return invoice === null || Date.parse(invoice.createdAt) >= Date.parse(booking.createdAt);
+export function rescheduleWay({ booking, invoice, now }: Omit<BookingExitInput, "cases">): RescheduleWay | null {
+  if (!isCancellable(booking.state) || now > fullRefundUntil(booking).getTime()) return null;
+  if (booking.state === "PENDING_PAYMENT") return "slots";
+  if (!invoice) return null;
+  return isPaid(invoice) ? "support" : "slots";
 }

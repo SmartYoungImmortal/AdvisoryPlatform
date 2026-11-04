@@ -32,12 +32,17 @@ export async function checkCancellation(bookingId: string): Promise<Cancellation
   }
 }
 
+/** What a failed cancel POST left behind, read from the appointment when the error alone cannot say. */
+export async function failedCancellation(bookingId: string, cause: unknown): Promise<CancellationOutcome> {
+  return accessFailure(cause) ?? await checkCancellation(bookingId);
+}
+
 export async function cancelAndCheck(bookingId: string): Promise<CancellationOutcome> {
   try {
     await cancelBooking(bookingId, AbortSignal.timeout(15_000));
     return "cancelled";
   } catch (cause) {
-    return accessFailure(cause) ?? await checkCancellation(bookingId);
+    return failedCancellation(bookingId, cause);
   }
 }
 

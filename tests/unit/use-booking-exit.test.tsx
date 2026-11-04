@@ -35,10 +35,11 @@ describe("useBookingExit", () => {
     expect(result.current.exit).toEqual({ kind: "waiting" });
   });
 
-  it("reads a missing receipt as unpaid and never asks for its requests", async () => {
+  it("reads a missing receipt as no receipt, not a failure, and never asks for its requests", async () => {
     calls.invoice.mockRejectedValue(new ApiError(404, "Invoice not found"));
     const { result } = renderHook(() => useBookingExit(booking, now));
-    await waitFor(() => expect(result.current.exit).toEqual({ kind: "cancel" }));
+    // A booked appointment with no receipt of its own was paid on the one it replaced.
+    await waitFor(() => expect(result.current.exit).toEqual({ kind: "paidElsewhere" }));
     expect(result.current.money.invoice).toBeNull();
     expect(result.current.money.error).toBeNull();
     expect(calls.cases).not.toHaveBeenCalled();

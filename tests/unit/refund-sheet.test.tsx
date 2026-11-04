@@ -487,7 +487,7 @@ describe("messages", () => {
   it("keeps the keys other screens still read", () => {
     const thKeys = new Set(flatten(thTree));
     const enKeys = new Set(flatten(enTree));
-    for (const key of ["bookingRefund.evidenceFailed", "bookingRefund.requestLink", "bookingRefund.status.OPEN"]) {
+    for (const key of ["bookingRefund.evidenceFailed", "bookingRefund.retry"]) {
       expect(thKeys.has(key)).toBe(true);
       expect(enKeys.has(key)).toBe(true);
     }

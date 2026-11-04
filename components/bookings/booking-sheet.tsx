@@ -18,9 +18,8 @@ import { useId, useState, type ReactNode } from "react";
 
 import { DESKTOP_TYPE_LIFT } from "@/components/account/account-shell";
 import { AUTH_LINK } from "@/components/auth/auth-split";
-import { canReschedule, refundHref, type BookingExit } from "@/components/bookings/booking-exit";
+import { refundHref, rescheduleWay, type BookingExit } from "@/components/bookings/booking-exit";
 import {
-  baht,
   liveAdvisorHref,
   liveServiceHref,
   BOOKING_BUCKET,
@@ -277,8 +276,7 @@ function MoneyNote({
   const t = useTranslations("bookings");
   const r = useTranslations("bookingRefund");
   const when = useRefundFormat();
-  // No-break spaces: at 390 the note wraps, and the deadline moves down whole
-  // rather than leaving its time alone on the second line.
+  // `deadline` joins with no-break spaces: at 390 the note wraps, and the date moves down whole.
   const deadline = (at: Date) => when.deadline(at).replaceAll(" ", " ");
 
   let note: string;
@@ -328,8 +326,9 @@ function MoneyNote({
 
 /**
  * What was paid and how it stands, with the way to its receipt and what the
- * money does now. With no invoice to show, the service's price now: the
- * appointment itself records no amount.
+ * money does now. An unpaid booking with no invoice shows the service's price
+ * now, since the appointment itself records no amount; a booking past its
+ * hold never does, since that price would pass for what was paid.
  */
 function PaymentLine({
   booking,
@@ -344,7 +343,7 @@ function PaymentLine({
 }) {
   const t = useTranslations("bookings");
   const tr = useTranslations("transactions");
-  const format = useFormatter();
+  const when = useRefundFormat();
   const { invoice } = money;
   // A failed read says so with a way to ask again: today's list price in its place would pass for what was paid.
   const failed = money.error ? (
@@ -365,7 +364,7 @@ function PaymentLine({
     return (
       <Line icon={Banknote}>
         <span className="text-muted-foreground">{tr(`status.${invoice.status}`)}</span>{" "}
-        <span className="font-latin font-medium tabular-nums">{format.number(baht(invoice.amountSatang), "baht")}</span>
+        <span className="font-latin font-medium tabular-nums">{when.baht(invoice.amountSatang)}</span>
         {" · "}
         <Link className="font-medium text-primary underline-offset-4 hover:underline" href={invoiceHref(invoice.id)}>
           {t("viewReceipt")}
@@ -375,11 +374,19 @@ function PaymentLine({
     );
   }
   if (failed) return <Line icon={Banknote}>{failed}</Line>;
+  if (exit.kind === "paidElsewhere") {
+    return (
+      <Line icon={Banknote}>
+        <span className="text-muted-foreground">{t("paidElsewhere")}</span>
+      </Line>
+    );
+  }
+  if (invoice === undefined && booking.state !== "PENDING_PAYMENT") return null;
   if (!service) return null;
   return (
     <Line icon={Banknote}>
       {t("detailsPriceLabel")}{" "}
-      <span className="font-latin font-medium tabular-nums">{format.number(baht(service.priceSatang), "baht")}</span>
+      <span className="font-latin font-medium tabular-nums">{when.baht(service.priceSatang)}</span>
     </Line>
   );
 }
@@ -454,18 +461,18 @@ export function BookingSheet({
   const minutes = Math.round((Date.parse(booking.endTime) - start.getTime()) / 60_000);
   const ahead = bookingPhase(booking, now) === "ahead";
   // §8: once, and only while the start is 24 hours or more away (a later move would turn half a refund into all of it).
-  const changeable = canReschedule({ booking, invoice: money.invoice, now });
+  const move = rescheduleWay({ booking, invoice: money.invoice, now });
   // Only a held time goes in a calendar: an unpaid one may never happen.
   const keepable = ahead && (booking.state === "BOOKED" || booking.state === "IN_PROGRESS");
   const stamp = (iso: string) =>
     `${format.dateTime(new Date(iso), { day: "numeric", month: "short", year: "numeric" })} · ${clock(iso)}`;
 
-  const subject = encodeURIComponent(
-    t("supportSubject", {
-      service: service?.name ?? "",
-      date: format.dateTime(start, { day: "numeric", month: "short", year: "numeric" }),
-    }),
-  );
+  const about = {
+    service: service?.name ?? "",
+    date: format.dateTime(start, { day: "numeric", month: "short", year: "numeric" }),
+  };
+  const subject = encodeURIComponent(t("supportSubject", about));
+  const supportMail = `mailto:${l("footerEmailAddress")}`;
 
   return (
     <article
@@ -530,7 +537,7 @@ export function BookingSheet({
         ) : null}
       </div>
 
-      {more.length > 0 || keepable || changeable || cancellable || moneyExit ? (
+      {more.length > 0 || keepable || move || cancellable || moneyExit ? (
         <div className={cn("flex flex-wrap gap-2 lg:gap-3", UNDER_TEXT)}>
           {more.map((way) => (
             <Button className={MORE_PILL} key={way.href} nativeButton={false} render={<Link href={way.href} />} variant="ghost">
@@ -547,7 +554,17 @@ export function BookingSheet({
               {t("detailCalendar")}
             </Button>
           ) : null}
-          {changeable ? (
+          {move === "support" ? (
+            <Button
+              className={MORE_PILL}
+              nativeButton={false}
+              render={<a href={`${supportMail}?subject=${encodeURIComponent(t("rescheduleSubject", about))}`} />}
+              variant="ghost"
+            >
+              {t("rescheduleSupport")}
+            </Button>
+          ) : null}
+          {move === "slots" ? (
             <Button
               aria-expanded={panel === "reschedule"}
               className={MORE_PILL}
@@ -635,7 +652,7 @@ export function BookingSheet({
 
       <p className={cn("text-xs text-muted-foreground lg:text-frame-label", UNDER_TEXT)}>
         {t("helpPrompt")}{" "}
-        <a className={cn(AUTH_LINK, "py-1.5")} href={`mailto:${l("footerEmailAddress")}?subject=${subject}`}>
+        <a className={cn(AUTH_LINK, "py-1.5")} href={`${supportMail}?subject=${subject}`}>
           {tr("contactSupport")}
         </a>
       </p>
