@@ -37,7 +37,7 @@ const auth = (email: string) => ({
 });
 
 for (const width of [1440, 390]) {
-  test(`cancellation, refund evidence and ${width === 1440 ? "approval" : "rejection"} persist at ${width}px`, async ({
+  test(`a reported problem, its evidence and its ${width === 1440 ? "approval" : "rejection"} persist at ${width}px`, async ({
     page,
     context,
     browser,
@@ -56,7 +56,7 @@ for (const width of [1440, 390]) {
         INSERT INTO service_invoices (id, amount_satang, platform_fee_satang, status, paid_at)
           VALUES ('${invoiceId}',120000,20000,'HELD_IN_ESCROW',now());
         INSERT INTO service_appointments (id,service_id,advisor_id,advisee_id,start_time,end_time,unavailable_until,state,blocks_availability)
-          SELECT '${bookingId}',a.service_id,a.advisor_id,a.advisee_id,now()+interval '8 days',now()+interval '8 days 1 hour',now()+interval '8 days 1 hour','BOOKED',false
+          SELECT '${bookingId}',a.service_id,a.advisor_id,a.advisee_id,now()-interval '1 day',now()-interval '23 hours',now()-interval '23 hours','COMPLETED',false
           FROM service_appointments a JOIN "user" u ON u.id=a.advisee_id WHERE u.email='nattapong.d@advisory.demo' LIMIT 1;
         INSERT INTO service_appointments_on_service_invoices ("serviceAppointmentId","serviceInvoiceId") VALUES ('${bookingId}','${invoiceId}'); COMMIT;`);
       expect(
@@ -68,19 +68,23 @@ for (const width of [1440, 390]) {
         ).status(),
       ).toBe(200);
       await page.goto(`/bookings/detail?bookingId=${bookingId}`);
+      // A finished session has one way out: report a problem (no cancel, no money moved yet).
       await page
-        .getByRole("link", { name: "คำขอคืนเงิน / สถานะ", exact: true })
+        .getByRole("button", { name: "ขอคืนเงิน", exact: true })
         .click();
       await expect(
-        page.getByRole("heading", { name: "ขอยกเลิกและคืนเงิน", exact: true }),
+        page.getByRole("heading", { level: 1, name: "แจ้งปัญหาและขอคืนเงิน", exact: true }),
       ).toBeVisible();
       await page
-        .getByLabel("รายละเอียด", { exact: true })
+        .getByRole("radio", { name: "ไม่ตรงกับคำอธิบายบริการ" })
+        .check();
+      await page
+        .getByRole("textbox")
         .fill(
           "Disposable proof: consultation not delivered. Review this evidence.",
         );
       await page
-        .getByLabel("หลักฐานที่แนบมา", { exact: true })
+        .locator('input[type="file"]')
         .setInputFiles("public/icon-512.png");
       await expect(
         page.getByRole("button", { name: "ส่งคำขอคืนเงิน", exact: true }),
@@ -100,32 +104,20 @@ for (const width of [1440, 390]) {
       caseId = z
         .object({ data: z.object({ id: z.uuid() }) })
         .parse(await response.json()).data.id;
-      await expect(
-        page.getByRole("heading", {
-          name: "คำขอคืนเงินอยู่ระหว่างตรวจสอบ",
-          exact: true,
-        }),
-      ).toBeVisible();
-      await expect(
-        page.getByRole("button", { name: "icon-512.png", exact: true }),
-      ).toBeVisible();
+      const reviewing = page.getByRole("heading", { level: 1, name: "รอทีมงานตรวจสอบ", exact: true });
+      await expect(reviewing).toBeVisible();
+      await expect(page.getByText("icon-512.png", { exact: true })).toBeVisible();
       await page.reload();
-      await expect(
-        page.getByRole("heading", {
-          name: "คำขอคืนเงินอยู่ระหว่างตรวจสอบ",
-          exact: true,
-        }),
-      ).toBeVisible();
-      await expect(
-        page.getByRole("button", { name: "icon-512.png", exact: true }),
-      ).toBeVisible();
+      await expect(reviewing).toBeVisible();
+      await expect(page.getByText("icon-512.png", { exact: true })).toBeVisible();
+      // Reporting never changes the booking.
       expect(
         (
           await (
             await context.request.get(`${api}/bookings/${bookingId}`)
           ).json()
         ).data.state,
-      ).toBe("CANCELLED");
+      ).toBe("COMPLETED");
       const files = z
         .object({ data: z.array(z.object({ objectKey: z.string() })).min(1) })
         .parse(
@@ -216,24 +208,15 @@ for (const width of [1440, 390]) {
       } finally {
         await admin.close();
       }
-      await page
-        .getByRole("button", { name: "รีเฟรชสถานะคำขอ", exact: true })
-        .click();
+      await page.reload();
       await expect(
         page.getByRole("heading", {
-          name:
-            width === 1440
-              ? "คำขอคืนเงินได้รับอนุมัติ"
-              : "คำขอคืนเงินถูกปฏิเสธ",
+          level: 1,
+          name: width === 1440 ? "อนุมัติแล้ว กำลังคืนเงิน" : "ไม่อนุมัติคืนเงิน",
           exact: true,
         }),
       ).toBeVisible();
-      await expect(
-        page.getByText(
-          "นี่คือสถานะคำขอ การอนุมัติไม่ได้ยืนยันว่าโอนเงินคืนแล้ว ตรวจสอบผลการชำระเงินได้ที่ใบเสร็จ",
-          { exact: true },
-        ),
-      ).toBeVisible();
+      await expect(page.getByRole("button", { name: "ส่งคำขอคืนเงิน" })).toHaveCount(0);
       expect(
         (
           await (

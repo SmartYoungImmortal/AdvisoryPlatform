@@ -1,6 +1,6 @@
 "use client";
 
-import { CalendarDays } from "lucide-react";
+import { CalendarDays, ChevronLeft } from "lucide-react";
 import Link from "next/link";
 import { useCallback, type ReactNode } from "react";
 import { useTranslations } from "next-intl";
@@ -10,6 +10,7 @@ import { AccountShell } from "@/components/account/account-shell";
 import { AppFrame } from "@/components/account/app-frame";
 import { authPill } from "@/components/auth/auth-split";
 import { BookingSheet } from "@/components/bookings/booking-sheet";
+import { FEED_COLUMN } from "@/components/notifications/notification-center-screen";
 import { SHEET_W, SHEET_X } from "@/components/payment/invoice-screens";
 import { Button } from "@/components/ui/button";
 import { getAdvisor, getBooking, getService } from "@/lib/api/resources";
@@ -32,8 +33,21 @@ const BONE = "animate-pulse bg-muted motion-reduce:animate-none";
  *
  * The session's review is a page about one booking too, and stands in the same
  * column (`components/reviews/session-review-screen.tsx`).
+ *
+ * `back`: a task on one booking (its refund) is a step, not a place in the
+ * hierarchy, so it gets a way back to where it was opened from instead of the
+ * trail, and the bookings section's own width (`FEED_COLUMN`) instead of the
+ * receipt's narrow sheet.
  */
-export function DetailColumn({ crumb, children }: { readonly crumb?: string; readonly children: ReactNode }) {
+export function DetailColumn({
+  crumb,
+  back,
+  children,
+}: {
+  readonly crumb?: string;
+  readonly back?: { readonly href: string; readonly label: string };
+  readonly children: ReactNode;
+}) {
   const t = useTranslations("bookings");
   const c = useTranslations("common");
   const tr = useTranslations("transactions");
@@ -41,28 +55,38 @@ export function DetailColumn({ crumb, children }: { readonly crumb?: string; rea
   return (
     // `wide="md"`: a tablet held upright gets the phone layout at its own width.
     <MobileScreen className="bg-card" wide="md">
-      <ScreenTopBar className="lg:hidden" href="/bookings" label={c("back")} />
+      <ScreenTopBar className="lg:hidden" href={back?.href ?? "/bookings"} label={back?.label ?? c("back")} />
       <AppFrame active="bookings">
         <ScreenBody className="bg-card">
           <AccountShell active="bookings">
-            <div className={cn("flex w-full flex-col lg:mx-auto", SHEET_W)}>
-              <nav aria-label={tr("breadcrumbLabel")} className="hidden text-frame-meta text-muted-foreground lg:block">
-                <ol className="flex flex-wrap items-center gap-1.5">
-                  <li>
-                    <Link className="transition-colors hover:text-foreground" href="/bookings">
-                      {t("title")}
-                    </Link>
-                  </li>
-                  {crumb ? (
-                    <>
-                      <li aria-hidden>/</li>
-                      <li aria-current="page" className="text-foreground">
-                        {crumb}
-                      </li>
-                    </>
-                  ) : null}
-                </ol>
-              </nav>
+            <div className={cn("flex w-full flex-col lg:mx-auto", back ? cn("lg:w-full", FEED_COLUMN) : SHEET_W)}>
+              {back ? (
+                <Link
+                  className="hidden w-fit items-center gap-1.5 rounded-md text-frame-meta text-muted-foreground outline-none transition-colors hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/50 lg:inline-flex"
+                  href={back.href}
+                >
+                  <ChevronLeft aria-hidden className="size-5" />
+                  {back.label}
+                </Link>
+              ) : (
+                <nav aria-label={tr("breadcrumbLabel")} className="hidden text-frame-meta text-muted-foreground lg:block">
+                  <ol className="flex flex-wrap items-center gap-1.5">
+                    <li>
+                      <Link className="transition-colors hover:text-foreground" href="/bookings">
+                        {t("title")}
+                      </Link>
+                    </li>
+                    {crumb ? (
+                      <>
+                        <li aria-hidden>/</li>
+                        <li aria-current="page" className="text-foreground">
+                          {crumb}
+                        </li>
+                      </>
+                    ) : null}
+                  </ol>
+                </nav>
+              )}
               <div
                 className={cn(
                   "flex w-full flex-col gap-6 pt-2 pb-10 md:mx-auto md:max-w-xl lg:mt-6 lg:max-w-none lg:gap-8 lg:pt-0 lg:pb-0",
@@ -183,13 +207,30 @@ function BookingDetailSkeleton() {
  * The booking could not be shown, unboxed as the receipt's missing page is:
  * one muted icon, what went wrong, and the way back, with the retry when
  * asking again could change it.
+ *
+ * `action` replaces the way back to the list (the refund page's states go
+ * back to the booking), and `back` is the column's own, as `DetailColumn`.
  */
-function BookingDetailState({ title, body, retry }: { readonly title: string; readonly body: string; readonly retry?: () => void }) {
+export function BookingDetailState({
+  title,
+  body,
+  retry,
+  retryLabel,
+  action,
+  back,
+}: {
+  readonly title: string;
+  readonly body: string;
+  readonly retry?: () => void;
+  readonly retryLabel?: string;
+  readonly action?: { readonly href: string; readonly label: string };
+  readonly back?: { readonly href: string; readonly label: string };
+}) {
   const t = useTranslations("bookings");
   const pill = "mt-1 h-10 w-auto px-4 text-sm md:h-10 md:px-5 md:text-sm lg:h-12 lg:px-6 lg:text-frame-body";
 
   return (
-    <DetailColumn>
+    <DetailColumn back={back}>
       <div
         aria-live="polite"
         className="flex w-full flex-col items-center justify-center gap-3 px-6 py-12 text-center lg:gap-5 lg:rounded-2xl lg:border lg:border-border lg:py-20"
@@ -205,11 +246,11 @@ function BookingDetailState({ title, body, retry }: { readonly title: string; re
         <div className="flex flex-wrap justify-center gap-2">
           {retry ? (
             <Button className={cn(authPill(false), pill)} onClick={retry} type="button" variant="outline">
-              {t("detailsRetry")}
+              {retryLabel ?? t("detailsRetry")}
             </Button>
           ) : null}
-          <Button className={cn(authPill(true), pill)} nativeButton={false} render={<Link href="/bookings" />}>
-            {t("detailsBackToBookings")}
+          <Button className={cn(authPill(true), pill)} nativeButton={false} render={<Link href={action?.href ?? "/bookings"} />}>
+            {action?.label ?? t("detailsBackToBookings")}
           </Button>
         </div>
       </div>
