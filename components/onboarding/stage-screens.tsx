@@ -4,7 +4,9 @@ import {
   ArrowLeft,
   ArrowRight,
   CalendarDays,
+  CircleAlert,
   CircleCheck,
+  Clock3,
   FileText,
   IdCard,
   ImageIcon,
@@ -12,8 +14,10 @@ import {
   LockKeyhole,
   Phone,
   Plus,
+  RotateCw,
   Search,
   Trash2,
+  type LucideIcon,
 } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -39,9 +43,13 @@ import type { ApiNamedRecord } from "@/lib/api/types";
 import {
   createAdvisorProfile,
   getOwnAdvisorProfile,
+  latestPerSkill,
+  listOwnSkillProofs,
   submitIdentityDocument,
   submitSkillProof,
   updateAdvisorProfile,
+  type ApiOwnSkillProof,
+  type SkillProofReviewStatus,
 } from "@/lib/api/onboarding";
 import { listSkills } from "@/lib/api/resources";
 import { invalidate, useResource } from "@/lib/api/use-resource";
@@ -453,25 +461,81 @@ type SubmitProblem =
   | { readonly kind: "failed"; readonly message: string };
 
 type Draft = ReturnType<typeof useOnboardingDraft>;
+type DraftSkill = Draft["skills"][number];
 
 /**
- * Checks the draft against the catalogue and the files in memory, and returns
- * each skill's id and proof, or the first thing wrong with it.
+ * One card on stage 3. A returning applicant's skills already sent come first,
+ * each as its latest proof stands (`latestPerSkill`), then the cards added here.
+ */
+type SkillCard =
+  /** Under review or accepted: shown as it stands and never sent again; the API has no way to take it back. */
+  | { readonly kind: "kept"; readonly proof: ApiOwnSkillProof }
+  /** Turned down: a new file goes for the same skill, or the card comes off and the skill is not sent. */
+  | { readonly kind: "redo"; readonly proof: ApiOwnSkillProof }
+  /** Added here: a skill from the catalogue and its file. */
+  | { readonly kind: "new"; readonly entry: DraftSkill };
+
+/** A first application's one empty card, drawn while there is no other. */
+const FIRST_CARD: DraftSkill = { id: "skill-1", skill: "", proof: null };
+
+function skillCards(sent: readonly ApiOwnSkillProof[], draft: Draft): SkillCard[] {
+  const onFile = latestPerSkill(sent).flatMap((proof): SkillCard[] => {
+    if (proof.reviewStatus !== "REJECTED") return [{ kind: "kept", proof }];
+    return draft.turnedDown[proof.skillId] === false ? [] : [{ kind: "redo", proof }];
+  });
+  const added = draft.skills.length > 0 || onFile.length > 0 ? draft.skills : [FIRST_CARD];
+  return [...onFile, ...added.map((entry): SkillCard => ({ kind: "new", entry }))];
+}
+
+/** A card's key for its picked file (`holdFile`), its refused one, and React's list. */
+function cardKey(card: SkillCard): string {
+  return card.kind === "new" ? card.entry.id : `sent-${card.proof.skillId}`;
+}
+
+/** The name of the new proof picked for a card, kept in the draft while the file itself is held in memory. */
+function pickedName(card: SkillCard, draft: Draft): string | null {
+  switch (card.kind) {
+    case "kept":
+      return null;
+    case "redo":
+      return draft.turnedDown[card.proof.skillId] || null;
+    case "new":
+      return card.entry.proof;
+  }
+}
+
+/** The new proof picked for a card, while the tab still holds it. */
+function cardFile(card: SkillCard, draft: Draft): File | undefined {
+  return pickedName(card, draft) ? heldFile(cardKey(card)) : undefined;
+}
+
+/**
+ * Checks the cards against the catalogue and the files in memory, and returns
+ * the proofs to send, one per turned-down or added skill, or the first thing
+ * wrong. A skill under review or accepted sends nothing.
  */
 function readyToSend(
+  cards: readonly SkillCard[],
   draft: Draft,
   catalogue: readonly ApiNamedRecord[],
 ): { readonly proofs: ReadonlyArray<{ skillId: string; file: File }> } | SubmitProblem {
-  const filled = draft.skills.filter((s) => s.skill.trim());
-  if (filled.length === 0) return { kind: "missing" };
+  if (!cards.some((card) => card.kind !== "new" || card.entry.skill.trim())) return { kind: "missing" };
   const proofs: { skillId: string; file: File }[] = [];
-  for (const entry of filled) {
-    const name = entry.skill.trim();
-    const known = catalogue.find((skill) => skill.name === name);
-    if (!known) return { kind: "unknown", skill: name };
-    const file = heldFile(entry.id);
+  for (const card of cards) {
+    if (card.kind === "kept") continue;
+    let skillId: string;
+    if (card.kind === "redo") {
+      skillId = card.proof.skillId;
+    } else {
+      const name = card.entry.skill.trim();
+      if (!name) continue;
+      const known = catalogue.find((skill) => skill.name === name);
+      if (!known) return { kind: "unknown", skill: name };
+      skillId = known.id;
+    }
+    const file = cardFile(card, draft);
     if (!file) return { kind: "missing" };
-    proofs.push({ skillId: known.id, file });
+    proofs.push({ skillId, file });
   }
   return { proofs };
 }
@@ -485,8 +549,12 @@ function readyToSend(
  * again. The name, phone and birth date stay in this browser: the API takes
  * none of them, the reviewer reads the name off the card.
  */
-async function sendApplication(draft: Draft, catalogue: readonly ApiNamedRecord[]): Promise<SubmitProblem | null> {
-  const ready = readyToSend(draft, catalogue);
+async function sendApplication(
+  cards: readonly SkillCard[],
+  draft: Draft,
+  catalogue: readonly ApiNamedRecord[],
+): Promise<SubmitProblem | null> {
+  const ready = readyToSend(cards, draft, catalogue);
   if ("kind" in ready) return ready;
   try {
     const headline = draft.skills.find((s) => s.skill.trim())?.skill.trim() ?? "";
@@ -531,32 +599,108 @@ function SubmitBanner({ problem }: { readonly problem: SubmitProblem }) {
   }
 }
 
-/** An attached proof inside its skill card: what it is, and the way to take it off. */
-function AttachedProof({ file, onRemove }: { readonly file: File; readonly onRemove: () => void }) {
+/** A sent proof's review, in the words and inks of the application's status pages. */
+const REVIEW = {
+  PENDING: { label: "statusReviewing", ink: "text-primary", icon: Clock3 },
+  APPROVED: { label: "statusApproved", ink: "text-success", icon: CircleCheck },
+  REJECTED: { label: "statusNeedsFix", ink: "text-destructive", icon: CircleAlert },
+} as const satisfies Record<SkillProofReviewStatus, { label: string; ink: string; icon: LucideIcon }>;
+
+function ReviewStatus({ status }: { readonly status: SkillProofReviewStatus }) {
   const t = useTranslations("advisorOnboarding");
-  const Icon = /\.pdf$/i.test(file.name) ? FileText : ImageIcon;
+  const { label, ink, icon: Icon } = REVIEW[status];
   return (
-    <div className="flex w-full items-center gap-3 rounded-card bg-muted py-1.5 pr-1 pl-3.5">
+    <span className={cn("flex shrink-0 items-center gap-1 font-medium", ink)}>
+      <Icon aria-hidden className="size-3.5" />
+      {t(label)}
+    </span>
+  );
+}
+
+/**
+ * A proof inside its skill card: the file's name, a line on where it stands,
+ * and, for a file only attached so far, the way to take it off.
+ */
+function ProofRow({
+  name,
+  status,
+  onRemove,
+}: {
+  readonly name: string;
+  readonly status: ReactNode;
+  readonly onRemove?: () => void;
+}) {
+  const t = useTranslations("advisorOnboarding");
+  const Icon = /\.pdf$/i.test(name) ? FileText : ImageIcon;
+  return (
+    <div
+      className={cn(
+        "flex min-h-14 w-full items-center gap-3 rounded-card bg-muted py-1.5 pl-3.5",
+        onRemove ? "pr-1" : "pr-3.5",
+      )}
+    >
       <Icon aria-hidden className="size-4.5 shrink-0 text-muted-foreground" />
       <div className="flex min-w-px flex-1 flex-col gap-0.5">
-        <p className="truncate font-latin text-sm font-medium text-foreground">{file.name}</p>
-        <p className="flex items-center gap-1 text-xs text-success">
-          <CircleCheck aria-hidden className="size-3.5" />
-          <span>{t("attachedLabel")}</span>
-          <span className="font-latin text-muted-foreground tabular-nums">· {describeFile(file)}</span>
-        </p>
+        <p className="truncate font-latin text-sm font-medium text-foreground">{name}</p>
+        <p className="flex items-center gap-1 text-xs">{status}</p>
       </div>
-      <Button
-        aria-label={t("removeProof", { name: file.name })}
-        className="size-11 shrink-0 rounded-full text-muted-foreground hover:text-destructive"
-        onClick={onRemove}
-        size="icon"
-        type="button"
-        variant="ghost"
-      >
-        <Trash2 aria-hidden className="size-4" />
-      </Button>
+      {onRemove ? (
+        <Button
+          aria-label={t("removeProof", { name })}
+          className="size-11 shrink-0 rounded-full text-muted-foreground hover:text-destructive"
+          onClick={onRemove}
+          size="icon"
+          type="button"
+          variant="ghost"
+        >
+          <Trash2 aria-hidden className="size-4" />
+        </Button>
+      ) : null}
     </div>
+  );
+}
+
+/** A picked file's line: attached, and how big it is. */
+function AttachedStatus({ file }: { readonly file: File }) {
+  const t = useTranslations("advisorOnboarding");
+  return (
+    <>
+      <span className="flex items-center gap-1 text-success">
+        <CircleCheck aria-hidden className="size-3.5" />
+        {t("attachedLabel")}
+      </span>
+      <span className="font-latin text-muted-foreground tabular-nums">· {describeFile(file)}</span>
+    </>
+  );
+}
+
+/** What the review said of a turned-down proof, above the well for the one that replaces it. */
+function RejectedProof({ proof }: { readonly proof: ApiOwnSkillProof }) {
+  const t = useTranslations("advisorOnboarding");
+  return (
+    <div className="flex flex-col gap-0.5">
+      <p className="flex min-w-0 items-center gap-1 text-xs">
+        <ReviewStatus status="REJECTED" />
+        <span className="min-w-0 truncate font-latin text-muted-foreground">· {proof.originalFileName}</span>
+      </p>
+      <p className={cn("text-foreground", NOTE)}>{proof.rejectionReason?.trim() || t("reviewerNoReason")}</p>
+    </div>
+  );
+}
+
+/** In place of the cards until the proofs sent before are read: that it is happening, or that it failed. */
+function SentUnread({ error, onRetry }: { readonly error: Error | null; readonly onRetry: () => void }) {
+  const t = useTranslations("advisorOnboarding");
+  const e = useTranslations("errorStates");
+  if (!error) return <output className={cn("text-muted-foreground", NOTE)}>{t("sentLoading")}</output>;
+  return (
+    <NoticeBanner title={t("sentFailedTitle")}>
+      <p>{t("sentFailedBody")}</p>
+      <Button className={cn(PICK, "mt-2.5")} onClick={onRetry} type="button" variant="outline">
+        <RotateCw aria-hidden />
+        {e("retry")}
+      </Button>
+    </NoticeBanner>
   );
 }
 
@@ -570,6 +714,12 @@ export function OnboardingStage3Screen() {
     "skills",
     useCallback((signal: AbortSignal) => listSkills(signal), []),
   );
+  // What a returning applicant sent before. Until it is read, nothing can be
+  // sent: a skill already in the reviewers' queue would go into it twice.
+  const sent = useResource<Paginated<ApiOwnSkillProof>>(
+    "advisors/me/skill-proofs",
+    useCallback((signal: AbortSignal) => listOwnSkillProofs(signal), []),
+  );
   const skillOptions = skills.data?.items ?? [];
   const listId = useId();
   const [problem, setProblem] = useState<SubmitProblem | null>(null);
@@ -577,34 +727,76 @@ export function OnboardingStage3Screen() {
   const [busy, setBusy] = useState(false);
   const missing = problem?.kind === "missing";
 
-  const complete = draft.skills.filter(
-    (s) => skillOptions.some((skill) => skill.name === s.skill.trim()) && heldFile(s.id),
-  ).length;
-  const progress = complete / Math.max(1, draft.skills.length);
+  const cards = sent.data ? skillCards(sent.data.items, draft) : [];
+  const added = cards.flatMap((card) => (card.kind === "new" ? [card.entry] : []));
+  const catalogued = (entry: DraftSkill) => skillOptions.find((skill) => skill.name === entry.skill.trim());
+  // A skill with a card of its own is not offered for an added card, and is refused on one.
+  const onFile = new Set(cards.flatMap((card) => (card.kind === "new" ? [] : [card.proof.skillId])));
+  const repeats = (entry: DraftSkill) => {
+    const known = catalogued(entry);
+    return known !== undefined && onFile.has(known.id);
+  };
+  const sendable =
+    sent.data !== undefined &&
+    !added.some(repeats) &&
+    cards.some((card) => card.kind !== "new" || card.entry.skill.trim());
+
+  const complete = cards.filter((card) => {
+    if (card.kind === "kept") return true;
+    if (!cardFile(card, draft)) return false;
+    return card.kind === "redo" || catalogued(card.entry) !== undefined;
+  }).length;
+  const progress = complete / Math.max(1, cards.length);
 
   function setSkill(id: string, patch: Partial<{ skill: string; proof: string | null }>) {
-    updateDraft({ skills: draft.skills.map((s) => (s.id === id ? { ...s, ...patch } : s)) });
+    updateDraft({ skills: added.map((s) => (s.id === id ? { ...s, ...patch } : s)) });
     setProblem(null);
   }
 
-  function attach(id: string, file: File) {
+  /** A turned-down skill's new file name, `false` to send the skill no more, `undefined` for nothing picked. */
+  function setTurnedDown(skillId: string, value: string | false | undefined) {
+    const next = { ...draft.turnedDown };
+    if (value === undefined) delete next[skillId];
+    else next[skillId] = value;
+    updateDraft({ turnedDown: next });
+    setProblem(null);
+  }
+
+  function setPicked(card: SkillCard, name: string | null) {
+    if (card.kind === "redo") setTurnedDown(card.proof.skillId, name ?? undefined);
+    else if (card.kind === "new") setSkill(card.entry.id, { proof: name });
+  }
+
+  function attach(card: SkillCard, file: File) {
+    const key = cardKey(card);
     if (!isProofFile(file)) {
-      setRefused((r) => ({ ...r, [id]: file.name }));
+      setRefused((r) => ({ ...r, [key]: file.name }));
       return;
     }
     setRefused((r) => {
       const rest = { ...r };
-      delete rest[id];
+      delete rest[key];
       return rest;
     });
-    holdFile(id, file);
-    setSkill(id, { proof: file.name });
+    holdFile(key, file);
+    setPicked(card, file.name);
+  }
+
+  function detach(card: SkillCard) {
+    dropFile(cardKey(card));
+    setPicked(card, null);
+  }
+
+  function removeCard(card: SkillCard) {
+    dropFile(cardKey(card));
+    if (card.kind === "redo") setTurnedDown(card.proof.skillId, false);
+    else if (card.kind === "new") updateDraft({ skills: added.filter((s) => s.id !== card.entry.id) });
   }
 
   async function submit() {
     if (busy) return;
     setBusy(true);
-    const found = await sendApplication(draft, skillOptions);
+    const found = await sendApplication(cards, draft, skillOptions);
     setBusy(false);
     setProblem(found);
     if (found) return;
@@ -624,7 +816,7 @@ export function OnboardingStage3Screen() {
           <Button
             aria-busy={busy || undefined}
             className={NEXT}
-            disabled={busy || !draft.skills.some((s) => s.skill.trim())}
+            disabled={busy || !sendable}
             onClick={() => void submit()}
             type="button"
           >
@@ -640,29 +832,35 @@ export function OnboardingStage3Screen() {
         {problem ? <SubmitBanner problem={problem} /> : null}
 
         <datalist id={listId}>
-          {skillOptions.map((skill) => (
-            <option key={skill.id} value={skill.name} />
-          ))}
+          {skillOptions
+            .filter((skill) => !onFile.has(skill.id))
+            .map((skill) => (
+              <option key={skill.id} value={skill.name} />
+            ))}
         </datalist>
 
         {/* Figma "Skill Card": the skill, then its proof, one card each. */}
         <div className="flex flex-col gap-4">
-          {draft.skills.map((entry, index) => {
+          {sent.data === undefined ? <SentUnread error={sent.error} onRetry={sent.reload} /> : null}
+          {cards.map((card, index) => {
+            const key = cardKey(card);
             // A name with no file behind it (the tab was reloaded) is no proof.
-            const file = entry.proof ? heldFile(entry.id) : undefined;
-            const lost = entry.proof && !file ? entry.proof : null;
-            const named = entry.skill.trim();
-            const unknown = problem?.kind === "unknown" && problem.skill === named;
+            const picked = pickedName(card, draft);
+            const file = cardFile(card, draft);
+            const lost = picked && !file ? picked : null;
+            const named = card.kind === "new" ? card.entry.skill.trim() : card.proof.skillName;
+            const unknown = card.kind === "new" && problem?.kind === "unknown" && problem.skill === named;
+            const repeated = card.kind === "new" && repeats(card.entry);
             const noSkill = missing && !named;
-            const noProof = missing && !file;
+            const noProof = missing && card.kind !== "kept" && !file;
             return (
               <section
                 aria-label={named || t("skillCardN", { n: index + 1 })}
                 className={cn(
                   "flex flex-col gap-4 rounded-card border bg-card p-4 shadow-hero-card",
-                  noSkill || noProof || unknown ? "border-destructive" : "border-hero-card-border",
+                  noSkill || noProof || unknown || repeated ? "border-destructive" : "border-hero-card-border",
                 )}
-                key={entry.id}
+                key={key}
               >
                 <div className="flex items-center justify-between gap-3">
                   <h2
@@ -673,80 +871,89 @@ export function OnboardingStage3Screen() {
                   >
                     {named || t("skillNew")}
                   </h2>
-                  <Button
-                    aria-label={t("removeSkill")}
-                    className="-my-2 -mr-2 size-11 shrink-0 rounded-full text-muted-foreground hover:text-destructive"
-                    disabled={draft.skills.length === 1}
-                    onClick={() => {
-                      dropFile(entry.id);
-                      updateDraft({ skills: draft.skills.filter((s) => s.id !== entry.id) });
-                    }}
-                    size="icon"
-                    type="button"
-                    variant="ghost"
-                  >
-                    <Trash2 aria-hidden className="size-4.5" />
-                  </Button>
+                  {card.kind === "kept" ? null : (
+                    <Button
+                      aria-label={t("removeSkill")}
+                      className="-my-2 -mr-2 size-11 shrink-0 rounded-full text-muted-foreground hover:text-destructive"
+                      disabled={cards.length === 1}
+                      onClick={() => removeCard(card)}
+                      size="icon"
+                      type="button"
+                      variant="ghost"
+                    >
+                      <Trash2 aria-hidden className="size-4.5" />
+                    </Button>
+                  )}
                 </div>
-                <ApplicationField
-                  autoComplete="off"
-                  error={(unknown && t("unknownSkillField")) || (noSkill && t("skillMissing")) || undefined}
-                  icon={Search}
-                  id={`skill-${entry.id}`}
-                  label={t("skillLabel")}
-                  list={listId}
-                  onChange={(event) => setSkill(entry.id, { skill: event.target.value })}
-                  placeholder={t("skillPlaceholder")}
-                  value={entry.skill}
-                />
+                {card.kind === "new" ? (
+                  <ApplicationField
+                    autoComplete="off"
+                    error={
+                      (unknown && t("unknownSkillField")) ||
+                      (repeated && t("skillAlreadySent")) ||
+                      (noSkill && t("skillMissing")) ||
+                      undefined
+                    }
+                    icon={Search}
+                    id={`skill-${card.entry.id}`}
+                    label={t("skillLabel")}
+                    list={listId}
+                    onChange={(event) => setSkill(card.entry.id, { skill: event.target.value })}
+                    placeholder={t("skillPlaceholder")}
+                    value={card.entry.skill}
+                  />
+                ) : null}
                 <div className="flex flex-col gap-2">
                   <p className="text-sm font-medium text-muted-foreground md:text-base">{t("proofLabel")}</p>
-                  {file ? (
-                    <AttachedProof
-                      file={file}
-                      onRemove={() => {
-                        dropFile(entry.id);
-                        setSkill(entry.id, { proof: null });
-                      }}
-                    />
+                  {card.kind === "kept" ? (
+                    <ProofRow name={card.proof.originalFileName} status={<ReviewStatus status={card.proof.reviewStatus} />} />
                   ) : (
-                    <DocumentDrop
-                      accept={PROOF_TYPES}
-                      compact
-                      icon={FileText}
-                      invalid={noProof || Boolean(refused[entry.id])}
-                      onPick={(picked) => attach(entry.id, picked)}
-                      pickLabel={t("proofBrowse")}
-                      rule={t("proofRule")}
-                      title={t("proofHint")}
-                    />
+                    <>
+                      {card.kind === "redo" ? <RejectedProof proof={card.proof} /> : null}
+                      {file ? (
+                        <ProofRow name={file.name} onRemove={() => detach(card)} status={<AttachedStatus file={file} />} />
+                      ) : (
+                        <DocumentDrop
+                          accept={PROOF_TYPES}
+                          compact
+                          icon={FileText}
+                          invalid={noProof || Boolean(refused[key])}
+                          onPick={(chosen) => attach(card, chosen)}
+                          pickLabel={t("proofBrowse")}
+                          rule={t("proofRule")}
+                          title={t("proofHint")}
+                        />
+                      )}
+                      {refused[key] ? (
+                        <p className={cn("text-destructive", NOTE)} role="alert">
+                          {t("proofRefused", { name: refused[key] })}
+                        </p>
+                      ) : null}
+                      {noProof && !refused[key] ? (
+                        <p className={cn("text-destructive", NOTE)}>{t("proofMissing")}</p>
+                      ) : null}
+                      {lost ? <p className={cn("text-muted-foreground", NOTE)}>{t("proofLost", { name: lost })}</p> : null}
+                    </>
                   )}
-                  {refused[entry.id] ? (
-                    <p className={cn("text-destructive", NOTE)} role="alert">
-                      {t("proofRefused", { name: refused[entry.id] })}
-                    </p>
-                  ) : null}
-                  {noProof && !refused[entry.id] ? (
-                    <p className={cn("text-destructive", NOTE)}>{t("proofMissing")}</p>
-                  ) : null}
-                  {lost ? <p className={cn("text-muted-foreground", NOTE)}>{t("proofLost", { name: lost })}</p> : null}
                 </div>
               </section>
             );
           })}
-          <Button
-            className={cn(PICK, "w-full border-dashed md:w-auto md:self-start")}
-            onClick={() =>
-              updateDraft({
-                skills: [...draft.skills, { id: `skill-${Date.now()}`, skill: "", proof: null }],
-              })
-            }
-            type="button"
-            variant="outline"
-          >
-            <Plus aria-hidden />
-            {t("addSkill")}
-          </Button>
+          {sent.data === undefined ? null : (
+            <Button
+              className={cn(PICK, "w-full border-dashed md:w-auto md:self-start")}
+              onClick={() =>
+                updateDraft({
+                  skills: [...added, { id: `skill-${Date.now()}`, skill: "", proof: null }],
+                })
+              }
+              type="button"
+              variant="outline"
+            >
+              <Plus aria-hidden />
+              {t("addSkill")}
+            </Button>
+          )}
         </div>
         <p className={cn("text-muted-foreground md:hidden", NOTE)}>{t("submitNote")}</p>
       </StageBody>

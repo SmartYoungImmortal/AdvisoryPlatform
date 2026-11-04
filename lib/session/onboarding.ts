@@ -11,7 +11,14 @@ export type OnboardingDraft = {
   readonly birthDate: string;
   readonly bio: string;
   readonly idFileName: string | null;
+  /** The skill cards added on stage 3. None at first: the stage draws one empty card while it has no other. */
   readonly skills: ReadonlyArray<{ readonly id: string; readonly skill: string; readonly proof: string | null }>;
+  /**
+   * A returning applicant's skills whose last proof was turned down, by skill
+   * id: the name of the new file picked for one, or `false` once its card was
+   * taken off and the skill is not to be sent again. Nothing picked yet, no key.
+   */
+  readonly turnedDown: Readonly<Record<string, string | false>>;
 };
 
 const KEY = "advisory:onboarding";
@@ -22,7 +29,8 @@ const EMPTY: OnboardingDraft = {
   birthDate: "",
   bio: "",
   idFileName: null,
-  skills: [{ id: "skill-1", skill: "", proof: null }],
+  skills: [],
+  turnedDown: {},
 };
 
 let current: OnboardingDraft | null = null;
@@ -73,7 +81,8 @@ export function clearDraft(): void {
  * app, so they survive moving between the stage routes but not a reload; a
  * name with no file behind it asks for the file again on submit.
  *
- * Keys: `"id"` for the ID card, a skill entry's `id` for its proof.
+ * Keys: `"id"` for the ID card, a skill entry's `id` for its proof, and
+ * `sent-<skill id>` for the new proof of a skill that was turned down.
  */
 const files = new Map<string, File>();
 

@@ -319,9 +319,10 @@ test.describe("advisor resubmitting after a rejected ID card", () => {
     await page.getByRole("button", { name: "เพิ่มทักษะ" }).click();
     await expect(cards(page)).toHaveCount(5);
     const added = page.getByRole("region", { name: "ทักษะที่ 5" });
-    await added.getByRole("textbox", { name: "ทักษะ" }).fill(SKILL.b.name);
+    await added.getByRole("combobox", { name: "ทักษะ" }).fill(SKILL.b.name);
     const named = card(page, SKILL.b).last();
-    await expect(named.getByRole("textbox", { name: "ทักษะ" })).toHaveAttribute("aria-invalid", "true");
+    await expect(named.getByRole("combobox", { name: "ทักษะ" })).toHaveAttribute("aria-invalid", "true");
+    await expect(named).toContainText("ทักษะนี้อยู่ในใบสมัครแล้ว");
     await expect(submit(page)).toBeDisabled();
     expect(api.posts("skill-proofs")).toHaveLength(0);
     expect(api.unmocked).toEqual([]);
