@@ -1,6 +1,6 @@
 "use client";
 
-import { MessageSquareWarning } from "lucide-react";
+import { RotateCcw } from "lucide-react";
 import Link from "next/link";
 import { useFormatter, useTranslations } from "next-intl";
 import { useId, useRef, useState, type ReactNode } from "react";
@@ -136,7 +136,7 @@ export function ReportMode({
         head={
           <RefundHead
             amount={when.baht(exit.maxSatang)}
-            icon={MessageSquareWarning}
+            icon={RotateCcw}
             meta={t("meta.report", { date: when.deadline(exit.until) })}
             title={t("head.report")}
             tone="primary"
