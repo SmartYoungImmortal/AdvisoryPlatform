@@ -28,9 +28,42 @@ type Failure =
   | "failed"
   | "unreachable"
   /** A provider the API has not been given credentials for. */
-  | "providerOff";
+  | "providerOff"
+  /** Back from a provider with `?error=`; the code itself is the `detail`. */
+  | "oauth";
 
 type Step = "email" | "password";
+
+/** What a provider's `?error=` asks the reader to do next, as `loginErrors.oauth` words it. */
+type OAuthProblem = "cancelled" | "expired" | "noEmail" | "accountExists" | "failed";
+
+/**
+ * Every code better-auth 1.7.1 sends back to `errorCallbackURL`: its own
+ * (`oauth2/errors`, `oauth2/state`) and the provider's, which it passes
+ * through. Any other code is `failed`. No provider is named, because Google,
+ * Facebook and Apple all come back to this one URL.
+ */
+const OAUTH_PROBLEM = new Map<string, OAuthProblem>([
+  ["access_denied", "cancelled"],
+  ["user_cancelled_authorize", "cancelled"],
+  ["state_mismatch", "expired"],
+  ["state_invalid", "expired"],
+  ["state_security_mismatch", "expired"],
+  ["state_not_found", "expired"],
+  ["please_restart_the_process", "expired"],
+  ["invalid_code", "expired"],
+  ["no_code", "expired"],
+  ["nonce_binding_missing", "expired"],
+  ["issuer_mismatch", "expired"],
+  ["issuer_missing", "expired"],
+  ["email_not_found", "noEmail"],
+  ["email_not_verified", "noEmail"],
+  ["account_not_linked", "accountExists"],
+]);
+
+function oauthProblem(code: string | null): OAuthProblem {
+  return OAUTH_PROBLEM.get(code?.toLowerCase() ?? "") ?? "failed";
+}
 
 /**
  * The legal line's tags, at module level so they are not redefined on every
@@ -169,7 +202,7 @@ export function LoginScreen({
     const code = new URLSearchParams(window.location.search).get("error");
     if (!code) return;
     // eslint-disable-next-line react-hooks/set-state-in-effect -- a one-off read of the URL after hydration
-    setFailure("failed");
+    setFailure("oauth");
     setDetail(code);
   }, []);
 
@@ -188,6 +221,7 @@ export function LoginScreen({
   }
 
   const locked = failure === "locked" || (retryAfterSeconds !== null && lockedEmail === email.trim().toLowerCase());
+  const oauth = failure === "oauth" ? oauthProblem(detail) : null;
 
   // `px-0 pt-0`: the banner's own inset is the phone page's 24px gutter, and
   // inside the column it left the banner narrower than the field.
@@ -210,6 +244,14 @@ export function LoginScreen({
       ) : null}
       {failure === "failed" ? (
         <AlertBanner className="px-0 pt-0" body={detail ?? s("serverBody")} icon={TriangleAlert} title={s("serverTitle")} />
+      ) : null}
+      {oauth ? (
+        <AlertBanner
+          className="px-0 pt-0"
+          body={e(`oauth.${oauth}.body`)}
+          icon={TriangleAlert}
+          title={e(`oauth.${oauth}.title`)}
+        />
       ) : null}
       {failure === "unreachable" ? (
         <AlertBanner className="px-0 pt-0" body={s("offlineBody")} icon={WifiOff} title={s("offlineTitle")} />

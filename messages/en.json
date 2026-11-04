@@ -1905,7 +1905,29 @@
     "suspendedTitle": "This account is suspended",
     "suspendedBody": "Contact support to find out why and for how long",
     "requiredTitle": "Some details are missing",
-    "requiredBody": "Enter your email and password to sign in"
+    "requiredBody": "Enter your email and password to sign in",
+    "oauth": {
+      "cancelled": {
+        "title": "You're not signed in yet",
+        "body": "Sign-in was cancelled before it finished. Choose a way to sign in again, or use your email instead."
+      },
+      "expired": {
+        "title": "Sign-in was interrupted",
+        "body": "It timed out or broke off on the way. Start again from this page, in this same browser."
+      },
+      "noEmail": {
+        "title": "No email came back from that account",
+        "body": "The account you chose didn't share a verified email with us. Try another account, or use your email instead."
+      },
+      "accountExists": {
+        "title": "This email already has an account",
+        "body": "Sign in with that account's email and password. If you've forgotten the password, press \"Forgot password?\" on the next step."
+      },
+      "failed": {
+        "title": "Couldn't sign you in",
+        "body": "Try again in a moment, or use your email instead."
+      }
+    }
   },
   "report": {
     "title": "Report this conversation",
