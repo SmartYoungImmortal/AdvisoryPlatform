@@ -6,7 +6,7 @@ import { bookingExit, type BookingExit } from "@/components/bookings/booking-exi
 import { ApiError } from "@/lib/api/client";
 import { getMyBookingInvoice, listMyRefundCases } from "@/lib/api/resources";
 import type { ApiAdviseeInvoice, ApiBooking, ApiRefundCase } from "@/lib/api/types";
-import { useResource } from "@/lib/api/use-resource";
+import { useLastAnswer, useResource } from "@/lib/api/use-resource";
 
 export function isNotFound(cause: unknown): boolean {
   return cause instanceof ApiError && cause.status === 404;
@@ -37,8 +37,12 @@ export function useBookingMoney(bookingId: string): BookingMoney {
     [bookingId],
   );
   const invoice = useResource<ApiAdviseeInvoice | null>(`payment/invoices/for-booking/${bookingId}`, fetchInvoice);
+  // A cancel or a new request drops these from the cache; until they are read
+  // again the screen keeps what it knew rather than falling back to "loading".
+  const lastInvoice = useLastAnswer(invoice);
+  const knownInvoice = invoice.data === null ? null : lastInvoice;
   const paidId =
-    invoice.data && (invoice.data.status === "paid" || invoice.data.status === "refunded") ? invoice.data.id : null;
+    knownInvoice && (knownInvoice.status === "paid" || knownInvoice.status === "refunded") ? knownInvoice.id : null;
   const fetchCases = useCallback(
     (signal: AbortSignal): Promise<readonly ApiRefundCase[]> =>
       paidId
@@ -47,6 +51,7 @@ export function useBookingMoney(bookingId: string): BookingMoney {
     [paidId],
   );
   const cases = useResource<readonly ApiRefundCase[]>(`refunds/me?invoiceId=${paidId ?? "unpaid"}`, fetchCases);
+  const knownCases = useLastAnswer(cases);
   const { reload: reloadInvoice } = invoice;
   const { reload: reloadCases } = cases;
   const reload = useCallback(() => {
@@ -55,8 +60,8 @@ export function useBookingMoney(bookingId: string): BookingMoney {
   }, [reloadInvoice, reloadCases]);
 
   return {
-    invoice: invoice.data,
-    cases: paidId ? cases.data : [],
+    invoice: knownInvoice,
+    cases: paidId ? knownCases : [],
     error: invoice.error ?? (paidId ? cases.error : null),
     reload,
   };

@@ -52,6 +52,17 @@ describe("useBookingExit", () => {
     expect(calls.cases).toHaveBeenCalledWith({ invoiceId: "invoice", limit: 100 }, expect.any(AbortSignal));
   });
 
+  it("keeps what it knew while a change it made is dropped from the cache", async () => {
+    calls.invoice.mockResolvedValue(invoice);
+    calls.cases.mockResolvedValue({ items: [open], total: 1, page: 1, limit: 100, totalPages: 1 });
+    const { result, rerender } = renderHook(() => useBookingExit(booking, now));
+    await waitFor(() => expect(result.current.exit).toMatchObject({ kind: "status" }));
+    invalidate("payment/invoices");
+    invalidate("refunds/me");
+    rerender();
+    expect(result.current.exit).toMatchObject({ kind: "status", refund: open });
+  });
+
   it("offers nothing and reports the failure when the invoice cannot be read", async () => {
     calls.invoice.mockRejectedValue(new ApiError(500, "down"));
     const { result } = renderHook(() => useBookingExit(booking, now));
