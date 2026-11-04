@@ -1059,7 +1059,7 @@
     },
     "refundNote": {
       "cancelFull": "Cancel for a full refund until {date}",
-      "cancelHalf": "Cancel now to get 50% of the service fee back",
+      "cancelHalf": "Cancel for 50% of the service fee back until {date}",
       "report": "Report a problem and request a refund until {date}",
       "claim": "This booking was cancelled. You get {amount} back",
       "status": "Refund {amount} · {stage}",

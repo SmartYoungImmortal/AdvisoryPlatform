@@ -12,7 +12,7 @@ Every way out of a booking comes from one rule, `bookingExit` in `components/boo
 
 Cancel-and-refund cancels first and checks it, then opens the request. A lost response is read back before any second POST. If the cancel stood and the request did not, the page lands on the claim with an alert, so the money is never stranded. Nothing is offered while the invoice or the requests are still loading.
 
-Case approval is distinct from a payment refund: the API approves a case by refunding the whole charge, so a half refund shown here still needs partial refunds on the API side. The page never promises a date the money arrives; invoice status remains authoritative.
+Case approval is distinct from a payment refund: approving a case only changes its status and moves no money yet. The card refund through the payment provider is API #86, which also has to refund part of a charge before the 50% shown here can be paid back as shown. Until then an approved request reads "อนุมัติแล้ว กำลังคืนเงิน" and only an invoice the API marks refunded reads "คืนเงินแล้ว". The page never promises a date the money arrives; invoice status remains authoritative.
 
 ## Local flow
 

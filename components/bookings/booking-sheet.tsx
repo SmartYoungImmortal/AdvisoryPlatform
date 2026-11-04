@@ -288,7 +288,7 @@ function MoneyNote({
       note =
         exit.share === "full"
           ? t("refundNote.cancelFull", { date: deadline(exit.fullUntil) })
-          : t("refundNote.cancelHalf");
+          : t("refundNote.cancelHalf", { date: deadline(exit.startsAt) });
       break;
     case "report":
       note = t("refundNote.report", { date: deadline(exit.until) });

@@ -205,13 +205,13 @@ describe("the booking popup's one way out (FE #114)", () => {
     expect(said(container)).not.toContain("คำขอคืนเงิน / สถานะ");
   });
 
-  it("says inside the last day that cancelling returns half the session's fee", () => {
+  it("says inside the last day that cancelling returns half the session's fee, until the start", () => {
     const booking = bookingAt(new Date(now + 5 * HOUR).toISOString());
     reads.invoice = paidFor(booking);
     const { container } = show(booking);
 
     expect(capsules("ยกเลิกและรับเงินคืน")).toHaveLength(1);
-    expect(said(container)).toContain("ยกเลิกตอนนี้ ได้คืน 50% ของค่าบริการ");
+    expect(said(container)).toMatch(/ยกเลิกได้ คืน 50% ของค่าบริการ ถึง \S+ 4 พ\.ย\. 2569 · 17:00/);
     expect(said(container)).not.toContain("คืนเต็มจำนวน");
     expect(capsules("ยกเลิกการจอง")).toHaveLength(0);
   });
