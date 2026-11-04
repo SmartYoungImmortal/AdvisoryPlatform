@@ -1,6 +1,6 @@
 import { act, cleanup, render, screen, within } from "@testing-library/react";
 import { NextIntlClientProvider, type Messages } from "next-intl";
-import type { ReactNode } from "react";
+import { useState, type ReactNode } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 // invoice-screens reaches GSAP's ScrollTrigger, which asks matchMedia as its module loads.
@@ -123,14 +123,61 @@ function inLocale(locale: "th" | "en", ui: ReactNode) {
   return { ...view, errors };
 }
 
-function renderCancel(exit: CancelExit = fullCancel, locale: "th" | "en" = "th") {
+/**
+ * The page's part, as small as it gets: it keeps the notice, and a read
+ * again brings the booking back as a new answer, still booked.
+ */
+function CancelOnPage({
+  exit,
+  stillOffered,
+  onReread,
+  onOpened,
+  onCancelledOnly,
+}: {
+  readonly exit: CancelExit;
+  readonly stillOffered: () => boolean;
+  readonly onReread: () => void;
+  readonly onOpened: (refund: ApiRefundCase) => void;
+  readonly onCancelledOnly: () => void;
+}) {
+  const [shown, setShown] = useState(booking);
+  const [notice, setNotice] = useState<string>();
+  const [answer, setAnswer] = useState<(() => void) | null>(null);
+  return (
+    <>
+      <CancelRefundMode
+        booking={shown}
+        exit={exit}
+        invoice={invoice}
+        notice={notice}
+        onCancelledOnly={onCancelledOnly}
+        onNotice={setNotice}
+        onOpened={onOpened}
+        reread={() => {
+          onReread();
+          setAnswer(() => () => setShown({ ...booking }));
+        }}
+        stillOffered={stillOffered}
+      />
+      {answer ? (
+        <button onClick={answer} type="button">
+          answer the read
+        </button>
+      ) : null}
+    </>
+  );
+}
+
+function renderCancel(exit: CancelExit = fullCancel, locale: "th" | "en" = "th", offered = true) {
   const onOpened = vi.fn();
   const onCancelledOnly = vi.fn();
+  const onReread = vi.fn();
+  const stillOffered = vi.fn(() => offered);
   const view = inLocale(
     locale,
-    <CancelRefundMode booking={booking} exit={exit} invoice={invoice} onCancelledOnly={onCancelledOnly} onOpened={onOpened} />,
+    <CancelOnPage exit={exit} onCancelledOnly={onCancelledOnly} onOpened={onOpened} onReread={onReread} stillOffered={stillOffered} />,
   );
-  return { ...view, onOpened, onCancelledOnly };
+  return { ...view, onOpened, onCancelledOnly, onReread, stillOffered };
 }
 
 function renderClaim({
@@ -305,26 +352,68 @@ describe("CancelRefundMode, pressing confirm", () => {
     expect(onOpened).not.toHaveBeenCalled();
   });
 
-  it.each([
-    ["retry", "ยกเลิกไม่สำเร็จ การจองยังอยู่เหมือนเดิม ลองอีกครั้ง", false],
-    ["changed", "สถานะการจองเปลี่ยนไปและไม่สามารถยกเลิกได้แล้ว โปรดตรวจสอบสถานะล่าสุด", false],
-    ["unavailable", "ไม่พบการจองนี้หรือคุณไม่มีสิทธิ์เข้าถึงแล้ว", false],
-    ["uncertain", "ยังยืนยันไม่ได้ว่าการจองถูกยกเลิกหรือไม่ กรุณาตรวจสอบสถานะก่อนลองอีกครั้ง", true],
-    ["signIn", "เซสชันหมดอายุ กรุณาเข้าสู่ระบบอีกครั้งเพื่อตรวจสอบการจอง", true],
-  ] as const)("says why the cancel did not stand (%s), and locks only when it may have or cannot be checked", async (outcome, words, locked) => {
+  const refuse = async (outcome: Extract<CancelRefundResult, { kind: "notCancelled" }>["outcome"]) => {
     actions.cancelThenRefund.mockResolvedValue({ kind: "notCancelled", outcome } satisfies CancelRefundResult);
-    const { onOpened, onCancelledOnly } = renderCancel();
+    const view = renderCancel();
     await act(async () => screen.getByRole("button", { name: "ยกเลิกและรับเงินคืน ฿1,000" }).click());
+    expect(view.onOpened).not.toHaveBeenCalled();
+    expect(view.onCancelledOnly).not.toHaveBeenCalled();
+    return view;
+  };
+  const confirmButton = () => screen.getByRole("button", { name: "ยกเลิกและรับเงินคืน ฿1,000" }) as HTMLButtonElement;
 
+  it("after a cancel that simply failed, says so and lets the advisee press again", async () => {
+    const { onReread } = await refuse("retry");
+    expect(screen.getByRole("alert").textContent).toBe("ยกเลิกไม่สำเร็จ การจองยังอยู่เหมือนเดิม ลองอีกครั้ง");
+    expect(onReread).not.toHaveBeenCalled();
+    expect(confirmButton().disabled).toBe(false);
+    await act(async () => confirmButton().click());
+    expect(actions.cancelThenRefund).toHaveBeenCalledTimes(2);
+  });
+
+  it.each([
+    ["changed", "สถานะการจองเปลี่ยนไปและไม่สามารถยกเลิกได้แล้ว โปรดตรวจสอบสถานะล่าสุด"],
+    ["unavailable", "ไม่พบการจองนี้หรือคุณไม่มีสิทธิ์เข้าถึงแล้ว"],
+  ] as const)("after a %s booking, reads it again for the page to move on, and sends nothing until it has", async (outcome, words) => {
+    const { onReread } = await refuse(outcome);
     expect(screen.getByRole("alert").textContent).toBe(words);
-    expect(onOpened).not.toHaveBeenCalled();
-    expect(onCancelledOnly).not.toHaveBeenCalled();
+    expect(onReread).toHaveBeenCalledTimes(1);
+    expect(confirmButton().disabled).toBe(true);
+    await act(async () => confirmButton().click());
+    expect(actions.cancelThenRefund).toHaveBeenCalledTimes(1);
+  });
 
-    const confirm = screen.getByRole("button", { name: "ยกเลิกและรับเงินคืน ฿1,000" });
-    expect(confirm.getAttribute("aria-busy")).toBeNull();
-    expect((confirm as HTMLButtonElement).disabled).toBe(locked);
-    await act(async () => confirm.click());
-    expect(actions.cancelThenRefund).toHaveBeenCalledTimes(locked ? 1 : 2);
+  it("after an answer that may hide a cancel, offers to check, and opens the cancel again only once the booking reads as still on", async () => {
+    const { onReread } = await refuse("uncertain");
+    expect(screen.getByRole("alert").textContent).toBe("ยังยืนยันไม่ได้ว่าการจองถูกยกเลิกหรือไม่ กรุณาตรวจสอบสถานะก่อนลองอีกครั้ง");
+    expect(screen.queryByRole("button", { name: "ยกเลิกและรับเงินคืน ฿1,000" })).toBeNull();
+
+    await act(async () => screen.getByRole("button", { name: "ตรวจสอบสถานะ" }).click());
+    expect(onReread).toHaveBeenCalledTimes(1);
+    const checking = screen.getByRole("button", { name: "กำลังตรวจสอบ…" }) as HTMLButtonElement;
+    expect(checking.getAttribute("aria-busy")).toBe("true");
+    expect(checking.disabled).toBe(true);
+
+    await act(async () => screen.getByRole("button", { name: "answer the read" }).click());
+    expect(confirmButton().disabled).toBe(false);
+    expect(actions.cancelThenRefund).toHaveBeenCalledTimes(1);
+  });
+
+  it("after the session expired, stays shut with nothing to check from here", async () => {
+    const { onReread } = await refuse("signIn");
+    expect(screen.getByRole("alert").textContent).toBe("เซสชันหมดอายุ กรุณาเข้าสู่ระบบอีกครั้งเพื่อตรวจสอบการจอง");
+    expect(screen.queryByRole("button", { name: "ตรวจสอบสถานะ" })).toBeNull();
+    expect(onReread).not.toHaveBeenCalled();
+    expect(confirmButton().disabled).toBe(true);
+    await act(async () => confirmButton().click());
+    expect(actions.cancelThenRefund).toHaveBeenCalledTimes(1);
+  });
+
+  it("sends nothing when the rule, read again at the press, no longer offers what the page shows", async () => {
+    const { stillOffered } = renderCancel(fullCancel, "th", false);
+    await act(async () => confirmButton().click());
+    expect(stillOffered).toHaveBeenCalledTimes(1);
+    expect(actions.cancelThenRefund).not.toHaveBeenCalled();
   });
 });
 

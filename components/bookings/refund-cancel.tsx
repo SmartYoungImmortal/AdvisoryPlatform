@@ -28,23 +28,29 @@ import { cn } from "@/lib/utils";
 
 type NotCancelled = Extract<CancelRefundResult, { kind: "notCancelled" }>["outcome"];
 
+/** What follows a refusal: press again, read the booking again, stay shut, or offer to check. */
+type Then = "retry" | "reread" | "lock" | "check";
+
 /**
- * Why the cancel did not stand, in the advisee's words. After `uncertain` the
- * booking may already be off, and after `signIn` nothing can be checked, so
- * those two keep the button locked as the booking popup does.
+ * Why the cancel did not stand, in the advisee's words, and what comes next.
+ * `changed` and `unavailable` mean the booking is no longer what the page
+ * shows, so it is read again and the page moves to where it stands. After
+ * `uncertain` it may already be off, so nothing is sent until it is checked;
+ * after `signIn` nothing can be checked, so the button stays shut.
  */
 const REFUSED = {
-  retry: { key: "bookingRefund.errors.cancelFailed", locks: false },
-  changed: { key: "bookings.cancellationChanged", locks: false },
-  unavailable: { key: "bookings.cancellationUnavailable", locks: false },
-  signIn: { key: "bookings.cancellationSignIn", locks: true },
-  uncertain: { key: "bookings.cancellationUncertain", locks: true },
-} as const satisfies Record<NotCancelled, { readonly key: string; readonly locks: boolean }>;
+  retry: { key: "bookingRefund.errors.cancelFailed", then: "retry" },
+  changed: { key: "bookings.cancellationChanged", then: "reread" },
+  unavailable: { key: "bookings.cancellationUnavailable", then: "reread" },
+  signIn: { key: "bookings.cancellationSignIn", then: "lock" },
+  uncertain: { key: "bookings.cancellationUncertain", then: "check" },
+} as const satisfies Record<NotCancelled, { readonly key: string; readonly then: Then }>;
 
+/** `held` lasts until the booking is read again: `on` is the answer the refusal came from. */
 type CancelAttempt =
   | { readonly kind: "ready" }
   | { readonly kind: "working" }
-  | { readonly kind: "refused"; readonly outcome: NotCancelled };
+  | { readonly kind: "held"; readonly on: ApiBooking; readonly then: Exclude<Then, "retry">; readonly checking: boolean };
 
 type ClaimAttempt = "ready" | "working" | "failed";
 
@@ -99,12 +105,23 @@ export function CancelRefundMode({
   booking,
   invoice,
   exit,
+  notice,
+  stillOffered,
+  reread,
+  onNotice,
   onOpened,
   onCancelledOnly,
 }: {
   readonly booking: ApiBooking;
   readonly invoice: ApiAdviseeInvoice;
   readonly exit: Extract<BookingExit, { kind: "cancelRefund" }>;
+  readonly notice?: string | null;
+  /** The rule again at the press; false when the page has moved to another offer and nothing may be sent. */
+  readonly stillOffered: () => boolean;
+  /** Read the booking and its money again, so the page shows where they stand now. */
+  readonly reread: () => void;
+  /** A line the page keeps above its buttons, whatever mode it moves to. */
+  readonly onNotice: (notice: string) => void;
   readonly onOpened: (refund: ApiRefundCase) => void;
   readonly onCancelledOnly: () => void;
 }) {
@@ -113,9 +130,10 @@ export function CancelRefundMode({
   const when = useRefundFormat();
   const [attempt, setAttempt] = useState<CancelAttempt>({ kind: "ready" });
   const pressed = useRef(false);
+  const heldOn = useRef<ApiBooking | null>(null);
 
   const amount = when.baht(exit.refundSatang);
-  const refusal = attempt.kind === "refused" ? REFUSED[attempt.outcome] : undefined;
+  const held = attempt.kind === "held" && attempt.on === booking ? attempt : undefined;
   const working = attempt.kind === "working";
   const rows = [
     {
@@ -139,18 +157,35 @@ export function CancelRefundMode({
   ] as const;
 
   async function confirm() {
-    if (pressed.current) return;
+    // The refs shut a second press in the same task, before React has drawn the busy or held button.
+    if (pressed.current || heldOn.current === booking || !stillOffered()) return;
     pressed.current = true;
     setAttempt({ kind: "working" });
     const result = await cancelThenRefund(booking.id, invoice.id, t(`ruleLine.${exit.share}`, { amount }));
+    pressed.current = false;
     if (result.kind === "opened") {
       onOpened(result.refund);
-    } else if (result.kind === "cancelledOnly") {
-      onCancelledOnly();
-    } else {
-      pressed.current = REFUSED[result.outcome].locks;
-      setAttempt({ kind: "refused", outcome: result.outcome });
+      return;
     }
+    if (result.kind === "cancelledOnly") {
+      onCancelledOnly();
+      return;
+    }
+    const refused = REFUSED[result.outcome];
+    onNotice(words(refused.key));
+    if (refused.then === "retry") {
+      setAttempt({ kind: "ready" });
+      return;
+    }
+    heldOn.current = booking;
+    setAttempt({ kind: "held", on: booking, then: refused.then, checking: false });
+    if (refused.then === "reread") reread();
+  }
+
+  function check() {
+    if (!held || held.checking) return;
+    setAttempt({ ...held, checking: true });
+    reread();
   }
 
   return (
@@ -191,17 +226,29 @@ export function CancelRefundMode({
         </RefundSection>
       </RefundCard>
       <RefundActions invoiceNumber={invoice.invoiceNumber}>
-        <Alert text={refusal ? words(refusal.key) : undefined} />
+        <Alert text={notice} />
         <p className="text-center text-xs text-muted-foreground lg:text-frame-label">{t("policy.final")}</p>
-        <Button
-          aria-busy={working || undefined}
-          className={refundPill("danger")}
-          disabled={working || refusal?.locks === true}
-          onClick={() => void confirm()}
-          type="button"
-        >
-          {working ? t("busy.cancelling") : t("actions.confirmCancel", { amount })}
-        </Button>
+        {held?.then === "check" ? (
+          <Button
+            aria-busy={held.checking || undefined}
+            className={refundPill("solid")}
+            disabled={held.checking}
+            onClick={check}
+            type="button"
+          >
+            {held.checking ? t("busy.checking") : t("actions.check")}
+          </Button>
+        ) : (
+          <Button
+            aria-busy={working || undefined}
+            className={refundPill("danger")}
+            disabled={working || held !== undefined}
+            onClick={() => void confirm()}
+            type="button"
+          >
+            {working ? t("busy.cancelling") : t("actions.confirmCancel", { amount })}
+          </Button>
+        )}
         <Button
           className={refundPill("outline")}
           nativeButton={false}

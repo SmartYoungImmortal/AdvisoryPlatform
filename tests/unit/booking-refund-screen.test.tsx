@@ -18,16 +18,18 @@ vi.hoisted(() => {
 });
 
 type Answer = { data?: unknown; error?: Error | null; loading?: boolean };
-const api = vi.hoisted(() => ({ answers: new Map<string, Answer>() }));
+const api = vi.hoisted(() => ({ answers: new Map<string, Answer>(), reloads: [] as string[] }));
 vi.mock("@/lib/api/use-resource", () => ({
   invalidate: vi.fn(),
   useLastAnswer: (resource: { data: unknown }) => resource.data,
   useResource: (key: string) => {
     const match = [...api.answers.entries()].find(([prefix]) => key.startsWith(prefix));
     const answer = match?.[1] ?? { loading: true };
-    return { data: answer.data, loading: answer.loading ?? false, error: answer.error ?? null, reload: vi.fn() };
+    return { data: answer.data, loading: answer.loading ?? false, error: answer.error ?? null, reload: () => api.reloads.push(key) };
   },
 }));
+const actions = vi.hoisted(() => ({ cancelThenRefund: vi.fn(), openRefundOnce: vi.fn() }));
+vi.mock("@/components/bookings/refund-actions", () => actions);
 vi.mock("@/components/account/app-frame", () => ({ AppFrame: ({ children }: { children: ReactNode }) => children }));
 vi.mock("@/components/account/account-shell", async (original) => ({
   ...(await original<object>()),
@@ -118,10 +120,12 @@ beforeEach(() => {
   vi.spyOn(Date, "now").mockReturnValue(NOW);
   window.history.replaceState(null, "", `/bookings/refund?bookingId=${id}`);
   problems.length = 0;
+  api.reloads.length = 0;
 });
 afterEach(() => {
   cleanup();
   vi.restoreAllMocks();
+  actions.cancelThenRefund.mockReset();
 });
 
 const words = { th: th.bookingRefund, en: en.bookingRefund };
@@ -167,6 +171,52 @@ describe.each(["th", "en"] as const)("/bookings/refund in %s", (locale) => {
     expect(screen.getByText(heading(words[locale]))).toBeTruthy();
     expect(problems).toEqual([]);
     expect(screen.queryByRole("button", { name: /฿/ })).toBeNull();
+  });
+});
+
+describe("a press acts on the rule at the press, not at the page's opening", () => {
+  const press = (name: string) => act(async () => screen.getByRole("button", { name }).click());
+
+  it("sends nothing across the 24-hour line, and moves to the half refund with the new amount", async () => {
+    const b = bookingAt(DAY + 2 * 60_000);
+    answer(b, invoiceFor(b));
+    show("th");
+    expect(screen.getByRole("heading", { level: 1 }).textContent).toBe(th.bookingRefund.head.cancelFull);
+
+    vi.mocked(Date.now).mockReturnValue(NOW + 4 * 60_000);
+    await press("ยกเลิกและรับเงินคืน ฿1,000");
+
+    expect(actions.cancelThenRefund).not.toHaveBeenCalled();
+    expect(screen.getByRole("heading", { level: 1 }).textContent).toBe(th.bookingRefund.head.cancelHalf);
+    expect(screen.getByRole("alert").textContent).toBe(
+      "เพิ่งเลยเวลาคืนเต็มจำนวน ตอนนี้ยกเลิกได้คืน ฿400 ยังไม่ได้ยกเลิกอะไร ตรวจสอบยอดแล้วกดอีกครั้ง",
+    );
+    actions.cancelThenRefund.mockResolvedValue({ kind: "notCancelled", outcome: "retry" });
+    await press("ยกเลิกและรับเงินคืน ฿400");
+    expect(actions.cancelThenRefund).toHaveBeenCalledWith(id, "invoice", "ยกเลิกภายใน 24 ชั่วโมงก่อนเวลาเริ่ม · คืน 50% ของค่าบริการ ฿400");
+  });
+
+  it("never cancels a session that started while the page stood open, and turns to reporting it", async () => {
+    const b = bookingAt(60_000);
+    answer(b, invoiceFor(b));
+    show("th");
+    vi.mocked(Date.now).mockReturnValue(NOW + 2 * 60_000);
+    await press("ยกเลิกและรับเงินคืน ฿400");
+
+    expect(actions.cancelThenRefund).not.toHaveBeenCalled();
+    expect(screen.getByRole("heading", { level: 1 }).textContent).toBe(th.bookingRefund.head.report);
+    expect(screen.getByRole("alert").textContent).toBe(th.bookingRefund.errors.offerStarted);
+  });
+
+  it("reads the booking and its money again after a cancel the booking's new state refused", async () => {
+    const b = bookingAt(3 * DAY);
+    answer(b, invoiceFor(b));
+    show("th");
+    actions.cancelThenRefund.mockResolvedValue({ kind: "notCancelled", outcome: "changed" });
+    await press("ยกเลิกและรับเงินคืน ฿1,000");
+
+    expect(api.reloads).toEqual(expect.arrayContaining([`bookings/${id}`, `payment/invoices/for-booking/${id}`]));
+    expect(screen.getByRole("alert").textContent).toBe(th.bookings.cancellationChanged);
   });
 });
 

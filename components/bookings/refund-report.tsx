@@ -62,11 +62,16 @@ export function ReportMode({
   booking,
   invoice,
   exit,
+  notice,
+  stillOffered,
   onOpened,
 }: {
   readonly booking: ApiBooking;
   readonly invoice: ApiAdviseeInvoice;
   readonly exit: Extract<BookingExit, { kind: "report" }>;
+  readonly notice?: string | null;
+  /** The rule again at the press: a form left open can outlast the 7 days. */
+  readonly stillOffered: () => boolean;
   readonly onOpened: (refund: ApiRefundCase, notice?: string) => void;
 }): ReactNode {
   const t = useTranslations("bookingRefund");
@@ -127,6 +132,7 @@ export function ReportMode({
       field.current?.focus();
       return;
     }
+    if (!stillOffered()) return;
     void send(reason);
   }
 
@@ -223,6 +229,7 @@ export function ReportMode({
 
       <RefundActions invoiceNumber={invoice.invoiceNumber}>
         {phase === "failed" ? <RefundAlert className="text-center">{t("errors.sendFailed")}</RefundAlert> : null}
+        {notice && phase !== "failed" ? <RefundAlert className="text-center">{notice}</RefundAlert> : null}
         <Button aria-busy={busy || undefined} className={refundPill("solid")} disabled={busy} focusableWhenDisabled form={formId} type="submit">
           {t(SEND_LABEL[phase])}
         </Button>

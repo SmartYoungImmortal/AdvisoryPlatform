@@ -637,14 +637,16 @@
       "send": "Send refund request",
       "back": "Back to booking",
       "toBookings": "Go to my bookings",
-      "retry": "Try again"
+      "retry": "Try again",
+      "check": "Check its status"
     },
     "busy": {
       "loading": "Loading booking and payment…",
       "cancelling": "Cancelling…",
       "refunding": "Sending your refund…",
       "sending": "Sending…",
-      "uploading": "Uploading…"
+      "uploading": "Uploading…",
+      "checking": "Checking…"
     },
     "announce": {
       "cancelled": "Cancelled. Your {amount} refund is requested, and our team confirms it within 14 business days.",
@@ -656,7 +658,9 @@
       "cancelFailed": "Couldn't cancel. Your booking is unchanged. Try again.",
       "cancelledOnly": "Your booking is cancelled, but the refund didn't go through. Press Get {amount} back again.",
       "claimFailed": "The refund didn't go through. Try again.",
-      "sendFailed": "Couldn't send your request. Try again."
+      "sendFailed": "Couldn't send your request. Try again.",
+      "offerHalf": "The full-refund window has just closed. Cancelling now gives {amount} back. Nothing was cancelled; check the amount and press again.",
+      "offerStarted": "This session has started, so it can no longer be cancelled. Nothing was cancelled. If something went wrong, you can report it here."
     },
     "states": {
       "notFoundTitle": "Booking not found",

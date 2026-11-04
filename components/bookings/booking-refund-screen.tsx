@@ -5,7 +5,7 @@ import { useSearchParams } from "next/navigation";
 import { useTranslations } from "next-intl";
 
 import { BookingDetailState, DetailColumn } from "@/components/bookings/booking-detail-screen";
-import { bookingExit, bookingPopupHref } from "@/components/bookings/booking-exit";
+import { bookingExit, bookingPopupHref, sameOffer } from "@/components/bookings/booking-exit";
 import { asUuid, useMountTime } from "@/components/bookings/booking-flow";
 import { CancelRefundMode, ClaimMode } from "@/components/bookings/refund-cancel";
 import { ReportMode } from "@/components/bookings/refund-report";
@@ -106,9 +106,13 @@ type Done = {
 function RefundContent({ booking, reload }: { readonly booking: ApiBooking; readonly reload: () => void }) {
   const t = useTranslations("bookingRefund");
   const format = useRefundFormat();
-  const now = useMountTime();
+  const mounted = useMountTime();
+  // The clock the rule is read at: the page's opening, until a press finds the offer has moved on.
+  const [movedTo, setMovedTo] = useState<number>();
+  const now = movedTo ?? mounted;
   const back = useBack(booking.id);
   const money = useBookingMoney(booking.id);
+  const { reload: reloadMoney } = money;
   const [done, setDone] = useState<Done>({});
 
   const current =
@@ -119,6 +123,30 @@ function RefundContent({ booking, reload }: { readonly booking: ApiBooking; read
   const cases = opened && money.cases ? [opened, ...money.cases.filter((item) => item.id !== opened.id)] : money.cases;
   const exit = bookingExit({ booking: current, invoice: money.invoice, cases, now });
   const invoice = money.invoice;
+
+  const reread = useCallback(() => {
+    reload();
+    reloadMoney();
+  }, [reload, reloadMoney]);
+
+  /**
+   * The rule once more at the moment of a press. When the clock has carried
+   * the booking across a line since the page opened, nothing is sent: the page
+   * moves to the offer that holds now and says why.
+   */
+  function stillOffered(): boolean {
+    const at = Date.now();
+    const fresh = bookingExit({ booking: current, invoice: money.invoice, cases, now: at });
+    if (sameOffer(exit, fresh)) return true;
+    setMovedTo(at);
+    setDone({
+      notice:
+        fresh.kind === "cancelRefund"
+          ? t("errors.offerHalf", { amount: format.baht(fresh.refundSatang) })
+          : t("errors.offerStarted"),
+    });
+    return false;
+  }
 
   if (exit.kind === "waiting") {
     if (money.error) return <RefundFailed bookingId={booking.id} retry={money.reload} />;
@@ -153,6 +181,10 @@ function RefundContent({ booking, reload }: { readonly booking: ApiBooking; read
           booking={booking}
           exit={exit}
           invoice={invoice}
+          notice={done.notice}
+          onNotice={(notice) => setDone({ notice })}
+          reread={reread}
+          stillOffered={stillOffered}
           onCancelledOnly={() => {
             setDone({ cancelled: true, notice: t("errors.cancelledOnly", { amount: format.baht(exit.refundSatang) }) });
             reload();
@@ -182,7 +214,9 @@ function RefundContent({ booking, reload }: { readonly booking: ApiBooking; read
           booking={booking}
           exit={exit}
           invoice={invoice}
+          notice={done.notice}
           onOpened={(refund, notice) => setDone({ refund, notice, announce: t("announce.reported") })}
+          stillOffered={stillOffered}
         />
       );
       break;

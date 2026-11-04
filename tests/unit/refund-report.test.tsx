@@ -41,12 +41,12 @@ const invoice = {
 } satisfies ApiAdviseeInvoice;
 const opened: ApiRefundCase = { id: "case-9", invoiceId: invoice.id, reason: "", status: "OPEN", createdAt: "2026-11-04T05:00:00.000Z", resolvedAt: null };
 
-function renderForm() {
+function renderForm({ offered = true, notice }: { readonly offered?: boolean; readonly notice?: string } = {}) {
   const onOpened = vi.fn();
   const exit = { kind: "report", maxSatang: 100_000, until: new Date("2026-11-10T09:00:00.000Z") } as const;
   render(
     <NextIntlClientProvider formats={formats} locale="th" messages={th} timeZone="Asia/Bangkok">
-      <ReportMode booking={booking} exit={exit} invoice={invoice} onOpened={onOpened} />
+      <ReportMode booking={booking} exit={exit} invoice={invoice} notice={notice} onOpened={onOpened} stillOffered={() => offered} />
     </NextIntlClientProvider>,
   );
   return onOpened;
@@ -143,6 +143,18 @@ describe("ReportMode", () => {
     expect(onOpened).toHaveBeenCalledExactlyOnceWith(opened, undefined);
     expect(api.cancelBooking).not.toHaveBeenCalled();
     expect(actions.cancelThenRefund).not.toHaveBeenCalled();
+  });
+
+  it("sends nothing once the rule, read again at the press, says the 7 days are over", async () => {
+    renderForm({ offered: false });
+    fireEvent.click(screen.getByRole("radio", { name: "เข้าห้องไม่ได้เพราะระบบขัดข้อง" }));
+    await act(async () => fireEvent.click(send()));
+    expect(actions.openRefundOnce).not.toHaveBeenCalled();
+  });
+
+  it("shows the page's notice above the send button as an alert", () => {
+    renderForm({ notice: "นัดนี้เริ่มแล้วจึงยกเลิกไม่ได้" });
+    expect(screen.getByRole("alert").textContent).toBe("นัดนี้เริ่มแล้วจึงยกเลิกไม่ได้");
   });
 
   it("sends the reason alone when no details were written", async () => {
