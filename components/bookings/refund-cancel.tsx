@@ -1,6 +1,6 @@
 "use client";
 
-import { Circle, CircleCheckBig, CircleX, RotateCcw } from "lucide-react";
+import { Circle, CircleCheckBig, CircleX, Clock3, RotateCcw } from "lucide-react";
 import Link from "next/link";
 import { useTranslations } from "next-intl";
 import { useRef, useState, type ReactNode } from "react";
@@ -80,15 +80,21 @@ const CLAIM_FAILED = {
 const CLAIM_META = { full: "meta.claimFull", half: "meta.claimHalf" } as const satisfies Record<RefundShare, string>;
 
 /**
- * The accent ground with ink, not blue on blue (4.2:1), and the label step from `lg`, as its row's sub line.
- * Below `lg` 20 px tall, inside its title's 21 px line, so the row keeps the other rows' rhythm.
+ * The accent ground with ink, not blue on blue (4.2:1), on its row's sub line in that line's type from `lg`.
+ * Its pad is given back as negative margin, so it takes no more height than the line and the row keeps the other rows' rhythm.
  */
-const NOW_PILL = "py-0.5 text-foreground max-lg:leading-4 lg:px-3 lg:py-1 lg:text-frame-label";
+const NOW_PILL = "-my-0.5 py-0.5 text-foreground max-lg:leading-4 lg:-my-1 lg:px-3 lg:py-1 lg:text-frame-label";
 
+/** `self-start`: from `lg` the right cell's section is a column, which would stretch it across. */
 const TERMS_LINK = cn(
   AUTH_LINK,
-  "inline-flex min-h-11 items-center rounded-sm text-xs outline-none focus-visible:ring-3 focus-visible:ring-ring/50 lg:text-frame-label",
+  "inline-flex min-h-11 items-center self-start rounded-sm text-xs outline-none focus-visible:ring-3 focus-visible:ring-ring/50 lg:text-frame-label",
 );
+
+/** What the press does and what then waits on the team, said in the line above the button, before it is pressed. */
+function BeforePress({ children }: { readonly children: string }) {
+  return <p className="text-center text-xs text-balance text-muted-foreground lg:text-frame-label">{children}</p>;
+}
 
 type Owed = { readonly share: RefundShare; readonly refundSatang: number };
 
@@ -96,18 +102,29 @@ type Owed = { readonly share: RefundShare; readonly refundSatang: number };
  * A half refund's box answers its amount, so it takes the right cell, level
  * with the head; the rule or the steps (`children`) then run under both
  * cells. A full refund needs no box, and they take the right cell. Either
- * way the two cells end within a row of each other.
+ * way the right cell spreads down to end level with the head.
  */
-function OwedCard({ head, owed, children }: { readonly head: ReactNode; readonly owed: Owed; readonly children: ReactNode }) {
+function OwedCard({
+  head,
+  owed,
+  invoice,
+  children,
+}: {
+  readonly head: ReactNode;
+  readonly owed: Owed;
+  readonly invoice: ApiAdviseeInvoice;
+  readonly children: ReactNode;
+}) {
   if (owed.share === "full") return <RefundCard head={head}>{children}</RefundCard>;
   return (
     <RefundCard foot={children} head={head}>
-      <HalfBox owed={owed} />
+      <HalfBox invoice={invoice} owed={owed} />
     </RefundCard>
   );
 }
 
-function HalfBox({ owed }: { readonly owed: Owed }) {
+/** Each line names what it is taken from, so the reader gets from what was paid to what comes back. */
+function HalfBox({ owed, invoice }: { readonly owed: Owed; readonly invoice: ApiAdviseeInvoice }) {
   const t = useTranslations("bookingRefund");
   const when = useRefundFormat();
 
@@ -115,8 +132,8 @@ function HalfBox({ owed }: { readonly owed: Owed }) {
     <RefundSection heading={t("box.heading")}>
       <RefundBox
         lines={[
-          { label: t("box.service"), value: when.baht(owed.refundSatang) },
-          { label: t("box.fee"), value: when.baht(0) },
+          { label: t("box.service", { amount: when.baht(invoice.priceSatang) }), value: when.baht(owed.refundSatang) },
+          { label: t("box.fee", { amount: when.baht(invoice.platformFeeSatang) }), value: when.baht(0) },
         ]}
         total={{ label: t("box.total"), value: when.baht(owed.refundSatang) }}
       />
@@ -163,7 +180,6 @@ export function CancelRefundMode({
   const when = useRefundFormat();
   const [attempt, setAttempt] = useState<CancelAttempt>({ kind: "ready" });
   const pressed = useRef(false);
-  const heldOn = useRef<ApiBooking | null>(null);
   const signIn = signInHref(refundHref(booking.id));
 
   const amount = when.baht(exit.refundSatang);
@@ -191,15 +207,15 @@ export function CancelRefundMode({
   ] as const;
 
   function hold(then: Exclude<Then, "retry">) {
-    heldOn.current = booking;
     setAttempt({ kind: "held", on: booking, then, checking: false });
     if (then === "reread") reread();
   }
 
   async function confirm() {
     const at = Date.now();
-    // The refs shut a second press in the same task, before React has drawn the busy or held button.
-    if (pressed.current || heldOn.current === booking || !stillOffered(at)) return;
+    // The ref shuts a second press in the same task, before React has drawn the busy button. By the time
+    // the answer lands the busy button is drawn and disabled, and it stays so until the held one replaces it.
+    if (pressed.current || !stillOffered(at)) return;
     pressed.current = true;
     setAttempt({ kind: "working" });
     const result = await cancelThenRefund(booking.id, invoice.id, t(`ruleLine.${exit.share}`, { amount }));
@@ -245,6 +261,7 @@ export function CancelRefundMode({
             <RefundFacts booking={booking} invoice={invoice} />
           </RefundHead>
         }
+        invoice={invoice}
         owed={exit}
       >
         <RefundSection heading={t("policy.heading")}>
@@ -271,10 +288,8 @@ export function CancelRefundMode({
       </OwedCard>
       <RefundActions invoiceNumber={invoice.invoiceNumber}>
         <Alert text={notice} />
-        {/* What the press does now and what waits on the team, said before it: cancelling is at once, the refund is not. */}
-        <p className="text-center text-xs text-balance text-muted-foreground lg:text-frame-label">
-          {invoice.card ? t("policy.final", { card: cardName(invoice.card) }) : t("policy.finalNoCard")}
-        </p>
+        {/* Cancelling is at once, the refund is not. */}
+        <BeforePress>{invoice.card ? t("policy.final", { card: cardName(invoice.card) }) : t("policy.finalNoCard")}</BeforePress>
         {held?.then === "lock" ? (
           <Button className={refundPill("solid")} nativeButton={false} render={<Link href={signIn} />}>
             {t("actions.signIn")}
@@ -346,6 +361,8 @@ export function ClaimMode({
   const failure = pressedFailure ?? (attempt === "ready" ? failed : undefined);
   // After a refusal pressing again fails the same way: support is the way on, so it takes the button.
   const toSupport = failure === "refused" || failure === "notFound";
+  // Only the claim itself is the button that "press the button below" can mean.
+  const claimable = failure !== "signIn" && !toSupport;
 
   function claim() {
     if (pressed.current) return;
@@ -372,11 +389,20 @@ export function ClaimMode({
             <RefundFacts booking={booking} invoice={invoice} />
           </RefundHead>
         }
+        invoice={invoice}
         owed={exit}
       >
         <RefundSection heading={t("progress.heading")}>
           <RefundList ordered>
             <RefundRow icon={CircleCheckBig} sub={cancelledAt} title={t("progress.cancellation.cancelled")} tone="success" />
+            {/* The step the press takes, so the trail before it never reads as the status after it. */}
+            <RefundRow
+              current
+              icon={Clock3}
+              sub={claimable ? t("progress.cancellation.sendSub") : undefined}
+              title={t("progress.cancellation.send")}
+              tone="primary"
+            />
             <RefundRow icon={Circle} sub={t("progress.cancellation.confirmSub")} title={t("progress.cancellation.confirm")} />
             <RefundRow icon={Circle} sub={t("progress.refundSub.confirm")} title={refundLine(exit.refundSatang)} />
           </RefundList>
@@ -384,6 +410,11 @@ export function ClaimMode({
       </OwedCard>
       <RefundActions help={!toSupport} invoiceNumber={invoice.invoiceNumber}>
         <Alert text={pressedFailure ? t(CLAIM_FAILED[pressedFailure]) : notice} />
+        {claimable ? (
+          <BeforePress>
+            {invoice.card ? t("policy.claimFinal", { card: cardName(invoice.card) }) : t("policy.claimFinalNoCard")}
+          </BeforePress>
+        ) : null}
         {failure === "signIn" ? (
           <Button className={refundPill("solid")} nativeButton={false} render={<Link href={signInHref(refundHref(booking.id))} />}>
             {t("actions.signIn")}

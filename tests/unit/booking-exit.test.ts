@@ -53,43 +53,82 @@ describe("R10 nothing is offered while the money is still loading", () => {
     expect(exit({ booking: held, invoice: undefined, now: S })).toEqual({ kind: "none" });
   });
 
-  it("never waits on requests for an unpaid receipt, which has none", () => {
-    expect(exit({ invoice: { ...invoice, status: "pending" }, cases: undefined })).toEqual({ kind: "cancel" });
+  it("never waits on requests for a receipt that is not paid, which has none", () => {
+    const held = { ...booking, state: "PENDING_PAYMENT" as const };
+    expect(exit({ booking: held, invoice: { ...invoice, status: "pending" }, cases: undefined })).toEqual({ kind: "cancel" });
+    expect(exit({ invoice: { ...invoice, status: "failed" }, cases: undefined })).toEqual({ kind: "paidElsewhere", receipt: "unpaid" });
   });
 });
 
-describe("R1 an unpaid booking keeps the plain cancel until it starts", () => {
+describe("R1 a held slot keeps the plain cancel until it starts", () => {
+  const held = { ...booking, state: "PENDING_PAYMENT" as const };
   const pending = { ...invoice, status: "pending" as const };
   const failed = { ...invoice, status: "failed" as const };
 
   it.each([
-    ["a held slot with no receipt", { ...booking, state: "PENDING_PAYMENT" as const }, null],
-    ["a held slot with a pending receipt", { ...booking, state: "PENDING_PAYMENT" as const }, pending],
-    ["a booked one with a pending receipt", booking, pending],
-    ["a booked one with a failed receipt", booking, failed],
-  ])("offers the plain cancel on %s", (_, unpaid, receipt) => {
-    expect(exit({ booking: unpaid, invoice: receipt })).toEqual({ kind: "cancel" });
+    ["no receipt", null],
+    ["a pending receipt", pending],
+    ["a failed receipt", failed],
+  ])("offers the plain cancel on a held slot with %s", (_, receipt) => {
+    expect(exit({ booking: held, invoice: receipt })).toEqual({ kind: "cancel" });
   });
 
   it("offers nothing once the start has passed, whatever says it is unpaid", () => {
-    expect(exit({ invoice: null, booking: { ...booking, state: "PENDING_PAYMENT" }, now: S })).toEqual({ kind: "none" });
-    expect(exit({ invoice: failed, now: S })).toEqual({ kind: "none" });
-    expect(exit({ invoice: pending, now: S + HOUR })).toEqual({ kind: "none" });
+    expect(exit({ booking: held, invoice: null, now: S })).toEqual({ kind: "none" });
+    expect(exit({ booking: held, invoice: failed, now: S })).toEqual({ kind: "none" });
+    expect(exit({ booking: held, invoice: pending, now: S + HOUR })).toEqual({ kind: "none" });
   });
 
-  it("offers nothing on an unpaid booking that is already cancelled", () => {
-    expect(exit({ invoice: null, booking: cancelledBooking("advisee", S - 3 * DAY) })).toEqual({ kind: "none" });
+  it.each([
+    ["no receipt", null],
+    ["a failed receipt", failed],
+  ])("offers nothing on a cancelled booking with %s", (_, receipt) => {
+    expect(exit({ invoice: receipt, booking: cancelledBooking("advisee", S - 3 * DAY) })).toEqual({ kind: "none" });
   });
 });
 
-describe("a booking past its hold with no receipt of its own was paid on the one it replaced", () => {
+describe("a held slot whose receipt already reads paid follows the paid rules", () => {
+  const held = { ...booking, state: "PENDING_PAYMENT" as const };
+
+  it("offers the cancel with its refund, never the plain cancel, once the paid receipt is read", () => {
+    expect(exit({ booking: held, now: S - 3 * DAY })).toMatchObject({ kind: "cancelRefund", share: "full", refundSatang: 100_000 });
+    expect(exit({ booking: held, now: S - 5 * HOUR })).toMatchObject({ kind: "cancelRefund", share: "half", refundSatang: 40_000 });
+  });
+
+  it("waits for its requests, and shows one already sent", () => {
+    expect(exit({ booking: held, cases: undefined })).toEqual({ kind: "waiting" });
+    expect(exit({ booking: held, cases: [refundCase("OPEN", "2026-11-04T00:00:00Z")] })).toMatchObject({ kind: "status" });
+  });
+
+  it("shows a refund on record, and a report once it has started", () => {
+    expect(exit({ booking: held, invoice: { ...invoice, status: "refunded", refundSatang: 100_000 } })).toEqual({ kind: "refunded", refundSatang: 100_000 });
+    expect(exit({ booking: held, now: E })).toMatchObject({ kind: "report" });
+  });
+
+  it("keeps the plain cancel while its receipt is still loading", () => {
+    expect(exit({ booking: held, invoice: undefined, cases: undefined })).toEqual({ kind: "cancel" });
+  });
+});
+
+describe("a booking past its hold without a paid receipt was paid somewhere support can see", () => {
   it.each(["BOOKED", "IN_PROGRESS", "COMPLETED", "NO_SHOW"] as const)(
-    "sends a %s one to support, before and after the start, never to the plain cancel",
+    "sends a %s one with no receipt to support, before and after the start, never to the plain cancel",
     (state) => {
-      expect(exit({ booking: { ...booking, state }, invoice: null })).toEqual({ kind: "paidElsewhere" });
-      expect(exit({ booking: { ...booking, state }, invoice: null, now: E + DAY })).toEqual({ kind: "paidElsewhere" });
+      expect(exit({ booking: { ...booking, state }, invoice: null })).toEqual({ kind: "paidElsewhere", receipt: "missing" });
+      expect(exit({ booking: { ...booking, state }, invoice: null, now: E + DAY })).toEqual({ kind: "paidElsewhere", receipt: "missing" });
     },
   );
+
+  it.each([
+    ["pending", "BOOKED"],
+    ["failed", "BOOKED"],
+    ["failed", "IN_PROGRESS"],
+    ["pending", "COMPLETED"],
+  ] as const)("sends one whose receipt reads %s (%s) to support, never to the plain cancel", (status, state) => {
+    const receipt = { ...invoice, status };
+    expect(exit({ booking: { ...booking, state }, invoice: receipt })).toEqual({ kind: "paidElsewhere", receipt: "unpaid" });
+    expect(exit({ booking: { ...booking, state }, invoice: receipt, now: S })).toEqual({ kind: "paidElsewhere", receipt: "unpaid" });
+  });
 });
 
 describe("R2 a paid booking cancelled 24 hours or more ahead refunds the whole charge", () => {
@@ -274,9 +313,18 @@ describe("§8 one free reschedule, at least 24 hours ahead", () => {
     expect(way({ now: S - DAY })).toBe("withheld");
   });
 
-  it("moves an unpaid booking over the slots, a held slot even before its invoice is known", () => {
+  it("moves a held slot over the slots, even before its invoice is known", () => {
     expect(way({ booking: held, invoice: undefined })).toBe("slots");
-    expect(way({ invoice: { ...invoice, status: "failed" } })).toBe("slots");
+    expect(way({ booking: held, invoice: { ...invoice, status: "failed" } })).toBe("slots");
+  });
+
+  it("withholds the move of a held slot whose receipt already reads paid", () => {
+    expect(way({ booking: held })).toBe("withheld");
+  });
+
+  it("offers no move on a confirmed booking without a paid receipt, which goes to support", () => {
+    expect(way({ invoice: { ...invoice, status: "failed" } })).toBeNull();
+    expect(way({ invoice: { ...invoice, status: "pending" } })).toBeNull();
   });
 
   it("is not offered inside 24 hours, where a move would turn a half refund into a full one", () => {
@@ -292,6 +340,46 @@ describe("§8 one free reschedule, at least 24 hours ahead", () => {
     expect(way({ invoice: undefined })).toBeNull();
     expect(way({ booking: { ...booking, state: "IN_PROGRESS" } })).toBeNull();
     expect(way({ booking: cancelledBooking("advisee", S - 4 * DAY) })).toBeNull();
+  });
+});
+
+describe("the plain cancel and the slot move belong to an unpaid hold alone", () => {
+  const states = ["PENDING_PAYMENT", "BOOKED", "IN_PROGRESS", "COMPLETED", "NO_SHOW", "CANCELLED"] as const;
+  const receipts = [undefined, null, "pending", "failed", "paid", "refunded"] as const;
+  const requests = [undefined, [], [refundCase("OPEN", "2026-11-04T00:00:00Z")]] as const;
+  const clocks = [S - 3 * DAY, S - DAY, S - 5 * HOUR, S, E + DAY, E + 8 * DAY];
+  const grid = states.flatMap((state) =>
+    receipts.flatMap((receipt) =>
+      requests.flatMap((cases) =>
+        clocks.map((now) => ({
+          booking: state === "CANCELLED" ? cancelledBooking("advisee", S - 2 * DAY) : { ...booking, state },
+          invoice: receipt === undefined || receipt === null ? receipt : { ...invoice, status: receipt },
+          cases,
+          now,
+        })),
+      ),
+    ),
+  );
+
+  it("never offers either on a booking whose receipt reads paid, or on one past its hold", () => {
+    const wrong = grid.filter((input) => {
+      const paid = input.invoice?.status === "paid" || input.invoice?.status === "refunded";
+      if (!paid && input.booking.state === "PENDING_PAYMENT") return false;
+      return bookingExit(input).kind === "cancel" || rescheduleWay(input) === "slots";
+    });
+    expect(grid).toHaveLength(648);
+    expect(wrong.map((input) => `${input.booking.state} ${input.invoice?.status ?? input.invoice} ${input.now}`)).toEqual([]);
+  });
+
+  it("offers the plain cancel to every unpaid hold before its start", () => {
+    const held = grid.filter(
+      (input) =>
+        input.booking.state === "PENDING_PAYMENT" &&
+        !(input.invoice?.status === "paid" || input.invoice?.status === "refunded") &&
+        input.now < S,
+    );
+    expect(held.every((input) => bookingExit(input).kind === "cancel")).toBe(true);
+    expect(held).toHaveLength(36);
   });
 });
 

@@ -9,7 +9,7 @@ vi.stubEnv("NEXT_PUBLIC_API_URL", "https://api.example.test");
 
 const { ApiError } = await import("@/lib/api/client");
 const { invalidate } = await import("@/lib/api/use-resource");
-const { useBookingExit } = await import("@/components/bookings/use-booking-exit");
+const { moneyReadProblem, useBookingExit } = await import("@/components/bookings/use-booking-exit");
 
 const S = Date.parse("2026-11-11T03:30:00Z");
 const booking: ApiBooking = {
@@ -39,9 +39,9 @@ describe("useBookingExit", () => {
     calls.invoice.mockRejectedValue(new ApiError(404, "Invoice not found"));
     const { result } = renderHook(() => useBookingExit(booking, now));
     // A booked appointment with no receipt of its own was paid on the one it replaced.
-    await waitFor(() => expect(result.current.exit).toEqual({ kind: "paidElsewhere" }));
+    await waitFor(() => expect(result.current.exit).toEqual({ kind: "paidElsewhere", receipt: "missing" }));
     expect(result.current.money.invoice).toBeNull();
-    expect(result.current.money.error).toBeNull();
+    expect(result.current.money.failure).toBeNull();
     expect(calls.cases).not.toHaveBeenCalled();
   });
 
@@ -82,7 +82,7 @@ describe("useBookingExit", () => {
   it("tries a failed invoice again when the next screen opens, rather than keeping the failure for the tab's life", async () => {
     calls.invoice.mockRejectedValueOnce(new ApiError(500, "down"));
     const first = renderHook(() => useBookingExit(booking, now));
-    await waitFor(() => expect(first.result.current.money.error).not.toBeNull());
+    await waitFor(() => expect(first.result.current.money.failure).not.toBeNull());
     first.unmount();
 
     calls.invoice.mockResolvedValue(invoice);
@@ -101,23 +101,39 @@ describe("useBookingExit", () => {
     expect(calls.cases).toHaveBeenCalledTimes(1);
   });
 
-  it("offers nothing and reports the failure when the invoice cannot be read", async () => {
-    calls.invoice.mockRejectedValue(new ApiError(500, "down"));
+  it("offers nothing and reports the invoice as the read that failed", async () => {
+    const down = new ApiError(500, "down");
+    calls.invoice.mockRejectedValue(down);
     const { result } = renderHook(() => useBookingExit(booking, now));
-    await waitFor(() => expect(result.current.money.error).not.toBeNull());
+    await waitFor(() => expect(result.current.money.failure).toEqual({ read: "invoice", error: down }));
     expect(result.current.exit).toEqual({ kind: "waiting" });
   });
 
-  it("offers nothing when the requests of a paid invoice cannot be read, and reads both again on reload", async () => {
+  it("offers nothing when the requests of a paid invoice cannot be read, names that read, and reads both again on reload", async () => {
+    const refused = new ApiError(403, "Forbidden");
     calls.invoice.mockResolvedValue(invoice);
-    calls.cases.mockRejectedValueOnce(new ApiError(500, "down"));
+    calls.cases.mockRejectedValueOnce(refused);
     const { result } = renderHook(() => useBookingExit(booking, now));
-    await waitFor(() => expect(result.current.money.error).not.toBeNull());
+    await waitFor(() => expect(result.current.money.failure).toEqual({ read: "requests", error: refused }));
+    expect(result.current.money.invoice).toEqual(invoice);
     expect(result.current.exit).toEqual({ kind: "waiting" });
 
     calls.cases.mockResolvedValue({ items: [], total: 0, page: 1, limit: 100, totalPages: 1 });
     result.current.money.reload();
     await waitFor(() => expect(result.current.exit).toMatchObject({ kind: "cancelRefund", share: "full" }));
     expect(calls.invoice).toHaveBeenCalledTimes(2);
+  });
+});
+
+describe("moneyReadProblem", () => {
+  it.each([
+    ["a network failure", new Error("offline"), "retry"],
+    ["a server fault", new ApiError(503, "down"), "retry"],
+    ["a lapsed session", new ApiError(401, "Unauthorized"), "signIn"],
+    ["an account without the permission", new ApiError(403, "Forbidden"), "forbidden"],
+    ["a missing record", new ApiError(404, "Not Found"), "refused"],
+    ["a bad request", new ApiError(400, "Bad Request"), "refused"],
+  ] as const)("asks for what helps after %s", (_, error, problem) => {
+    expect(moneyReadProblem(error)).toBe(problem);
   });
 });

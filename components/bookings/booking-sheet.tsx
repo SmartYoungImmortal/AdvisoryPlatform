@@ -18,7 +18,14 @@ import { useId, useState, type ReactNode } from "react";
 
 import { DESKTOP_TYPE_LIFT } from "@/components/account/account-shell";
 import { AUTH_LINK } from "@/components/auth/auth-split";
-import { bookingPopupHref, refundHref, rescheduleWay, signInHref, type BookingExit } from "@/components/bookings/booking-exit";
+import {
+  bookingPopupHref,
+  fullRefundUntil,
+  refundHref,
+  rescheduleWay,
+  signInHref,
+  type BookingExit,
+} from "@/components/bookings/booking-exit";
 import {
   liveAdvisorHref,
   liveServiceHref,
@@ -27,11 +34,15 @@ import {
 } from "@/components/bookings/booking-flow";
 import { downloadBookingCalendar } from "@/components/bookings/booking-calendar";
 import { CancellationFeedback } from "@/components/bookings/cancellation-feedback";
-import { refundFailure } from "@/components/bookings/refund-actions";
 import { useRefundFormat } from "@/components/bookings/refund-sheet";
 import { RescheduleSlots } from "@/components/bookings/reschedule-booking";
 import { useBookingCancellation } from "@/components/bookings/use-booking-cancellation";
-import { useBookingExit, type BookingMoney } from "@/components/bookings/use-booking-exit";
+import {
+  moneyReadProblem,
+  useBookingExit,
+  type BookingMoney,
+  type MoneyReadFailure,
+} from "@/components/bookings/use-booking-exit";
 import { faceFor } from "@/components/chat/chat-avatar";
 import { chatWithHref } from "@/components/chat/chat-data";
 import { Figures } from "@/components/figures";
@@ -266,15 +277,7 @@ function SheetHeader({
  * request already sent is a row to where it stands instead, never a second
  * way to send one.
  */
-function MoneyNote({
-  bookingId,
-  exit,
-  chargedSatang,
-}: {
-  readonly bookingId: string;
-  readonly exit: BookingExit;
-  readonly chargedSatang: number;
-}) {
+function MoneyNote({ bookingId, exit }: { readonly bookingId: string; readonly exit: BookingExit }) {
   const t = useTranslations("bookings");
   const r = useTranslations("bookingRefund");
   const when = useRefundFormat();
@@ -296,16 +299,16 @@ function MoneyNote({
       note = t("refundNote.claim", { amount: when.baht(exit.refundSatang) });
       break;
     case "refunded":
-      // The payment line above already reads "refunded" with the charge; only a part refund has more to say.
-      if (exit.refundSatang === chargedSatang) return null;
+      // The line above says what was paid; what came back, a part or the whole, is said here.
       note = t("refundNote.refunded", { amount: when.baht(exit.refundSatang) });
       break;
     case "status":
-      // 44 px to press, rendered: the card is zoomed 1440/1710 from lg. The
-      // extra height hangs into the gap below, clear of the receipt link above.
+      // 44 px to press, rendered: the card is zoomed 1440/1710 from lg. Its
+      // text starts where the other notes start, under the payment line, and
+      // the extra height hangs into the gap below.
       return (
         <Link
-          className="-mx-2 -mb-3 flex min-h-11 items-center gap-2 rounded-xl px-2 text-xs text-muted-foreground outline-none transition-colors duration-150 hover:bg-muted/60 focus-visible:ring-3 focus-visible:ring-ring/50 motion-reduce:transition-none lg:-mx-3 lg:-mb-4 lg:min-h-13.5 lg:px-3 lg:text-frame-label"
+          className="-mx-2 -mb-3 flex min-h-11 items-start gap-2 rounded-xl px-2 pt-1 text-xs text-muted-foreground outline-none transition-colors duration-150 hover:bg-muted/60 focus-visible:ring-3 focus-visible:ring-ring/50 motion-reduce:transition-none lg:-mx-3 lg:-mb-4 lg:min-h-13.5 lg:px-3 lg:text-frame-label"
           href={refundHref(bookingId)}
         >
           <span className="min-w-0 flex-1">
@@ -330,29 +333,29 @@ function MoneyNote({
 const LINE_ACTION = "-my-3 h-11 border-0 px-0 align-middle text-xs font-medium lg:text-frame-label";
 
 /**
- * A failed money read, and the one thing that helps: pressing again after a
- * network or server fault, signing in after a lapsed session, support after
- * a refusal. Today's list price in its place would pass for what was paid.
+ * A failed money read, named by what failed (the receipt, or its refund
+ * requests), and the one thing that helps: pressing again after a network or
+ * server fault, signing in after a lapsed session, support after a refusal.
+ * Today's list price in its place would pass for what was paid.
  */
 function MoneyFailed({
-  error,
+  failure,
   bookingId,
   reload,
   supportHref,
 }: {
-  readonly error: Error;
+  readonly failure: MoneyReadFailure;
   readonly bookingId: string;
   readonly reload: () => void;
   readonly supportHref: string;
 }) {
   const t = useTranslations("bookings");
   const tr = useTranslations("transactions");
-  const failure = refundFailure(error);
-  let said: string;
+  const problem = moneyReadProblem(failure.error);
+  const said = t(`moneyRead.${failure.read}.${problem}`);
   let action: ReactNode;
-  switch (failure) {
+  switch (problem) {
     case "retry":
-      said = t("moneyFailed");
       action = (
         <Button className={LINE_ACTION} onClick={reload} type="button" variant="link">
           {t("detailsRetry")}
@@ -360,7 +363,6 @@ function MoneyFailed({
       );
       break;
     case "signIn":
-      said = t("moneySignIn");
       action = (
         <Button
           className={LINE_ACTION}
@@ -373,7 +375,6 @@ function MoneyFailed({
       );
       break;
     default:
-      said = t("moneyRefused");
       action = (
         <Button className={LINE_ACTION} nativeButton={false} render={<a href={supportHref} />} variant="link">
           {tr("contactSupport")}
@@ -388,10 +389,11 @@ function MoneyFailed({
 }
 
 /**
- * What was paid and how it stands, with the way to its receipt and what the
- * money does now. A held slot (unpaid, no invoice) shows the service's price
- * now, since the appointment itself records no amount; any other booking
- * without its receipt never does, since that price would pass for what was paid.
+ * What was paid, with the way to its receipt and what the money does now. A
+ * refund is said in the note under it, so the line keeps reading "paid" with
+ * the charge. A held slot (unpaid, no invoice) shows the service's price now,
+ * since the appointment itself records no amount; any other booking without a
+ * paid receipt never does, since that price would pass for what was paid.
  */
 function PaymentLine({
   booking,
@@ -410,31 +412,32 @@ function PaymentLine({
   const tr = useTranslations("transactions");
   const when = useRefundFormat();
   const { invoice } = money;
-  const failed = money.error ? (
-    <MoneyFailed bookingId={booking.id} error={money.error} reload={money.reload} supportHref={supportHref} />
+  const failed = money.failure ? (
+    <MoneyFailed bookingId={booking.id} failure={money.failure} reload={money.reload} supportHref={supportHref} />
   ) : null;
 
+  // A confirmed booking whose receipt here reads unpaid was paid on another charge: that receipt is not what was paid.
+  if (exit.kind === "paidElsewhere") {
+    return (
+      <Line icon={Banknote}>
+        <span className="text-muted-foreground">{t(exit.receipt === "missing" ? "paidElsewhere" : "paidUnshown")}</span>
+      </Line>
+    );
+  }
   if (invoice) {
     return (
       <Line icon={Banknote}>
-        <span className="text-muted-foreground">{tr(`status.${invoice.status}`)}</span>{" "}
+        <span className="text-muted-foreground">{tr(`status.${invoice.status === "refunded" ? "paid" : invoice.status}`)}</span>{" "}
         <span className="font-latin font-medium tabular-nums">{when.baht(invoice.amountSatang)}</span>
         {" · "}
         <Link className="font-medium text-primary underline-offset-4 hover:underline" href={invoiceHref(invoice.id)}>
           {t("viewReceipt")}
         </Link>
-        {failed ?? <MoneyNote bookingId={booking.id} chargedSatang={invoice.amountSatang} exit={exit} />}
+        {failed ?? <MoneyNote bookingId={booking.id} exit={exit} />}
       </Line>
     );
   }
   if (failed) return <Line icon={Banknote}>{failed}</Line>;
-  if (exit.kind === "paidElsewhere") {
-    return (
-      <Line icon={Banknote}>
-        <span className="text-muted-foreground">{t("paidElsewhere")}</span>
-      </Line>
-    );
-  }
   if (booking.state !== "PENDING_PAYMENT" || !service) return null;
   return (
     <Line icon={Banknote}>
@@ -495,6 +498,7 @@ export function BookingSheet({
   const tr = useTranslations("transactions");
   const l = useTranslations("landing");
   const format = useFormatter();
+  const when = useRefundFormat();
   const clock = useClock();
   const now = useMountTime();
   const ways = useWaysOn(entry, now);
@@ -651,9 +655,14 @@ export function BookingSheet({
               </Button>
             ) : null}
           </div>
-          {/* Where the move would be: said, not hidden, so nobody hunts for it. */}
-          {move === "withheld" ? (
-            <p className="text-xs text-balance text-muted-foreground lg:text-frame-label">{t("rescheduleWithheld")}</p>
+          {/* Where the move would be: the way to another time, said, so nobody hunts for it, and only beside the
+              cancel it names (not while the requests load). The date moves down whole. */}
+          {move === "withheld" && exit.kind === "cancelRefund" && exit.share === "full" ? (
+            <p className="text-xs text-balance text-muted-foreground lg:text-frame-label">
+              <Figures>
+                {t("rescheduleWithheld", { date: when.deadline(fullRefundUntil(booking)).replaceAll(" ", " ") })}
+              </Figures>
+            </p>
           ) : null}
         </div>
       ) : null}

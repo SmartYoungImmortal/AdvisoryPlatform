@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { Suspense, useCallback, useMemo, useState, type ReactNode } from "react";
+import { Suspense, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { useSearchParams } from "next/navigation";
 import { useTranslations } from "next-intl";
 
@@ -14,7 +14,7 @@ import { ReportMode } from "@/components/bookings/refund-report";
 import { SHEET_W } from "@/components/payment/invoice-screens";
 import { REFUND_SHAPE, RefundCard, RefundList, RefundSection, useRefundFormat } from "@/components/bookings/refund-sheet";
 import { RefundStatusMode } from "@/components/bookings/refund-status";
-import { useBookingMoney } from "@/components/bookings/use-booking-exit";
+import { moneyReadProblem, useBookingMoney, type MoneyReadFailure } from "@/components/bookings/use-booking-exit";
 import { Figures } from "@/components/figures";
 import { Button } from "@/components/ui/button";
 import { getBooking, getService } from "@/lib/api/resources";
@@ -105,6 +105,15 @@ function RefundData({ id }: { readonly id: string }) {
   const fetchBooking = useCallback((signal: AbortSignal) => getBooking(id, signal), [id]);
   const booking = useResource<ApiBooking>(`bookings/${id}`, fetchBooking);
   const shown = useKept(booking.data);
+  // Opened on a cached answer (or failure), the booking is read again once, showing that answer meanwhile, as its
+  // money is (`useBookingMoney`): another tab may have cancelled it and filed its refund since.
+  const { reload: reloadBooking } = booking;
+  const cached = useRef(booking.data !== undefined || booking.error !== null);
+  useEffect(() => {
+    if (!cached.current) return;
+    cached.current = false;
+    reloadBooking();
+  }, [reloadBooking]);
 
   if (!shown && booking.loading) return <RefundSkeleton bookingId={id} />;
   // Someone else's booking is a 403 or a 404; either way, for this account it does not exist.
@@ -199,24 +208,60 @@ function StaleNotice({
   );
 }
 
-/** Its money is on the booking it replaced: support, with the booking named in the subject. */
-function RefundPaidElsewhere({ booking }: { readonly booking: ApiBooking }) {
+/** Support about this booking, named in the subject by its service and day once the service is known. */
+function useBookingSupport(booking: ApiBooking): string {
   const t = useTranslations("bookingRefund");
-  const tr = useTranslations("transactions");
   const l = useTranslations("landing");
-  const back = useBack(booking.id);
   const when = useRefundFormat();
   const fetchService = useCallback((signal: AbortSignal) => getService(booking.serviceId, signal), [booking.serviceId]);
   const service = useResource<ApiPublicService>(`services/${booking.serviceId}`, fetchService);
   const subject = service.data
     ? t("supportSubject.booking", { service: service.data.name, date: when.day(booking.startTime), id: booking.id })
     : t("supportSubject.id", { id: booking.id });
+  return `mailto:${l("footerEmailAddress")}?subject=${encodeURIComponent(subject)}`;
+}
+
+/**
+ * Its money is not on a receipt this page can read: on the booking it
+ * replaced (`missing`), or on a charge other than the unpaid one shown here
+ * (`unpaid`). Support, with the booking named in the subject.
+ */
+function RefundPaidElsewhere({ booking, receipt }: { readonly booking: ApiBooking; readonly receipt: "missing" | "unpaid" }) {
+  const t = useTranslations("bookingRefund");
+  const tr = useTranslations("transactions");
+  const back = useBack(booking.id);
+  const support = useBookingSupport(booking);
   return (
     <BookingDetailState
-      action={{ href: `mailto:${l("footerEmailAddress")}?subject=${encodeURIComponent(subject)}`, label: tr("contactSupport") }}
+      action={{ href: support, label: tr("contactSupport") }}
       back={back}
-      body={t("states.paidElsewhereBody")}
-      title={t("states.paidElsewhereTitle")}
+      body={t(receipt === "missing" ? "states.paidElsewhereBody" : "states.paidUnshownBody")}
+      title={t(receipt === "missing" ? "states.paidElsewhereTitle" : "states.paidUnshownTitle")}
+    />
+  );
+}
+
+/**
+ * Nothing to refund here. A held slot was simply never paid. A cancelled
+ * booking with no paid receipt, or one moved to a new time, may still have
+ * been paid somewhere this page cannot see, so it says only what it found and
+ * offers support.
+ */
+function RefundNothing({ booking, rescheduled }: { readonly booking: ApiBooking; readonly rescheduled: boolean }) {
+  const t = useTranslations("bookingRefund");
+  const tr = useTranslations("transactions");
+  const back = useBack(booking.id);
+  const support = useBookingSupport(booking);
+  const held = !rescheduled && booking.state === "PENDING_PAYMENT";
+  let body = t("states.nothingNoReceipt");
+  if (rescheduled) body = t("states.nothingRescheduled");
+  else if (held) body = t("states.nothingUnpaid");
+  return (
+    <BookingDetailState
+      action={held ? undefined : { href: support, label: tr("contactSupport") }}
+      back={back}
+      body={body}
+      title={t("states.nothingTitle")}
     />
   );
 }
@@ -237,6 +282,12 @@ type Done = {
   /** How the refund call failed after this page's cancel stood: the claim that follows offers what helps. */
   readonly failure?: RefundFailure;
 };
+
+/** A money read that never answered, named by what failed; a refusal of this account (403) says so in its own words. */
+const MONEY_FAILED = {
+  invoice: { title: "states.moneyFailed", refused: "states.moneyRefusedBody", forbidden: "states.moneyForbiddenBody" },
+  requests: { title: "states.requestsFailed", refused: "states.requestsRefusedBody", forbidden: "states.requestsForbiddenBody" },
+} as const satisfies Record<MoneyReadFailure["read"], Record<"title" | "refused" | "forbidden", string>>;
 
 const CANCELLED_ONLY = {
   retry: "errors.cancelledOnly",
@@ -273,7 +324,7 @@ function RefundContent({
   const kept = useKept(settled);
   const invoice = kept?.invoice;
   const known = kept?.cases;
-  const moneyFailure = money.error ? refundFailure(money.error) : null;
+  const moneyFailure = money.failure ? refundFailure(money.failure.error) : null;
   const [done, setDone] = useState<Done>({});
 
   const current =
@@ -288,8 +339,11 @@ function RefundContent({
   const opened = done.refund;
   const cases = opened && known ? [opened, ...known.filter((item) => item.id !== opened.id)] : known;
   const exit = bookingExit({ booking: current, invoice, cases, now });
+  // The page is about money, so it waits for it even where the popup's rule does not (a held slot's plain cancel):
+  // a held slot whose receipt then reads paid would otherwise open on "nothing to refund".
+  const loading = exit.kind === "waiting" || kept === undefined;
   // A failed read again with an answer still on screen: the page keeps it and says so.
-  const stale = bookingFailure ?? (exit.kind === "waiting" ? null : moneyFailure);
+  const stale = bookingFailure ?? (loading ? null : moneyFailure);
 
   // A line kept from before a re-read says what the re-read found once it answers: the booking is now
   // cancelled (its share follows who cancelled and when), or it is still on and the cancel did not go through.
@@ -327,29 +381,26 @@ function RefundContent({
     return false;
   }
 
-  if (exit.kind === "waiting") {
-    if (!moneyFailure) return <RefundSkeleton bookingId={booking.id} />;
-    if (moneyFailure === "signIn") return <RefundSignIn bookingId={booking.id} />;
+  if (loading) {
+    const failed = money.failure;
+    if (!failed) return <RefundSkeleton bookingId={booking.id} />;
+    const failure = refundFailure(failed.error);
+    if (failure === "signIn") return <RefundSignIn bookingId={booking.id} />;
+    const words = MONEY_FAILED[failed.read];
     return (
       <RefundFailed
         bookingId={booking.id}
-        failure={moneyFailure}
-        refused={t("states.moneyRefusedBody")}
+        failure={failure}
+        refused={t(moneyReadProblem(failed.error) === "forbidden" ? words.forbidden : words.refused)}
         retry={money.reload}
         retryBody={t("states.moneyFailedBody")}
-        title={t("states.moneyFailed")}
+        title={t(words.title)}
       />
     );
   }
-  if (exit.kind === "paidElsewhere") return <RefundPaidElsewhere booking={booking} />;
+  if (exit.kind === "paidElsewhere") return <RefundPaidElsewhere booking={booking} receipt={exit.receipt} />;
   if (!invoice || exit.kind === "none" || exit.kind === "cancel" || exit.kind === "rescheduled") {
-    return (
-      <BookingDetailState
-        back={back}
-        body={exit.kind === "rescheduled" ? t("states.nothingRescheduled") : t("states.nothingUnpaid")}
-        title={t("states.nothingTitle")}
-      />
-    );
+    return <RefundNothing booking={booking} rescheduled={exit.kind === "rescheduled"} />;
   }
   if (exit.kind === "closed") {
     return (
@@ -433,7 +484,8 @@ function RefundContent({
   }
 
   return (
-    <DetailColumn back={back}>
+    // Cancel mode's own "keep the booking" goes back to the popup, so from lg the column draws no second way back.
+    <DetailColumn back={exit.kind === "cancelRefund" ? { ...back, fromLg: false } : back}>
       <p aria-live="polite" className="sr-only">
         {done.announce}
       </p>
@@ -461,8 +513,9 @@ const FACT_BONES = [["กกกกก กกกกกก"], ["กกก 00 ก�
 
 /**
  * The card's own shape while the booking and its money load, still, no
- * shimmer: the head and a section of three rows, built in the card's own
- * boxes (`REFUND_SHAPE`), so the page keeps its height when the data lands.
+ * shimmer: the head and a section of four rows (a cancellation's trail, the
+ * card a popup's refund row opens on), built in the card's own boxes
+ * (`REFUND_SHAPE`), so the page keeps its height when the data lands.
  */
 function RefundSkeleton({ bookingId }: { readonly bookingId?: string }) {
   const t = useTranslations("bookingRefund");
@@ -521,7 +574,7 @@ function RefundSkeleton({ bookingId }: { readonly bookingId?: string }) {
           >
             <RefundSection heading={<Bone text="กกกกกกกก" />}>
               <RefundList>
-                {["กกกกกกกกก กกกกกก", "กกกกกก กกกกกกกกกกก", "กกกกกก กกกกก กก กกกกกก"].map((line) => (
+                {["กกกกกกกกก กกกกกก", "กกกกกกกก กกกกกกก", "กกกกกก กกกกกกกกกกก", "กกกกกก กกกกก กก กกกกกก"].map((line) => (
                   <li className={REFUND_SHAPE.row} key={line}>
                     <span className={cn(REFUND_SHAPE.rowIcon, mark)} />
                     <div className={REFUND_SHAPE.rowText}>

@@ -54,6 +54,14 @@ describe("openRefundOnce", () => {
     expect(calls.invalidate).toHaveBeenCalledWith("refunds/me");
   });
 
+  it("takes the open request after a 409 as this press's own when it carries the reason sent: an earlier press whose answer was lost", async () => {
+    const report = "ที่ปรึกษาไม่มา หรือยกเลิกกะทันหัน\n\nรอ 30 นาทีแล้วไม่มีใครเข้าห้อง";
+    calls.open.mockRejectedValue(new ApiError(409, "A refund case is already open for this invoice"));
+    calls.list.mockResolvedValue(page([{ ...opened, reason: report }]));
+    await expect(openRefundOnce(invoiceId, report)).resolves.toEqual({ refund: { ...opened, reason: report }, alreadyOpen: false });
+    expect(calls.log).toEqual(["POST refunds", "GET refunds/me"]);
+  });
+
   it("gives back the POST's own error when no open request exists", async () => {
     const refused = new ApiError(409, "already resolved");
     calls.open.mockRejectedValue(refused);
@@ -144,12 +152,13 @@ describe("cancelThenRefund", () => {
   });
 
   it("hands up a request another tab opened first, flagged, after this page's own cancel stood", async () => {
+    const other = { ...opened, id: "other-tab", reason: "ที่ปรึกษาหรือทีมงานยกเลิก · คืนเต็มจำนวน ฿1,000" };
     calls.cancel.mockResolvedValue({ ...booked, state: "CANCELLED" });
     calls.open.mockRejectedValue(new ApiError(409, "already open"));
-    calls.list.mockResolvedValue(page([opened]));
+    calls.list.mockResolvedValue(page([other]));
     await expect(cancelThenRefund(bookingId, invoiceId, reason)).resolves.toEqual({
       kind: "opened",
-      refund: opened,
+      refund: other,
       alreadyOpen: true,
     });
   });

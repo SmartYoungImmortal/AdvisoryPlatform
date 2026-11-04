@@ -19,6 +19,8 @@ const reads = vi.hoisted(() => ({
   cases: [] as readonly ApiRefundCase[] | undefined,
   /** The invoice read failed (a 500, or no answer). */
   invoiceError: null as Error | null,
+  /** The refund requests' read failed (a 403 for an account without the refund permission). */
+  casesError: null as Error | null,
   reloads: [] as string[],
 }));
 vi.mock("@/lib/api/use-resource", async (importOriginal) => ({
@@ -27,7 +29,7 @@ vi.mock("@/lib/api/use-resource", async (importOriginal) => ({
     let data: unknown;
     let error: Error | null = null;
     if (key.startsWith("payment/invoices/for-booking/")) [data, error] = [reads.invoice, reads.invoiceError];
-    else if (key.startsWith("refunds/me")) data = reads.cases;
+    else if (key.startsWith("refunds/me")) [data, error] = [reads.casesError ? undefined : reads.cases, reads.casesError];
     return { data, loading: data === undefined && error === null, error, reload: () => reads.reloads.push(key) };
   },
 }));
@@ -142,6 +144,7 @@ afterEach(() => {
   reads.invoice = undefined;
   reads.cases = [];
   reads.invoiceError = null;
+  reads.casesError = null;
   reads.reloads.length = 0;
 });
 
@@ -158,11 +161,13 @@ describe("the booking popup's one way out (FE #114)", () => {
     expect(capsules("ยกเลิกการจอง")).toHaveLength(0);
     expect(said(container)).toMatch(/ยกเลิกได้ คืนเต็มจำนวน ถึง \S+ 6 พ\.ย\. 2569 · 16:00/);
     expect(said(container)).not.toContain("คำขอคืนเงิน / สถานะ");
-    // A paid booking's move is withheld, and the card says why where the move would be: the API
-    // would read the moved original as owed its refund, and no staff route can move it instead.
+    // A paid booking's move is withheld (the API would read the moved original as owed its refund),
+    // and where the move would be the card gives the way to another time, by the same deadline.
     expect(capsules("เปลี่ยนเวลานัด")).toHaveLength(0);
     expect(capsules("ขอเปลี่ยนเวลานัด")).toHaveLength(0);
-    expect(said(container)).toContain("การจองที่ชำระแล้วยังเปลี่ยนเวลาเองไม่ได้ เพราะระบบยังย้ายยอดที่ชำระไปเวลาใหม่ไม่ได้");
+    const plain = said(container).replaceAll("⁠", "");
+    expect(plain).toMatch(/ต้องการเวลาอื่น ยกเลิกรับเงินคืนเต็มจำนวนได้ถึง \S+ 6 พ\.ย\. 2569 · 16:00 แล้วจองเวลาใหม่/);
+    expect(plain).not.toContain("ระบบ");
   });
 
   it("judges the 24-hour line by when the popup opens, not by when the list behind it was loaded", () => {
@@ -317,21 +322,73 @@ describe("the booking popup's one way out (FE #114)", () => {
     reads.invoiceError = new ApiError(401, "Unauthorized");
     const { container } = show(bookingAt(THREE_DAYS_OUT));
 
-    expect(said(container)).toContain("เซสชันหมดอายุ จึงโหลดยอดที่ชำระไม่ได้");
+    expect(said(container)).toContain(messages.bookings.moneyRead.invoice.signIn);
     expect(screen.queryByRole("button", { name: "ลองอีกครั้ง" })).toBeNull();
     const signIn = screen.getByRole("button", { name: "เข้าสู่ระบบอีกครั้ง" });
     expect(signIn.getAttribute("href")).toBe(`/login?next=${encodeURIComponent(`/bookings?bookingId=${BOOKING_ID}`)}`);
   });
 
-  it("sends a refused money read to support, with the booking in the subject, and offers no retry", () => {
-    reads.invoiceError = new ApiError(403, "Forbidden");
+  it.each([
+    [400, messages.bookings.moneyRead.invoice.refused],
+    [403, messages.bookings.moneyRead.invoice.forbidden],
+  ])("sends a refused (%i) money read to support, with the booking in the subject, and offers no retry", (status, words) => {
+    reads.invoiceError = new ApiError(status, "Refused");
     const service = { id: "service", priceSatang: 140_000, name: "Service" } as ApiPublicService;
     const { container } = show(bookingAt(THREE_DAYS_OUT), service);
 
-    expect(said(container)).toContain("ระบบไม่ให้โหลดยอดที่ชำระของการจองนี้");
+    expect(said(container)).toContain(words);
     expect(screen.queryByRole("button", { name: "ลองอีกครั้ง" })).toBeNull();
     const support = screen.getByRole("button", { name: "ติดต่อฝ่ายช่วยเหลือ" });
     expect(decodeURIComponent(support.getAttribute("href") ?? "")).toMatch(/^mailto:[^?]+\?subject=สอบถามการจอง Service วันที่ 7 พ\.ย\. 2569$/);
+  });
+
+  it("names the refund requests, not what was paid, when only they are refused, as for an account without the refund permission", () => {
+    const booking = bookingAt(THREE_DAYS_OUT);
+    reads.invoice = paidFor(booking, { amountSatang: 80_000 });
+    reads.casesError = new ApiError(403, "Forbidden");
+    const { container } = show(booking);
+
+    expect(said(container)).toContain("ชำระแล้ว ฿800");
+    expect(said(container)).toContain(messages.bookings.moneyRead.requests.forbidden);
+    expect(said(container)).not.toContain("ยอดที่ชำระของการจองนี้");
+    expect(screen.getByRole("button", { name: "ติดต่อฝ่ายช่วยเหลือ" })).toBeTruthy();
+    for (const exit of ["ยกเลิกการจอง", "ยกเลิกและรับเงินคืน", "เปลี่ยนเวลานัด"]) expect(capsules(exit)).toHaveLength(0);
+  });
+
+  it("offers a retry when the refund requests fail to load, naming them", () => {
+    const booking = bookingAt(THREE_DAYS_OUT);
+    reads.invoice = paidFor(booking);
+    reads.casesError = new ApiError(503, "down");
+    const { container } = show(booking);
+
+    expect(said(container)).toContain(messages.bookings.moneyRead.requests.retry);
+    fireEvent.click(screen.getByRole("button", { name: "ลองอีกครั้ง" }));
+    expect(reads.reloads.some((key) => key.startsWith("refunds/me"))).toBe(true);
+  });
+
+  it.each(["pending", "failed"] as const)(
+    "sends a confirmed booking whose receipt reads %s to support: no plain cancel, no move, no unpaid receipt",
+    (status) => {
+      const booking = bookingAt(THREE_DAYS_OUT);
+      reads.invoice = paidFor(booking, { status });
+      const { container } = show(booking);
+
+      expect(said(container)).toContain(messages.bookings.paidUnshown);
+      expect(screen.queryByRole("link", { name: "ดูใบเสร็จ" })).toBeNull();
+      for (const exit of ["ยกเลิกการจอง", "ยกเลิกและรับเงินคืน", "เปลี่ยนเวลานัด"]) expect(capsules(exit)).toHaveLength(0);
+      expect(toRefundPage(container)).toHaveLength(0);
+    },
+  );
+
+  it("gives a held slot whose receipt already reads paid the cancel with its refund, not the plain cancel or the move", () => {
+    const booking = bookingAt(THREE_DAYS_OUT, { state: "PENDING_PAYMENT" });
+    reads.invoice = paidFor(booking);
+    const { container } = show(booking);
+
+    expect(capsules("ยกเลิกและรับเงินคืน")).toHaveLength(1);
+    expect(capsules("ยกเลิกการจอง")).toHaveLength(0);
+    expect(capsules("เปลี่ยนเวลานัด")).toHaveLength(0);
+    expect(said(container)).toContain("ชำระแล้ว ฿1,000");
   });
 
   it("shows no list price on a cancelled booking with no receipt of its own, which would pass for what was paid", () => {
@@ -411,23 +468,26 @@ describe("the booking popup's one way out (FE #114)", () => {
     expect(said(container)).not.toMatch(/คืน/);
   });
 
-  it("says what came back on a refunded invoice, with no way out", () => {
+  it("says what was paid, then what came back, on a part refund, with no way out", () => {
     const booking = bookingAt(YESTERDAY, { state: "COMPLETED" });
-    reads.invoice = paidFor(booking, { status: "refunded", refundSatang: 40_000 });
+    reads.invoice = paidFor(booking, { status: "refunded", amountSatang: 80_000, refundSatang: 40_000 });
     const { container } = show(booking);
 
+    expect(said(container)).toContain("ชำระแล้ว ฿800");
     expect(said(container)).toContain("คืนเงินแล้ว ฿400");
+    expect(said(container).match(/คืนเงินแล้ว/g)).toHaveLength(1);
     expect(toRefundPage(container)).toHaveLength(0);
     expect(capsules("ขอคืนเงิน")).toHaveLength(0);
   });
 
-  it("does not say a whole refund twice: the payment line already reads refunded with the charge", () => {
+  it("calls only the refund refunded, once, on a whole refund", () => {
     const booking = bookingAt(YESTERDAY, { state: "COMPLETED" });
     reads.invoice = paidFor(booking, { status: "refunded", refundSatang: 100_000 });
     const { container } = show(booking);
 
+    expect(said(container)).toContain("ชำระแล้ว ฿1,000");
     expect(said(container).match(/คืนเงินแล้ว/g)).toHaveLength(1);
-    expect(said(container)).toContain("฿1,000");
+    expect(said(container)).toContain("คืนเงินแล้ว ฿1,000");
   });
 
   it.each([

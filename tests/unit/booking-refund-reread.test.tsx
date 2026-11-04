@@ -137,7 +137,7 @@ describe("the refund page over the real cache", () => {
     await settle();
 
     expect(screen.queryByRole("button", { name: "รับเงินคืน ฿1,000" })).toBeNull();
-    expect(screen.getByText(th.bookingRefund.states.moneyFailed)).toBeTruthy();
+    expect(screen.getByText(th.bookingRefund.states.requestsFailed)).toBeTruthy();
     expect(screen.getByRole("button", { name: th.bookingRefund.actions.retry })).toBeTruthy();
   });
 
@@ -153,6 +153,32 @@ describe("the refund page over the real cache", () => {
 
     expect(screen.queryByRole("button", { name: "รับเงินคืน ฿1,000" })).toBeNull();
     expect(screen.getByRole("status").textContent).toBe(th.bookingRefund.busy.loading);
+  });
+
+  it("reads the booking again when it opens on a cached one, which another tab may have cancelled and claimed since", async () => {
+    const soon = {
+      ...booked,
+      startTime: new Date(NOW + 5 * HOUR).toISOString(),
+      endTime: new Date(NOW + 6 * HOUR).toISOString(),
+      unavailableUntil: new Date(NOW + 6 * HOUR).toISOString(),
+    };
+    http.getBooking.mockResolvedValue(soon);
+    http.getMyBookingInvoice.mockResolvedValue({ ...invoice, session: { startTime: soon.startTime, endTime: soon.endTime } });
+    http.listMyRefundCases.mockResolvedValue(page([]));
+    const first = show();
+    await settle();
+    expect(screen.getByRole("heading", { level: 1 }).textContent).toBe(th.bookingRefund.head.cancelHalf);
+    first.unmount();
+
+    http.getBooking.mockResolvedValue({ ...soon, state: "CANCELLED", cancelledByUserId: "advisee", cancelledAt: new Date(NOW).toISOString() });
+    http.listMyRefundCases.mockResolvedValue(page([opened]));
+    show();
+    await settle();
+
+    expect(http.getBooking).toHaveBeenCalledTimes(2);
+    expect(screen.getByRole("heading", { level: 1 }).textContent).toBe(th.bookingRefund.stage.requested);
+    expect(document.body.textContent).toContain("฿400");
+    expect(document.body.textContent).not.toContain(th.bookingRefund.stage.reviewing);
   });
 
   it("shows the full-page failure only when the booking never answered", async () => {

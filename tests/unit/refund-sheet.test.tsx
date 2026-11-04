@@ -150,8 +150,8 @@ function Sheet({ card = invoice.card }: { readonly card?: ApiAdviseeInvoice["car
         <RefundSection heading={t("box.heading")}>
           <RefundBox
             lines={[
-              { label: t("box.service"), value: when.baht(40_000) },
-              { label: t("box.fee"), value: when.baht(0) },
+              { label: t("box.service", { amount: when.baht(invoice.priceSatang) }), value: when.baht(40_000) },
+              { label: t("box.fee", { amount: when.baht(invoice.platformFeeSatang) }), value: when.baht(0) },
             ]}
             total={{ label: t("box.total"), value: when.baht(40_000) }}
           />
@@ -339,13 +339,13 @@ describe("RefundCard", () => {
 });
 
 describe("RefundRow", () => {
-  it("marks the row in force as current, with the now pill after its title and before its line", () => {
+  it("marks the row in force as current, with the now pill after its line, not its title", () => {
     inLocale("th", <Sheet />);
     const policy = screen.getByRole("heading", { level: 2, name: "เงื่อนไขการยกเลิก" }).closest("section")!;
     const rows = within(policy).getAllByRole("listitem");
     expect(rows).toHaveLength(3);
     expect(rows[0].getAttribute("aria-current")).toBe("true");
-    expect(rows[0].textContent?.replaceAll("\u{a0}", " ")).toMatch(/^ถึง \S+ 10 พ\.ย\. 2569 · 10:30ตอนนี้คืนเต็มจำนวน$/);
+    expect(rows[0].textContent?.replaceAll("\u{a0}", " ")).toMatch(/^ถึง \S+ 10 พ\.ย\. 2569 · 10:30คืนเต็มจำนวนตอนนี้$/);
     for (const row of rows.slice(1)) {
       expect(row.getAttribute("aria-current")).toBeNull();
       expect(within(row).queryByText("ตอนนี้")).toBeNull();
@@ -360,8 +360,8 @@ describe("RefundBox", () => {
     inLocale("th", <Sheet />);
     const box = screen.getByText("รวมได้คืน").closest("dl")!;
     expect(readFacts(box)).toEqual({
-      "ค่าบริการ · คืน 50%": "฿400",
-      "ค่าบริการแพลตฟอร์ม · ไม่คืน": "฿0",
+      "ค่าบริการ ฿800 · คืน 50%": "฿400",
+      "ค่าบริการแพลตฟอร์ม ฿200 · ไม่คืน": "฿0",
       "รวมได้คืน": "฿400",
     });
     expect(within(box).getAllByRole("term").at(-1)?.textContent).toBe("รวมได้คืน");
@@ -390,6 +390,18 @@ describe("RefundActions", () => {
     expect(screen.getByRole("button", { name: "ปุ่ม" })).toBeTruthy();
     expect(screen.queryByRole("link")).toBeNull();
     expect(screen.queryByText(/มีคำถามเกี่ยวกับการจองนี้/)).toBeNull();
+  });
+
+  it("draws no button group when every child is empty, so the help line is all it holds", () => {
+    const { container } = inLocale(
+      "th",
+      <RefundActions invoiceNumber={invoice.invoiceNumber}>
+        {null}
+        {false}
+      </RefundActions>,
+    );
+    const help = screen.getByRole("link", { name: "ติดต่อฝ่ายช่วยเหลือ" }).closest("p");
+    expect([...(container.firstElementChild?.children ?? [])]).toEqual([help]);
   });
 });
 

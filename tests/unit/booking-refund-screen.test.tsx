@@ -142,7 +142,10 @@ afterEach(() => {
 
 const words = { th: th.bookingRefund, en: en.bookingRefund };
 
-/** The way back is the column's own link (the phone's top bar, the desktop's link above the card), never a pill too. */
+/**
+ * The way back is the column's own link (the phone's top bar, the desktop's link above the card), never a pill too;
+ * in cancel mode the desktop's link gives way to the page's own "keep the booking", which goes to the same place.
+ */
 function onlyTheTopBack(locale: "th" | "en") {
   const labels = [words[locale].actions.back, words[locale].actions.toBookings];
   const named = (role: "button" | "link") => labels.flatMap((name) => screen.queryAllByRole(role, { name }));
@@ -150,7 +153,9 @@ function onlyTheTopBack(locale: "th" | "en") {
   const [topBar, rest] = [named("button").filter((node) => node.textContent === ""), named("button").filter((node) => node.textContent !== "")];
   expect(rest).toEqual([]);
   expect(topBar).toHaveLength(1);
-  expect(named("link")).toHaveLength(1);
+  const keep = screen.queryAllByRole("button", { name: words[locale].actions.keep });
+  expect(named("link").length + keep.length).toBe(1);
+  for (const node of keep) expect(node.getAttribute("href")).toBe(`/bookings?bookingId=${id}`);
 }
 type Case = { readonly name: string; readonly arrange: () => void; readonly heading: (w: typeof th.bookingRefund) => string };
 
@@ -241,12 +246,27 @@ describe("a failure says what helps next", () => {
     expect(decodeURIComponent(support.getAttribute("href") ?? "")).toMatch(new RegExp(`^mailto:[^?]+\\?subject=สอบถามการจอง ${id}$`));
   });
 
-  it("sends a refused money read to support, not to a retry that would be refused again", () => {
-    answer(bookingAt(3 * DAY), { error: new ApiError(403, "Forbidden") });
+  it.each([
+    [400, th.bookingRefund.states.moneyRefusedBody],
+    [403, th.bookingRefund.states.moneyForbiddenBody],
+  ])("sends a refused (%i) money read to support, not to a retry that would be refused again", (status, body) => {
+    answer(bookingAt(3 * DAY), { error: new ApiError(status, "Refused") });
     show("th");
     expect(screen.getByText(th.bookingRefund.states.moneyFailed)).toBeTruthy();
-    expect(screen.getByText(th.bookingRefund.states.moneyRefusedBody)).toBeTruthy();
+    expect(screen.getByText(body)).toBeTruthy();
     expect(screen.queryByRole("button", { name: th.bookingRefund.actions.retry })).toBeNull();
+    expect(screen.getByRole("button", { name: th.transactions.contactSupport }).getAttribute("href")).toMatch(/^mailto:/);
+  });
+
+  it("names the refund requests as the read that failed, and a 403 as this account's, when only they are refused", () => {
+    const b = bookingAt(3 * DAY);
+    answer(b, invoiceFor(b));
+    api.answers.set("refunds/me", { error: new ApiError(403, "Forbidden") });
+    show("th");
+    expect(screen.getByText(th.bookingRefund.states.requestsFailed)).toBeTruthy();
+    expect(screen.getByText(th.bookingRefund.states.requestsForbiddenBody)).toBeTruthy();
+    expect(screen.queryByText(th.bookingRefund.states.moneyFailed)).toBeNull();
+    expect(screen.queryAllByRole("button").filter((node) => /฿|ยกเลิก/.test(node.textContent ?? ""))).toEqual([]);
     expect(screen.getByRole("button", { name: th.transactions.contactSupport }).getAttribute("href")).toMatch(/^mailto:/);
   });
 
@@ -263,6 +283,8 @@ describe("a failure says what helps next", () => {
     show("th");
     expect(screen.getByText(th.bookingRefund.states.moneyFailed)).toBeTruthy();
     expect(screen.queryByText(th.bookingRefund.states.loadFailed)).toBeNull();
+    // The booking's own read again on a cached mount is not the retry's.
+    api.reloads.length = 0;
     await act(async () => screen.getByRole("button", { name: th.bookingRefund.actions.retry }).click());
     expect(api.reloads).toContain(`payment/invoices/for-booking/${id}`);
     expect(api.reloads).not.toContain(`bookings/${id}`);
@@ -467,17 +489,52 @@ describe("what the page files after its own press", () => {
 });
 
 describe("nothing to refund says why", () => {
-  it("says a rescheduled booking's payment moved with it, and only for a real reschedule", () => {
+  const support = () => screen.queryByRole("button", { name: th.transactions.contactSupport });
+
+  it("says a booking moved to a new time without claiming its payment moved, and offers support", () => {
     const b = cancelledBy("advisee", 3 * DAY, DAY);
     answer(b, invoiceFor(b, { session: { startTime: new Date(NOW + 9 * DAY).toISOString(), endTime: new Date(NOW + 9 * DAY + HOUR).toISOString() } }));
     show("th");
     expect(screen.getByText(th.bookingRefund.states.nothingRescheduled)).toBeTruthy();
-    cleanup();
+    expect(document.body.textContent).not.toContain("ย้ายไปอยู่กับนัดใหม่");
+    expect(support()?.getAttribute("href")).toMatch(/^mailto:/);
+  });
 
+  it.each([
+    ["no receipt", null],
+    ["a failed receipt", "failed"],
+  ] as const)("says a cancelled booking with %s found no payment, never that it was unpaid, and offers support", (_, receipt) => {
+    const b = cancelledBy("advisee", 3 * DAY, DAY);
+    answer(b, receipt === null ? null : invoiceFor(b, { status: receipt }));
+    show("th");
+    expect(screen.getByText(th.bookingRefund.states.nothingNoReceipt)).toBeTruthy();
+    expect(screen.queryByText(th.bookingRefund.states.nothingUnpaid)).toBeNull();
+    expect(support()?.getAttribute("href")).toMatch(/^mailto:/);
+  });
+
+  it("says a held slot was not paid, with nothing to contact anyone about", () => {
     answer(bookingAt(3 * DAY, { state: "PENDING_PAYMENT" }), null);
     show("th");
     expect(screen.getByText(th.bookingRefund.states.nothingUnpaid)).toBeTruthy();
     expect(screen.queryByText(th.bookingRefund.states.nothingRescheduled)).toBeNull();
+    expect(support()).toBeNull();
+  });
+
+  it("opens a held slot whose receipt already reads paid on its cancel with the refund, not on nothing to refund", () => {
+    const b = bookingAt(3 * DAY, { state: "PENDING_PAYMENT" });
+    answer(b, invoiceFor(b));
+    show("th");
+    expect(screen.getByRole("heading", { level: 1 }).textContent).toBe(th.bookingRefund.head.cancelFull);
+  });
+
+  it("sends a confirmed booking whose receipt reads failed to support, saying the receipt shown is not the one paid", () => {
+    const b = bookingAt(3 * DAY);
+    answer(b, invoiceFor(b, { status: "failed" }));
+    show("th");
+    expect(screen.getByText(th.bookingRefund.states.paidUnshownTitle)).toBeTruthy();
+    expect(screen.getByText(th.bookingRefund.states.paidUnshownBody)).toBeTruthy();
+    expect(screen.queryAllByRole("button").filter((node) => /฿|ยกเลิก/.test(node.textContent ?? ""))).toEqual([]);
+    expect(support()?.getAttribute("href")).toMatch(/^mailto:/);
   });
 });
 
@@ -496,12 +553,20 @@ describe("while the money loads", () => {
   });
 
   it("goes back to the booking's popup, never to a breadcrumb trail", () => {
-    const b = bookingAt(3 * DAY);
+    const b = bookingAt(-2 * DAY);
     answer(b, invoiceFor(b));
     show("th");
     const backs = screen.getAllByRole("link", { name: new RegExp(th.bookingRefund.actions.back) });
     expect(backs.length).toBeGreaterThan(0);
     for (const link of backs) expect(link.getAttribute("href")).toBe(`/bookings?bookingId=${id}`);
+  });
+
+  it("in cancel mode leaves the way back to its own keep-the-booking pill, with no second link above the card", () => {
+    const b = bookingAt(3 * DAY);
+    answer(b, invoiceFor(b));
+    show("th");
+    expect(screen.queryAllByRole("link", { name: new RegExp(th.bookingRefund.actions.back) })).toEqual([]);
+    expect(screen.getByRole("button", { name: th.bookingRefund.actions.keep }).getAttribute("href")).toBe(`/bookings?bookingId=${id}`);
   });
 });
 

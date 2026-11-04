@@ -318,11 +318,31 @@ describe("CancelRefundMode, inside 24 hours", () => {
     expect(screen.getByRole("heading", { level: 1 }).textContent).toBe("ยกเลิกการจอง · คืน 50% ของค่าบริการ");
     expect(screen.getAllByText("฿400").find((node) => node.tagName === "P")).toBeTruthy();
     expect(readBox()).toEqual({
-      "ค่าบริการ · คืน 50%": "฿400",
-      "ค่าบริการแพลตฟอร์ม · ไม่คืน": "฿0",
+      "ค่าบริการ ฿800 · คืน 50%": "฿400",
+      "ค่าบริการแพลตฟอร์ม ฿200 · ไม่คืน": "฿0",
       "รวมได้คืน": "฿400",
     });
     expect(screen.getByRole("button", { name: "ยกเลิกและรับเงินคืน ฿400" })).toBeTruthy();
+  });
+
+  it("names what each line of the box is taken from, so the paid ฿800 leads to the ฿320 back", () => {
+    inLocale("th", (
+      <CancelRefundMode
+        booking={booking}
+        exit={{ ...halfCancel, refundSatang: 32_000 }}
+        invoice={{ ...invoice, amountSatang: 80_000, priceSatang: 64_000, platformFeeSatang: 16_000 }}
+        onCancelledOnly={vi.fn()}
+        onNotice={vi.fn()}
+        onOpened={vi.fn()}
+        reread={vi.fn()}
+        stillOffered={() => true}
+      />
+    ));
+    expect(readBox()).toEqual({
+      "ค่าบริการ ฿640 · คืน 50%": "฿320",
+      "ค่าบริการแพลตฟอร์ม ฿160 · ไม่คืน": "฿0",
+      "รวมได้คืน": "฿320",
+    });
   });
 
   it("marks the second row of the policy as now", () => {
@@ -449,6 +469,21 @@ describe("CancelRefundMode, pressing confirm", () => {
     expect(actions.cancelThenRefund).toHaveBeenCalledTimes(1);
   });
 
+  it("after an answer that may hide a cancel, sends nothing on a press that lands before the check replaces the button", async () => {
+    const run = pending<CancelRefundResult>();
+    actions.cancelThenRefund.mockReturnValue(run.promise);
+    renderCancel();
+    const button = confirmButton();
+    await act(async () => {
+      button.click();
+      run.resolve({ kind: "notCancelled", outcome: "uncertain" });
+      await run.promise;
+      button.click();
+    });
+    expect(actions.cancelThenRefund).toHaveBeenCalledTimes(1);
+    expect(screen.getByRole("button", { name: "ตรวจสอบสถานะ" })).toBeTruthy();
+  });
+
   it("after the session expired, sends nothing more and offers to sign in and come back", async () => {
     const { onReread } = await refuse("signIn");
     expect(screen.getByRole("alert").textContent).toBe("เซสชันหมดอายุ กรุณาเข้าสู่ระบบอีกครั้งเพื่อตรวจสอบการจอง");
@@ -485,31 +520,62 @@ describe("ClaimMode", () => {
     expect(onOpened).toHaveBeenCalledExactlyOnceWith(fresh);
   });
 
-  it("previews what happens: cancelled at its time, the team confirms, then the refund, with no word that money moves yet", () => {
+  it("previews what happens: cancelled at its time, the request this press sends as the step now, the team confirms, then the refund, with no word that money moves yet", () => {
     renderClaim();
     const rows = rowsUnder("ความคืบหน้า");
     expect(document.body.textContent).not.toContain("กำลังคืน");
     expect(rows.map((row) => row.textContent)).toEqual([
       "ยกเลิกการจองแล้ว4 พ.ย. 2569 · 20:56",
+      "ส่งเรื่องคืนเงินกดปุ่มด้านล่าง",
       "ทีมงานยืนยันการคืนเงินภายใน 14 วันทำการ",
       "คืนเงิน ฿1,000 เข้า Visa •••• 1111เมื่อทีมงานยืนยัน",
     ]);
+    expect(rows.map((row) => row.getAttribute("aria-current"))).toEqual([null, "true", null, null]);
     expect(rows[0].closest("ol")).toBeTruthy();
+  });
+
+  it("says above the claim that the request reaches the team only on the press, then what follows", () => {
+    renderClaim();
+    const said = line(
+      "เรื่องคืนเงินส่งถึงทีมงานเมื่อคุณกดปุ่มด้านล่างเท่านั้น จากนั้นทีมงานยืนยันภายใน 14 วันทำการ แล้วคืนเข้า Visa\u{a0}••••\u{a0}1111",
+    );
+    const claim = screen.getByRole("button", { name: "รับเงินคืน ฿1,000" });
+    expect(said.compareDocumentPosition(claim) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+
+  it("names the original payment method above the claim when the receipt has no card", () => {
+    renderClaim({ bill: { ...invoice, card: null } });
+    expect(
+      line(
+        "เรื่องคืนเงินส่งถึงทีมงานเมื่อคุณกดปุ่มด้านล่างเท่านั้น จากนั้นทีมงานยืนยันภายใน 14 วันทำการ แล้วคืนเข้าช่องทางที่ชำระ",
+      ),
+    ).toBeTruthy();
+  });
+
+  it.each([
+    ["refused", "ติดต่อฝ่ายช่วยเหลือ"],
+    ["notFound", "ติดต่อฝ่ายช่วยเหลือ"],
+    ["signIn", "เข้าสู่ระบบอีกครั้ง"],
+  ] as const)("says nothing of a button below once %s puts another in the claim's place, in the line or in the step", (failed, way) => {
+    renderClaim({ failed });
+    expect(screen.getByRole("button", { name: way })).toBeTruthy();
+    expect(document.body.textContent).not.toContain("กดปุ่มด้านล่าง");
+    expect(rowsUnder("ความคืบหน้า")[1].textContent).toBe("ส่งเรื่องคืนเงิน");
   });
 
   it("claims half the service fee from the advisee's own late cancellation", async () => {
     actions.openRefundOnce.mockResolvedValue(fresh);
     renderClaim({ of: adviseeLate, exit: claimHalf, bill: { ...invoice, card: null } });
-    // "เวลา" and "เริ่ม" are held by a word joiner, so the start time never breaks across lines.
+    // "ก่อน", "เวลา" and "เริ่ม" are held by word joiners, so the start time never breaks across lines.
     expect(
-      line("คุณยกเลิกเมื่อ 11 พ.ย. 2569 · 05:30 ภายใน 24 ชั่วโมงก่อนเวลา⁠เริ่ม จึงได้คืน 50% ของค่าบริการ"),
+      line("คุณยกเลิกเมื่อ 11 พ.ย. 2569 · 05:30 ภายใน 24 ชั่วโมงก่อน\u{2060}เวลา\u{2060}เริ่ม จึงได้คืน 50% ของค่าบริการ"),
     ).toBeTruthy();
     expect(readBox()).toEqual({
-      "ค่าบริการ · คืน 50%": "฿400",
-      "ค่าบริการแพลตฟอร์ม · ไม่คืน": "฿0",
+      "ค่าบริการ ฿800 · คืน 50%": "฿400",
+      "ค่าบริการแพลตฟอร์ม ฿200 · ไม่คืน": "฿0",
       "รวมได้คืน": "฿400",
     });
-    expect(rowsUnder("ความคืบหน้า")[2].textContent).toContain("คืนเงิน ฿400 เข้าช่องทางที่ชำระ");
+    expect(rowsUnder("ความคืบหน้า").at(-1)?.textContent).toContain("คืนเงิน ฿400 เข้าช่องทางที่ชำระ");
 
     await act(async () => screen.getByRole("button", { name: "รับเงินคืน ฿400" }).click());
     expect(actions.openRefundOnce).toHaveBeenCalledWith(
@@ -523,7 +589,9 @@ describe("ClaimMode", () => {
       of: { ...adviseeLate, cancelledAt: "2026-11-04T13:56:00.000Z" },
       exit: { ...claimFull, by: "advisee" },
     });
-    expect(line("คุณยกเลิกเมื่อ 4 พ.ย. 2569 · 20:56 ก่อนเวลา⁠เริ่ม 24 ชั่วโมงขึ้นไป จึงได้คืนเต็มจำนวน")).toBeTruthy();
+    expect(
+      line("คุณยกเลิกเมื่อ 4 พ.ย. 2569 · 20:56 ก่อน\u{2060}เวลา\u{2060}เริ่ม 24 ชั่วโมง\u{2060}ขึ้น\u{2060}ไป จึงได้คืนเต็มจำนวน"),
+    ).toBeTruthy();
   });
 
   it("shows the page's notice as an alert", () => {

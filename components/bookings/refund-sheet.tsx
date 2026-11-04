@@ -2,7 +2,7 @@
 
 import { CreditCard, type LucideIcon } from "lucide-react";
 import { useFormatter, useTranslations } from "next-intl";
-import { createContext, Fragment, useContext, type ReactNode } from "react";
+import { Children, createContext, Fragment, useContext, type ReactNode } from "react";
 
 import { AUTH_LINK, authPill } from "@/components/auth/auth-split";
 import { baht } from "@/components/bookings/booking-flow";
@@ -273,12 +273,19 @@ export function RefundFacts({
   );
 }
 
+/**
+ * From `lg` the right cell is as tall as the head beside it. Its last section
+ * grows into that height (`RefundSection`) and its box or list spreads down
+ * it, so it ends on the head's last line, at the head's own bottom inset.
+ */
+const CELL_SPREAD = "lg:group-data-[cell=sections]/cell:grow lg:group-data-[cell=sections]/cell:justify-between";
+
 export type RefundBoxLine = { readonly label: string; readonly value: string };
 
 /** The half refund's lines on the receipt's faint ground; it sits in a `RefundSection`, which heads it. */
 export function RefundBox({ lines, total }: { readonly lines: readonly RefundBoxLine[]; readonly total: RefundBoxLine }) {
   return (
-    <dl className="flex flex-col gap-1.5 rounded-xl bg-muted/50 p-2.5 md:gap-2 md:p-3 lg:gap-4 lg:p-5">
+    <dl className={cn("flex flex-col gap-1.5 rounded-xl bg-muted/50 p-2.5 md:gap-2 md:p-3 lg:gap-4 lg:p-5", CELL_SPREAD)}>
       {lines.map((line) => (
         <div className="flex items-baseline justify-between gap-4" key={line.label}>
           <dt className="min-w-0 text-xs text-muted-foreground lg:text-frame-meta">{line.label}</dt>
@@ -315,10 +322,18 @@ export function RefundSection({ heading, children }: { readonly heading: ReactNo
       className={cn(
         REFUND_SECTION,
         "lg:group-data-[cell=sections]/cell:first:border-t-0 lg:group-data-[cell=sections]/cell:first:pt-9",
+        "lg:group-data-[cell=sections]/cell:flex lg:group-data-[cell=sections]/cell:flex-col lg:group-data-[cell=sections]/cell:last:grow lg:group-data-[cell=sections]/cell:last:pb-8",
       )}
     >
       <h2 className={REFUND_HEADING}>{heading}</h2>
-      <div className={REFUND_UNDER_HEADING}>{children}</div>
+      <div
+        className={cn(
+          REFUND_UNDER_HEADING,
+          "lg:group-data-[cell=sections]/cell:flex lg:group-data-[cell=sections]/cell:grow lg:group-data-[cell=sections]/cell:flex-col",
+        )}
+      >
+        {children}
+      </div>
     </section>
   );
 }
@@ -328,15 +343,15 @@ export function RefundSection({ heading, children }: { readonly heading: ReactNo
  * they run left to right as one line of time, each on a column of the head
  * above. A wide head's columns are its four facts, so the list takes their
  * grid. Under a two-cell head the list undoes its section's inset and spans
- * the card in quarters, one cell to each pair. The first two rows then take
- * the left cell's fact columns: the cell's inset outside, its gap split at
- * the quarter. The third takes the right cell's text, past where that cell's
- * rule stands.
+ * the card in quarters, one cell to each pair, for three or four rows. Each
+ * pair of rows takes a cell's two columns: the cell's inset outside, its gap
+ * split at the quarter. The right cell's rows start past where its rule
+ * stands, and a third row that ends the list takes that cell's whole text.
  */
 const LIST_LAYOUT = {
-  cell: "flex flex-col gap-3.5",
+  cell: cn("flex flex-col gap-3.5", CELL_SPREAD),
   split:
-    "flex flex-col gap-3.5 lg:-mx-10 lg:grid lg:grid-cols-4 lg:gap-x-0 lg:gap-y-6 lg:*:nth-[3n+1]:pr-3 lg:*:nth-[3n+1]:pl-10 lg:*:nth-[3n+2]:pr-10 lg:*:nth-[3n+2]:pl-3 lg:*:nth-[3n]:col-span-2 lg:*:nth-[3n]:border-l lg:*:nth-[3n]:border-transparent lg:*:nth-[3n]:px-10",
+    "flex flex-col gap-3.5 lg:-mx-10 lg:grid lg:grid-cols-4 lg:gap-x-0 lg:gap-y-6 lg:*:odd:pl-10 lg:*:not-last:odd:pr-3 lg:*:even:pl-3 lg:*:even:pr-10 lg:*:last:pr-10 lg:*:nth-3:border-l lg:*:nth-3:border-transparent lg:*:nth-3:last:col-span-2",
   wide: "flex flex-col gap-3.5 lg:grid lg:grid-cols-4 lg:gap-6",
 } as const satisfies Record<HeadShape | "cell", string>;
 
@@ -362,22 +377,28 @@ export function RefundRow({
   readonly current?: boolean;
   readonly trailing?: ReactNode;
 }) {
-  // `trailing` follows the title on its line, so in a row that runs the card's whole width it stays with the words it marks.
+  const subLine = sub ? (
+    <p className={cn(REFUND_SHAPE.rowSub, "text-muted-foreground")}>
+      <Figures>{sub}</Figures>
+    </p>
+  ) : null;
+
+  // `trailing` sits on the sub line: after a dated title on a narrow track it would drop under it and grow the row.
   return (
     <li aria-current={current || undefined} className={REFUND_SHAPE.row}>
       <Icon aria-hidden className={cn(REFUND_SHAPE.rowIcon, TONE[tone].icon)} />
       <div className={REFUND_SHAPE.rowText}>
-        <div className={REFUND_SHAPE.rowLine}>
-          <p className={cn(REFUND_SHAPE.rowTitle, current ? "font-medium text-foreground" : "text-muted-foreground")}>
-            <Figures>{title}</Figures>
-          </p>
-          {trailing}
-        </div>
-        {sub ? (
-          <p className={cn(REFUND_SHAPE.rowSub, "text-muted-foreground")}>
-            <Figures>{sub}</Figures>
-          </p>
-        ) : null}
+        <p className={cn(REFUND_SHAPE.rowTitle, current ? "font-medium text-foreground" : "text-muted-foreground")}>
+          <Figures>{title}</Figures>
+        </p>
+        {trailing ? (
+          <div className={REFUND_SHAPE.rowLine}>
+            {subLine}
+            {trailing}
+          </div>
+        ) : (
+          subLine
+        )}
       </div>
     </li>
   );
@@ -413,7 +434,8 @@ export function RefundActions({
 
   return (
     <div className={cn("flex w-full flex-col gap-2.5 md:gap-3 lg:mx-auto lg:gap-4", SHEET_W)}>
-      <div className="flex flex-col gap-2.5">{children}</div>
+      {/* An empty group would still take a gap, pushing the help line off the card's rhythm. */}
+      {Children.toArray(children).length > 0 ? <div className="flex flex-col gap-2.5">{children}</div> : null}
       {help ? (
         <p className="text-center text-xs text-muted-foreground lg:text-frame-label">
           {t("helpPrompt")}{" "}

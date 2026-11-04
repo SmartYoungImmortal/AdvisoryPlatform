@@ -52,6 +52,8 @@ export function DetailColumn({
   const t = useTranslations("bookings");
   const c = useTranslations("common");
   const tr = useTranslations("transactions");
+  // From lg a row above the page (the back link or the breadcrumb) and its gap, unless the page's own button replaces it.
+  const topRow = back?.fromLg !== false;
 
   return (
     // `wide="md"`: a tablet held upright gets the phone layout at its own width.
@@ -62,7 +64,7 @@ export function DetailColumn({
           <AccountShell active="bookings">
             <div className={cn("flex w-full flex-col lg:mx-auto", back ? cn("lg:w-full", FEED_COLUMN) : SHEET_W)}>
               {back ? (
-                back.fromLg === false ? null : (
+                topRow ? (
                   <Link
                     className="hidden w-fit items-center gap-1.5 rounded-md text-frame-meta text-muted-foreground outline-none transition-colors hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/50 lg:inline-flex"
                     href={back.href}
@@ -70,7 +72,7 @@ export function DetailColumn({
                     <ChevronLeft aria-hidden className="size-5" />
                     {back.label}
                   </Link>
-                )
+                ) : null
               ) : (
                 <nav aria-label={tr("breadcrumbLabel")} className="hidden text-frame-meta text-muted-foreground lg:block">
                   <ol className="flex flex-wrap items-center gap-1.5">
@@ -92,7 +94,8 @@ export function DetailColumn({
               )}
               <div
                 className={cn(
-                  "flex w-full flex-col gap-6 pt-2 pb-10 md:mx-auto md:max-w-xl lg:mt-6 lg:max-w-none lg:gap-8 lg:pt-0 lg:pb-0",
+                  "flex w-full flex-col gap-6 pt-2 pb-10 md:mx-auto md:max-w-xl lg:max-w-none lg:gap-8 lg:pt-0 lg:pb-0",
+                  topRow && "lg:mt-6",
                   GUTTER,
                 )}
               >

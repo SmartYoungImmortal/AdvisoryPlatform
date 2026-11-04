@@ -90,9 +90,12 @@ function useSteps(booking: ApiBooking, invoice: ApiAdviseeInvoice, exit: StatusE
   }
 
   const { refund, stage, type } = exit;
-  const first: Step =
-    type === "cancellation" ? cancelled : { mark: "done", title: t("progress.report.sent"), sub: stamp(refund.createdAt) };
-  if (stage === "rejected") return [first, { mark: "rejected", title: t("progress.rejected"), sub: stamp(refund.resolvedAt) }];
+  // A cancellation's request is a step of its own, done at its time, which the claim page shows still to press.
+  const opened: Step[] =
+    type === "cancellation"
+      ? [cancelled, { mark: "done", title: t("progress.cancellation.sent"), sub: stamp(refund.createdAt) }]
+      : [{ mark: "done", title: t("progress.report.sent"), sub: stamp(refund.createdAt) }];
+  if (stage === "rejected") return [...opened, { mark: "rejected", title: t("progress.rejected"), sub: stamp(refund.resolvedAt) }];
 
   // A ruling is shown only when there was one: a refund can reach the invoice while its request is still open.
   let ruling: Step | undefined;
@@ -104,7 +107,7 @@ function useSteps(booking: ApiBooking, invoice: ApiAdviseeInvoice, exit: StatusE
         ? { mark: "current", title: t("progress.cancellation.confirm"), sub: t("progress.cancellation.confirmSub") }
         : { mark: "current", title: t("progress.report.review"), sub: t("progress.report.reviewSub") };
   }
-  return ruling ? [first, ruling, refundStep(stage)] : [first, refundStep(stage)];
+  return ruling ? [...opened, ruling, refundStep(stage)] : [...opened, refundStep(stage)];
 }
 
 function useStatusMeta(invoice: ApiAdviseeInvoice, stage: RefundStage): string {
@@ -160,7 +163,7 @@ export function RefundStatusMode({
   return (
     <>
       {exit.kind === "refunded" || steps.length < STEPS_BESIDE_HEAD ? (
-        // A trail too short to end level beside the head (a refund with no request, a refusal) runs under it.
+        // A trail too short to end level beside the head (a refund with no request, a report's refusal) runs under it.
         <RefundCard foot={progress} head={head} />
       ) : (
         <RefundCard

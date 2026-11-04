@@ -43,7 +43,9 @@ export type RefundCaseType = "cancellation" | "report";
  * - `waiting`: the invoice or the requests are still loading; nothing is offered yet.
  * - `none`: an unpaid booking with nothing left to do (started, or already off).
  * - `rescheduled`: moved to a new time; its payment went with it.
- * - `paidElsewhere`: under way or booked with no receipt of its own, so paid on the booking it replaced; support settles it.
+ * - `paidElsewhere`: confirmed (booked or later) but its receipt here is not a paid one; support settles it.
+ *   `receipt: "missing"` has none, so it was paid on the booking it replaced; `"unpaid"` has one that reads
+ *   pending or failed, though only a paid charge confirms a booking (a declined card paid on a retry).
  * - `cancel`: unpaid and not started; the plain cancel, nothing about money.
  * - `cancelRefund`: paid, booked and not started; cancelling refunds `refundSatang`.
  * - `report`: started, up to `until`; a problem can be reported for at most `maxSatang`.
@@ -56,7 +58,7 @@ export type BookingExit =
   | { readonly kind: "waiting" }
   | { readonly kind: "none" }
   | { readonly kind: "rescheduled" }
-  | { readonly kind: "paidElsewhere" }
+  | { readonly kind: "paidElsewhere"; readonly receipt: "missing" | "unpaid" }
   | { readonly kind: "cancel" }
   | {
       readonly kind: "cancelRefund";
@@ -133,7 +135,7 @@ export function signInHref(next: string): string {
   return `/login?next=${encodeURIComponent(next)}`;
 }
 
-function isPaid(invoice: ApiAdviseeInvoice | null): invoice is ApiAdviseeInvoice {
+function isPaid(invoice: ApiAdviseeInvoice | null | undefined): invoice is ApiAdviseeInvoice {
   return invoice?.status === "paid" || invoice?.status === "refunded";
 }
 
@@ -177,12 +179,17 @@ const STARTED: ReadonlySet<ApiBooking["state"]> = new Set(["IN_PROGRESS", "COMPL
  * The one way out of a booking, from /terms §8 and the clock (S = start, E = end):
  *
  * - R10 nothing while the invoice, or a paid invoice's requests, still load.
- * - R1 unpaid (a held slot, or a pending/failed receipt) and before S: the plain cancel. After S, nothing.
- * - A booking past PENDING_PAYMENT with no receipt was paid on the booking it
- *   replaced: on API develop only a paid charge (`confirmPayment`) or a
- *   reschedule's replacement leaves PENDING_PAYMENT, and the replacement gets
- *   no receipt of its own. Its money is on the original, so it offers no
- *   cancel, no move and no price, only support. A cancelled one is "none".
+ * - R1 a held slot (PENDING_PAYMENT) before S: the plain cancel, without
+ *   waiting on the invoice. After S, nothing. A receipt already read as paid
+ *   outranks the hold: API develop settles the charge before it confirms the
+ *   booking (`settleCharge`, then `confirmPayment`), and a list cached in
+ *   another tab can still say held, so a paid one follows the paid rules.
+ * - A booking past PENDING_PAYMENT without a paid receipt was paid somewhere
+ *   this page cannot see: on API develop only a paid charge or a reschedule's
+ *   replacement leaves PENDING_PAYMENT. The replacement gets no receipt of its
+ *   own, and `findForBooking` can hand back an earlier failed charge of a
+ *   booking paid on a retry. So it offers no cancel, no move and no price,
+ *   only support. A cancelled one is "none".
  * - R7 cancelled and paid with no request: the refund owed, unless it was rescheduled away.
  * - R8 a request exists (open first, else the newest): its status, never a second request.
  * - R9 refunded with no request: the refund on record.
@@ -194,13 +201,13 @@ const STARTED: ReadonlySet<ApiBooking["state"]> = new Set(["IN_PROGRESS", "COMPL
  */
 export function bookingExit({ booking, invoice, cases, now }: BookingExitInput): BookingExit {
   const startsAt = new Date(booking.startTime);
-  // A held slot is unpaid by its own state, so its cancel never waits on (or fails with) the invoice read.
-  if (booking.state === "PENDING_PAYMENT") return now < startsAt.getTime() ? { kind: "cancel" } : { kind: "none" };
+  if (booking.state === "PENDING_PAYMENT" && !isPaid(invoice)) {
+    return now < startsAt.getTime() ? { kind: "cancel" } : { kind: "none" };
+  }
   if (invoice === undefined) return { kind: "waiting" };
-  if (invoice === null && booking.state !== "CANCELLED") return { kind: "paidElsewhere" };
-
   if (!isPaid(invoice)) {
-    return isCancellable(booking.state) && now < startsAt.getTime() ? { kind: "cancel" } : { kind: "none" };
+    if (booking.state === "CANCELLED") return { kind: "none" };
+    return { kind: "paidElsewhere", receipt: invoice === null ? "missing" : "unpaid" };
   }
   if (cases === undefined) return { kind: "waiting" };
   if (rescheduledAway(booking, invoice)) return { kind: "rescheduled" };
@@ -262,13 +269,13 @@ export type RescheduleWay = "slots" | "withheld";
  * original as the advisee and marks it no other way, so the original would
  * read as the advisee's own early cancel, its whole charge owed, while the
  * new session goes ahead; and no staff route can move one for them
- * (docs/review/refund-request.md, API follow-ups). An unpaid booking owes
- * nothing either way, so it moves in place. One paid on the booking it
- * replaced has had its move. Until the invoice is known nothing is said.
+ * (docs/review/refund-request.md, API follow-ups). A held slot owes nothing
+ * either way, so it moves in place, unless its receipt already reads paid.
+ * A confirmed booking without a paid receipt goes to support (`paidElsewhere`),
+ * and one still loading its invoice is offered nothing yet.
  */
 export function rescheduleWay({ booking, invoice, now }: Omit<BookingExitInput, "cases">): RescheduleWay | null {
   if (!isCancellable(booking.state) || now > fullRefundUntil(booking).getTime()) return null;
-  if (booking.state === "PENDING_PAYMENT") return "slots";
-  if (!invoice) return null;
-  return isPaid(invoice) ? "withheld" : "slots";
+  if (isPaid(invoice)) return "withheld";
+  return booking.state === "PENDING_PAYMENT" ? "slots" : null;
 }

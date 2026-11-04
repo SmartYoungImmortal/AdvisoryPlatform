@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import { bookingExit, type BookingExit } from "@/components/bookings/booking-exit";
+import { refundFailure } from "@/components/bookings/refund-actions";
 import { ApiError } from "@/lib/api/client";
 import { getMyBookingInvoice, listMyRefundCases } from "@/lib/api/resources";
 import type { ApiAdviseeInvoice, ApiBooking, ApiRefundCase } from "@/lib/api/types";
@@ -30,13 +31,29 @@ function useLastAnswerTo<T>(key: string, resource: Resource<T>): T | undefined {
   return resource.loading && last?.key === key ? last.data : undefined;
 }
 
+/**
+ * Which read failed, so the words name it: the receipt (what was paid), or
+ * its refund requests, which an account without the refund permission is
+ * refused even when it may read the receipt.
+ */
+export type MoneyReadFailure = { readonly read: "invoice" | "requests"; readonly error: Error };
+
+/** What a failed money read asks of the advisee: press again, sign in, or support, for a refusal of this account or of this booking. */
+export type MoneyReadProblem = "retry" | "signIn" | "forbidden" | "refused";
+
+export function moneyReadProblem(error: Error): MoneyReadProblem {
+  if (error instanceof ApiError && error.status === 403) return "forbidden";
+  const failure = refundFailure(error);
+  return failure === "notFound" ? "refused" : failure;
+}
+
 export type BookingMoney = {
   /** Undefined while it loads or after it failed; null when the booking has no receipt. */
   readonly invoice: ApiAdviseeInvoice | null | undefined;
   /** Undefined while they load or after they failed; empty for an unpaid invoice. */
   readonly cases: readonly ApiRefundCase[] | undefined;
   /** A failed read (a missing receipt is not one). */
-  readonly error: Error | null;
+  readonly failure: MoneyReadFailure | null;
   readonly reload: () => void;
 };
 
@@ -89,12 +106,10 @@ export function useBookingMoney(bookingId: string): BookingMoney {
     reload();
   }, [reload]);
 
-  return {
-    invoice: knownInvoice,
-    cases: paidId ? knownCases : NO_CASES,
-    error: invoice.error ?? (paidId ? cases.error : null),
-    reload,
-  };
+  let failure: MoneyReadFailure | null = null;
+  if (invoice.error) failure = { read: "invoice", error: invoice.error };
+  else if (paidId && cases.error) failure = { read: "requests", error: cases.error };
+  return { invoice: knownInvoice, cases: paidId ? knownCases : NO_CASES, failure, reload };
 }
 
 /** The one way out of this booking, once its money is known (`bookingExit`). */

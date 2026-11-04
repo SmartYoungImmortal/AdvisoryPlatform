@@ -538,12 +538,14 @@
       "now": "Now",
       "termsLink": "Read section 8 of the terms",
       "final": "Cancelling takes effect at once and can't be undone. The refund waits for our team to confirm it within 14 business days, then goes back to {card}.",
-      "finalNoCard": "Cancelling takes effect at once and can't be undone. The refund waits for our team to confirm it within 14 business days, then goes back to your original payment method."
+      "finalNoCard": "Cancelling takes effect at once and can't be undone. The refund waits for our team to confirm it within 14 business days, then goes back to your original payment method.",
+      "claimFinal": "The request reaches our team only when you press the button below. They confirm it within 14 business days, then it goes back to {card}.",
+      "claimFinalNoCard": "The request reaches our team only when you press the button below. They confirm it within 14 business days, then it goes back to your original payment method."
     },
     "box": {
       "heading": "Your refund",
-      "service": "Service fee · 50% back",
-      "fee": "Platform fee · not refunded",
+      "service": "Service fee {amount} · 50% back",
+      "fee": "Platform fee {amount} · not refunded",
       "total": "Total back"
     },
     "reasons": {
@@ -581,6 +583,9 @@
       "heading": "Progress",
       "cancellation": {
         "cancelled": "Booking cancelled",
+        "send": "Send the refund request",
+        "sendSub": "Press the button below",
+        "sent": "Refund request sent",
         "confirm": "Our team confirms the refund",
         "confirmSub": "Within 14 business days"
       },
@@ -597,8 +602,8 @@
       "refundSub": {
         "confirm": "Once our team confirms",
         "approve": "If approved",
-        "pending": "Waiting to be sent back, then on your card issuer's schedule",
-        "done": "Not on your statement yet? Your card issuer may take a few more days"
+        "pending": "Waiting for our team to send it back, then on your card issuer's schedule",
+        "done": "Not on your statement yet? Your card issuer may take a few more days"
       }
     },
     "actions": {
@@ -653,15 +658,22 @@
       "moneyFailedBody": "Nothing has changed. Try loading it again.",
       "loadRefusedBody": "This booking couldn't be opened. Nothing has changed. Contact support and our team will look into it.",
       "moneyRefusedBody": "What was paid for this booking couldn't be opened. Nothing has changed. Contact support and our team will look into it.",
+      "moneyForbiddenBody": "This account can't open what was paid for this booking. Nothing has changed. Contact support about this booking.",
+      "requestsFailed": "Couldn't load the refund requests",
+      "requestsRefusedBody": "This booking's refund requests couldn't be opened. Nothing has changed. Contact support and our team will look into it.",
+      "requestsForbiddenBody": "This account can't view or send refund requests yet. Nothing has changed. Contact support about this booking.",
       "signInTitle": "Your session has expired",
       "signInBody": "Sign in again to see this booking.",
       "paidElsewhereTitle": "Paid on the earlier booking",
       "paidElsewhereBody": "This booking came from a reschedule, so its payment stays with the earlier booking and can't be handled on this page. Contact support about this booking.",
+      "paidUnshownTitle": "What you paid can't be shown here",
+      "paidUnshownBody": "This booking is confirmed, but the receipt on file isn't the one you paid, so its money can't be handled on this page. Contact support about this booking.",
       "closedTitle": "The refund window has closed",
       "closedBody": "Refunds could be requested until {date}, 7 days after the session ended.",
       "nothingTitle": "Nothing to refund",
       "nothingUnpaid": "This booking wasn't paid for.",
-      "nothingRescheduled": "This booking moved to a new time, and its payment moved with it."
+      "nothingNoReceipt": "We found no payment for this booking. If you paid for it, contact support about this booking.",
+      "nothingRescheduled": "This booking was moved to a new time. If you have a question about what you paid, contact support about this booking."
     },
     "supportSubject": {
       "booking": "Question about my booking: {service} on {date} · {id}",
@@ -1004,11 +1016,23 @@
     "detailsFailedTitle": "Unable to load booking",
     "detailsFailedBody": "Please try again.",
     "detailsRetry": "Try again",
-    "moneyFailed": "Couldn't load what was paid or refunded.",
-    "moneySignIn": "Your session has expired, so what was paid couldn't load.",
-    "moneyRefused": "What was paid for this booking couldn't be loaded.",
+    "moneyRead": {
+      "invoice": {
+        "retry": "Couldn't load what was paid or refunded.",
+        "signIn": "Your session has expired, so what was paid couldn't load.",
+        "forbidden": "This account can't open what was paid for this booking.",
+        "refused": "What was paid for this booking couldn't be loaded."
+      },
+      "requests": {
+        "retry": "Couldn't load this booking's refund requests.",
+        "signIn": "Your session has expired, so the refund requests couldn't load.",
+        "forbidden": "This account can't view or send refund requests yet.",
+        "refused": "This booking's refund requests couldn't be loaded."
+      }
+    },
     "paidElsewhere": "Paid on the booking this one replaced. Contact support about this booking.",
-    "rescheduleWithheld": "A paid booking can't be moved here yet, because its payment can't follow it to a new time.",
+    "paidUnshown": "This booking is confirmed, but the receipt on file isn't the one you paid. Contact support about this booking.",
+    "rescheduleWithheld": "Want another time? Cancel for a full refund until {date}, then book a new one.",
     "detailsAdvisorLabel": "Advisor",
     "detailsServiceLabel": "Service",
     "detailsLoadingValue": "Loading…",
@@ -1026,7 +1050,7 @@
     "review": "Leave a review",
     "rebook": "Book again",
     "detailsPriceLabel": "Service price",
-    "stateEnded": "Time has passed",
+    "stateEnded": "Past its booked time",
     "stateLapsed": "Not paid",
     "payNow": "Pay now",
     "calendarLabel": "Booking calendar",
