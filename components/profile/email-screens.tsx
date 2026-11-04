@@ -78,7 +78,7 @@ function ChangeEmailForm({ state = "default" }: { readonly state?: "default" | "
       await requestEmailChange(next, `/settings/email/verify?to=${encodeURIComponent(next)}`);
       router.push(`/settings/email/verify?to=${encodeURIComponent(next)}`);
     } catch (error) {
-      if (error instanceof ApiError && [400, 409].includes(error.status)) {
+      if (error instanceof ApiError && error.status === 409) {
         setProblem("in-use");
       } else {
         setProblem("request-failed");
