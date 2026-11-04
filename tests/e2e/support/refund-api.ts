@@ -20,7 +20,8 @@ export const ids = {
   refund: "2c6b7f9d-8a0e-4b1c-9d4e-5f6071829304",
 } as const;
 
-export const names = { service: "วางแผนภาษีฟรีแลนซ์", advisor: "กัญญา พรหมมา" } as const;
+/** A service name of two lines on a phone's card, as most are. */
+export const names = { service: "ปัญหาลูกจ้างและกฎหมายแรงงาน", advisor: "กัญญา พรหมมา" } as const;
 
 type BookingState = "PENDING_PAYMENT" | "BOOKED" | "IN_PROGRESS" | "COMPLETED" | "CANCELLED" | "NO_SHOW";
 type InvoiceStatus = "paid" | "refunded" | "failed" | "pending";
@@ -46,7 +47,8 @@ export type RefundScenario = {
   readonly cases?: readonly { readonly status: CaseStatus; readonly createdAgo: number }[];
   /** How the API answers a cancel and a new request. `taken`: the advisor cancelled first, so the cancel meets a 409. */
   readonly cancelAnswer?: "ok" | "fail" | "taken";
-  readonly openAnswer?: "ok" | "fail";
+  /** `taken`: another tab opened a request first, so this one meets the API's 409 for an open request. */
+  readonly openAnswer?: "ok" | "fail" | "taken";
   /** Status the booking read answers with, for not-found and error states. */
   readonly bookingStatus?: 200 | 404 | 500;
 };
@@ -191,6 +193,10 @@ export async function mockRefundApi(page: Page, scenario: RefundScenario): Promi
       calls.push("POST /refunds");
       reasons.push(body.reason);
       if (scenario.openAnswer === "fail") return json(route, "Service unavailable", 503);
+      if (scenario.openAnswer === "taken") {
+        cases.unshift({ id: ids.refund, invoiceId: ids.invoice, reason: "ที่ปรึกษาไม่มา หรือยกเลิกกะทันหัน", status: "OPEN", createdAt: iso(NOW - 60_000), resolvedAt: null });
+        return json(route, "A refund case is already open for this invoice", 409);
+      }
       const opened = { id: ids.refund, invoiceId: ids.invoice, reason: body.reason, status: "OPEN" as const, createdAt: iso(NOW), resolvedAt: null };
       cases.unshift(opened);
       return json(route, opened);
