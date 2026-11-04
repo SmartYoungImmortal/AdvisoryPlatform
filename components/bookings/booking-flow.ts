@@ -1,9 +1,10 @@
 "use client";
 
-import { useState, useSyncExternalStore } from "react";
+import { useState } from "react";
 
 import type { ApiBookingState } from "@/lib/api/types";
 import type { StatusTone } from "@/components/mobile/status-pill";
+import { useLocationSearch } from "@/lib/navigation/use-location-search";
 
 /**
  * The parts the booking and payment screens share, in one place.
@@ -34,16 +35,6 @@ import type { StatusTone } from "@/components/mobile/status-pill";
  * point of formatting — which is a screen concern, not a transport one.
  */
 
-function subscribeToLocation(onChange: () => void): () => void {
-  window.addEventListener("popstate", onChange);
-  return () => window.removeEventListener("popstate", onChange);
-}
-
-const readSearch = (): string => window.location.search;
-
-/** Hydration reads this, so the first pass matches the prerendered markup. */
-const noSearch = (): string => "";
-
 /**
  * One query parameter, or null.
  *
@@ -52,8 +43,7 @@ const noSearch = (): string => "";
  * whatever it rendered before the API existed.
  */
 export function useQueryValue(name: string): string | null {
-  const search = useSyncExternalStore(subscribeToLocation, readSearch, noSearch);
-  return new URLSearchParams(search).get(name);
+  return new URLSearchParams(useLocationSearch()).get(name);
 }
 
 /**
