@@ -76,8 +76,9 @@ for (const size of sizes) {
       await expect(popup.getByRole("button", { name: "ขอเปลี่ยนเวลานัด", exact: true })).toHaveCount(0);
       const another = popup.getByText(/^ต้องการ⁠เวลา⁠อื่น /);
       await expect(another).toBeVisible();
-      expect((await another.textContent())?.replaceAll("⁠", "")).toBe(
-        "ต้องการเวลาอื่น ยกเลิกแล้วจองใหม่ นัดใหม่ชำระแยก ส่วนเงินนัดนี้คืนเมื่อทีมงานยืนยัน",
+      // The refund is the team's own step after confirming, with no date: approval moves no money yet (API #86).
+      expect((await another.textContent())?.replaceAll("⁠", "").replaceAll(" ", " ")).toBe(
+        "ต้องการเวลาอื่น ยกเลิกแล้วจองใหม่ นัดใหม่ชำระแยก ส่วนเงินนัดนี้ ทีมงานยืนยันใน 14 วันทำการ แล้วจึงคืน",
       );
       const lines = await another.evaluate((element) =>
         Math.round((element as HTMLElement).offsetHeight / Number.parseFloat(getComputedStyle(element).lineHeight)),
@@ -112,10 +113,14 @@ for (const size of sizes) {
         expect([pill.x, pill.width], "the card's own width").toEqual([card.x, card.width]);
       }
       expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBe(size.width);
-      // Before the press: the cancel is at once, the refund waits on the team. His question, answered where he presses.
-      const waits = page.getByText(/^ยกเลิกมีผลทันทีและย้อนกลับไม่ได้ ส่วนเงินคืนรอทีมงานยืนยันภายใน 14 วันทำการ แล้วคืนเข้า Visa/);
+      // Before the press: the cancel is at once, the team confirms, and only then is the refund processed. His question, answered where he presses.
+      const waits = page.getByText(/^ยกเลิกมีผลทันทีและย้อนกลับไม่ได้ ทีมงานยืนยันภายใน\s14\sวัน\u{2060}ทำการ จากนั้นจึงดำเนินการคืนเงินเข้า Visa/u);
       await expect(waits).toBeVisible();
       expect((await shown(waits)).fontSize).toBe(12);
+      const waitLines = await waits.evaluate((element) =>
+        Math.round((element as HTMLElement).offsetHeight / Number.parseFloat(getComputedStyle(element).lineHeight)),
+      );
+      expect(waitLines, "the line above the buttons wraps to two lines at most").toBeLessThanOrEqual(2);
       expect((await waits.boundingBox())!.y).toBeLessThan((await confirm.boundingBox())!.y);
 
       await confirm.click();
@@ -245,8 +250,8 @@ test("a booked appointment with no receipt of its own is paid on the earlier boo
   await page.goto(`/bookings?bookingId=${ids.booking}`);
   const popup = page.getByRole("dialog");
   await expect(popup.getByText("ชำระไว้กับการจองเดิมก่อนเปลี่ยนเวลา ติดต่อฝ่ายช่วยเหลือเรื่องการจองนี้")).toBeVisible();
-  // Support answers by email, and the full refund's line keeps running meanwhile.
-  await expect(popup.getByText(/^ยกเลิกถึง .+ ได้คืนเต็มจำนวน เวลานี้ไม่หยุดระหว่างรออีเมลตอบ$/)).toBeVisible();
+  // No cancel is offered: the line names the email as the way, the deadline it must reach support by, and who then acts.
+  await expect(popup.getByText(/^ส่งอีเมลถึงฝ่ายช่วยเหลือภายใน .+ เพื่อรับเงินคืนเต็มจำนวน ทีมงานเป็นผู้ดำเนินการต่อ$/)).toBeVisible();
   for (const name of ["ยกเลิกการจอง", "ยกเลิกและรับเงินคืน", "เปลี่ยนเวลานัด", "ขอเปลี่ยนเวลานัด"]) {
     await expect(popup.getByRole("button", { name, exact: true })).toHaveCount(0);
   }
@@ -254,7 +259,7 @@ test("a booked appointment with no receipt of its own is paid on the earlier boo
 
   await page.goto(refundPage);
   await expect(page.getByText("ชำระไว้กับการจองเดิม", { exact: true })).toBeVisible();
-  await expect(page.getByText(/^ยกเลิกถึง .+ ได้คืนเต็มจำนวน เวลานี้ไม่หยุดระหว่างรออีเมลตอบ$/)).toBeVisible();
+  await expect(page.getByText(/^ส่งอีเมลถึงฝ่ายช่วยเหลือภายใน .+ เพื่อรับเงินคืนเต็มจำนวน ทีมงานเป็นผู้ดำเนินการต่อ$/)).toBeVisible();
   // The button says it writes an email, so nobody takes it for a step in the app.
   const support = page.getByRole("button", { name: "ส่งอีเมลถึงฝ่ายช่วยเหลือ" });
   // The subject names the booking (service, day, id), so support can find it.
