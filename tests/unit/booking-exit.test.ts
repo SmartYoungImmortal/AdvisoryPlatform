@@ -4,6 +4,7 @@ import {
   bookingExit,
   bookingPopupHref,
   currentRefundCase,
+  paidWay,
   refundHref,
   rescheduleWay,
   runningDeadline,
@@ -255,6 +256,12 @@ describe("an advisee's cancel at or after the start is no §8 cancellation", () 
   it("keeps the advisor's or the team's cancel after the start owed in full", () => {
     expect(exit({ booking: cancelledBooking("advisor", E + HOUR), now: E + DAY })).toMatchObject({ kind: "claim", share: "full", by: "other" });
   });
+
+  it("keeps its report window running for support, as the same booking had while still booked", () => {
+    expect(runningDeadline(lateCancel, E + DAY)).toEqual({ rule: "report", at: new Date(E + 7 * DAY) });
+    expect(runningDeadline({ ...booking, state: "BOOKED" }, E + DAY)).toEqual(runningDeadline(lateCancel, E + DAY));
+    expect(runningDeadline(lateCancel, E + 7 * DAY + 1)).toBeNull();
+  });
 });
 
 describe("R8 a booking with a request shows its status and is never requested again", () => {
@@ -430,9 +437,36 @@ describe("the §8 line still running while support answers", () => {
     expect(runningDeadline(booking, E + 7 * DAY + 1)).toBeNull();
   });
 
-  it("follows a session the state says began, and has none for a cancelled booking", () => {
+  it("follows a session the state says began, and has none for a cancellation under §8", () => {
     expect(runningDeadline({ ...booking, state: "IN_PROGRESS" }, S - 5 * 60_000)).toMatchObject({ rule: "report" });
     expect(runningDeadline(cancelledBooking("advisor", S - DAY), S - 3 * DAY)).toBeNull();
+    expect(runningDeadline(cancelledBooking("advisee", S - 5 * HOUR), S - 4 * HOUR)).toBeNull();
+  });
+});
+
+describe("the way out the booking alone gives, before its money loads", () => {
+  it("is the cancel at its share while booked, the claim at its share once cancelled under §8, else the report", () => {
+    expect(paidWay(booking, S - 3 * DAY)).toMatchObject({ kind: "cancelRefund", share: "full" });
+    expect(paidWay(booking, S - 5 * HOUR)).toMatchObject({ kind: "cancelRefund", share: "half" });
+    expect(paidWay(cancelledBooking("advisee", S - 5 * HOUR), S)).toEqual({ kind: "claim", share: "half", by: "advisee" });
+    expect(paidWay(cancelledBooking("advisor", S - 5 * HOUR), S)).toEqual({ kind: "claim", share: "full", by: "other" });
+    expect(paidWay(cancelledBooking("advisee", S + HOUR), E)).toEqual({ kind: "report", until: new Date(E + 7 * DAY) });
+  });
+
+  it("matches what bookingExit offers once the paid receipt with no request answers", () => {
+    const cases = [
+      [booking, S - 3 * DAY],
+      [booking, S - 5 * HOUR],
+      [booking, E + DAY],
+      [booking, E + 8 * DAY],
+      [cancelledBooking("advisee", S - 2 * DAY), S],
+      [cancelledBooking("advisee", S - 5 * HOUR), S],
+      [cancelledBooking(null, S - HOUR), S],
+      [cancelledBooking("advisee", E), E + DAY],
+    ] as const;
+    for (const [shown, now] of cases) {
+      expect(exit({ booking: shown, now })).toMatchObject(paidWay(shown, now));
+    }
   });
 });
 

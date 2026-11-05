@@ -35,6 +35,7 @@ const http = vi.hoisted(() => ({
   cancelBooking: vi.fn(),
   openRefundCase: vi.fn(),
   getService: vi.fn(),
+  getMyInvoice: vi.fn(),
 }));
 vi.mock("@/lib/api/resources", async (original) => ({
   ...(await original<typeof import("@/lib/api/resources")>()),
@@ -51,6 +52,7 @@ vi.mock("next/navigation", () => ({ useSearchParams: () => new URLSearchParams(w
 const { ApiError } = await import("@/lib/api/client");
 const { invalidate } = await import("@/lib/api/use-resource");
 const { BookingRefundScreen } = await import("@/components/bookings/booking-refund-screen");
+const { InvoiceDetailScreen } = await import("@/components/payment/invoice-screens");
 
 const HOUR = 3_600_000;
 const NOW = Date.parse("2026-11-04T12:00:00Z");
@@ -181,6 +183,54 @@ describe("the refund page over the real cache", () => {
     expect(screen.getByRole("heading", { level: 1 }).textContent).toBe(th.bookingRefund.stage.requested);
     expect(document.body.textContent).toContain("฿400");
     expect(document.body.textContent).not.toContain(th.bookingRefund.stage.reviewing);
+  });
+
+  it.each([
+    [403, "Forbidden"],
+    [404, "Not Found"],
+  ])("turns to not-found when a booking already shown is read again with a %i: for this account it no longer exists", async (status, text) => {
+    const first = show();
+    await settle();
+    expect(screen.getByRole("heading", { level: 1 }).textContent).toBe(th.bookingRefund.head.cancelFull);
+    first.unmount();
+
+    http.getBooking.mockRejectedValue(new ApiError(status, text));
+    show();
+    await settle();
+
+    expect(http.getBooking).toHaveBeenCalledTimes(2);
+    expect(screen.getByRole("heading", { level: 1 }).textContent).toBe(th.bookingRefund.states.notFoundTitle);
+    expect(screen.queryByRole("button", { name: "ยกเลิกและรับเงินคืน ฿1,000" })).toBeNull();
+  });
+
+  it("reads a receipt seen before the cancel again after it, so it no longer names the booking as confirmed", async () => {
+    http.getMyInvoice.mockResolvedValue(invoice);
+    const receipt = () => {
+      window.history.replaceState(null, "", `/transactions/detail?id=${invoice.id}`);
+      return render(
+        <NextIntlClientProvider formats={formats} locale="th" messages={th as Messages} timeZone="Asia/Bangkok">
+          <InvoiceDetailScreen state="paid" />
+        </NextIntlClientProvider>,
+      );
+    };
+    const before = receipt();
+    await settle();
+    expect(http.getMyInvoice).toHaveBeenCalledTimes(1);
+    before.unmount();
+
+    window.history.replaceState(null, "", `/bookings/refund?bookingId=${id}`);
+    const page = show();
+    await settle();
+    http.cancelBooking.mockResolvedValue({ ...booked, state: "CANCELLED" });
+    http.openRefundCase.mockResolvedValue(opened);
+    await act(async () => screen.getByRole("button", { name: "ยกเลิกและรับเงินคืน ฿1,000" }).click());
+    await settle();
+    page.unmount();
+
+    http.getMyInvoice.mockResolvedValue({ ...invoice, booking: "cancelled" });
+    receipt();
+    await settle();
+    expect(http.getMyInvoice).toHaveBeenCalledTimes(2);
   });
 
   it("shows the full-page failure only when the booking never answered", async () => {

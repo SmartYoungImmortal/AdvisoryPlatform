@@ -1,6 +1,6 @@
 "use client";
 
-import { Circle, CircleCheckBig, CircleX, Clock3, RotateCcw } from "lucide-react";
+import { Circle, CircleCheckBig, CircleX, Clock3, RotateCcw, type LucideIcon } from "lucide-react";
 import Link from "next/link";
 import { useTranslations } from "next-intl";
 import { useRef, useState, type ReactNode } from "react";
@@ -11,6 +11,7 @@ import {
   refundHref,
   signInHref,
   type BookingExit,
+  type PaidWay,
   type RefundShare,
 } from "@/components/bookings/booking-exit";
 import {
@@ -22,20 +23,27 @@ import {
   type RefundFailure,
 } from "@/components/bookings/refund-actions";
 import {
+  Bone,
+  CARD_BONE,
   cardName,
   MailSupportPill,
+  REFUND_BEFORE_PRESS,
   RefundActions,
+  RefundActionsBones,
   RefundBox,
   RefundCard,
   RefundFacts,
   RefundHead,
+  RefundHeadBones,
   RefundList,
   RefundRow,
+  RefundRowBones,
   RefundSection,
   refundPill,
   useRefundFormat,
   useRefundLine,
   useSupportMail,
+  type RefundTone,
 } from "@/components/bookings/refund-sheet";
 import { StatusPill } from "@/components/mobile/status-pill";
 import { Button } from "@/components/ui/button";
@@ -97,10 +105,8 @@ const TERMS_LINK = cn(
 
 /** What the press does and what then waits on the team, said in the line above the button, before it is pressed. */
 function BeforePress({ children }: { readonly children: string }) {
-  return <p className="text-center text-xs text-balance text-muted-foreground lg:text-frame-label">{children}</p>;
+  return <p className={cn(REFUND_BEFORE_PRESS, "text-muted-foreground")}>{children}</p>;
 }
-
-type Owed = { readonly share: RefundShare; readonly refundSatang: number };
 
 /**
  * A half refund's box answers its amount, so it takes the right cell, level
@@ -110,40 +116,120 @@ type Owed = { readonly share: RefundShare; readonly refundSatang: number };
  */
 function OwedCard({
   head,
-  owed,
-  invoice,
+  share,
+  box,
   children,
 }: {
   readonly head: ReactNode;
-  readonly owed: Owed;
-  readonly invoice: ApiAdviseeInvoice;
+  readonly share: RefundShare;
+  /** The half refund's `HalfBox`. */
+  readonly box: ReactNode;
   readonly children: ReactNode;
 }) {
-  if (owed.share === "full") return <RefundCard head={head}>{children}</RefundCard>;
+  if (share === "full") return <RefundCard head={head}>{children}</RefundCard>;
   return (
     <RefundCard foot={children} head={head}>
-      <HalfBox invoice={invoice} owed={owed} />
+      {box}
     </RefundCard>
   );
 }
 
+/** What the half box says, as the receipt prints it; placeholders in the skeleton. */
+type HalfAmounts = { readonly price: string; readonly fee: string; readonly refund: string };
+
 /** Each line names what it is taken from, so the reader gets from what was paid to what comes back. */
-function HalfBox({ owed, invoice }: { readonly owed: Owed; readonly invoice: ApiAdviseeInvoice }) {
+function HalfBox({ amounts, bones = false }: { readonly amounts: HalfAmounts; readonly bones?: boolean }) {
   const t = useTranslations("bookingRefund");
   const when = useRefundFormat();
 
   return (
-    <RefundSection heading={t("box.heading")}>
+    <RefundSection heading={bones ? <Bone text={t("box.heading")} /> : t("box.heading")}>
       <RefundBox
+        bones={bones}
         lines={[
-          { label: t("box.service", { amount: when.baht(invoice.priceSatang) }), value: when.baht(owed.refundSatang) },
-          { label: t("box.fee", { amount: when.baht(invoice.platformFeeSatang) }), value: when.baht(0) },
+          { label: t("box.service", { amount: amounts.price }), value: amounts.refund },
+          { label: t("box.fee", { amount: amounts.fee }), value: when.baht(0) },
         ]}
-        total={{ label: t("box.total"), value: when.baht(owed.refundSatang) }}
+        total={{ label: t("box.total"), value: amounts.refund }}
       />
     </RefundSection>
   );
 }
+
+function useHalfAmounts(invoice: ApiAdviseeInvoice, refundSatang: number): HalfAmounts {
+  const when = useRefundFormat();
+  return { price: when.baht(invoice.priceSatang), fee: when.baht(invoice.platformFeeSatang), refund: when.baht(refundSatang) };
+}
+
+const HALF_BONES: HalfAmounts = { price: "฿000", fee: "฿000", refund: "฿000" };
+
+/** The §8 rule as three lines of time, from the booking's own start. */
+function usePolicyRows({ fullUntil, startsAt }: { readonly fullUntil: Date; readonly startsAt: Date }) {
+  const t = useTranslations("bookingRefund");
+  const when = useRefundFormat();
+  return [
+    { id: "full", icon: RotateCcw, title: t("policy.full.when", { date: when.deadline(fullUntil) }), sub: t("policy.full.what") },
+    {
+      id: "half",
+      icon: RotateCcw,
+      title: t("policy.half.when", { from: when.short(fullUntil), to: when.short(startsAt) }),
+      sub: t("policy.half.what"),
+    },
+    { id: "started", icon: CircleX, title: t("policy.started.when", { date: when.short(startsAt) }), sub: t("policy.started.what") },
+  ] as const;
+}
+
+/** The claim's meta: who cancelled, and when, which decide the share. */
+function useClaimMeta(booking: ApiBooking, { by, share }: { readonly by: "advisee" | "other"; readonly share: RefundShare }) {
+  const t = useTranslations("bookingRefund");
+  const when = useRefundFormat();
+  if (by === "other") return t("meta.claimOther");
+  return booking.cancelledAt === null ? undefined : t(CLAIM_META[share], { date: when.stamp(booking.cancelledAt) });
+}
+
+/**
+ * The claim's trail: the cancel done, the request the press sends, the
+ * team's confirmation, then the refund as a step after it. `claimable`: the
+ * press is what sends it, so its step says so.
+ */
+function useClaimSteps(booking: ApiBooking, refundTitle: string, claimable: boolean): readonly ClaimStep[] {
+  const t = useTranslations("bookingRefund");
+  const when = useRefundFormat();
+  return [
+    {
+      id: "cancelled",
+      icon: CircleCheckBig,
+      tone: "success",
+      title: t("progress.cancellation.cancelled"),
+      sub: booking.cancelledAt === null ? undefined : when.stamp(booking.cancelledAt),
+    },
+    {
+      id: "send",
+      icon: Clock3,
+      tone: "primary",
+      current: true,
+      title: t("progress.cancellation.send"),
+      sub: claimable ? t("progress.cancellation.sendSub") : undefined,
+    },
+    {
+      id: "confirm",
+      icon: Circle,
+      tone: "muted",
+      title: t("progress.cancellation.confirm"),
+      sub: t("progress.cancellation.confirmSub"),
+    },
+    { id: "refund", icon: Circle, tone: "muted", title: refundTitle, sub: t("progress.refundSub.confirm") },
+  ];
+}
+
+type ClaimStep = {
+  readonly id: string;
+  readonly icon: LucideIcon;
+  readonly tone: RefundTone;
+  readonly current?: boolean;
+  readonly title: string;
+  readonly sub?: string;
+};
 
 function Alert({ text }: { readonly text: string | null | undefined }) {
   if (!text) return null;
@@ -190,28 +276,10 @@ export function CancelRefundMode({
   const signIn = signInHref(refundHref(booking.id));
 
   const amount = when.baht(exit.refundSatang);
+  const half = useHalfAmounts(invoice, exit.refundSatang);
   const held = attempt.kind === "held" && attempt.on === booking ? attempt : undefined;
   const working = attempt.kind === "working";
-  const rows = [
-    {
-      id: "full",
-      icon: RotateCcw,
-      title: t("policy.full.when", { date: when.deadline(exit.fullUntil) }),
-      sub: t("policy.full.what"),
-    },
-    {
-      id: "half",
-      icon: RotateCcw,
-      title: t("policy.half.when", { from: when.short(exit.fullUntil), to: when.short(exit.startsAt) }),
-      sub: t("policy.half.what"),
-    },
-    {
-      id: "started",
-      icon: CircleX,
-      title: t("policy.started.when", { date: when.short(exit.startsAt) }),
-      sub: t("policy.started.what"),
-    },
-  ] as const;
+  const rows = usePolicyRows(exit);
 
   function hold(then: Exclude<Then, "retry">) {
     setAttempt({ kind: "held", on: booking, then, checking: false });
@@ -271,8 +339,8 @@ export function CancelRefundMode({
             <RefundFacts booking={booking} invoice={invoice} />
           </RefundHead>
         }
-        invoice={invoice}
-        owed={exit}
+        box={<HalfBox amounts={half} />}
+        share={exit.share}
       >
         <RefundSection heading={t("policy.heading")}>
           <RefundList>
@@ -362,9 +430,9 @@ export function ClaimMode({
   const pressed = useRef(false);
 
   const amount = when.baht(exit.refundSatang);
+  const half = useHalfAmounts(invoice, exit.refundSatang);
   const rule = exit.by === "other" ? "other" : exit.share;
-  const cancelledAt = booking.cancelledAt === null ? undefined : when.stamp(booking.cancelledAt);
-  const adviseeMeta = cancelledAt === undefined ? undefined : t(CLAIM_META[exit.share], { date: cancelledAt });
+  const meta = useClaimMeta(booking, exit);
   const working = attempt === "working";
   const pressedFailure = attempt === "ready" || attempt === "working" ? undefined : attempt;
   const failure = pressedFailure ?? (attempt === "ready" ? failed : undefined);
@@ -372,6 +440,7 @@ export function ClaimMode({
   const toSupport = failure === "refused" || failure === "notFound";
   // Only the claim itself is the button that "press the button below" can mean.
   const claimable = failure !== "signIn" && !toSupport;
+  const steps = useClaimSteps(booking, refundLine(exit.refundSatang), claimable);
 
   function claim() {
     if (pressed.current) return;
@@ -388,32 +457,19 @@ export function ClaimMode({
       <OwedCard
         head={
           // A cancelled booking reads in the receipt's red, wherever its state is named.
-          <RefundHead
-            amount={amount}
-            icon={CircleX}
-            meta={exit.by === "other" ? t("meta.claimOther") : adviseeMeta}
-            title={t("head.claim")}
-            tone="destructive"
-          >
+          <RefundHead amount={amount} icon={CircleX} meta={meta} title={t("head.claim")} tone="destructive">
             <RefundFacts booking={booking} invoice={invoice} />
           </RefundHead>
         }
-        invoice={invoice}
-        owed={exit}
+        box={<HalfBox amounts={half} />}
+        share={exit.share}
       >
         <RefundSection heading={t("progress.heading")}>
+          {/* The step the press takes is current, so the trail before it never reads as the status after it. */}
           <RefundList ordered>
-            <RefundRow icon={CircleCheckBig} sub={cancelledAt} title={t("progress.cancellation.cancelled")} tone="success" />
-            {/* The step the press takes, so the trail before it never reads as the status after it. */}
-            <RefundRow
-              current
-              icon={Clock3}
-              sub={claimable ? t("progress.cancellation.sendSub") : undefined}
-              title={t("progress.cancellation.send")}
-              tone="primary"
-            />
-            <RefundRow icon={Circle} sub={t("progress.cancellation.confirmSub")} title={t("progress.cancellation.confirm")} />
-            <RefundRow icon={Circle} sub={t("progress.refundSub.confirm")} title={refundLine(exit.refundSatang)} />
+            {steps.map((step) => (
+              <RefundRow current={step.current} icon={step.icon} key={step.id} sub={step.sub} title={step.title} tone={step.tone} />
+            ))}
           </RefundList>
         </RefundSection>
       </OwedCard>
@@ -442,6 +498,83 @@ export function ClaimMode({
           </Button>
         )}
       </RefundActions>
+    </>
+  );
+}
+
+/**
+ * The cancel's card and buttons as bones, from the booking and the clock
+ * alone (`paidWay`), in `CancelRefundMode`'s own boxes and words: the page's
+ * skeleton while the money loads, so the card and the red button stay put
+ * when it lands.
+ */
+export function CancelBones({
+  way,
+  serviceName,
+}: {
+  readonly way: Extract<PaidWay, { kind: "cancelRefund" }>;
+  readonly serviceName?: string;
+}) {
+  const t = useTranslations("bookingRefund");
+  const rows = usePolicyRows(way);
+  return (
+    <>
+      <OwedCard
+        box={<HalfBox amounts={HALF_BONES} bones />}
+        head={
+          <RefundHeadBones
+            meta={t("meta.cancel")}
+            serviceName={serviceName}
+            title={t(way.share === "full" ? "head.cancelFull" : "head.cancelHalf")}
+          />
+        }
+        share={way.share}
+      >
+        <RefundSection heading={<Bone text={t("policy.heading")} />}>
+          <RefundList>
+            {rows.map((row) => (
+              <RefundRowBones key={row.id} sub={row.sub} title={row.title} />
+            ))}
+          </RefundList>
+          <span className={TERMS_LINK}>
+            <Bone text={t("policy.termsLink")} />
+          </span>
+        </RefundSection>
+      </OwedCard>
+      <RefundActionsBones before={t("policy.final", { card: CARD_BONE })} pills={2} />
+    </>
+  );
+}
+
+/** The claim's card and button as bones, as `CancelBones` is the cancel's. */
+export function ClaimBones({
+  booking,
+  way,
+  serviceName,
+}: {
+  readonly booking: ApiBooking;
+  readonly way: Extract<PaidWay, { kind: "claim" }>;
+  readonly serviceName?: string;
+}) {
+  const t = useTranslations("bookingRefund");
+  const meta = useClaimMeta(booking, way);
+  const steps = useClaimSteps(booking, t("progress.refund", { amount: "฿0,000", card: CARD_BONE }), true);
+  return (
+    <>
+      <OwedCard
+        box={<HalfBox amounts={HALF_BONES} bones />}
+        head={<RefundHeadBones meta={meta} serviceName={serviceName} title={t("head.claim")} />}
+        share={way.share}
+      >
+        <RefundSection heading={<Bone text={t("progress.heading")} />}>
+          <RefundList ordered>
+            {steps.map((step) => (
+              <RefundRowBones key={step.id} sub={step.sub} title={step.title} />
+            ))}
+          </RefundList>
+        </RefundSection>
+      </OwedCard>
+      <RefundActionsBones before={t("policy.claimFinal", { card: CARD_BONE })} />
     </>
   );
 }

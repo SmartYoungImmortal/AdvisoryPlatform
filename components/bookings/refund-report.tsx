@@ -10,6 +10,7 @@ import { openRefundOnce, refundFailure, type OpenedRefund, type RefundFailure } 
 import { EvidenceBones, EvidencePicker, RefundAlert, uploadFault, type UploadFault } from "@/components/bookings/refund-evidence";
 import {
   Bone,
+  MailSupportPill,
   MetaBones,
   REFUND_HEADING,
   REFUND_SECTION,
@@ -21,6 +22,7 @@ import {
   RefundHead,
   refundPill,
   useRefundFormat,
+  useSupportMail,
 } from "@/components/bookings/refund-sheet";
 import { Button } from "@/components/ui/button";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
@@ -150,9 +152,12 @@ export function ReportMode({
   const group = useRef<HTMLDivElement>(null);
   const field = useRef<HTMLTextAreaElement>(null);
 
+  const supportMail = useSupportMail(invoice.invoiceNumber);
   const missing = tried ? missingFrom(reason, details) : null;
   const busy = phase.kind === "sending" || phase.kind === "uploading";
   const failure = phase.kind === "failed" ? phase.failure : null;
+  // After a refusal sending again fails the same way: support is the way on, so it takes the button.
+  const toSupport = failure === "refused" || failure === "notFound";
   const detailsRequired = needsDetails(reason);
   const offered = offeredFor(booking.state);
 
@@ -313,13 +318,15 @@ export function ReportMode({
         }
       />
 
-      <RefundActions invoiceNumber={invoice.invoiceNumber}>
+      <RefundActions help={!toSupport} invoiceNumber={invoice.invoiceNumber}>
         {failure ? <RefundAlert className="text-center">{t(SEND_FAILED[failure])}</RefundAlert> : null}
         {notice && !failure ? <RefundAlert className="text-center">{notice}</RefundAlert> : null}
         {failure === "signIn" ? (
           <Button className={refundPill("solid")} nativeButton={false} render={<Link href={signInHref(refundHref(booking.id))} />}>
             {t("actions.signIn")}
           </Button>
+        ) : toSupport ? (
+          <MailSupportPill href={supportMail} />
         ) : (
           <Button aria-busy={busy || undefined} className={refundPill("solid")} disabled={busy} focusableWhenDisabled form={formId} type="submit">
             {t(SEND_LABEL[phase.kind])}

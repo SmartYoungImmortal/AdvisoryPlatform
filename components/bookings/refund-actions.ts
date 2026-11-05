@@ -39,11 +39,12 @@ function mayHaveCommitted(cause: unknown): boolean {
  * Open the invoice's refund request, once.
  *
  * The API keeps one open request per invoice. After a POST that may have
- * committed, the open request on the invoice is this one. After a 409 it is
- * this one only if it carries the reason this press sent: an earlier press
- * whose answer was lost, pressed again. Otherwise it is someone else's, taken
- * as the request but flagged. Only when none is open, or the refusal says
- * nothing was written, does the POST's own error come back.
+ * committed, or a 409, the open request on the invoice is this press's own
+ * only if it carries the reason this press sent: this POST committed behind a
+ * lost answer, or an earlier press whose answer was lost was pressed again.
+ * Otherwise it is someone else's (another tab's), taken as the request but
+ * flagged. Only when none is open, or the refusal says nothing was written,
+ * does the POST's own error come back.
  */
 export async function openRefundOnce(invoiceId: string, reason: string): Promise<OpenedRefund> {
   let opened: OpenedRefund;
@@ -57,7 +58,7 @@ export async function openRefundOnce(invoiceId: string, reason: string): Promise
       () => undefined,
     );
     if (!found) throw error;
-    opened = { refund: found, alreadyOpen: conflict && found.reason !== reason };
+    opened = { refund: found, alreadyOpen: found.reason !== reason };
   }
   invalidate("refunds/me");
   return opened;

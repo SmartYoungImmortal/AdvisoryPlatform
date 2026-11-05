@@ -290,10 +290,10 @@ describe("CancelRefundMode, 24 hours or more before the start", () => {
     expect(screen.getByRole("link", { name: "อ่านข้อกำหนดข้อ 8" }).getAttribute("href")).toBe("/terms#cancellation");
   });
 
-  it("says before the press that the cancel is at once and the refund waits on the team, then the confirm and a way back", () => {
+  it("says before the press that the cancel is at once, the team confirms, and the refund is a step after that, then the confirm and a way back", () => {
     renderCancel();
     const said = line(
-      "ยกเลิกมีผลทันทีและย้อนกลับไม่ได้ ส่วนเงินคืนรอทีมงานยืนยันภายใน 14 วันทำการ แล้วคืนเข้า Visa •••• 1111",
+      "ยกเลิกมีผลทันทีและย้อนกลับไม่ได้ ทีมงานยืนยันภายใน\u{a0}14\u{a0}วัน\u{2060}ทำการ จากนั้นจึงดำเนินการคืนเงินเข้า Visa\u{a0}••••\u{a0}1111",
     );
     const confirm = screen.getByRole("button", { name: "ยกเลิกและรับเงินคืน ฿1,000" });
     expect(said.compareDocumentPosition(confirm) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
@@ -315,7 +315,7 @@ describe("CancelRefundMode, 24 hours or more before the start", () => {
     ));
     expect(
       line(
-        "Cancelling takes effect at once and can't be undone. The refund waits for our team to confirm it within 14 business days, then goes back to your original payment method.",
+        "Cancelling is immediate and final. Our team confirms within 14 business days, then refunds your payment method.",
       ),
     ).toBeTruthy();
   });
@@ -554,8 +554,9 @@ describe("ClaimMode", () => {
       "ยกเลิกการจองแล้ว4 พ.ย. 2569 · 20:56",
       "ส่งเรื่องคืนเงินกดปุ่มด้านล่าง",
       "ทีมงานยืนยันการคืนเงินภายใน 14 วันทำการ",
-      "คืนเงิน ฿1,000 เข้า Visa •••• 1111เมื่อทีมงานยืนยัน",
+      "คืนเงิน ฿1,000 เข้า Visa •••• 1111ทีมงานดำเนินการหลังยืนยัน",
     ]);
+    expect(document.body.textContent).not.toContain("เมื่อทีมงานยืนยัน");
     expect(rows.map((row) => row.getAttribute("aria-current"))).toEqual([null, "true", null, null]);
     expect(rows[0].closest("ol")).toBeTruthy();
   });
@@ -563,7 +564,7 @@ describe("ClaimMode", () => {
   it("says above the claim that the request reaches the team only on the press, then what follows", () => {
     renderClaim();
     const said = line(
-      "เรื่องคืนเงินส่งถึงทีมงานเมื่อคุณกดปุ่มด้านล่างเท่านั้น จากนั้นทีมงานยืนยันภายใน 14 วันทำการ แล้วคืนเข้า Visa\u{a0}••••\u{a0}1111",
+      "เรื่องคืนเงินส่งถึงทีมงานเมื่อกดปุ่มด้านล่างเท่านั้น ทีมงานยืนยันภายใน\u{a0}14\u{a0}วัน\u{2060}ทำการ จากนั้นจึงดำเนินการคืนเงินเข้า Visa\u{a0}••••\u{a0}1111",
     );
     const claim = screen.getByRole("button", { name: "รับเงินคืน ฿1,000" });
     expect(said.compareDocumentPosition(claim) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
@@ -573,7 +574,7 @@ describe("ClaimMode", () => {
     renderClaim({ bill: { ...invoice, card: null } });
     expect(
       line(
-        "เรื่องคืนเงินส่งถึงทีมงานเมื่อคุณกดปุ่มด้านล่างเท่านั้น จากนั้นทีมงานยืนยันภายใน 14 วันทำการ แล้วคืนเข้าช่องทางที่ชำระ",
+        "เรื่องคืนเงินส่งถึงทีมงานเมื่อกดปุ่มด้านล่างเท่านั้น ทีมงานยืนยันภายใน\u{a0}14\u{a0}วัน\u{2060}ทำการ จากนั้นจึงดำเนินการคืนเงินเข้าช่องทางที่ชำระ",
       ),
     ).toBeTruthy();
   });

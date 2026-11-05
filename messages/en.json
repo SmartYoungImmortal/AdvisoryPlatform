@@ -505,11 +505,11 @@
       "claimFull": "You cancelled on {date}, at least 24 hours before the start, so you get the full amount back",
       "claimHalf": "You cancelled on {date}, within 24 hours of the start, so you get 50% of the service fee back",
       "claimOther": "The advisor or our team cancelled, so you get the full amount back",
-      "report": "The most you can ask back · we reply within 14 business days · report by {date}",
+      "report": "The most you can ask back · the result shows here and on the booking within 14 business days · report by {date}",
       "noShow": "The advisor recorded that you didn't attend. Missing a session without notice, or joining after half of it, isn't refunded. This form is for an advisor who didn't come or a platform failure.",
       "status": {
         "requested": "Amount requested · our team confirms it within 14 business days",
-        "reviewing": "Amount requested · we reply within 14 business days",
+        "reviewing": "Amount requested · the result shows here and on the booking within 14 business days",
         "approved": "Amount requested · goes back to {card}",
         "approvedNoCard": "Amount requested · goes back to your original payment method",
         "refunded": "Amount refunded",
@@ -537,10 +537,10 @@
       },
       "now": "Now",
       "termsLink": "Read section 8 of the terms",
-      "final": "Cancelling takes effect at once and can't be undone. The refund waits for our team to confirm it within 14 business days, then goes back to {card}.",
-      "finalNoCard": "Cancelling takes effect at once and can't be undone. The refund waits for our team to confirm it within 14 business days, then goes back to your original payment method.",
-      "claimFinal": "The request reaches our team only when you press the button below. They confirm it within 14 business days, then it goes back to {card}.",
-      "claimFinalNoCard": "The request reaches our team only when you press the button below. They confirm it within 14 business days, then it goes back to your original payment method."
+      "final": "Cancelling is immediate and final. Our team confirms within 14 business days, then refunds {card}.",
+      "finalNoCard": "Cancelling is immediate and final. Our team confirms within 14 business days, then refunds your payment method.",
+      "claimFinal": "Pressing below sends it. Our team confirms within 14 business days, then refunds {card}.",
+      "claimFinalNoCard": "Pressing below sends it. Our team confirms within 14 business days, then refunds your payment method."
     },
     "box": {
       "heading": "Your refund",
@@ -581,9 +581,9 @@
       "instant": "Files go to the team as soon as you pick them and can't be removed."
     },
     "deadline": {
-      "full": "Cancel by {date} for a full refund. Email doesn't pause that.",
-      "start": "Cancel before {date} for 50% of the fee. Email doesn't pause that.",
-      "report": "Email won't pause the report window, open until {date}."
+      "full": "Email support by {date} for a full refund. Our team takes it from there.",
+      "start": "Email support before {date} for 50% of the fee back. Our team takes it from there.",
+      "report": "Email support by {date} to report a problem and ask for a refund. Our team takes it from there."
     },
     "progress": {
       "heading": "Progress",
@@ -598,7 +598,7 @@
       "report": {
         "sent": "Request sent",
         "review": "The Advisory team reviews it",
-        "reviewSub": "From the attendance records and chat, with an answer within 14 business days"
+        "reviewSub": "From the attendance records and chat. The result shows here and on the booking within 14 business days"
       },
       "approved": "Approved",
       "rejected": "Not approved",
@@ -606,8 +606,8 @@
       "refund": "{amount} back to {card}",
       "refundNoCard": "{amount} back to your original payment method",
       "refundSub": {
-        "confirm": "Once our team confirms",
-        "approve": "If approved",
+        "confirm": "Our team processes it after confirming",
+        "approve": "If approved, our team then processes it",
         "pending": "Waiting for our team to send it back, then on your card issuer's schedule",
         "done": "Not on your statement yet? Your card issuer may take a few more days"
       }
@@ -635,7 +635,7 @@
     "announce": {
       "cancelled": "Cancelled. Your {amount} refund is requested, and our team confirms it within 14 business days.",
       "claimed": "Your {amount} refund is requested, and our team confirms it within 14 business days.",
-      "reported": "Request sent. We'll reply within 14 business days.",
+      "reported": "Request sent. The result shows here and on the booking within 14 business days.",
       "attached": "{count, plural, one {# file attached} other {# files attached}}"
     },
     "errors": {
@@ -665,10 +665,12 @@
       "moneyFailedBody": "Nothing has changed. Try loading it again.",
       "loadRefusedBody": "This booking couldn't be opened. Nothing has changed. Contact support and our team will look into it.",
       "moneyRefusedBody": "What was paid for this booking couldn't be opened. Nothing has changed. Contact support and our team will look into it.",
-      "moneyForbiddenBody": "This account can't open what was paid for this booking. Nothing has changed. Contact support about this booking.",
+      "moneyForbidden": "This account can't open what was paid for this booking",
+      "moneyForbiddenBody": "Nothing has changed. Contact support about this booking.",
       "requestsFailed": "Couldn't load the refund requests",
+      "requestsForbidden": "This account can't view refund requests yet",
       "requestsRefusedBody": "This booking's refund requests couldn't be opened. Nothing has changed. Contact support and our team will look into it.",
-      "requestsForbiddenBody": "This account can't view or send refund requests yet. Nothing has changed. Contact support about this booking.",
+      "requestsForbiddenBody": "So no refund can be requested here yet. Nothing has changed. Contact support about this booking.",
       "signInTitle": "Your session has expired",
       "signInBody": "Sign in again to see this booking.",
       "paidElsewhereTitle": "Paid on the earlier booking",
@@ -1039,7 +1041,7 @@
     },
     "paidElsewhere": "Paid on the booking this one replaced. Contact support about this booking.",
     "paidUnshown": "This booking is confirmed, but its receipt on file isn't the one you paid. Contact support about this booking.",
-    "rescheduleWithheld": "Another time? Cancel, rebook and pay again. This refund comes once confirmed.",
+    "rescheduleWithheld": "Another time? Cancel, rebook and pay again. This refund is confirmed, then sent.",
     "detailsAdvisorLabel": "Advisor",
     "detailsServiceLabel": "Service",
     "detailsLoadingValue": "Loading…",

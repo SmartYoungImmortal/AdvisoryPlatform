@@ -45,6 +45,18 @@ describe("openRefundOnce", () => {
     expect(calls.list).toHaveBeenCalledWith({ invoiceId, limit: 100 }, expect.any(AbortSignal));
   });
 
+  it.each([
+    ["a lost response", new ApiUnreachableError("response lost")],
+    ["a timeout", new ApiError(408, "Request Timeout")],
+    ["a server fault", new ApiError(502, "Bad Gateway")],
+  ])("takes an open request with another reason after %s as someone else's: this POST wrote nothing", async (_, cause) => {
+    const other = { ...opened, id: "other-tab", reason: "ที่ปรึกษาไม่มา หรือยกเลิกกะทันหัน" };
+    calls.open.mockRejectedValue(cause);
+    calls.list.mockResolvedValue(page([other]));
+    await expect(openRefundOnce(invoiceId, reason)).resolves.toEqual({ refund: other, alreadyOpen: true });
+    expect(calls.log).toEqual(["POST refunds", "GET refunds/me"]);
+  });
+
   it("takes the open request after a 409 as someone else's, so the caller can say this press wrote nothing", async () => {
     const other = { ...opened, id: "other-tab", reason: "ที่ปรึกษาไม่มา หรือยกเลิกกะทันหัน" };
     calls.open.mockRejectedValue(new ApiError(409, "A refund case is already open for this invoice"));

@@ -7,17 +7,18 @@ import { useSearchParams } from "next/navigation";
 import { useTranslations } from "next-intl";
 
 import { BookingDetailState, DetailColumn } from "@/components/bookings/booking-detail-screen";
-import { bookingExit, bookingPopupHref, refundHref, runningDeadline, sameOffer, signInHref } from "@/components/bookings/booking-exit";
+import { bookingExit, bookingPopupHref, paidWay, refundHref, sameOffer, signInHref } from "@/components/bookings/booking-exit";
 import { asUuid, useMountTime } from "@/components/bookings/booking-flow";
 import { refundFailure, type RefundFailure } from "@/components/bookings/refund-actions";
-import { CancelRefundMode, ClaimMode } from "@/components/bookings/refund-cancel";
+import { CancelBones, CancelRefundMode, ClaimBones, ClaimMode } from "@/components/bookings/refund-cancel";
 import { ReportFormBones, ReportHeadBones, ReportMode } from "@/components/bookings/refund-report";
-import { SHEET_W } from "@/components/payment/invoice-screens";
 import {
   Bone,
-  REFUND_SHAPE,
+  RefundActionsBones,
   RefundCard,
+  RefundHeadBones,
   RefundList,
+  RefundRowBones,
   RefundSection,
   useDeadlineLine,
   useRefundFormat,
@@ -28,7 +29,6 @@ import { Button } from "@/components/ui/button";
 import { getBooking, getService } from "@/lib/api/resources";
 import type { ApiBooking, ApiPublicService, ApiRefundCase } from "@/lib/api/types";
 import { useResource } from "@/lib/api/use-resource";
-import { cn } from "@/lib/utils";
 
 /**
  * `/bookings/refund?bookingId=`: the one page where a booking's money is
@@ -307,11 +307,24 @@ type Done = {
   readonly failure?: RefundFailure;
 };
 
-/** A money read that never answered, named by what failed; a refusal of this account (403) says so in its own words. */
+/**
+ * A money read that never answered, named by what failed. A refusal of this
+ * account (403) is no failed load: its title and body say the account cannot.
+ */
 const MONEY_FAILED = {
-  invoice: { title: "states.moneyFailed", refused: "states.moneyRefusedBody", forbidden: "states.moneyForbiddenBody" },
-  requests: { title: "states.requestsFailed", refused: "states.requestsRefusedBody", forbidden: "states.requestsForbiddenBody" },
-} as const satisfies Record<MoneyReadFailure["read"], Record<"title" | "refused" | "forbidden", string>>;
+  invoice: {
+    title: "states.moneyFailed",
+    refused: "states.moneyRefusedBody",
+    forbiddenTitle: "states.moneyForbidden",
+    forbidden: "states.moneyForbiddenBody",
+  },
+  requests: {
+    title: "states.requestsFailed",
+    refused: "states.requestsRefusedBody",
+    forbiddenTitle: "states.requestsForbidden",
+    forbidden: "states.requestsForbiddenBody",
+  },
+} as const satisfies Record<MoneyReadFailure["read"], Record<"title" | "refused" | "forbiddenTitle" | "forbidden", string>>;
 
 const CANCELLED_ONLY = {
   retry: "errors.cancelledOnly",
@@ -412,27 +425,21 @@ function RefundContent({
   if (loading) {
     const failed = money.failure;
     if (!failed) {
-      // A booking whose report window is open will most likely show its form, far taller than the two cells.
-      return (
-        <RefundSkeleton
-          bookingId={booking.id}
-          report={runningDeadline(booking, now)?.rule === "report" ? booking : undefined}
-          serviceName={service.data?.name}
-        />
-      );
+      return <RefundSkeleton booking={booking} bookingId={booking.id} now={now} serviceName={service.data?.name} />;
     }
     const failure = refundFailure(failed.error);
     if (failure === "signIn") return <RefundSignIn bookingId={booking.id} />;
     const words = MONEY_FAILED[failed.read];
+    const forbidden = moneyReadProblem(failed.error) === "forbidden";
     return (
       <RefundFailed
         bookingId={booking.id}
         deadline={deadlineLine(booking, now)}
         failure={failure}
-        refused={t(moneyReadProblem(failed.error) === "forbidden" ? words.forbidden : words.refused)}
+        refused={t(forbidden ? words.forbidden : words.refused)}
         retry={money.reload}
         retryBody={t("states.moneyFailedBody")}
-        title={t(words.title)}
+        title={t(forbidden ? words.forbiddenTitle : words.title)}
       />
     );
   }
@@ -535,112 +542,93 @@ function RefundContent({
   );
 }
 
-/** What the facts usually hold: a name, a day over its hours, a service's name, a card. */
-const FACT_BONES = [["กกกกก กกกกกก"], ["กกก 00 กก 0000", "00:00 กก 00:00 ก"], ["กกกกกกกกก กกกกกกกกกก กกกกกกก"]] as const;
-
-/** The facts' bones, the service's own name in its place once known: a name wraps where it does, a placeholder only guesses. */
-function factBones(serviceName: string | undefined): readonly (readonly string[])[] {
-  return serviceName ? [FACT_BONES[0], FACT_BONES[1], [serviceName]] : FACT_BONES;
-}
+/** A trail of four steps: a cancellation's request on record, the card a popup's refund row opens on. */
+const TRAIL_BONES = ["กกกกกกกกก กกกกกก", "กกกกกกกก กกกกกกก", "กกกกกก กกกกกกกกกกก", "กกกกกก กกกกก กก กกกกกก"] as const;
 
 /**
  * The card's own shape while the booking and its money load, still, no
- * shimmer, built in the card's own boxes (`REFUND_SHAPE`), so the page keeps
- * its height when the data lands. A booking to `report` gets its form's shape:
- * the head across the card and the form under it. Any other gets the head
- * beside a section of four rows (a cancellation's trail, the card a popup's
- * refund row opens on).
+ * shimmer, built in each mode's own boxes and words, so the page keeps its
+ * height when the data lands. Once the booking is known, it and the clock
+ * say the mode a paid booking with no request takes (`paidWay`): the cancel
+ * at its share, the claim at its share, or the report's form.
+ *
+ * Whether a cancelled booking has its request yet is in the money. The
+ * advisee's own cancel here files it in the same press, so their full-share
+ * cancel opens on its status: the claim's body too, the head beside four
+ * steps, but with the status's one-line meta and no button. A half share
+ * keeps the claim's box. Before the booking is known, or for a window shut,
+ * the head beside a trail of four steps.
  */
 function RefundSkeleton({
   bookingId,
-  report,
+  booking,
+  now,
   serviceName,
 }: {
   readonly bookingId?: string;
-  readonly report?: ApiBooking;
+  readonly booking?: ApiBooking;
+  /** The clock the page reads its rule at. */
+  readonly now?: number;
   readonly serviceName?: string;
 }) {
   const t = useTranslations("bookingRefund");
   const back = useBack(bookingId);
-  const mark = "rounded-full bg-muted";
+  const way = booking && now !== undefined ? paidWay(booking, now) : undefined;
+
+  let shape: ReactNode;
+  if (booking && way?.kind === "report") {
+    shape = (
+      <>
+        <RefundCard
+          foot={<ReportFormBones booking={booking} />}
+          head={
+            <RefundHeadBones serviceName={serviceName} title={t("head.report")}>
+              <ReportHeadBones booking={booking} />
+            </RefundHeadBones>
+          }
+        />
+        <RefundActionsBones />
+      </>
+    );
+  } else if (way?.kind === "cancelRefund") {
+    shape = <CancelBones serviceName={serviceName} way={way} />;
+  } else if (booking && way?.kind === "claim" && (way.share === "half" || way.by === "other")) {
+    shape = <ClaimBones booking={booking} serviceName={serviceName} way={way} />;
+  } else {
+    const filed = way?.kind === "claim";
+    shape = (
+      <>
+        <RefundCard
+          head={
+            <RefundHeadBones
+              meta={filed ? t("meta.status.requested") : "กกกกกกกกก กกกกก 00 กกกกกก"}
+              serviceName={serviceName}
+              title={filed ? t("stage.requested") : undefined}
+            />
+          }
+        >
+          <RefundSection heading={<Bone text={filed ? t("progress.heading") : "กกกกกกกก"} />}>
+            <RefundList ordered={filed}>
+              {TRAIL_BONES.map((line) => (
+                <RefundRowBones key={line} sub="0 กก 0000 · 00:00" title={line} />
+              ))}
+            </RefundList>
+          </RefundSection>
+        </RefundCard>
+        {filed ? null : <RefundActionsBones />}
+      </>
+    );
+  }
 
   return (
     <DetailColumn back={back}>
-      <div aria-busy className="flex w-full flex-col gap-6 lg:gap-8">
+      <div aria-busy className="flex w-full flex-col">
         <span className="sr-only" role="status">
           {t("busy.loading")}
         </span>
-        <div aria-hidden className="w-full">
-          <RefundCard
-            foot={report ? <ReportFormBones booking={report} /> : undefined}
-            head={
-              <div className={REFUND_SHAPE.head}>
-                <p className={REFUND_SHAPE.status}>
-                  <span className={cn(REFUND_SHAPE.statusIcon, mark)} />
-                  <Bone text="กกกกกก กกกกกกกกก" />
-                </p>
-                <p className={REFUND_SHAPE.amount}>
-                  <Bone text="฿0,000" />
-                </p>
-                {report ? (
-                  <ReportHeadBones booking={report} />
-                ) : (
-                  <p className={REFUND_SHAPE.meta}>
-                    <Bone text="กกกกกกกกก กกกกก 00 กกกกกก" />
-                  </p>
-                )}
-                <dl className={REFUND_SHAPE.facts}>
-                  {factBones(serviceName).map((lines) => (
-                    <div className={REFUND_SHAPE.fact} key={lines[0]}>
-                      <dt className={REFUND_SHAPE.term}>
-                        <Bone text="กกกกกก" />
-                      </dt>
-                      <dd className={REFUND_SHAPE.value}>
-                        {lines.map((line) => (
-                          <span className="block" key={line}>
-                            <Bone text={line} />
-                          </span>
-                        ))}
-                      </dd>
-                    </div>
-                  ))}
-                  <div className={REFUND_SHAPE.fact}>
-                    <dt className={REFUND_SHAPE.term}>
-                      <Bone text="กกกก" />
-                    </dt>
-                    <dd className={cn(REFUND_SHAPE.value, "font-latin")}>
-                      <span className="inline-flex items-center gap-2">
-                        <span className="size-4 rounded bg-muted" />
-                        <Bone text="Visa 0000 0000" />
-                      </span>
-                    </dd>
-                  </div>
-                </dl>
-              </div>
-            }
-          >
-            {report ? null : (
-              <RefundSection heading={<Bone text="กกกกกกกก" />}>
-                <RefundList>
-                  {["กกกกกกกกก กกกกกก", "กกกกกกกก กกกกกกก", "กกกกกก กกกกกกกกกกก", "กกกกกก กกกกก กก กกกกกก"].map((line) => (
-                    <li className={REFUND_SHAPE.row} key={line}>
-                      <span className={cn(REFUND_SHAPE.rowIcon, mark)} />
-                      <div className={REFUND_SHAPE.rowText}>
-                        <p className={REFUND_SHAPE.rowTitle}>
-                          <Bone text={line} />
-                        </p>
-                        <p className={REFUND_SHAPE.rowSub}>
-                          <Bone text="0 กก 0000 · 00:00" />
-                        </p>
-                      </div>
-                    </li>
-                  ))}
-                </RefundList>
-              </RefundSection>
-            )}
-          </RefundCard>
+        <div aria-hidden className="flex w-full flex-col gap-6 lg:gap-8">
+          {shape}
         </div>
-        <span aria-hidden className={cn("h-11 w-full rounded-full bg-muted lg:mx-auto lg:h-14", SHEET_W)} />
       </div>
     </DetailColumn>
   );

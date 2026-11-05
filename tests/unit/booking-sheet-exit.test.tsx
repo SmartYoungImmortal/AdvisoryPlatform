@@ -166,7 +166,9 @@ describe("the booking popup's one way out (FE #114)", () => {
     expect(capsules("เปลี่ยนเวลานัด")).toHaveLength(0);
     expect(capsules("ขอเปลี่ยนเวลานัด")).toHaveLength(0);
     const plain = said(container).replaceAll("⁠", "");
-    expect(plain).toContain("ต้องการเวลาอื่น ยกเลิกแล้วจองใหม่ นัดใหม่ชำระแยก ส่วนเงินนัดนี้คืนเมื่อทีมงานยืนยัน");
+    // The refund is a step of its own after the team confirms (approval moves no money yet, API #86), so no date and no "when confirmed".
+    expect(plain).toContain("ต้องการเวลาอื่น ยกเลิกแล้วจองใหม่ นัดใหม่ชำระแยก ส่วนเงินนัดนี้ ทีมงานยืนยันใน 14 วันทำการ แล้วจึงคืน");
+    expect(plain).not.toContain("คืนเมื่อ");
     expect(plain.match(/6 พ\.ย\. 2569 · 16:00/g)).toHaveLength(1);
     expect(plain).not.toContain("ระบบ");
   });
@@ -445,8 +447,11 @@ describe("the booking popup's one way out (FE #114)", () => {
     // One way to support: the help line would only say the payment line's link again.
     expect(container.querySelectorAll('a[href^="mailto:"]')).toHaveLength(1);
     expect(said(container)).not.toContain(messages.bookings.helpPrompt);
-    // An email stops no clock: the full refund's line, three days out, is said beside it.
-    expect(said(container).replaceAll("⁠", "")).toMatch(/ยกเลิกถึง \S+ 6 พ\.ย\. 2569 · 16:00 ได้คืนเต็มจำนวน เวลานี้ไม่หยุดระหว่างรออีเมลตอบ/);
+    // No cancel is offered, so the line names the one way left (the email), its deadline and who then acts.
+    expect(said(container).replaceAll("⁠", "")).toMatch(
+      /ส่งอีเมลถึงฝ่ายช่วยเหลือภายใน \S+ 6 พ\.ย\. 2569 · 16:00 เพื่อรับเงินคืนเต็มจำนวน ทีมงานเป็นผู้ดำเนินการต่อ/,
+    );
+    expect(said(container)).not.toMatch(/ยกเลิกถึง/);
     for (const exit of ["ยกเลิกการจอง", "ยกเลิกและรับเงินคืน", "เปลี่ยนเวลานัด"]) expect(capsules(exit)).toHaveLength(0);
   });
 
@@ -478,7 +483,9 @@ describe("the booking popup's one way out (FE #114)", () => {
       const { container } = show(booking);
 
       expect(said(container)).toContain(messages.bookings.paidUnshown);
-      expect(said(container).replaceAll("⁠", "")).toMatch(/ยกเลิกถึง \S+ 6 พ\.ย\. 2569 · 16:00 ได้คืนเต็มจำนวน เวลานี้ไม่หยุดระหว่างรออีเมลตอบ/);
+      expect(said(container).replaceAll("⁠", "")).toMatch(
+        /ส่งอีเมลถึงฝ่ายช่วยเหลือภายใน \S+ 6 พ\.ย\. 2569 · 16:00 เพื่อรับเงินคืนเต็มจำนวน ทีมงานเป็นผู้ดำเนินการต่อ/,
+      );
       expect(screen.queryByRole("link", { name: "ดูใบเสร็จ" })).toBeNull();
       for (const exit of ["ยกเลิกการจอง", "ยกเลิกและรับเงินคืน", "เปลี่ยนเวลานัด"]) expect(capsules(exit)).toHaveLength(0);
       expect(toRefundPage(container)).toHaveLength(0);

@@ -247,12 +247,13 @@ describe("a failure says what helps next", () => {
   });
 
   it.each([
-    [400, th.bookingRefund.states.moneyRefusedBody],
-    [403, th.bookingRefund.states.moneyForbiddenBody],
-  ])("sends a refused (%i) money read to support, not to a retry that would be refused again", (status, body) => {
+    [400, "โหลดยอดที่ชำระและเงินคืนไม่สำเร็จ", th.bookingRefund.states.moneyRefusedBody],
+    // A 403 is no failed load: the title says this account cannot, as the body goes on to.
+    [403, "บัญชีนี้เปิดยอดที่ชำระของการจองนี้ไม่ได้", th.bookingRefund.states.moneyForbiddenBody],
+  ])("sends a refused (%i) money read to support, not to a retry that would be refused again", (status, title, body) => {
     answer(bookingAt(3 * DAY), { error: new ApiError(status, "Refused") });
     show("th");
-    expect(screen.getByText(th.bookingRefund.states.moneyFailed)).toBeTruthy();
+    expect(screen.getByRole("heading", { level: 1 }).textContent).toBe(title);
     expect(screen.getByText(body)).toBeTruthy();
     expect(screen.queryByRole("button", { name: th.bookingRefund.actions.retry })).toBeNull();
     expect(screen.getByRole("button", { name: th.bookingRefund.actions.mailSupport }).getAttribute("href")).toMatch(/^mailto:/);
@@ -263,8 +264,9 @@ describe("a failure says what helps next", () => {
     answer(b, invoiceFor(b));
     api.answers.set("refunds/me", { error: new ApiError(403, "Forbidden") });
     show("th");
-    expect(screen.getByText(th.bookingRefund.states.requestsFailed)).toBeTruthy();
+    expect(screen.getByRole("heading", { level: 1 }).textContent).toBe("บัญชีนี้ยังดูคำขอคืนเงินไม่ได้");
     expect(screen.getByText(th.bookingRefund.states.requestsForbiddenBody)).toBeTruthy();
+    expect(screen.queryByText(th.bookingRefund.states.requestsFailed)).toBeNull();
     expect(screen.queryByText(th.bookingRefund.states.moneyFailed)).toBeNull();
     expect(screen.queryAllByRole("button").filter((node) => /฿|ยกเลิก/.test(node.textContent ?? ""))).toEqual([]);
     expect(screen.getByRole("button", { name: th.bookingRefund.actions.mailSupport }).getAttribute("href")).toMatch(/^mailto:/);
@@ -560,14 +562,25 @@ describe("nothing to refund says why", () => {
     expect(screen.getByText(th.bookingRefund.states.paidUnshownBody)).toBeTruthy();
     expect(screen.queryAllByRole("button").filter((node) => /฿|ยกเลิก/.test(node.textContent ?? ""))).toEqual([]);
     expect(support()?.getAttribute("href")).toMatch(/^mailto:/);
-    // An email stops no clock: the full refund's line is said beside the way to support.
-    expect(document.body.textContent?.replaceAll(" ", " ")).toMatch(/ยกเลิกถึง \S+ 6 พ\.ย\. 2569 · 19:00 ได้คืนเต็มจำนวน เวลานี้ไม่หยุดระหว่างรออีเมลตอบ/);
+    // No cancel is offered here, so the line beside support names the email as the way, its deadline and who then acts.
+    expect(document.body.textContent?.replaceAll(" ", " ")).toMatch(
+      /ส่งอีเมลถึงฝ่ายช่วยเหลือภายใน \S+ 6 พ\.ย\. 2569 · 19:00 เพื่อรับเงินคืนเต็มจำนวน ทีมงานเป็นผู้ดำเนินการต่อ/,
+    );
   });
 
   it("says, beside support for an ended booking's refused money, until when a problem can still be reported", () => {
     answer(bookingAt(-2 * DAY), { error: new ApiError(403, "Forbidden") });
     show("th");
-    expect(document.body.textContent?.replaceAll(" ", " ")).toMatch(/แจ้งปัญหาได้ถึง \S+ 9 พ\.ย\. 2569 · 20:00 เวลานี้ไม่หยุดระหว่างรออีเมลตอบ/);
+    expect(document.body.textContent?.replaceAll(" ", " ")).toMatch(
+      /ส่งอีเมลถึงฝ่ายช่วยเหลือภายใน \S+ 9 พ\.ย\. 2569 · 20:00 เพื่อแจ้งปัญหาและขอคืนเงิน ทีมงานเป็นผู้ดำเนินการต่อ/,
+    );
+  });
+
+  it("keeps the report's line beside support for the advisee's own cancel after the start, as while it was booked", () => {
+    const late = { ...bookingAt(-2 * DAY), state: "CANCELLED" as const, cancelledByUserId: "advisee", cancelledAt: new Date(NOW - DAY).toISOString() };
+    answer(late, { error: new ApiError(403, "Forbidden") });
+    show("th");
+    expect(document.body.textContent?.replaceAll(" ", " ")).toMatch(/ส่งอีเมลถึงฝ่ายช่วยเหลือภายใน \S+ 9 พ\.ย\. 2569 · 20:00 เพื่อแจ้งปัญหา/);
   });
 });
 
@@ -585,25 +598,56 @@ describe("while the money loads", () => {
     expect(screen.queryByRole("article")).toBeNull();
   });
 
-  const cells = () => [...document.querySelectorAll<HTMLElement>("[data-cell]")].map((cell) => cell.dataset.cell);
+  /**
+   * The card's build as the page lays it out: each cell with its rows and its boxes (the facts, the half box),
+   * then the buttons' group, what stands above the buttons and how many there are. The skeleton has the same, in bones.
+   */
+  const build = () => {
+    const card = document.querySelector("article");
+    const group = card?.nextElementSibling?.firstElementChild;
+    return {
+      cells: [...document.querySelectorAll<HTMLElement>("[data-cell]")].map(
+        (cell) => `${cell.dataset.cell} rows:${cell.querySelectorAll("li").length} boxes:${cell.querySelectorAll("dl").length}`,
+      ),
+      underCard: group?.tagName === "DIV" ? [...group.children].map((node) => (node.tagName === "P" ? "line" : "pill")) : [],
+    };
+  };
 
   it.each([
     { name: "a session that has ended, which opens on its report form", booking: () => bookingAt(-2 * DAY), shape: ["head", "foot"] },
     { name: "a session under way, which opens on its report form", booking: () => bookingAt(-10 * 60_000, { state: "IN_PROGRESS" }), shape: ["head", "foot"] },
     { name: "a recorded no-show, which opens on its report form", booking: () => bookingAt(-DAY, { state: "NO_SHOW" }), shape: ["head", "foot"] },
+    { name: "the advisee's cancel after the start, which opens on its report form", booking: () => cancelledBy("advisee", -20 * 60_000, -2 * DAY), shape: ["head", "foot"] },
     { name: "a booking three days out, which opens on its cancel", booking: () => bookingAt(3 * DAY), shape: ["head", "sections"] },
-  ])("draws the cells of $name while its money loads, and keeps them when it lands", ({ booking, shape }) => {
+    { name: "a booking five hours out, which opens on its half cancel", booking: () => bookingAt(5 * HOUR), shape: ["head", "sections", "foot"] },
+    { name: "the advisor's cancel, which opens on its claim", booking: () => cancelledBy("advisor", 3 * HOUR, 2 * DAY), shape: ["head", "sections"] },
+    { name: "the advisee's cancel inside 24 hours, which opens on its half claim", booking: () => cancelledBy("advisee", 3 * HOUR, 2 * DAY), shape: ["head", "sections", "foot"] },
+    // This page files the advisee's own cancel's request in the same press, so it lands on that request's status.
+    { name: "the advisee's early cancel, which opens on its request's status", booking: () => cancelledBy("advisee", 3 * DAY, 2 * DAY), shape: ["head", "sections"], cases: [request("OPEN")] },
+  ])("draws the card of $name while its money loads, and keeps it when it lands", ({ booking, shape, cases }) => {
     const b = booking();
     answer(b, { loading: true });
     const view = show("th");
     expect(screen.getByRole("status").textContent).toBe(th.bookingRefund.busy.loading);
-    const loading = cells();
-    expect(loading).toEqual(shape);
+    const loading = build();
+    expect(loading.cells.map((cell) => cell.split(" ")[0])).toEqual(shape);
+
+    answer(b, invoiceFor(b), cases);
+    view.rerender(page("th"));
+    expect(screen.getByRole("heading", { level: 1 })).toBeTruthy();
+    expect(build()).toEqual(loading);
+  });
+
+  it("says, in the cancel's skeleton, the same line above the buttons the card will, its card's name aside", () => {
+    const b = bookingAt(5 * HOUR);
+    answer(b, { loading: true });
+    const view = show("th");
+    const line = () => document.querySelector("article")?.nextElementSibling?.querySelector("p")?.textContent;
+    const loading = line();
 
     answer(b, invoiceFor(b));
     view.rerender(page("th"));
-    expect(screen.getByRole("heading", { level: 1 })).toBeTruthy();
-    expect(cells()).toEqual(loading);
+    expect(loading?.replace("0000", "1111")).toBe(line());
   });
 
   it("goes back to the booking's popup, never to a breadcrumb trail", () => {

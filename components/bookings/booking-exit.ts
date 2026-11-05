@@ -193,6 +193,33 @@ function stageOf(refund: ApiRefundCase, type: RefundCaseType, invoice: ApiAdvise
 const STARTED: ReadonlySet<ApiBooking["state"]> = new Set(["IN_PROGRESS", "COMPLETED", "NO_SHOW"]);
 
 /**
+ * What the booking and the clock alone give a paid booking with no request
+ * on record, before any amount: the refund of a cancellation under §8 owed
+ * (`claim`), the cancel still open (`cancelRefund`), a problem to report, or
+ * the window shut. The page's skeleton takes this shape while the money
+ * loads, and the support states name its deadline (`runningDeadline`).
+ */
+export type PaidWay =
+  | { readonly kind: "claim"; readonly share: RefundShare; readonly by: "advisee" | "other" }
+  | { readonly kind: "cancelRefund"; readonly share: RefundShare; readonly fullUntil: Date; readonly startsAt: Date }
+  | { readonly kind: "report"; readonly until: Date }
+  | { readonly kind: "closed"; readonly closedAt: Date };
+
+export function paidWay(booking: ApiBooking, now: number): PaidWay {
+  const lateCancel = cancelledAfterStart(booking);
+  if (booking.state === "CANCELLED" && !lateCancel) return { kind: "claim", ...cancelledShare(booking) };
+  // Still on from here (or called off once it began): BOOKED until it starts, then under way or over.
+  const startsAt = new Date(booking.startTime);
+  const started = lateCancel || now >= startsAt.getTime() || STARTED.has(booking.state);
+  if (!started) {
+    const fullUntil = fullRefundUntil(booking);
+    return { kind: "cancelRefund", share: now <= fullUntil.getTime() ? "full" : "half", fullUntil, startsAt };
+  }
+  const until = reportUntil(booking);
+  return now <= until.getTime() ? { kind: "report", until } : { kind: "closed", closedAt: until };
+}
+
+/**
  * The one way out of a booking, from /terms §8 and the clock (S = start, E = end):
  *
  * - R10 nothing while the invoice, or a paid invoice's requests, still load,
@@ -230,14 +257,13 @@ export function bookingExit({ booking, invoice, cases, now }: BookingExitInput):
   if (cases === undefined) return { kind: "waiting" };
   if (rescheduledAway(booking, invoice)) return { kind: "rescheduled" };
 
-  const lateCancel = cancelledAfterStart(booking);
-  // A cancellation under §8; the advisee's own after the start is not one.
-  const cancelled = booking.state === "CANCELLED" && !lateCancel;
+  const way = paidWay(booking, now);
   const refund = currentRefundCase(cases);
   if (refund) {
-    const type: RefundCaseType = cancelled ? "cancellation" : "report";
+    // A cancellation under §8; the advisee's own after the start is not one.
+    const type: RefundCaseType = way.kind === "claim" ? "cancellation" : "report";
     const stage = stageOf(refund, type, invoice);
-    const owed = cancelled ? refundFor(cancelledShare(booking).share, invoice) : invoice.amountSatang;
+    const owed = way.kind === "claim" ? refundFor(way.share, invoice) : invoice.amountSatang;
     return {
       kind: "status",
       refund,
@@ -249,22 +275,16 @@ export function bookingExit({ booking, invoice, cases, now }: BookingExitInput):
   if (invoice.status === "refunded") {
     return { kind: "refunded", refundSatang: invoice.refundSatang ?? invoice.amountSatang };
   }
-  if (cancelled) {
-    const { share, by } = cancelledShare(booking);
-    return { kind: "claim", share, by, refundSatang: refundFor(share, invoice) };
+  switch (way.kind) {
+    case "claim":
+      return { ...way, refundSatang: refundFor(way.share, invoice) };
+    case "cancelRefund":
+      return { ...way, refundSatang: refundFor(way.share, invoice) };
+    case "report":
+      return { ...way, maxSatang: invoice.amountSatang };
+    case "closed":
+      return way;
   }
-
-  // Paid and still on from here (or called off once it began): BOOKED until it starts, then under way or over.
-  const started = lateCancel || now >= startsAt.getTime() || STARTED.has(booking.state);
-  if (!started) {
-    const fullUntil = fullRefundUntil(booking);
-    const share: RefundShare = now <= fullUntil.getTime() ? "full" : "half";
-    return { kind: "cancelRefund", share, refundSatang: refundFor(share, invoice), fullUntil, startsAt };
-  }
-  const until = reportUntil(booking);
-  return now <= until.getTime()
-    ? { kind: "report", maxSatang: invoice.amountSatang, until }
-    : { kind: "closed", closedAt: until };
 }
 
 /**
@@ -304,17 +324,20 @@ export function rescheduleWay({ booking, invoice, now }: Omit<BookingExitInput, 
  * The §8 line still running for a booking whose money only support can
  * settle here: an email stops no clock. Until S − 24 h a cancel refunds in
  * full, until S it refunds half the service fee, then a problem can be
- * reported until E + 7 days. A cancelled booking has none left.
+ * reported until E + 7 days. A cancellation under §8 has none left; the
+ * advisee's own cancel after the start reads as a session that began
+ * (`paidWay`), so its report window still runs.
  */
 export type RunningDeadline = { readonly rule: "full" | "start" | "report"; readonly at: Date };
 
 export function runningDeadline(booking: ApiBooking, now: number): RunningDeadline | null {
-  if (booking.state === "CANCELLED") return null;
-  const startsAt = new Date(booking.startTime);
-  if (now < startsAt.getTime() && !STARTED.has(booking.state)) {
-    const fullUntil = fullRefundUntil(booking);
-    return now <= fullUntil.getTime() ? { rule: "full", at: fullUntil } : { rule: "start", at: startsAt };
+  const way = paidWay(booking, now);
+  switch (way.kind) {
+    case "cancelRefund":
+      return way.share === "full" ? { rule: "full", at: way.fullUntil } : { rule: "start", at: way.startsAt };
+    case "report":
+      return { rule: "report", at: way.until };
+    default:
+      return null;
   }
-  const until = reportUntil(booking);
-  return now <= until.getTime() ? { rule: "report", at: until } : null;
 }

@@ -90,7 +90,10 @@ describe("ReportMode", () => {
     expect(screen.getByRole("heading", { level: 1 }).textContent).toBe("แจ้งปัญหาและขอคืนเงิน");
     expect(screen.getByText("฿1,000")).toBeTruthy();
     const meta = screen.getByText((_, node) => node?.tagName === "P" && (node.textContent ?? "").startsWith("ขอคืนได้สูงสุด"));
-    expect(meta.textContent?.replaceAll("\u{a0}", " ")).toMatch(/^ขอคืนได้สูงสุดเท่านี้ · ทีมงานแจ้งผลภายใน 14 วันทำการ · แจ้งได้ถึง \S+ 10 พ\.ย\. 2569 · 16:00$/);
+    // No notice reaches the advisee when the team rules (the API notifies nobody), so it says where the result shows.
+    expect(meta.textContent?.replaceAll("\u{a0}", " ")).toMatch(
+      /^ขอคืนได้สูงสุดเท่านี้ · ผลแสดงที่หน้านี้และในการจองภายใน 14 วันทำการ · แจ้งได้ถึง \S+ 10 พ\.ย\. 2569 · 16:00$/,
+    );
     // The page's own back link is the way out; the form draws no second one.
     expect(screen.queryByRole("button", { name: "กลับไปที่การจอง" })).toBeNull();
     expect(screen.getAllByRole("button").filter((pill) => pill.textContent === "ส่งคำขอคืนเงิน")).toHaveLength(1);
@@ -284,13 +287,33 @@ describe("ReportMode", () => {
     );
   });
 
-  it("keeps the send button after any other refusal", async () => {
-    actions.openRefundOnce.mockRejectedValue(new ApiError(404, "Not Found"));
+  it.each([
+    ["no disputable receipt", 404],
+    ["someone else's receipt", 403],
+    ["a refusal", 400],
+  ])("swaps the send button for the email to support after %s, which sending again would meet the same way", async (_, status) => {
+    actions.openRefundOnce.mockRejectedValue(new ApiError(status, "refused"));
+    renderForm();
+    fireEvent.click(screen.getByRole("radio", { name: "เข้าห้องไม่ได้เพราะระบบขัดข้อง" }));
+    await act(async () => fireEvent.click(send()));
+
+    expect(screen.queryByRole("button", { name: "ส่งคำขอคืนเงิน" })).toBeNull();
+    const mail = screen.getByRole("button", { name: th.bookingRefund.actions.mailSupport });
+    expect(decodeURIComponent(mail.getAttribute("href") ?? "")).toMatch(/^mailto:[^?]+\?subject=.*INV-/);
+    // One way to support: the help line under the button would only say it again.
+    expect(document.querySelectorAll('a[href^="mailto:"]')).toHaveLength(1);
+  });
+
+  it.each([
+    ["a server fault", new ApiError(503, "Unavailable")],
+    ["no network", new TypeError("Failed to fetch")],
+  ])("keeps the send button after %s, where sending again can help", async (_, cause) => {
+    actions.openRefundOnce.mockRejectedValue(cause);
     renderForm();
     fireEvent.click(screen.getByRole("radio", { name: "เข้าห้องไม่ได้เพราะระบบขัดข้อง" }));
     await act(async () => fireEvent.click(send()));
     expect(send()).toBeTruthy();
-    expect(screen.queryByRole("button", { name: "เข้าสู่ระบบอีกครั้ง" })).toBeNull();
+    expect(screen.queryByRole("button", { name: th.bookingRefund.actions.mailSupport })).toBeNull();
   });
 
   it.each([

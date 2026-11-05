@@ -310,16 +310,19 @@ function MoneyNote({ bookingId, exit }: { readonly bookingId: string; readonly e
           : t("refundNote.status", { amount: when.baht(exit.refundSatang), stage: r(`stage.${exit.stage}`) });
       // 44 px to press, rendered: the card is zoomed 1440/1710 from lg. Its
       // text starts where the other notes start, under the payment line, and
-      // the extra height hangs into the gap below.
+      // the rest of the 44 is a bottom pad that its own negative margin gives
+      // back, so the next line follows the text's real line (its Latin
+      // figures make it taller than 1lh), as it does under a plain note.
       return (
         <Link
-          className="-mx-2 -mb-3 flex min-h-11 items-start gap-2 rounded-xl px-2 pt-1 text-xs text-muted-foreground outline-none transition-colors duration-150 hover:bg-muted/60 focus-visible:ring-3 focus-visible:ring-ring/50 motion-reduce:transition-none lg:-mx-3 lg:-mb-4 lg:min-h-13.5 lg:px-3 lg:text-frame-label"
+          className="-mx-2 -mb-[calc(2.75rem_-_0.25rem_-_1lh)] flex items-start gap-2 rounded-xl px-2 pt-1 pb-[calc(2.75rem_-_0.25rem_-_1lh)] text-xs text-muted-foreground outline-none transition-colors duration-150 hover:bg-muted/60 focus-visible:ring-3 focus-visible:ring-ring/50 motion-reduce:transition-none lg:-mx-3 lg:-mb-[calc(3.375rem_-_0.25rem_-_1lh)] lg:px-3 lg:pb-[calc(3.375rem_-_0.25rem_-_1lh)] lg:text-frame-label"
           href={refundHref(bookingId)}
         >
           <span className="min-w-0 flex-1">
             <Figures>{line}</Figures>
           </span>
-          <ChevronRight aria-hidden className="size-4 shrink-0 lg:size-5" />
+          {/* From lg the mark is taller than the line; it hangs below rather than growing the line. */}
+          <ChevronRight aria-hidden className="size-4 shrink-0 lg:-mb-0.5 lg:size-5" />
         </Link>
       );
     }

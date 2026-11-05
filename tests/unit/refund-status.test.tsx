@@ -105,11 +105,13 @@ const WORDS = {
   requestSent: ["ส่งเรื่องคืนเงินแล้ว", "4 พ.ย. 2569 · 21:00"],
   confirm: ["ทีมงานยืนยันการคืนเงิน", "ภายใน 14 วันทำการ"],
   sent: ["ส่งคำขอแล้ว", "4 พ.ย. 2569 · 21:00"],
-  review: ["ทีมงาน Advisory ตรวจสอบ", "จากบันทึกการเข้าร่วมและแชต แจ้งผลภายใน 14 วันทำการ"],
+  // Nothing tells the advisee when the team rules (the API notifies nobody), so the step says where the result shows.
+  review: ["ทีมงาน Advisory ตรวจสอบ", "จากบันทึกการเข้าร่วมและแชต ผลแสดงที่หน้านี้และในการจองภายใน 14 วันทำการ"],
   approved: ["อนุมัติแล้ว", "6 พ.ย. 2569 · 10:15"],
   rejected: ["ไม่อนุมัติ", "6 พ.ย. 2569 · 10:15"],
-  refundOnceConfirmed: [REFUND, "เมื่อทีมงานยืนยัน"],
-  refundIfApproved: [REFUND, "ถ้าอนุมัติ"],
+  // Approval moves no money yet (API #86): the refund is the team's own step after it, never "once confirmed".
+  refundAfterConfirm: [REFUND, "ทีมงานดำเนินการหลังยืนยัน"],
+  refundIfApproved: [REFUND, "ถ้าอนุมัติ ทีมงานจึงดำเนินการคืนเงิน"],
   refundPending: [REFUND, "รอทีมงานดำเนินการคืนเงิน แล้วเงินเข้าตามรอบของธนาคาร\u{2060}ผู้ออกบัตร"],
   refundDone: [REFUND, "ถ้ายังไม่เห็นในรายการบัตร ธนาคาร\u{2060}ผู้ออกบัตรอาจใช้เวลา\u{2060}เพิ่ม"],
 } as const;
@@ -135,11 +137,11 @@ type Expected = Scene & {
 };
 
 const STAGES: readonly Expected[] = [
-  { type: "cancellation", stage: "requested", head: "ส่งเรื่องคืนเงินแล้ว", meta: "ยอดที่ขอคืน · ทีมงานยืนยันภายใน 14 วันทำการ", steps: [["cancelled", "done"], ["requestSent", "done"], ["confirm", "current"], ["refundOnceConfirmed", "next"]], pills: "none" },
+  { type: "cancellation", stage: "requested", head: "ส่งเรื่องคืนเงินแล้ว", meta: "ยอดที่ขอคืน · ทีมงานยืนยันภายใน 14 วันทำการ", steps: [["cancelled", "done"], ["requestSent", "done"], ["confirm", "current"], ["refundAfterConfirm", "next"]], pills: "none" },
   { type: "cancellation", stage: "approved", head: "อนุมัติแล้ว · รอคืนเงิน", meta: `ยอดที่ขอคืน · จะคืนเข้า ${VISA}`, steps: [["cancelled", "done"], ["requestSent", "done"], ["approved", "done"], ["refundPending", "current"]], pills: "none" },
   { type: "cancellation", stage: "refunded", head: "คืนเงินแล้ว", meta: "ยอดที่คืนแล้ว", steps: [["cancelled", "done"], ["requestSent", "done"], ["approved", "done"], ["refundDone", "done"]], pills: "receipt" },
   { type: "cancellation", stage: "rejected", head: "ไม่อนุมัติคืนเงิน", meta: "ยอดที่ขอคืน", steps: [["cancelled", "done"], ["requestSent", "done"], ["rejected", "rejected"]], pills: "support" },
-  { type: "report", stage: "reviewing", head: "รอทีมงานตรวจสอบ", meta: "ยอดที่ขอคืน · ทีมงานแจ้งผลภายใน 14 วันทำการ", steps: [["sent", "done"], ["review", "current"], ["refundIfApproved", "next"]], pills: "none" },
+  { type: "report", stage: "reviewing", head: "รอทีมงานตรวจสอบ", meta: "ยอดที่ขอคืน · ผลแสดงที่หน้านี้และในการจองภายใน 14 วันทำการ", steps: [["sent", "done"], ["review", "current"], ["refundIfApproved", "next"]], pills: "none" },
   { type: "report", stage: "approved", head: "อนุมัติแล้ว · รอคืนเงิน", meta: `ยอดที่ขอคืน · จะคืนเข้า ${VISA}`, steps: [["sent", "done"], ["approved", "done"], ["refundPending", "current"]], pills: "none" },
   { type: "report", stage: "refunded", head: "คืนเงินแล้ว", meta: "ยอดที่คืนแล้ว", steps: [["sent", "done"], ["approved", "done"], ["refundDone", "done"]], pills: "receipt" },
   { type: "report", stage: "rejected", head: "ไม่อนุมัติคืนเงิน", meta: "ยอดที่ขอคืน", steps: [["sent", "done"], ["rejected", "rejected"]], pills: "support" },

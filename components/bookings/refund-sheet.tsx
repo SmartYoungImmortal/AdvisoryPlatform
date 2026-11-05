@@ -276,6 +276,75 @@ function Fact({
 /** What the card fact calls the card: where the money goes back, or only how it was paid once none will. */
 export type CardFact = "refundTo" | "paidWith";
 
+/** What the facts usually hold: a name, a day over its hours, a service's name, a card. */
+const FACT_BONES = [["กกกกก กกกกกก"], ["กกก 00 กก 0000", "00:00 กก 00:00 ก"], ["กกกกกกกกก กกกกกกกกกก กกกกกกก"]] as const;
+
+/** A card's name while the receipt loads, as long as the one it will be, and as whole (`cardName`). */
+export const CARD_BONE = "Visa •••• 0000";
+
+/**
+ * `RefundHead` and its facts as bones. The words known before the money
+ * (the mode's title and meta, the service's name) give their lines their
+ * length; the rest are placeholders. `children` follow the meta, as in
+ * `RefundHead`.
+ */
+export function RefundHeadBones({
+  title = "กกกกกก กกกกกกกกก",
+  meta,
+  serviceName,
+  children,
+}: {
+  readonly title?: string;
+  readonly meta?: string | readonly string[];
+  /** The service's own name in its place once known: a name wraps where it does, a placeholder only guesses. */
+  readonly serviceName?: string;
+  readonly children?: ReactNode;
+}) {
+  const facts = serviceName ? [FACT_BONES[0], FACT_BONES[1], [serviceName]] : FACT_BONES;
+  return (
+    <div className={REFUND_SHAPE.head}>
+      <p className={REFUND_SHAPE.status}>
+        <span className={cn(REFUND_SHAPE.statusIcon, "rounded-full bg-muted")} />
+        <Bone text={title} />
+      </p>
+      <p className={REFUND_SHAPE.amount}>
+        <Bone text="฿0,000" />
+      </p>
+      {meta ? (
+        <p className={REFUND_SHAPE.meta}>{typeof meta === "string" ? <Bone text={meta} /> : <MetaBones parts={meta} />}</p>
+      ) : null}
+      {children}
+      <dl className={REFUND_SHAPE.facts}>
+        {facts.map((lines) => (
+          <div className={REFUND_SHAPE.fact} key={lines[0]}>
+            <dt className={REFUND_SHAPE.term}>
+              <Bone text="กกกกกก" />
+            </dt>
+            <dd className={REFUND_SHAPE.value}>
+              {lines.map((line) => (
+                <span className="block" key={line}>
+                  <Bone text={line} />
+                </span>
+              ))}
+            </dd>
+          </div>
+        ))}
+        <div className={REFUND_SHAPE.fact}>
+          <dt className={REFUND_SHAPE.term}>
+            <Bone text="กกกก" />
+          </dt>
+          <dd className={cn(REFUND_SHAPE.value, "font-latin")}>
+            <span className="inline-flex items-center gap-2">
+              <span className="size-4 rounded bg-muted" />
+              <Bone text={CARD_BONE} />
+            </span>
+          </dd>
+        </div>
+      </dl>
+    </div>
+  );
+}
+
 /** The booking's hours, not the invoice's: a rescheduled booking's invoice still names the first time. */
 export function RefundFacts({
   booking,
@@ -318,29 +387,42 @@ export function RefundFacts({
 
 /**
  * From `lg` the right cell is as tall as the head beside it. Its last section
- * grows into that height (`RefundSection`), and so does its box or list, whose
- * rows keep their own gap from the top. What ends it (a box's total, a link
- * under a list) sits on the cell's bottom inset, the head's own.
+ * grows into that height (`RefundSection`), and so does a list, whose rows
+ * keep their own gap from the top, so a link under it sits on the cell's
+ * bottom inset, the head's own.
  */
 const CELL_GROW = "lg:group-data-[cell=sections]/cell:grow";
 
 export type RefundBoxLine = { readonly label: string; readonly value: string };
 
-/** The half refund's lines on the receipt's faint ground, at its row gap; it sits in a `RefundSection`, which heads it. */
-export function RefundBox({ lines, total }: { readonly lines: readonly RefundBoxLine[]; readonly total: RefundBoxLine }) {
+/**
+ * The half refund's lines on the receipt's faint ground, at its row gap; it sits in a `RefundSection`, which heads it.
+ * It keeps the receipt's own height ("สรุปรายการ"), the cell's spare height left under it, as under a list.
+ */
+export function RefundBox({
+  lines,
+  total,
+  bones = false,
+}: {
+  readonly lines: readonly RefundBoxLine[];
+  readonly total: RefundBoxLine;
+  /** The skeleton's box: each word a bone of its own length. */
+  readonly bones?: boolean;
+}) {
+  const say = (text: string) => (bones ? <Bone text={text} /> : text);
   return (
-    <dl className={cn("flex flex-col gap-1.5 rounded-xl bg-muted/50 p-2.5 md:gap-2 md:p-3 lg:gap-4 lg:p-5", CELL_GROW)}>
+    <dl className="flex flex-col gap-1.5 rounded-xl bg-muted/50 p-2.5 md:gap-2 md:p-3 lg:gap-4 lg:p-5">
       {lines.map((line) => (
         <div className="flex items-baseline justify-between gap-4" key={line.label}>
-          <dt className="min-w-0 text-xs text-muted-foreground lg:text-frame-meta">{line.label}</dt>
+          <dt className="min-w-0 text-xs text-muted-foreground lg:text-frame-meta">{say(line.label)}</dt>
           <dd className="shrink-0 text-right font-latin text-xs whitespace-nowrap text-foreground tabular-nums lg:text-frame-meta">
-            {line.value}
+            {say(line.value)}
           </dd>
         </div>
       ))}
-      <div className="mt-auto flex items-baseline justify-between gap-4 border-t border-border pt-3 lg:pt-4">
-        <dt className="text-xs font-semibold text-foreground lg:text-frame-body">{total.label}</dt>
-        <dd className="font-latin text-sm font-semibold tabular-nums text-foreground lg:text-frame-figure">{total.value}</dd>
+      <div className="flex items-baseline justify-between gap-4 border-t border-border pt-3 lg:pt-4">
+        <dt className="text-xs font-semibold text-foreground lg:text-frame-body">{say(total.label)}</dt>
+        <dd className="font-latin text-sm font-semibold tabular-nums text-foreground lg:text-frame-figure">{say(total.value)}</dd>
       </div>
     </dl>
   );
@@ -448,6 +530,25 @@ export function RefundRow({
   );
 }
 
+/** A `RefundRow` as bones: its mark, and its title and sub line at their own length. */
+export function RefundRowBones({ title, sub }: { readonly title: string; readonly sub?: string }) {
+  return (
+    <li className={REFUND_SHAPE.row}>
+      <span className={cn(REFUND_SHAPE.rowIcon, "rounded-full bg-muted")} />
+      <div className={REFUND_SHAPE.rowText}>
+        <p className={REFUND_SHAPE.rowTitle}>
+          <Bone text={title} />
+        </p>
+        {sub ? (
+          <p className={REFUND_SHAPE.rowSub}>
+            <Bone text={sub} />
+          </p>
+        ) : null}
+      </div>
+    </li>
+  );
+}
+
 /** `md:h-11`: an upright tablet keeps the phone's 44, since the sheet there is a phone's width. */
 export function refundPill(kind: "solid" | "outline" | "danger"): string {
   return cn(
@@ -455,6 +556,32 @@ export function refundPill(kind: "solid" | "outline" | "danger"): string {
     "md:h-11 md:text-sm",
     PILL_LG,
     kind === "danger" && "bg-destructive text-primary-foreground hover:bg-destructive/90",
+  );
+}
+
+/** The buttons' column and their group, which the skeleton's bones take too. */
+const REFUND_ACTIONS = {
+  column: cn("flex w-full flex-col gap-2.5 md:gap-3 lg:mx-auto lg:gap-4", SHEET_W),
+  group: "flex flex-col gap-2.5",
+} as const;
+
+/** The line above a button that says what the press does and what then waits on the team. */
+export const REFUND_BEFORE_PRESS = "text-center text-xs text-balance lg:text-frame-label";
+
+/** `RefundActions` as bones: the line said before the press, if there is one, over a pill per button. */
+export function RefundActionsBones({ before, pills = 1 }: { readonly before?: string; readonly pills?: 1 | 2 }) {
+  return (
+    <div className={REFUND_ACTIONS.column}>
+      <div className={REFUND_ACTIONS.group}>
+        {before ? (
+          <p className={REFUND_BEFORE_PRESS}>
+            <Bone text={before} />
+          </p>
+        ) : null}
+        <span className="h-11 w-full rounded-full bg-muted lg:h-14" />
+        {pills === 2 ? <span className="h-11 w-full rounded-full bg-muted lg:h-14" /> : null}
+      </div>
+    </div>
   );
 }
 
@@ -477,9 +604,9 @@ export function RefundActions({
   const mail = useSupportMail(invoiceNumber);
 
   return (
-    <div className={cn("flex w-full flex-col gap-2.5 md:gap-3 lg:mx-auto lg:gap-4", SHEET_W)}>
+    <div className={REFUND_ACTIONS.column}>
       {/* An empty group would still take a gap, pushing the help line off the card's rhythm. */}
-      {Children.toArray(children).length > 0 ? <div className="flex flex-col gap-2.5">{children}</div> : null}
+      {Children.toArray(children).length > 0 ? <div className={REFUND_ACTIONS.group}>{children}</div> : null}
       {help ? (
         <p className="text-center text-xs text-muted-foreground lg:text-frame-label">
           {t("helpPrompt")}{" "}
