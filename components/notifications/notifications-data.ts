@@ -74,6 +74,26 @@ export function getNotification(
   return api.get(`notifications/${notificationId}`, { signal });
 }
 
+/** `UpcomingSessionResponseDto`: the session the mobile banner announces. */
+export interface ApiUpcomingSession {
+  readonly bookingId: string;
+  readonly serviceName: string;
+  /** The other person in the session. */
+  readonly counterpartName: string;
+  readonly role: "advisee" | "advisor";
+  readonly state: "BOOKED" | "IN_PROGRESS";
+  readonly startTime: string;
+  readonly endTime: string;
+}
+
+/**
+ * `GET /notifications/upcoming-session`: the user's session that starts within the
+ * next 10 minutes or is in progress, or null.
+ */
+export function getUpcomingSession(signal?: AbortSignal): Promise<ApiUpcomingSession | null> {
+  return api.get("notifications/upcoming-session", { signal });
+}
+
 /** `PATCH /notifications/:id/read`: returns 404 for someone else's notification. */
 export function markNotificationRead(
   notificationId: string,

@@ -2218,6 +2218,10 @@
   "notifications": {
     "title": "Notifications",
     "detailMissing": "This notification isn't available.",
+    "sessionBannerTitleIn": "Session starts in {minutes} min",
+    "sessionBannerTitleStarted": "Your session has started",
+    "sessionBannerBodyLive": "With {name} · {time}",
+    "sessionBannerAction": "Join",
     "actionChat": "Open the chat",
     "actionBooking": "View the booking",
     "actionCalendar": "Open the calendar",
