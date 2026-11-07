@@ -66,6 +66,14 @@ export function countUnreadNotifications(
 
 /* -------------------------------------------------------------------- writes */
 
+/** `GET /notifications/:id`: one of the user's notifications; returns 404 for someone else's. */
+export function getNotification(
+  notificationId: string,
+  signal?: AbortSignal,
+): Promise<ApiNotification> {
+  return api.get(`notifications/${notificationId}`, { signal });
+}
+
 /** `PATCH /notifications/:id/read`: returns 404 for someone else's notification. */
 export function markNotificationRead(
   notificationId: string,
