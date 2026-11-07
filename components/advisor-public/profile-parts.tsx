@@ -1207,7 +1207,7 @@ export function AboutView({
         <AboutSection title={t("portfolioTitle")}>
           <div aria-hidden className="grid grid-cols-2 gap-x-4 lg:grid-cols-3 lg:gap-x-[19px]">
             {[0, 1, 2].map((key) => (
-              <span className={cn("flex flex-col gap-2.5 lg:gap-3", key === 2 && "max-lg:hidden")} key={key}>
+              <span className={cn("flex flex-col gap-2.5 lg:gap-3", key === 2 && "below-lg:hidden")} key={key}>
                 <span className="block aspect-[4/3] w-full rounded-2xl bg-muted" />
                 <Pending className="h-4 w-2/3 lg:h-[19px]" />
               </span>

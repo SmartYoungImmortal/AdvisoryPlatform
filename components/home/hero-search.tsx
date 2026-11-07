@@ -118,7 +118,16 @@ export function HeroSearch({
   submitLabel,
   defaultValue = "",
   variant = "hero",
+  typing = true,
+  compact = false,
 }: {
+  /**
+   * The phone's field at every width (40 tall, 14px placeholder, a 32 button),
+   * for a block that is scaled up whole on the desktop rather than restyled.
+   */
+  readonly compact?: boolean;
+  /** The examples typed out in the empty field; off, the plain placeholder. */
+  readonly typing?: boolean;
   readonly placeholder: string;
   readonly examples: readonly string[];
   /** The category names, in the order the home page shows them. */
@@ -214,7 +223,8 @@ export function HeroSearch({
 
   const rowClass = (key: string) =>
     cn(
-      "flex w-full items-center gap-3 rounded-xl px-3 py-2 text-left text-sm text-foreground outline-none",
+      // A step tighter on a phone, where the panel has a short screen to fit.
+      "flex w-full items-center gap-2.5 rounded-xl px-2.5 py-1.5 text-left text-sm text-foreground outline-none md:gap-3 md:px-3 md:py-2",
       indexOf(key) === active ? "bg-muted" : "hover:bg-muted/60",
     );
 
@@ -237,7 +247,7 @@ export function HeroSearch({
 
   const group = (label: string, children: ReactNode, action?: ReactNode) => (
     <div className="flex flex-col gap-1 py-1">
-      <div className="flex items-center justify-between px-3 pt-1">
+      <div className="flex items-center justify-between px-2.5 pt-1 md:px-3">
         <span className="text-xs font-medium text-muted-foreground">{label}</span>
         {action}
       </div>
@@ -249,10 +259,11 @@ export function HeroSearch({
 
   const open = focused && options.length > 0;
 
-  // The panel ends 16px above the bottom of the screen, measured from where
-  // the field actually is rather than guessed: anything past that edge could
-  // not be reached, because scrolling the page instead sets the hero's
-  // scroll-out going.
+  // The panel ends 16px above the bottom of the screen, or above the tab bar
+  // where there is one (it is laid over the page and covered the panel's last
+  // rows), measured from where the field actually is rather than guessed:
+  // anything past that edge could not be reached, because scrolling the page
+  // instead sets the hero's scroll-out going.
   const [panelMax, setPanelMax] = useState<number>();
   useEffect(() => {
     if (!open) return;
@@ -260,17 +271,27 @@ export function HeroSearch({
       const form = root.current;
       if (!form) return;
       const rect = form.getBoundingClientRect();
-      // The hero's stage is zoomed as a whole (`.hero-stage`), and a length
-      // set inside it is multiplied by that zoom, so screen pixels are turned
-      // back into the stage's own before they become a `max-height`.
-      const stage = form.closest<HTMLElement>(".hero-stage");
-      const zoom = stage ? Number.parseFloat(getComputedStyle(stage).zoom) || 1 : 1;
-      setPanelMax(Math.max(192, (window.innerHeight - rect.bottom - 24) / zoom));
+      // `getClientRects` is empty while the bar is hidden (`lg`).
+      const bar = document.querySelector<HTMLElement>('[data-slot="bottom-bar"]');
+      const floor = bar?.getClientRects().length
+        ? Math.min(window.innerHeight, bar.getBoundingClientRect().top)
+        : window.innerHeight;
+      // The hero's stage, and every home section from `lg`, is zoomed as a
+      // whole, and a length set inside is multiplied by every zoom above it,
+      // so screen pixels are turned back into the field's own before they
+      // become a `max-height`.
+      // From the panel itself once it is drawn, which may carry a zoom of its own.
+      let zoom = 1;
+      for (let node: Element | null = document.getElementById(listId) ?? form; node; node = node.parentElement) {
+        zoom *= Number.parseFloat(getComputedStyle(node).zoom) || 1;
+      }
+      // The panel's own 8px offset from the field, and 16 clear of the floor.
+      setPanelMax(Math.max(144, (floor - rect.bottom - 24) / zoom));
     };
     measure();
     window.addEventListener("resize", measure);
     return () => window.removeEventListener("resize", measure);
-  }, [open]);
+  }, [open, listId]);
 
   return (
     <form
@@ -294,18 +315,29 @@ export function HeroSearch({
         aria-label={placeholder}
         autoComplete="off"
         enterKeyHint="search"
-        // A pill at `lg`, with its button a pill inset by the same 6px on
-        // every side, so the two curves run parallel.
-        // At `lg`, no outline, only the hero's long soft shadow, the same one
-        // the cards float on.
+        // The hero's field is a pill at every width, with its button a pill
+        // inset by the same 6px on every side, so the two curves run parallel;
+        // no outline, only the hero's long soft shadow, the same one the cards
+        // float on. 16px type below `lg` so a phone does not zoom into it.
         groupClassName={
           variant === "page"
             ? // 16px on the right where there is no submit pill (below `md`),
               // so the field's clear cross sits off the curve rather than on it.
               "h-11 rounded-full border-border bg-card pr-4 pl-4 shadow-card md:h-12 md:pr-1.5"
-            : "shadow-panel lg:h-12 lg:rounded-full lg:border-transparent lg:pl-4 lg:pr-1.5 lg:shadow-hero"
+            : compact
+              ? "h-10 rounded-full border-transparent pr-1 pl-4 shadow-hero"
+              : "h-10 rounded-full border-transparent pr-1 pl-4 shadow-hero md:h-11 lg:h-12 lg:pr-1.5"
         }
-        inputClassName={variant === "page" ? "text-base md:text-sm" : "lg:text-sm"}
+        // The hero's placeholder at 14px on a phone, the size its typed-out
+        // examples already are; the input itself stays 16px so iOS does not
+        // zoom in on focus.
+        inputClassName={
+          variant === "page"
+            ? "text-base md:text-sm"
+            : compact
+              ? "text-base placeholder:text-sm"
+              : "text-base max-md:placeholder:text-sm lg:text-sm"
+        }
         name="q"
         onBlur={(event) => {
           // Focus moving into the panel (its clear button) keeps it open.
@@ -332,7 +364,7 @@ export function HeroSearch({
         // puts the input in a different wrapper with and without an overlay,
         // so dropping the overlay on focus remounted the input and threw the
         // focus away, and the field took two clicks to type into.
-        overlay={<>{!focused && !value ? <TypingPlaceholder phrases={examples} /> : null}</>}
+        overlay={<>{typing && !focused && !value ? <TypingPlaceholder phrases={examples} /> : null}</>}
         placeholder={placeholder}
         ref={input}
         role="combobox"
@@ -340,7 +372,12 @@ export function HeroSearch({
           <button
             className={cn(
               "hidden h-9 shrink-0 items-center rounded-full bg-hero-action px-6 text-sm font-medium text-hero-action-foreground outline-none hover:bg-hero-action/85 focus-visible:ring-3 focus-visible:ring-ring/50 active:translate-y-px",
-              variant === "page" ? "md:flex" : "lg:flex",
+              // The hero's: a step smaller on a phone, in a 44 field.
+              variant === "page"
+                ? "md:flex"
+                : compact
+                  ? "flex h-8 px-4 text-xs"
+                  : "flex h-8 px-4 text-xs md:h-9 md:px-6 md:text-sm",
             )}
             type="submit"
           >
@@ -355,7 +392,12 @@ export function HeroSearch({
           aria-label={t("suggestLabel")}
           // `overscroll-contain`: a wheel that reaches the end of the panel
           // stops there instead of carrying on into the page.
-          className="absolute inset-x-0 top-full z-20 mt-2 flex flex-col overflow-y-auto overscroll-contain rounded-2xl border border-border bg-card p-2 text-left shadow-card-hover"
+          className={cn(
+            "absolute inset-x-0 top-full z-20 mt-2 flex flex-col overflow-y-auto overscroll-contain rounded-2xl border border-border bg-card p-1.5 text-left shadow-card-hover md:p-2",
+            // A compact field sits zoomed 1.2 times from `lg` (the closing
+            // band); the panel takes that back, so it reads at the hero's size.
+            compact && "lg:[zoom:0.8333]",
+          )}
           id={listId}
           style={{ maxHeight: panelMax }}
           // Pressing inside the panel must not take focus off the field
@@ -504,11 +546,11 @@ export function HeroSearch({
                 : null}
               {/* A page that already shows its categories passes none. */}
               {categories.length > 0 ? (
-              <div className="flex flex-col gap-2 px-3 py-2">
+              <div className="flex flex-col gap-1.5 px-2.5 py-1.5 md:gap-2 md:px-3 md:py-2">
                 <span className="text-xs font-medium text-muted-foreground">
                   {t("suggestPopular")}
                 </span>
-                <ul className="flex flex-wrap gap-2" role="group">
+                <ul className="flex flex-wrap gap-1.5 md:gap-2" role="group">
                   {categories.map((c) => (
                     <li
                       aria-selected={indexOf(`c:${c}`) === active}
@@ -518,7 +560,7 @@ export function HeroSearch({
                     >
                       <Link
                         className={cn(
-                          "flex h-8 items-center rounded-full border border-border px-3 text-sm text-foreground",
+                          "flex h-7 items-center rounded-full border border-border px-2.5 text-xs text-foreground md:h-8 md:px-3 md:text-sm",
                           indexOf(`c:${c}`) === active ? "border-foreground/30 bg-muted" : "hover:bg-muted/60",
                         )}
                         href={searchHref(c)}

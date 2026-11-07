@@ -4,6 +4,18 @@
 
 @custom-variant dark (&:is(.dark *));
 
+/* `lg` is the desktop, and a landscape tablet is the desktop made smaller:
+   1024 wide *and* landscape. An upright iPad Pro is 1024 wide too, and by
+   width alone it got the desktop page while an upright iPad mini got the
+   tablet's; held to landscape, every upright tablet is the iPad mini's page
+   (scaled up from 768 by the root font size, below). Re-declaring `lg` keeps
+   its place in the variant order, so `xl:` and `dark:` still win over it as
+   before. `below-lg` is its opposite, for what `max-lg` used to say: a phone,
+   or any upright screen. The raw `@media` rules in this file and the GSAP
+   `matchMedia` checks say the same thing in full. */
+@custom-variant lg (@media (width >= 64rem) and (orientation: landscape));
+@custom-variant below-lg (@media not all and (width >= 64rem) and (orientation: landscape));
+
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
@@ -162,6 +174,8 @@
   --color-rule: var(--rule);
   --color-hero-ground: var(--hero-ground);
   --color-hero-ink: var(--hero-ink);
+  --color-tab-active: var(--tab-active);
+  --color-faq-accent: var(--faq-accent);
   --color-hero-warm: var(--hero-warm);
   --color-hero-action: var(--hero-action);
   --color-hero-action-foreground: var(--hero-action-foreground);
@@ -391,6 +405,14 @@
      type rather than the near-black the rest of the app sets in, and a
      near-black navy for the one button. */
   --hero-ink: #2b313b;
+  /* The bottom bar's current tab: a dark slate with blue in it, between the
+     page's near-black and the old accent blue. */
+  --tab-active: #354a66;
+  /* The home FAQ's accent: the page's navy, for its questions and (at 12%) the
+     rules between rows. Its + badge (`--faq-badge`) is a deep royal blue: the
+     logo's blue read too bright, a blue-grey too dark and dull. */
+  --faq-accent: var(--hero-action);
+  --faq-badge: #1d4ed8;
   --hero-card-border: rgb(228 232 239 / 97%);
   /* The legal pages' ground: the home hero's two lights from the top of the
      screen, sky blue on the left and lavender on the right, without its
@@ -528,7 +550,7 @@ html:not(.dark) .checkout-surface {
    restating every one of them at x1.1875. On the sidebar and on the page
    inside the white panel; the panel's inset and corners, the toasts and the
    dialogs' frame stay on the screen's own scale. */
-@media (min-width: 1024px) {
+@media (width >= 1024px) and (orientation: landscape) {
   .cms-admin .cms-scale {
     zoom: tan(atan2(min(100vw, 1440px), 1440px));
   }
@@ -539,6 +561,9 @@ html:not(.dark) .checkout-surface {
   --brand-image: oklch(0.623 0.214 259.815);
   --hero-photo: none;
   --hero-ink: var(--foreground);
+  --tab-active: #a9bad3;
+  --faq-accent: var(--hero-action);
+  --faq-badge: #7aa2f7;
   --hero-card-border: var(--border);
   --legal-wash: none;
   --hero-action: var(--primary);
@@ -673,13 +698,13 @@ html:not(.dark) .checkout-surface {
    by another, and `scale` needs a number. Pure CSS, so the first painted
    frame is already the right size; a script measuring the window would
    paint once at 1 and then jump. The photograph behind is not on the stage:
-   it still covers the whole band at any size. Below `lg` the stage is
-   `display: contents` and the copy flows as it always did. */
+   it still covers the whole band at any size. Below `lg` (a phone, or any
+   upright screen) the stage is `display: contents` and the copy flows. */
 .hero-stage {
   display: contents;
 }
 
-@media (min-width: 1024px) {
+@media (width >= 1024px) and (orientation: landscape) {
   .hero-stage {
     --hero-k: min(tan(atan2(100vw, 1710px)), tan(atan2(100dvh, 985px)));
     position: absolute;
@@ -702,6 +727,31 @@ html:not(.dark) .checkout-surface {
   }
 }
 
+/* A landscape tablet (under 1440 wide, no wider than 3:2): the frame fitted as
+   if it were 1400 × 820 rather than 1710 × 985, so the hero is about a fifth
+   larger than the desktop scaled down (0.73 on a 1024 × 768 iPad, 0.84 on an
+   1180 × 820), the band cropping the frame's edges. And the room centred:
+   drawn at 110% of the band and its 2rem overhang, the photograph is 1.76 times
+   that wide, and its chair stands 0.9% of that width right of its middle
+   (50.9% across the 3200 × 2000 original), so it is drawn that much left. The
+   desktop's 85% put the chair about 110px left of centre on a 1024. */
+@media (width >= 1024px) and (width < 1440px) and (orientation: landscape) and (aspect-ratio <= 3/2) {
+  .hero-stage {
+    --hero-k: min(tan(atan2(100vw, 1400px)), tan(atan2(100dvh, 820px)));
+  }
+
+  /* The ring 80px lower in the frame than the desktop's: at this zoom its top
+     cards ran up under the bar. Scoped by the stage so it outranks the
+     ring's own rule further down. */
+  .hero-stage .hero-ring {
+    top: calc(50% + 2.75rem + 326.25px);
+  }
+
+  [data-slot="home-hero-photo"] {
+    background-position: calc(50% - 1.584dvh - 0.5px) center;
+  }
+}
+
 /* The rest of the home page, on the same 1710 frame as the hero: every block
    after the hero track (`page-scale` elsewhere), drawn at its 1710 size
    and zoomed by the width alone, since these scroll and the height of the
@@ -709,7 +759,7 @@ html:not(.dark) .checkout-surface {
    the margins it has on a 1710, instead of the same 1200 crowding the edges.
    `HeroShapes` divides the hold's counter-move by this zoom, because a
    transform inside a zoomed box is zoomed with it. */
-@media (min-width: 1024px) {
+@media (width >= 1024px) and (orientation: landscape) {
   [data-slot="home-hero-track"] ~ *,
   .page-scale {
     zoom: tan(atan2(100vw, 1710px));
@@ -801,6 +851,150 @@ html:not(.dark) .checkout-surface {
      scroll doubled the frame time (p95 33ms → 17.6ms without it, measured at
      1440×900 ×2), which read as the hero stuttering. The fade in
      `hero-pop-out` and the fly-out carry the exit on their own. */
+}
+
+/* Below `lg` the same ring, its cards drawn in the same 1710-frame px and
+   zoomed (`--hero-m`: 0.64 on a 402 × 874 phone, by width or height, whichever
+   runs out first). As on the desktop only the upper arc is in view, the rest
+   of the circle turning below the screen. Always a circle: every card leans
+   along the curve, which only reads true on a circle, and only a circle keeps
+   the gaps even as it turns.
+   - Phone: the desktop's own circle (541.75), so at 0.64 it is small enough
+     that the cards come in from the screen's sides, with about 45px between
+     neighbours; its centre 185px under the band's middle and the bottom of
+     the circle behind the tab bar.
+   - Upright tablet, any size: the iPad mini's ring. Drawn at the zoom it has
+     on a 768 × 1024 (0.8678) and in rem, so it grows with the root font size
+     that scales every upright tablet up from the iPad mini (below): a 35rem
+     circle (about 85px between neighbours at 1) centred 16rem under the
+     middle, the lowest cards only at the screen's bottom corners.
+   At the arc's tightest turns the cards clear the headline on both. */
+@media (width < 1024px), (orientation: portrait) {
+  [data-slot="hero-shapes"] {
+    --hero-m: min(tan(atan2(100vw, 628px)), tan(atan2(100dvh, 1366px)));
+    zoom: var(--hero-m);
+  }
+
+  .hero-ring {
+    top: calc(50% + 185px);
+  }
+
+  /* A touch wider than the desktop's 541.75, for the phone's wider cards. */
+  .hero-card {
+    --ring-rx: 556px;
+    --ring-ry: 556px;
+  }
+}
+
+@media (width >= 768px) and (width < 1024px), (width >= 768px) and (orientation: portrait) {
+  [data-slot="hero-shapes"] {
+    --hero-m: 0.8678;
+  }
+
+  .hero-ring {
+    top: calc(50% + 16rem);
+  }
+
+  .hero-card {
+    --ring-rx: 35rem;
+    --ring-ry: 35rem;
+  }
+}
+
+/* Every upright tablet is the iPad mini's page, scaled up: the root font size
+   follows the width from 16px at 768, so everything set in rem (Tailwind's
+   spacing, type, radii; the bars; the ring above) grows with it in step.
+   1.068 on an 820 iPad Air, 1.333 on a 1024 iPad Pro. By the width alone:
+   the height of an iPad's viewport moves with Safari's bars, and a root size
+   that followed it would reflow the page on every scroll. Media queries are
+   unaffected, since `rem` there is always the initial 16px. */
+@media (width >= 768px) and (orientation: portrait) {
+  html {
+    font-size: calc(100vw / 48);
+  }
+}
+
+/* The home FAQ's badge (`HomeFaq`): a lit sphere, a white core inside a rim
+   of a deep blue (`--faq-badge`), with a plus drawn by two bars; open, it
+   fills with the blue and the plus folds to a white minus. 28px, 32 in the
+   desktop's frame. */
+.faq-badge {
+  position: relative;
+  flex: none;
+  width: 1.75rem;
+  height: 1.75rem;
+  border-radius: 9999px;
+  background: radial-gradient(
+    52.81% 52.81% at 47.5% 54.06%,
+    color-mix(in srgb, var(--on-media) 85%, transparent) 0%,
+    color-mix(in srgb, var(--faq-badge) 28%, transparent) 100%
+  );
+  box-shadow: inset 0 0 8px color-mix(in srgb, var(--on-media) 80%, transparent);
+  transition:
+    background 0.2s ease,
+    box-shadow 0.2s ease;
+}
+
+.faq-badge::before,
+.faq-badge::after {
+  content: "";
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 0.625rem;
+  height: 2px;
+  border-radius: 1px;
+  background: var(--faq-badge);
+  transform: translate(-50%, -50%);
+  transition:
+    transform 0.2s ease,
+    background-color 0.2s ease;
+}
+
+.faq-badge::after {
+  transform: translate(-50%, -50%) rotate(90deg);
+}
+
+[data-faq-item]:hover .faq-badge {
+  background: radial-gradient(
+    52.81% 52.81% at 47.5% 54.06%,
+    var(--on-media) 0%,
+    color-mix(in srgb, var(--faq-badge) 40%, transparent) 100%
+  );
+}
+
+[data-faq-item][data-open] .faq-badge {
+  background: var(--faq-badge);
+  box-shadow: none;
+}
+
+[data-faq-item][data-open] .faq-badge::before,
+[data-faq-item][data-open] .faq-badge::after {
+  background: var(--on-media);
+}
+
+[data-faq-item][data-open] .faq-badge::after {
+  transform: translate(-50%, -50%) rotate(0deg);
+}
+
+@media (width >= 1024px) and (orientation: landscape) {
+  .faq-badge {
+    width: 2rem;
+    height: 2rem;
+  }
+
+  .faq-badge::before,
+  .faq-badge::after {
+    width: 0.75rem;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .faq-badge,
+  .faq-badge::before,
+  .faq-badge::after {
+    transition: none;
+  }
 }
 
 /* Hover: the card comes forward. The face inside grows, never the link: when

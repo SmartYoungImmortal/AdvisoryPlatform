@@ -129,7 +129,7 @@ export type Picker = {
 };
 
 function surfaceNow(): "dialog" | "sheet" {
-  return globalThis.matchMedia("(min-width: 1024px)").matches ? "dialog" : "sheet";
+  return globalThis.matchMedia("(min-width: 1024px) and (orientation: landscape)").matches ? "dialog" : "sheet";
 }
 
 export function usePicker(): Picker {

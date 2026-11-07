@@ -45,7 +45,7 @@ export function Parallax({
       if (!el || !inner) return;
 
       const mm = gsap.matchMedia();
-      mm.add("(min-width: 1024px) and (prefers-reduced-motion: no-preference)", () => {
+      mm.add("(min-width: 1024px) and (orientation: landscape) and (prefers-reduced-motion: no-preference)", () => {
         gsap.fromTo(
           inner,
           { y: distance },

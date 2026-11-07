@@ -225,7 +225,7 @@ export function WorkFrame({
                       </h1>
                     </div>
                     {/* A place's action goes under the capsules on the phone, so they stand at the same height on all six. */}
-                    {action ? <div className={cn("shrink-0", isPlace && "max-lg:hidden")}>{action}</div> : null}
+                    {action ? <div className={cn("shrink-0", isPlace && "below-lg:hidden")}>{action}</div> : null}
                   </div>
                 </header>
                 {isPlace ? <WorkTabs current={place} /> : null}
