@@ -1,14 +1,21 @@
 "use client";
 
 import {
+  Award,
   BadgeCheck,
   Bell,
   CalendarClock,
   CalendarDays,
+  CalendarSync,
+  CalendarX,
+  CircleAlert,
   CreditCard,
   FileText,
   MessageSquare,
+  MessageSquareQuote,
+  ReceiptText,
   ShieldAlert,
+  ShieldCheck,
   Sparkles,
   Star,
   type LucideIcon,
@@ -69,6 +76,14 @@ const ICON: Record<NotificationType, LucideIcon> = {
   VERIFICATION_DECIDED: BadgeCheck,
   POLICY_WARNING: ShieldAlert,
   WELCOME: Sparkles,
+  BOOKING_CANCELLED: CalendarX,
+  BOOKING_RESCHEDULED: CalendarSync,
+  REFUND_DECIDED: ReceiptText,
+  PAYOUT_FAILED: CircleAlert,
+  SKILL_PROOF_DECIDED: Award,
+  SCREENING_EXPIRED: FileText,
+  REVIEW_REPLIED: MessageSquareQuote,
+  REPORT_RESOLVED: ShieldCheck,
 };
 
 /**
