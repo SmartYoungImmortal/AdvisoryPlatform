@@ -703,7 +703,7 @@ html:not(.dark) .checkout-surface {
 }
 
 /* The rest of the home page, on the same 1710 frame as the hero: every block
-   after the hero track, and the footer (`page-scale`), drawn at its 1710 size
+   after the hero track (`page-scale` elsewhere), drawn at its 1710 size
    and zoomed by the width alone, since these scroll and the height of the
    screen does not bound them. On a 1440 the 1200 column is 1010 wide, keeping
    the margins it has on a 1710, instead of the same 1200 crowding the edges.
@@ -734,6 +734,15 @@ html:not(.dark) .checkout-surface {
      smaller, in the same proportions, not a reflowed layout. */
   .app-scale {
     zoom: tan(atan2(min(100vw, 1440px), 1710px));
+  }
+
+  /* The site footer (`SiteFooter`), on every page that has one: drawn at its
+     1440 desktop size and shrunk by the width alone below that, so a landscape
+     iPad sees the desktop footer made smaller, never reflowed; held at 1 from
+     1440 up. `footer.` outranks the home page's `[data-slot=…] ~ *` zoom,
+     which also reaches the footer there. */
+  footer.footer-scale {
+    zoom: tan(atan2(min(100vw, 1440px), 1440px));
   }
 }
 
