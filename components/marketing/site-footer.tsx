@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useTranslations } from "next-intl";
 
 import { LanguageSwitch } from "@/components/topbar";
+import { logo } from "@/lib/assets/r2";
 import { cn } from "@/lib/utils";
 
 type FooterItem = { readonly label: string; readonly href: string };
@@ -24,12 +25,13 @@ function FooterLink({ href, label }: FooterItem) {
 
 /**
  * A column: its head at 14 medium, then its links 16 apart. On the phone the
- * columns stack, each a band of 24 above and below, ruled off from the one
- * before it; from `md` they stand side by side with no rules.
+ * columns stack, each a band of 24 above and below, centred and unruled; from
+ * `md` they stand side by side, still centred on an upright tablet, and from
+ * `lg` they read from the left as the desktop's do.
  */
 function FooterColumn({ title, items }: { readonly title: string; readonly items: readonly FooterItem[] }) {
   return (
-    <section className="border-t border-foreground/12 py-6 first:border-t-0 md:border-t-0 md:py-0">
+    <section className="py-6 text-center md:py-0 lg:text-left">
       <h2 className="text-sm font-medium text-foreground">{title}</h2>
       {/* 14 on the list too, so each row's line is the link's own 20 and
           the links step 36 rather than the body's 24-high line. */}
@@ -58,15 +60,19 @@ function SocialLink({ href, label, children }: { readonly href: string; readonly
 }
 
 /**
- * The site footer: the page's floor in a neutral near-white, three equal
- * columns of links (stacked and ruled on the phone), then the legal line and
- * the controls. From `lg` that last row is one line, the copyright and the
- * legal pages at the left and the language and the social marks at the right;
- * under it the controls come first, then the copyright over the legal pages,
- * as a phone reads them.
+ * The site footer: the page's floor in a neutral near-white, the logo and
+ * three equal columns of links, then the legal line and the controls. On the
+ * phone everything is stacked and centred; an upright tablet centres the logo
+ * over the columns and each column in its third; from `lg` the logo is the
+ * first of four columns at the left. From `lg` the last row is one line, the
+ * copyright and the legal pages at the left and the language and the social
+ * marks at the right; under it the controls come first, then the copyright
+ * over the legal pages, as a phone reads them.
  *
- * 24 in from the edges on the phone and tablet, 48 at a desktop's width, with
- * every size the screen's own.
+ * 24 in from the edges on the phone and tablet, every size the screen's own.
+ * From `lg` it is the desktop footer, 48 in from the edges, drawn at its 1440
+ * size and zoomed by the width below that (`.footer-scale`), so a landscape
+ * tablet sees the desktop footer made smaller rather than reflowed.
  */
 export function SiteFooter({ className }: { readonly className?: string }) {
   const t = useTranslations("landing");
@@ -92,9 +98,16 @@ export function SiteFooter({ className }: { readonly className?: string }) {
   ];
 
   return (
-    <footer className={cn("flex w-full shrink-0 flex-col bg-footer-ground text-foreground", className)}>
-      <div className="mx-auto w-full max-w-[1920px] px-6 xl:px-12">
-        <div className="md:grid md:grid-cols-3 md:gap-4 md:pt-6 md:pb-12 xl:pt-12">
+    <footer className={cn("footer-scale flex w-full shrink-0 flex-col bg-footer-ground text-foreground", className)}>
+      <div className="mx-auto w-full max-w-[1920px] px-6 lg:px-12">
+        <div className="md:grid md:grid-cols-3 md:gap-4 md:pt-10 md:pb-12 lg:grid-cols-4 lg:pt-12">
+          {/* The logo heads the footer: centred over the columns until `lg`,
+              then the first of four, at the left. */}
+          <div className="flex justify-center pt-12 pb-2 md:col-span-3 md:pt-0 md:pb-8 lg:col-span-1 lg:justify-start lg:pb-0">
+            <Link aria-label={t("footerLinkHome")} className="inline-flex" href="/">
+              <Image alt="Advisory Platform" className="h-8 w-auto md:h-10 lg:h-8" src={logo} />
+            </Link>
+          </div>
           <FooterColumn items={services} title={t("footerColumnService")} />
           <FooterColumn items={advisors} title={t("footerColumnAdvisor")} />
           <FooterColumn items={company} title={t("footerColumnCompany")} />
@@ -103,7 +116,7 @@ export function SiteFooter({ className }: { readonly className?: string }) {
         <div className="flex flex-col-reverse gap-5 py-6 md:gap-3 md:pt-0 lg:flex-row lg:items-center lg:justify-between lg:pt-6">
           {/* The copyright over the legal pages on the phone, one line from
               `md`: a middle dot never opens a wrapped line. */}
-          <div className="flex flex-col gap-1 text-sm md:flex-row md:items-center md:gap-0">
+          <div className="flex flex-col items-center gap-1 text-center text-sm md:flex-row md:gap-0 md:text-left">
             <span>{t("footerCopyright")}</span>
             <ul className="flex items-center">
               {legal.map((item, i) => (
@@ -117,7 +130,7 @@ export function SiteFooter({ className }: { readonly className?: string }) {
             </ul>
           </div>
 
-          <div className="flex flex-col items-start gap-4 md:flex-row md:items-center md:justify-between lg:gap-5">
+          <div className="flex flex-col items-center gap-4 md:flex-row md:justify-between lg:gap-5">
             <span className="flex h-7.5 items-center gap-2 text-sm font-medium">
               <Globe aria-hidden className="size-4" />
               <LanguageSwitch className="h-auto gap-1 px-0 text-sm font-medium" />

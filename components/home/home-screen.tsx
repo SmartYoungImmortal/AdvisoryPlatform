@@ -22,7 +22,6 @@ import { BottomBar } from "@/components/bottombar";
 import { TopBar } from "@/components/topbar";
 import { useLiveCatalogue } from "@/lib/catalogue/live";
 import { FOOTER_ABOVE_TAB_BAR } from "@/lib/layout";
-import { cn } from "@/lib/utils";
 
 gsap.registerPlugin(ScrollTrigger);
 
@@ -178,7 +177,7 @@ export function HomeScreen() {
 
         {/* Runs under the tab bar, which is what the bar frosts against. The
             desktop frame has no tab bar to clear, so the inset goes with it. */}
-        <SiteFooter className={cn(FOOTER_ABOVE_TAB_BAR, "page-scale")} />
+        <SiteFooter className={FOOTER_ABOVE_TAB_BAR} />
       </ScreenBody>
       {/* Figma's desktop nav carries these destinations itself — see `TopBar`. */}
       <BottomBar className="lg:hidden" role="user" selected="home" />

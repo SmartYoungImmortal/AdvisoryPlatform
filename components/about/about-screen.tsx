@@ -30,7 +30,7 @@ export function AboutScreen() {
         <TopBar overlay />
         <Story />
         <StoryClose />
-        <SiteFooter className="page-scale" />
+        <SiteFooter />
       </ScreenBody>
       <SkipToEnd />
     </MobileScreen>
