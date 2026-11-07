@@ -308,6 +308,28 @@ export const brandMarks: Readonly<Record<"google" | "facebook" | "apple", Static
   apple: { src: `${R2_BASE}/brands/apple.5bbe1534.svg`, width: 24, height: 24 },
 };
 
+/**
+ * `assets/home/closing` — 1280x1024. A white room with a round table and a
+ * chair, cropped to 5:4 from Unsplash photo-1519710164239: the home page's
+ * closing band on a phone and an upright tablet.
+ */
+export const homeClosing: StaticImageData = {
+  src: `${R2_BASE}/home/closing.2e62b588.jpg`,
+  width: 1280,
+  height: 1024,
+};
+
+/**
+ * `assets/home/closing-wide` — 2400x960. The same room, a 2.5:1 strip across
+ * the table and the chair: the closing band on the desktop and a landscape
+ * tablet.
+ */
+export const homeClosingWide: StaticImageData = {
+  src: `${R2_BASE}/home/closing-wide.da2550ae.jpg`,
+  width: 2400,
+  height: 960,
+};
+
 /** `assets/hero/ground` — 3200x2000. The room behind the home hero's ring. */
 export const heroGround: StaticImageData = {
   src: `${R2_BASE}/hero/ground.3487762c.jpg`,

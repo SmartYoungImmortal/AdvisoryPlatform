@@ -35,13 +35,9 @@ const FROSTED = (() => {
 })();
 
 /**
- * Figma "Tab Bar" — 402 x 56 on surface with a top border, 8px vertical padding,
- * 22px glyphs and 12/18 labels. The selected tab switches to foreground + medium.
- *
- * The nav bar's glass, always on. `TopBar` fades into that surface only once
- * content scrolls under it, because at the top of a screen it has a hero to sit
- * transparently over; this bar is against content the whole time, so there is no
- * second state for it to be in.
+ * Figma "Tab Bar" — glass with a top border, 8px vertical padding, 22px glyphs
+ * and 12/18 labels, the tabs in the page's dark ink: the current one full and
+ * medium, the rest faint.
  *
  * It overlays the scroll container instead of sitting below it as a flex
  * sibling, which is what gives `backdrop-filter` something to work on; as a
@@ -71,7 +67,9 @@ export function BottomBar({
       // I on" at a glance. The inactive ink is still darker than the
       // `muted-foreground` it replaces (104 against 113 over white), so the row
       // reads heavier than before without either state losing the other.
-      isSelected ? "text-primary" : "text-foreground/65",
+      // The current tab in a dark blue-grey slate (`--tab-active`), the rest in
+      // the page's dark ink, faint.
+      isSelected ? "text-tab-active" : "text-hero-ink/40",
     );
     const content = (
       <>
@@ -117,6 +115,8 @@ export function BottomBar({
         "backdrop-blur-sm",
         className,
       )}
+      // Measured by the search suggestions (`HeroSearch`), which end above it.
+      data-slot="bottom-bar"
       style={{
         background: FROSTED,
         gridTemplateColumns: `repeat(${rolePages.length}, minmax(0, 1fr))`,

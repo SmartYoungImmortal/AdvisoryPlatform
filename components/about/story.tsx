@@ -41,7 +41,7 @@ export function Story() {
 
       const mm = gsap.matchMedia();
       mm.add("(prefers-reduced-motion: no-preference)", () => playIntro(el));
-      mm.add("(min-width: 1024px) and (prefers-reduced-motion: no-preference)", () =>
+      mm.add("(min-width: 1024px) and (orientation: landscape) and (prefers-reduced-motion: no-preference)", () =>
         buildDesktopStory(el, scroller),
       );
       mm.add("(max-width: 1023px) and (prefers-reduced-motion: no-preference)", () =>

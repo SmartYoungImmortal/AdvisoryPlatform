@@ -52,8 +52,15 @@ export function HomeHero({
       // holds it there against the scroll for the length of the hold and
       // fades it in as the band dissolves: it appears in place, it does not
       // slide up.
+      //
+      // Below `lg` it is pulled up under the bar the same way, by the bar's
+      // own 72 (88 on an upright tablet), so the full-screen band starts at the
+      // top of the screen with the bar over its photograph.
       className={cn(
-        "w-full shrink-0 lg:-mt-[5.5rem] lg:-mb-[calc(100dvh-6rem)] lg:h-[200dvh]",
+        // Two screens tall at every width now, so a phone and a tablet get the
+        // desktop's hold and fly-out too; the next section waits 5rem below
+        // the top on a phone (its 72px bar and a little), 6rem from `md`.
+        "-mt-18 -mb-[calc(100dvh-5rem)] h-[200dvh] w-full shrink-0 md:-mt-22 md:-mb-[calc(100dvh-6rem)] lg:-mt-[5.5rem]",
         className,
       )}
       data-slot="home-hero-track"
@@ -65,10 +72,13 @@ export function HomeHero({
           // is shorter or narrower than the band, and clipping the ring to it
           // cut the lower cards off along a straight line. The search panel
           // is held above the bottom of the screen, so it is not cut either.
-          "relative isolate flex w-full flex-col items-center justify-center bg-hero-ground lg:overflow-hidden",
+          "relative isolate flex w-full flex-col items-center justify-center overflow-hidden bg-hero-ground",
           // `z-1` keeps the band over the sections waiting beneath it and
           // under the bar, which is `z-10` (`components/topbar.tsx`).
-          "py-16 lg:sticky lg:top-0 lg:z-1 lg:h-[100dvh] lg:py-0 lg:pt-[5.5rem]",
+          // Full screen on a phone and an upright tablet too: a whole screen
+          // tall, the bar's height given back as padding so the copy centres
+          // in what is left under it.
+          "sticky top-0 z-1 h-[100dvh] pt-18 pb-16 md:pt-22 lg:py-0 lg:pt-[5.5rem]",
         )}
         data-slot="home-hero"
       >
@@ -82,7 +92,21 @@ export function HomeHero({
             centre, keeping its chair out from under the search field. */}
         <div aria-hidden className="pointer-events-none absolute inset-0 -z-10 overflow-hidden">
           <div
-            className="absolute -inset-4 bg-hero-photo bg-[length:auto_110%] bg-[position:85%_center] bg-no-repeat"
+            // Below `lg` the band is a tall full screen, where the 110% height
+            // blew the room up to its bare wall. There the photo is drawn at
+            // 66% of the band's height, fading in from the ground above it,
+            // and shifted so the chair (at 50.9% of the 3200 × 2000
+            // photograph's width) stands on the screen's centre line: 0.9% of
+            // the drawn width, which is 1.6 × 66% of the drawn height (100dvh
+            // and the 2rem of overhang). It stands 2.5rem up from the floor on
+            // a phone, 3.5rem on an upright tablet, its fade with it, so the
+            // strip of ground under the photo stays hidden under the tab bar,
+            // never showing as a gap.
+            //
+            // A phone draws it a little smaller, at 60%: the chair's 0.9% is
+            // then 0.864dvh and its fade runs from 40% to 55%. An upright
+            // tablet at 61%: 0.878dvh, fading from 39% to 54%.
+            className="absolute -inset-4 bg-hero-photo bg-[length:auto_60%] bg-[position:calc(50%-0.864dvh-0.28px)_calc(100%-4rem)] bg-no-repeat [mask-image:linear-gradient(to_bottom,transparent_calc(40%-4rem),black_calc(55%-4rem))] md:bg-[length:auto_61%] md:bg-[position:calc(50%-0.878dvh-0.28px)_calc(100%-3.5rem)] md:[mask-image:linear-gradient(to_bottom,transparent_calc(39%-3.5rem),black_calc(54%-3.5rem))] lg:bg-[length:auto_110%] lg:bg-[position:85%_center] lg:[mask-image:none]"
             data-slot="home-hero-photo"
           />
         </div>
@@ -92,21 +116,27 @@ export function HomeHero({
             other one. Below `lg` it steps out of the way and the copy flows
             as it always has. */}
         <div className="hero-stage">
-        {/* Desktop only: on a phone the ring either covers the copy or leaves
-            the band empty; the phone keeps the category rail it already has. */}
-        <HeroShapes className="hidden lg:block" />
+        {/* At every width: below `lg` the same ring, zoomed down and its
+            centre set lower (`[data-slot="hero-shapes"]` in `app/globals.css`),
+            so its upper arc frames the headline on a phone as on a desktop. */}
+        <HeroShapes />
         <div
           // `lg:pt-24` sets the copy 48px below the band's centre, deeper inside
           // the ring: level with the centre, the cards passing over the top of
-          // the ring clipped the corners of the headline.
-          className="relative z-10 flex w-full max-w-[480px] flex-col items-start gap-4 px-6 lg:items-center lg:gap-5 lg:pt-24 lg:text-center"
+          // the ring clipped the corners of the headline. Centred at every width,
+          // as the desktop is; below `lg` in the band's middle, under the arc.
+          // `-mt-4` sets the copy 8px above the band's centre on a phone;
+          // `md:mt-4` 8px below it on an upright tablet, a little inside the
+          // arc. 30rem wide, not 480px, so the column grows with the type on a
+          // large upright tablet (`app/globals.css`).
+          className="relative z-10 -mt-4 flex w-full max-w-120 flex-col items-center gap-4 px-6 text-center md:mt-4 lg:mt-0 lg:gap-5 lg:pt-24"
           // The pointer parallax in `app/globals.css` moves this by its slot.
           data-slot="home-hero-copy"
         >
           {/* Kanit at its regular weight with the tracking drawn in a little:
               the 500 read as a poster headline, which is loud rather than
               assured. */}
-          <h1 className="w-full text-2xl font-semibold text-foreground lg:font-hero lg:text-hero lg:font-normal lg:tracking-tight lg:text-hero-ink">
+          <h1 className="w-full font-hero text-heading font-normal tracking-tight text-hero-ink md:text-hero">
             {title}
           </h1>
           {body ? (
@@ -116,11 +146,13 @@ export function HomeHero({
             // Tucked up to the headline, the two line boxes almost touching,
             // so the leading alone separates them and they read as one
             // statement; the column's 20px gap follows before the field.
-            <p className="-mt-3 hidden font-hero text-base whitespace-nowrap text-muted-foreground lg:block">
+            // Below `md` it may wrap, balanced, rather than run past a phone.
+            <p className="-mt-2 font-hero text-sm text-balance text-muted-foreground md:-mt-3 md:text-base md:whitespace-nowrap">
               {body}
             </p>
           ) : null}
-          <div className="flex w-full shrink-0 items-start gap-2">
+          {/* At most 352 wide on a phone. */}
+          <div className="flex w-full max-w-88 shrink-0 items-start gap-2 md:max-w-none">
             {children}
           </div>
         </div>

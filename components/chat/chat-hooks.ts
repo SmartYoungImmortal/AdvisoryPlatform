@@ -172,7 +172,7 @@ export function newestRoomId(rooms: readonly InboxRoom[] | undefined): string | 
 /* ---------------------------------------------------------------- desktop */
 
 /** Tailwind's `lg`, where the chat is the three-column messenger rather than one screen at a time. */
-const DESKTOP = "(min-width: 64rem)";
+const DESKTOP = "(min-width: 64rem) and (orientation: landscape)";
 
 function subscribeDesktop(listener: () => void): () => void {
   const query = window.matchMedia(DESKTOP);
