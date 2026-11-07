@@ -104,8 +104,9 @@ export function HomeHero({
             // never showing as a gap.
             //
             // A phone draws it a little smaller, at 60%: the chair's 0.9% is
-            // then 0.864dvh and its fade runs from 40% to 55%.
-            className="absolute -inset-4 bg-hero-photo bg-[length:auto_60%] bg-[position:calc(50%-0.864dvh-0.28px)_calc(100%-4rem)] bg-no-repeat [mask-image:linear-gradient(to_bottom,transparent_calc(40%-4rem),black_calc(55%-4rem))] md:bg-[length:auto_66%] md:bg-[position:calc(50%-0.95dvh-0.3px)_calc(100%-3.5rem)] md:[mask-image:linear-gradient(to_bottom,transparent_calc(34%-3.5rem),black_calc(49%-3.5rem))] lg:bg-[length:auto_110%] lg:bg-[position:85%_center] lg:[mask-image:none]"
+            // then 0.864dvh and its fade runs from 40% to 55%. An upright
+            // tablet at 61%: 0.878dvh, fading from 39% to 54%.
+            className="absolute -inset-4 bg-hero-photo bg-[length:auto_60%] bg-[position:calc(50%-0.864dvh-0.28px)_calc(100%-4rem)] bg-no-repeat [mask-image:linear-gradient(to_bottom,transparent_calc(40%-4rem),black_calc(55%-4rem))] md:bg-[length:auto_61%] md:bg-[position:calc(50%-0.878dvh-0.28px)_calc(100%-3.5rem)] md:[mask-image:linear-gradient(to_bottom,transparent_calc(39%-3.5rem),black_calc(54%-3.5rem))] lg:bg-[length:auto_110%] lg:bg-[position:85%_center] lg:[mask-image:none]"
             data-slot="home-hero-photo"
           />
         </div>
@@ -125,10 +126,10 @@ export function HomeHero({
           // the ring clipped the corners of the headline. Centred at every width,
           // as the desktop is; below `lg` in the band's middle, under the arc.
           // `-mt-4` sets the copy 8px above the band's centre on a phone;
-          // `md:mt-10` 20px below it on an upright tablet, a little further
-          // inside the arc. 30rem wide, not 480px, so the column grows with
-          // the type on a large upright tablet (`app/globals.css`).
-          className="relative z-10 -mt-4 flex w-full max-w-120 flex-col items-center gap-4 px-6 text-center md:mt-10 lg:mt-0 lg:gap-5 lg:pt-24"
+          // `md:mt-4` 8px below it on an upright tablet, a little inside the
+          // arc. 30rem wide, not 480px, so the column grows with the type on a
+          // large upright tablet (`app/globals.css`).
+          className="relative z-10 -mt-4 flex w-full max-w-120 flex-col items-center gap-4 px-6 text-center md:mt-4 lg:mt-0 lg:gap-5 lg:pt-24"
           // The pointer parallax in `app/globals.css` moves this by its slot.
           data-slot="home-hero-copy"
         >

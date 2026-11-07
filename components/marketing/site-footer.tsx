@@ -113,15 +113,20 @@ export function SiteFooter({ className }: { readonly className?: string }) {
           <FooterColumn items={company} title={t("footerColumnCompany")} />
         </div>
 
-        <div className="flex flex-col-reverse gap-5 py-6 md:gap-3 md:pt-0 lg:flex-row lg:items-center lg:justify-between lg:pt-6">
-          {/* The copyright over the legal pages on the phone, one line from
-              `md`: a middle dot never opens a wrapped line. */}
-          <div className="flex flex-col items-center gap-1 text-center text-sm md:flex-row md:gap-0 md:text-left">
-            <span>{t("footerCopyright")}</span>
+        {/* On a phone the language and social row sits over the copyright.
+            On an upright tablet a two-row grid: the copyright centred on top,
+            and under it the legal links and the language and social row side
+            by side (the copyright block is `contents` there, so its two parts
+            are the grid's own items). From `lg` one line, ends apart. */}
+        <div className="flex flex-col-reverse gap-5 py-6 md:grid md:grid-cols-[auto_auto] md:items-center md:justify-center md:gap-x-8 md:gap-y-2 md:pt-0 md:pb-0 lg:flex lg:flex-row lg:items-center lg:justify-between lg:pt-6 lg:pb-6">
+          {/* The copyright over the legal pages, centred, on a phone; one line
+              from `lg`: a middle dot never opens a wrapped line. */}
+          <div className="flex flex-col items-center gap-1 text-center text-sm md:contents lg:flex lg:flex-row lg:gap-0 lg:text-left">
+            <span className="md:col-span-2">{t("footerCopyright")}</span>
             <ul className="flex items-center">
               {legal.map((item, i) => (
                 <li className="flex items-center" key={item.label}>
-                  <span aria-hidden className={cn("mx-2", i === 0 && "hidden md:inline")}>
+                  <span aria-hidden className={cn("mx-2", i === 0 && "hidden lg:inline")}>
                     ·
                   </span>
                   <FooterLink {...item} />
