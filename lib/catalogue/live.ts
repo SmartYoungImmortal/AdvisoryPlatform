@@ -1,6 +1,7 @@
 import type { StaticImageData } from "next/image";
 import { useCallback, useMemo } from "react";
 
+import { asAdvisorLevel, type AdvisorLevel } from "@/components/advisor-public/level-badge";
 import { liveServiceHref } from "@/components/bookings/booking-flow";
 import type { Paginated } from "@/lib/api/client";
 import {
@@ -77,6 +78,8 @@ export type LiveService = {
   readonly advisorId: string;
   readonly advisorName: string;
   readonly advisorHeadline: string;
+  /** The advisor's level; left out on the sample cards, which have none. */
+  readonly advisorLevel?: AdvisorLevel;
   /** The home-hero card this advisor stands on, if they stand on one. */
   readonly card: number | null;
   readonly cover: StaticImageData;
@@ -236,6 +239,7 @@ function join(
     advisorId: advisor.id,
     advisorName: advisor.displayName,
     advisorHeadline: advisor.headline,
+    advisorLevel: asAdvisorLevel(advisor.level),
     card,
     // Placeholder; `assignCovers` sets the real one once the whole list is in.
     cover: serviceAdvisorsReview,

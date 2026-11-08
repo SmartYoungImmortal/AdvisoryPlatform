@@ -4,6 +4,7 @@ import Image, { type StaticImageData } from "next/image";
 import Link from "next/link";
 import {
   ArrowLeft,
+  Award,
   BadgeCheck,
   BriefcaseBusiness,
   CalendarPlus,
@@ -18,6 +19,7 @@ import { useFormatter, useTranslations } from "next-intl";
 import { useCallback, useState, type MouseEvent, type ReactNode } from "react";
 
 import { initialsOf } from "@/components/advisor-public/headline";
+import { useLevelText, type AdvisorLevel } from "@/components/advisor-public/level-badge";
 import { PortfolioGrid } from "@/components/advisor-public/portfolio-view";
 import { MobileScreen, ScreenBody, ScreenTopBar } from "@/components/mobile/screen";
 import { ResultCard } from "@/components/search/search-screen";
@@ -89,6 +91,8 @@ export type ProfileModel = {
   readonly portrait: Photo | null;
   readonly initials: string;
   readonly verified: boolean;
+  /** The level an admin gave the advisor; left out where the page has none (the sample screens). */
+  readonly level?: AdvisorLevel;
   /** `undefined` while it is on its way; `null` when it could not be read. */
   readonly reviewCount: number | null | undefined;
   readonly role: string | null;
@@ -220,19 +224,27 @@ function Portrait({ portrait, initials }: { readonly portrait: Photo | null; rea
   );
 }
 
-/** The `@handle` row: the identity check, then the review count. */
+/** The `@handle` row: the identity check, the level, then the review count. */
 function MetaRow({
   verified,
+  level,
   reviewCount,
   reviewsHref,
   onReviews,
 }: {
   readonly verified: boolean;
+  readonly level?: AdvisorLevel;
   readonly reviewCount: number | null | undefined;
   readonly reviewsHref: string;
   readonly onReviews?: LinkHandler;
 }) {
   const s = useTranslations("service");
+  const levelText = useLevelText();
+  const dot = (
+    <span aria-hidden className="text-dimmed">
+      •
+    </span>
+  );
 
   return (
     <div className="flex min-h-6 flex-wrap items-center gap-2 text-sm leading-[1.54] text-muted-foreground lg:min-h-[28.5px] lg:gap-[9.5px] lg:text-frame-meta">
@@ -242,11 +254,14 @@ function MetaRow({
           {s("verifiedIdentity")}
         </span>
       ) : null}
-      {verified && reviewCount !== null ? (
-        <span aria-hidden className="text-dimmed">
-          •
+      {verified && level ? dot : null}
+      {level ? (
+        <span className="inline-flex items-center gap-1 lg:gap-[4.75px]">
+          <Award aria-hidden className="size-4 shrink-0 text-primary lg:size-[19px]" />
+          {levelText.full(level)}
         </span>
       ) : null}
+      {(verified || level) && reviewCount !== null ? dot : null}
       <ReviewCount count={reviewCount} href={reviewsHref} onClick={onReviews} />
     </div>
   );
@@ -499,6 +514,7 @@ export function ProfileHeader({
             </h1>
           )}
           <MetaRow
+            level={model.level}
             onReviews={onReviews}
             reviewCount={model.reviewCount}
             reviewsHref={model.reviewsHref}

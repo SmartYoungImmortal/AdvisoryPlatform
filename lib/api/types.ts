@@ -93,6 +93,11 @@ export interface ApiPublicAdvisor {
   readonly image?: string | null;
   readonly skills: readonly string[];
   readonly publishedServiceCount: number;
+  /**
+   * 1 ผู้ให้คำปรึกษา, 2 ผู้เชี่ยวชาญ, 3 ผู้เชี่ยวชาญอาวุโส, set by an admin when approving
+   * the advisor. Optional so an API from before levels keeps working; read it as 1 then.
+   */
+  readonly level?: number;
 }
 
 /** `PublicAdvisorQueryDto` — the filters `GET /advisors` accepts. */

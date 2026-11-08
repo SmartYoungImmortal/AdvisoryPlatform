@@ -1464,7 +1464,10 @@
       "proofsCount": "{total} ฉบับ",
       "rejectProofTitle": "ไม่อนุมัติเอกสาร “{skill}”?",
       "submittedAt": "ส่งเมื่อ",
-      "decidedAt": "ตัดสินเมื่อ"
+      "decidedAt": "ตัดสินเมื่อ",
+      "level": "ระดับผู้ให้คำปรึกษา",
+      "levelHint": "ลูกค้าเห็นระดับนี้ก่อนจอง",
+      "levelSaved": "บันทึกระดับแล้ว"
     },
     "services": {
       "title": "บริการทั้งหมด",
@@ -3652,6 +3655,9 @@
   },
   "advisorProfile": {
     "level": "ระดับ {number} · {title}",
+    "levelTitle1": "ผู้ให้คำปรึกษา",
+    "levelTitle2": "ผู้เชี่ยวชาญ",
+    "levelTitle3": "ผู้เชี่ยวชาญอาวุโส",
     "credentialField": "{credential} · {field}",
     "statRating": "คะแนน",
     "statConsultations": "การปรึกษา",
