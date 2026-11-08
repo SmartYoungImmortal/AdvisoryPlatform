@@ -7,7 +7,6 @@ import { useCallback } from "react";
 import { NeutralButton } from "@/components/mobile/buttons";
 import { Surface } from "@/components/mobile/surface";
 import { ApiError, ApiUnreachableError } from "@/lib/api/client";
-import { cn } from "@/lib/utils";
 
 /**
  * What an API-connected screen shows around its data: a loading block, a Thai error
@@ -39,17 +38,15 @@ export function ErrorNotice({
   title,
   body,
   onRetry,
-  className,
 }: {
   readonly title: string;
   readonly body?: string;
   readonly onRetry?: () => void;
-  readonly className?: string;
 }) {
   const e = useTranslations("errorStates");
 
   return (
-    <div className={cn("flex w-full shrink-0 flex-col px-6 pt-4", className)} role="alert">
+    <div className="flex w-full shrink-0 flex-col px-6 pt-4" role="alert">
       <Surface className="flex w-full flex-col items-start gap-2 p-4">
         <p className="text-sm font-semibold text-foreground">{title}</p>
         {body ? <p className="text-sm text-muted-foreground">{body}</p> : null}
@@ -71,21 +68,12 @@ export function ErrorNotice({
 export function LoadErrorNotice({
   kind,
   onRetry,
-  className,
 }: {
   readonly kind: LoadErrorKind;
   readonly onRetry?: () => void;
-  readonly className?: string;
 }) {
   const e = useTranslations("errorStates");
-  return (
-    <ErrorNotice
-      body={e(`${kind}Body`)}
-      className={className}
-      onRetry={onRetry}
-      title={e(`${kind}Title`)}
-    />
-  );
+  return <ErrorNotice body={e(`${kind}Body`)} onRetry={onRetry} title={e(`${kind}Title`)} />;
 }
 
 /**

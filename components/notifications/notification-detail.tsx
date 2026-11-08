@@ -8,7 +8,7 @@ import { useCallback, useEffect } from "react";
 import { authPill } from "@/components/auth/auth-split";
 import { asUuid, useQueryValue } from "@/components/bookings/booking-flow";
 import { Figures } from "@/components/figures";
-import { LoadErrorNotice, loadErrorKind } from "@/components/mobile/live-state";
+import { loadErrorKind } from "@/components/mobile/live-state";
 import {
   FEED_COLUMN,
   GUTTER,
@@ -21,6 +21,7 @@ import {
   rememberedNotification,
   type ApiNotification,
 } from "@/components/notifications/notifications-data";
+import { ApiErrorCard } from "@/components/service/parts";
 import { Button } from "@/components/ui/button";
 import { useResource } from "@/lib/api/use-resource";
 import { cn } from "@/lib/utils";
@@ -102,8 +103,8 @@ export function NotificationDetailRoute() {
             ) : null}
           </>
         ) : null}
-        {!item && failure && failure !== "notFound" ? (
-          <LoadErrorNotice className="px-0" kind={failure} onRetry={fetched.reload} />
+        {!item && fetched.error && failure !== "notFound" ? (
+          <ApiErrorCard className="mt-6" error={fetched.error} onRetry={fetched.reload} title={t("loadFailed")} />
         ) : null}
         {!item && !loading && (!failure || failure === "notFound") ? (
           <p className="mt-6 text-sm text-muted-foreground lg:text-frame-body">{t("detailMissing")}</p>
