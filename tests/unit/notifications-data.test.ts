@@ -29,7 +29,8 @@ describe("notificationAction", () => {
     ["REVIEW_REPLIED", `/bookings?bookingId=${resourceId}`, "actionBooking"],
     ["SCREENING_EXPIRED", liveServiceHref(resourceId), "actionService"],
     ["REFUND_DECIDED", receiptHref(resourceId), "actionReceipt"],
-    ["PAYOUT_FAILED", "/work", "actionEarnings"],
+    ["PAYOUT_SENT", "/work/earnings", "actionEarnings"],
+    ["PAYOUT_FAILED", "/work/earnings", "actionEarnings"],
     ["SKILL_PROOF_DECIDED", "/profile", "actionProfile"],
   ] as const)("sends %s to %s", (type, href, label) => {
     expect(notificationAction(make(type))).toEqual({ href, label });
