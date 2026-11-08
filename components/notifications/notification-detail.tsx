@@ -39,31 +39,8 @@ export function NotificationDetailRoute() {
   const t = useTranslations("notifications");
   const c = useTranslations("common");
   const format = useFormatter();
-  const id = asUuid(useQueryValue("id"));
-  const feed = useNotificationFeed();
-  const local =
-    (id ? rememberedNotification(id) : null) ??
-    (id && feed.status === "ready" ? (feed.items.find((n) => n.id === id) ?? null) : null);
-
-  // Not in memory or in the feed's first page: ask the API for this one notification.
-  const needed = id !== undefined && local === null && feed.status !== "loading";
-  const fetched = useResource<ApiNotification | null>(
-    needed ? `notifications/${id}` : "notifications/one:off",
-    useCallback(
-      (signal: AbortSignal) => (needed ? getNotification(id, signal) : Promise.resolve(null)),
-      [needed, id],
-    ),
-  );
-  const item = local ?? fetched.data ?? null;
-  const failure = needed && fetched.error ? loadErrorKind(fetched.error) : null;
-  const loading = !item && !failure && (feed.status === "loading" || (needed && fetched.loading));
+  const { item, error, failure, loading, reload } = useOpenedNotification(asUuid(useQueryValue("id")));
   const action = item ? notificationAction(item) : null;
-
-  // Opening a notification counts as reading it, as tapping its row in the feed does.
-  const unreadId = item && !item.isRead ? item.id : null;
-  useEffect(() => {
-    if (unreadId) void readNotification(unreadId);
-  }, [unreadId]);
 
   return (
     <NotificationsShell>
@@ -103,8 +80,8 @@ export function NotificationDetailRoute() {
             ) : null}
           </>
         ) : null}
-        {!item && fetched.error && failure !== "notFound" ? (
-          <ApiErrorCard className="mt-6" error={fetched.error} onRetry={fetched.reload} title={t("loadFailed")} />
+        {!item && error && failure !== "notFound" ? (
+          <ApiErrorCard className="mt-6" error={error} onRetry={reload} title={t("loadFailed")} />
         ) : null}
         {!item && !loading && (!failure || failure === "notFound") ? (
           <p className="mt-6 text-sm text-muted-foreground lg:text-frame-body">{t("detailMissing")}</p>
@@ -119,4 +96,37 @@ export function NotificationDetailRoute() {
       </article>
     </NotificationsShell>
   );
+}
+
+/**
+ * The notification `id` names: from memory or the feed's first page when it is
+ * there, otherwise read from the API. Opening it marks it read.
+ */
+function useOpenedNotification(id: string | undefined) {
+  const feed = useNotificationFeed();
+  const local =
+    (id ? rememberedNotification(id) : null) ??
+    (id && feed.status === "ready" ? (feed.items.find((n) => n.id === id) ?? null) : null);
+
+  // Not in memory or in the feed's first page: ask the API for this one notification.
+  const needed = id !== undefined && local === null && feed.status !== "loading";
+  const fetched = useResource<ApiNotification | null>(
+    needed ? `notifications/${id}` : "notifications/one:off",
+    useCallback(
+      (signal: AbortSignal) => (needed ? getNotification(id, signal) : Promise.resolve(null)),
+      [needed, id],
+    ),
+  );
+  const item = local ?? fetched.data ?? null;
+  const error = needed ? fetched.error : null;
+  const failure = error ? loadErrorKind(error) : null;
+  const loading = !item && !failure && (feed.status === "loading" || (needed && fetched.loading));
+
+  // Opening a notification counts as reading it, as tapping its row in the feed does.
+  const unreadId = item && !item.isRead ? item.id : null;
+  useEffect(() => {
+    if (unreadId) void readNotification(unreadId);
+  }, [unreadId]);
+
+  return { item, error, failure, loading, reload: fetched.reload };
 }
