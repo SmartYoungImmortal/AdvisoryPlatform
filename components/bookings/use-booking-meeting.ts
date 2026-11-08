@@ -8,15 +8,20 @@ import type { ApiBooking } from "@/lib/api/types";
 /** What opening a session's call needs to know about its booking. */
 export type MeetingBooking = Pick<ApiBooking, "id" | "state" | "startTime" | "endTime">;
 
-/** Matches the API: booked calls open ten minutes early; in-progress calls remain open. */
+/**
+ * Matches the API: booked calls open ten minutes early; in-progress calls remain open.
+ * `ended` once there is no call left to join: completed, missed, or booked and past its end.
+ */
 export function bookingCallWindow(booking: MeetingBooking, at: number) {
-  if (booking.state === "IN_PROGRESS") return { open: true, opensAt: null };
-  if (booking.state !== "BOOKED" || at >= Date.parse(booking.endTime))
-    return { open: false, opensAt: null };
+  if (booking.state === "IN_PROGRESS") return { open: true, opensAt: null, ended: false };
+  const past = at >= Date.parse(booking.endTime);
+  if (booking.state === "COMPLETED" || booking.state === "NO_SHOW" || (booking.state === "BOOKED" && past))
+    return { open: false, opensAt: null, ended: true };
+  if (booking.state !== "BOOKED") return { open: false, opensAt: null, ended: false };
   const opens = Date.parse(booking.startTime) - 10 * 60_000;
   return at >= opens
-    ? { open: true, opensAt: null }
-    : { open: false, opensAt: new Date(opens) };
+    ? { open: true, opensAt: null, ended: false }
+    : { open: false, opensAt: new Date(opens), ended: false };
 }
 
 export function useBookingMeeting(booking: MeetingBooking, from: number) {

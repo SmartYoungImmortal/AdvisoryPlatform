@@ -12,6 +12,7 @@ import { authPill } from "@/components/auth/auth-split";
 import { BookingSheet } from "@/components/bookings/booking-sheet";
 import { SHEET_W, SHEET_X } from "@/components/payment/invoice-screens";
 import { Button } from "@/components/ui/button";
+import { ApiError } from "@/lib/api/client";
 import { getAdvisor, getBooking, getService } from "@/lib/api/resources";
 import type { ApiBooking, ApiPublicAdvisor, ApiPublicService } from "@/lib/api/types";
 import { invalidate, useLastAnswer, useResource } from "@/lib/api/use-resource";
@@ -31,9 +32,22 @@ const BONE = "animate-pulse bg-muted motion-reduce:animate-none";
  * its back chevron. `crumb` is the service's name, once there is one.
  *
  * The session's review is a page about one booking too, and stands in the same
- * column (`components/reviews/session-review-screen.tsx`).
+ * column (`components/reviews/session-review-screen.tsx`), and so does the
+ * request to cancel and be refunded (`components/bookings/booking-refund-screen.tsx`).
+ *
+ * `parent`: a page that sits one level under a booking. Its `href` is where
+ * the phone's chevron goes back to (the list, without one), and with a
+ * `label` it is also a step of the breadcrumb, between the list and `crumb`.
  */
-export function DetailColumn({ crumb, children }: { readonly crumb?: string; readonly children: ReactNode }) {
+export function DetailColumn({
+  crumb,
+  parent,
+  children,
+}: {
+  readonly crumb?: string;
+  readonly parent?: { readonly href: string; readonly label?: string };
+  readonly children: ReactNode;
+}) {
   const t = useTranslations("bookings");
   const c = useTranslations("common");
   const tr = useTranslations("transactions");
@@ -41,7 +55,7 @@ export function DetailColumn({ crumb, children }: { readonly crumb?: string; rea
   return (
     // `wide="md"`: a tablet held upright gets the phone layout at its own width.
     <MobileScreen className="bg-card" wide="md">
-      <ScreenTopBar className="lg:hidden" href="/bookings" label={c("back")} />
+      <ScreenTopBar className="lg:hidden" href={parent?.href ?? "/bookings"} label={c("back")} />
       <AppFrame active="bookings">
         <ScreenBody className="bg-card">
           <AccountShell active="bookings">
@@ -53,6 +67,16 @@ export function DetailColumn({ crumb, children }: { readonly crumb?: string; rea
                       {t("title")}
                     </Link>
                   </li>
+                  {parent?.label ? (
+                    <>
+                      <li aria-hidden>/</li>
+                      <li>
+                        <Link className="transition-colors hover:text-foreground" href={parent.href}>
+                          {parent.label}
+                        </Link>
+                      </li>
+                    </>
+                  ) : null}
                   {crumb ? (
                     <>
                       <li aria-hidden>/</li>
@@ -105,14 +129,12 @@ function BookingDetailData({ bookingId }: { readonly bookingId: string }) {
   const shown = useLastAnswer(booking);
 
   if (!shown && booking.loading) return <BookingDetailSkeleton />;
+  // Not one of the reader's bookings: asking again will not change that.
+  if (booking.error instanceof ApiError && (booking.error.status === 404 || booking.error.status === 403)) {
+    return <BookingDetailState body={t("detailsNotFoundBody")} title={t("detailsNotFoundTitle")} />;
+  }
   if (booking.error || !shown) {
-    return (
-      <BookingDetailState
-        body={booking.error?.message ?? t("detailsFailedBody")}
-        retry={booking.reload}
-        title={t("detailsFailedTitle")}
-      />
-    );
+    return <BookingDetailState body={t("detailsFailedBody")} retry={booking.reload} title={t("detailsFailedTitle")} />;
   }
 
   return <BookingDetailContent booking={shown} reload={booking.reload} />;

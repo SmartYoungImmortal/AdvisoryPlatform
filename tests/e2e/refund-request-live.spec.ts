@@ -68,23 +68,37 @@ for (const width of [1440, 390]) {
         ).status(),
       ).toBe(200);
       await page.goto(`/bookings/detail?bookingId=${bookingId}`);
+      // A paid booking still ahead has one way out, and it asks for the money back.
+      await expect(
+        page.getByRole("button", { name: "ยกเลิกการจอง", exact: true }),
+      ).toHaveCount(0);
       await page
-        .getByRole("link", { name: "คำขอคืนเงิน / สถานะ", exact: true })
+        .getByRole("button", { name: "ยกเลิกและขอคืนเงิน", exact: true })
         .click();
       await expect(
-        page.getByRole("heading", { name: "ขอยกเลิกและคืนเงิน", exact: true }),
+        page.getByRole("heading", {
+          name: "ยกเลิกการจองและขอคืนเงิน",
+          exact: true,
+        }),
       ).toBeVisible();
+      const submit = page.getByRole("button", {
+        name: "ยกเลิกการจองและขอคืนเงิน",
+        exact: true,
+      });
+      // No reason is chosen for the reader.
+      await expect(submit).toBeDisabled();
+      await page
+        .getByText("ผู้ให้คำปรึกษาขอยกเลิกหรือเลื่อนนัด", { exact: true })
+        .click();
       await page
         .getByLabel("รายละเอียด", { exact: true })
         .fill(
           "Disposable proof: consultation not delivered. Review this evidence.",
         );
       await page
-        .getByLabel("หลักฐานที่แนบมา", { exact: true })
+        .getByLabel("หลักฐาน", { exact: true })
         .setInputFiles("public/icon-512.png");
-      await expect(
-        page.getByRole("button", { name: "ส่งคำขอคืนเงิน", exact: true }),
-      ).toBeEnabled();
+      await expect(submit).toBeEnabled();
       await page.screenshot({
         path: `test-results/refund-request-${width}.png`,
         fullPage: true,
@@ -92,30 +106,26 @@ for (const width of [1440, 390]) {
       const opened = page.waitForResponse(
         (r) => r.url() === `${api}/refunds` && r.request().method() === "POST",
       );
-      await page
-        .getByRole("button", { name: "ส่งคำขอคืนเงิน", exact: true })
-        .click();
+      await submit.click();
       const response = await opened;
       expect(response.status()).toBe(201);
       caseId = z
         .object({ data: z.object({ id: z.uuid() }) })
         .parse(await response.json()).data.id;
+      const standing = (word: string) =>
+        page.locator("p[role=status]", { hasText: word });
       await expect(
-        page.getByRole("heading", {
-          name: "คำขอคืนเงินอยู่ระหว่างตรวจสอบ",
-          exact: true,
-        }),
+        page.getByText("ยกเลิกการจองและส่งคำขอคืนเงินแล้ว", { exact: true }),
       ).toBeVisible();
+      await expect(
+        page.getByRole("heading", { name: "คำขอคืนเงิน", exact: true }),
+      ).toBeVisible();
+      await expect(standing("รอตรวจสอบ")).toBeVisible();
       await expect(
         page.getByRole("button", { name: "icon-512.png", exact: true }),
       ).toBeVisible();
       await page.reload();
-      await expect(
-        page.getByRole("heading", {
-          name: "คำขอคืนเงินอยู่ระหว่างตรวจสอบ",
-          exact: true,
-        }),
-      ).toBeVisible();
+      await expect(standing("รอตรวจสอบ")).toBeVisible();
       await expect(
         page.getByRole("button", { name: "icon-512.png", exact: true }),
       ).toBeVisible();
@@ -216,24 +226,21 @@ for (const width of [1440, 390]) {
       } finally {
         await admin.close();
       }
-      await page
-        .getByRole("button", { name: "รีเฟรชสถานะคำขอ", exact: true })
-        .click();
+      // The page reads the request again when the reader comes back to it.
+      await page.reload();
       await expect(
-        page.getByRole("heading", {
-          name:
-            width === 1440
-              ? "คำขอคืนเงินได้รับอนุมัติ"
-              : "คำขอคืนเงินถูกปฏิเสธ",
-          exact: true,
-        }),
+        standing(width === 1440 ? "อนุมัติแล้ว" : "ไม่อนุมัติ"),
       ).toBeVisible();
+      if (width === 390) {
+        // Turned down: support is the way on.
+        await expect(
+          page.getByRole("button", { name: "ติดต่อฝ่ายช่วยเหลือ", exact: true }),
+        ).toBeVisible();
+      }
+      // Every way out goes back to the booking's popup.
       await expect(
-        page.getByText(
-          "นี่คือสถานะคำขอ การอนุมัติไม่ได้ยืนยันว่าโอนเงินคืนแล้ว ตรวจสอบผลการชำระเงินได้ที่ใบเสร็จ",
-          { exact: true },
-        ),
-      ).toBeVisible();
+        page.getByRole("button", { name: "กลับไปที่การจอง", exact: true }),
+      ).toHaveAttribute("href", `/bookings?bookingId=${bookingId}`);
       expect(
         (
           await (

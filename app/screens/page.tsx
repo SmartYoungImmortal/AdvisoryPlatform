@@ -83,8 +83,7 @@ const SECTIONS: ReadonlyArray<{
     title: "Matching",
     node: "995:11175",
     screens: [
-      { href: "/matching", label: "Problem description" },
-      { href: "/matching/results", label: "Matched advisors" },
+      { href: "/matching", label: "Matching chat" },
     ],
   },
   {

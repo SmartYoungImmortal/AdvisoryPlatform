@@ -41,8 +41,8 @@ export interface ApiPublicService {
   readonly createdAt: string;
   /**
    * The service's photographs from `service_images`, as absolute URLs in
-   * carousel order. Covers are still mapped in the frontend
-   * (`lib/catalogue/live.ts`), so today these are the gallery photos only and
+   * carousel order. The cover is `cover` below (or mapped in the frontend,
+   * `lib/catalogue/live.ts`), so these are the gallery photos only and
    * carousel index 0 is kept free for the cover; a screen leads with its own
    * cover and skips a URL equal to it. Optional because an API built before the
    * field existed does not send it; read it as empty then.
@@ -54,6 +54,29 @@ export interface ApiPublicService {
    * sold as itself, at `priceSatang` for `durationMinutes`.
    */
   readonly packages?: readonly ApiServicePackage[];
+  /**
+   * The cover its owner set, as an absolute URL; null without one. The
+   * frontend maps a cover only for a service with none (`lib/catalogue/live.ts`).
+   * `listServices` and `getService` read it as null from an API that predates it.
+   */
+  readonly cover?: string | null;
+  /**
+   * Who gives it, as a card names them. `listServices` and `getService` read it
+   * as null from an API that predates it, and the catalogue then joins the
+   * advisor list and the rating summaries itself.
+   */
+  readonly advisor?: ApiServiceAdvisor | null;
+}
+
+/** The advisor a service carries for its card on `GET /services` and `GET /services/:id`. */
+export interface ApiServiceAdvisor {
+  readonly id: string;
+  readonly name: string;
+  readonly avatarUrl: string | null;
+  /** The average of their reviews; null before the first. */
+  readonly rating: number | null;
+  readonly reviewCount: number;
+  readonly verified: boolean;
 }
 
 /** `ServicePackageResponseDto` — advisor-services/dtos/service-package.dto.ts */
@@ -79,7 +102,14 @@ export interface ApiPublicServiceQuery {
   readonly maxPriceSatang?: number;
   /** `YYYY-MM-DD`: only services with an open slot that day. */
   readonly availableOn?: string;
+  /** 0 to 5: only services whose advisor's average is at least this. */
+  readonly minRating?: number;
+  /** The order; the API's own is `newest`. */
+  readonly sort?: ApiServiceSort;
 }
+
+/** The orders `GET /services` lists in. */
+export type ApiServiceSort = "newest" | "rating" | "price_asc" | "price_desc";
 
 /** `PublicAdvisorResponseDto` — advisors/dtos/public-advisor-response.dto.ts */
 export interface ApiPublicAdvisor {

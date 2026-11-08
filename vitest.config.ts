@@ -17,6 +17,7 @@ export default defineConfig({
         "lib/session/access.ts",
         "components/bookings/booking-flow.ts",
         "components/bookings/booking-calendar.ts",
+        "components/bookings/booking-exit.ts",
         "components/bookings/use-booking-cancellation.ts",
         "components/bookings/use-booking-meeting.ts",
         "lib/api/advisor-bookings.ts",

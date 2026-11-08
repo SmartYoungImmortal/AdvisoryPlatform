@@ -19,6 +19,8 @@
  * verification, refunds, reports, off-platform flags, payouts and the audit log.
  */
 
+import { z } from "zod";
+
 import { api, type Paginated } from "@/lib/api/client";
 import type {
   ApiAdviseeInvoice,
@@ -54,20 +56,45 @@ import type {
 
 /* ---------------------------------------------------------------- catalogue */
 
-/** `GET /services` — public, paginated, filterable. */
-export function listServices(
+/**
+ * The two fields a service gained for its card: its cover and its advisor.
+ * Parsed rather than trusted, and read as null from an API built before them,
+ * so the catalogue falls back to its own reads (`lib/catalogue/live.ts`).
+ */
+const serviceCardSchema = z.object({
+  cover: z.string().nullable().default(null),
+  advisor: z
+    .object({
+      id: z.string(),
+      name: z.string(),
+      avatarUrl: z.string().nullable().default(null),
+      rating: z.number().nullable().default(null),
+      reviewCount: z.number().int().nonnegative().default(0),
+      verified: z.boolean().default(false),
+    })
+    .nullable()
+    .default(null),
+});
+
+function withCard(service: ApiPublicService): ApiPublicService {
+  return { ...service, ...serviceCardSchema.parse(service) };
+}
+
+/** `GET /services` — public, paginated, filterable and sorted on the server. */
+export async function listServices(
   query: ApiPublicServiceQuery = {},
   signal?: AbortSignal,
 ): Promise<Paginated<ApiPublicService>> {
-  return api.get("services", { query: { ...query }, signal });
+  const page = await api.get<Paginated<ApiPublicService>>("services", { query: { ...query }, signal });
+  return { ...page, items: page.items.map(withCard) };
 }
 
 /** `GET /services/:serviceId` — public. */
-export function getService(
+export async function getService(
   serviceId: string,
   signal?: AbortSignal,
 ): Promise<ApiPublicService> {
-  return api.get(`services/${serviceId}`, { signal });
+  return withCard(await api.get<ApiPublicService>(`services/${serviceId}`, { signal }));
 }
 
 /**

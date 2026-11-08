@@ -146,11 +146,9 @@ const LOOKAHEAD = 7;
  * Today's open services, or, when today has none (the seed's advisors keep
  * weekdays), the first day of the coming week that has some.
  *
- * Today is asked under the exact key `useOpenToday` uses, so `/search`'s
- * "available today" filter and this share one request. It is read through
- * `useResource` here rather than `useOpenToday` because that hook answers
- * `null` both while loading and after a failure, and this section has to
- * tell a skeleton from a section to fold away.
+ * Read through `useResource` so this section can tell a skeleton (loading)
+ * from a section to fold away (failed). `/search`'s "available today" asks the
+ * API page by page with its other filters (`useCatalogueSearch`).
  */
 export function useSoonestOpen(): OpenDay {
   const now = useMountTime();

@@ -822,7 +822,9 @@ function NextSteps({ receipt, className }: { readonly receipt: Receipt; readonly
   const bookings = receipt.bookingHref ?? "/bookings";
   const actions: Record<TransactionStatus, readonly { label: string; href: string; solid: boolean }[]> = {
     paid: [{ label: t("viewBookings"), href: bookings, solid: true }],
-    failed: [{ label: t("payAgain"), href: "/checkout/card", solid: true }],
+    // The invoice names no booking id, so paying again starts from the booking,
+    // whose way on is the checkout for it; a sample keeps the card screen.
+    failed: [{ label: t("payAgain"), href: receipt.bookingHref ?? "/checkout/card", solid: true }],
     refunded: [
       { label: t("findExpert"), href: "/search", solid: true },
       { label: t("viewBookings"), href: bookings, solid: false },

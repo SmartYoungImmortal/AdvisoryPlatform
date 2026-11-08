@@ -13,11 +13,28 @@ afterEach(() => { cleanup(); vi.useRealTimers(); vi.restoreAllMocks(); window.lo
 
 describe("meeting entry", () => {
   it("opens exactly ten minutes early and closes at the booked end", () => {
-    expect(bookingCallWindow(booking, start - 600_001)).toEqual({ open: false, opensAt: new Date(start - 600_000) });
+    expect(bookingCallWindow(booking, start - 600_001)).toEqual({ open: false, opensAt: new Date(start - 600_000), ended: false });
     expect(bookingCallWindow(booking, start - 600_000).open).toBe(true);
     expect(bookingCallWindow(booking, start + 1_800_000).open).toBe(false);
     expect(bookingCallWindow({ ...booking, state: "IN_PROGRESS" }, start + 3_600_000).open).toBe(true);
     expect(bookingCallWindow({ ...booking, state: "CANCELLED" }, start).open).toBe(false);
+  });
+  it("says the session has ended once there is no call left to join", () => {
+    expect(bookingCallWindow(booking, start + 1_799_999)).toEqual({ open: true, opensAt: null, ended: false });
+    expect(bookingCallWindow(booking, start + 1_800_000)).toEqual({ open: false, opensAt: null, ended: true });
+    expect(bookingCallWindow({ ...booking, state: "COMPLETED" }, start).ended).toBe(true);
+    expect(bookingCallWindow({ ...booking, state: "NO_SHOW" }, start + 3_600_000).ended).toBe(true);
+    // Still running past the booked end, never paid for, or called off: not "ended".
+    expect(bookingCallWindow({ ...booking, state: "IN_PROGRESS" }, start + 3_600_000).ended).toBe(false);
+    expect(bookingCallWindow({ ...booking, state: "PENDING_PAYMENT" }, start + 3_600_000).ended).toBe(false);
+    expect(bookingCallWindow({ ...booking, state: "CANCELLED" }, start + 3_600_000).ended).toBe(false);
+  });
+  it("turns to ended while the page stays open past the booked end", () => {
+    vi.useFakeTimers().setSystemTime(start + 1_790_000);
+    const { result } = renderHook(() => useBookingMeeting(booking, start + 1_790_000));
+    expect(result.current).toMatchObject({ open: true, ended: false });
+    act(() => { vi.advanceTimersByTime(30_000); });
+    expect(result.current).toMatchObject({ open: false, opensAt: null, ended: true });
   });
   it("updates the entry window while the page remains open and removes its timer on unmount", () => {
     vi.useFakeTimers().setSystemTime(start - 610_000);

@@ -20,7 +20,7 @@ The two scenarios cover desktop 1440px approval and phone 390px rejection, persi
 
 ## Design and limits
 
-References: [desktop cancellation/refund1952:32893](https://www.figma.com/design/pddSCcCJ1hmYHAZO1GW13b?node-id=1952-32893) and [phone1594:28448](https://www.figma.com/design/pddSCcCJ1hmYHAZO1GW13b?node-id=1594-28448). The form uses the existing component library and dynamic advisor/payment data. Mock OS chrome is omitted. The existing shared top navigation remains; exact whole-screen acceptance is not claimed. The unsupported three-business-day refund promise is replaced with review wording, and the displayed amount is the actual invoice amount, including all sessions that invoice paid for.
+References: [desktop cancellation/refund1952:32893](https://www.figma.com/design/pddSCcCJ1hmYHAZO1GW13b?node-id=1952-32893) and [phone1594:28448](https://www.figma.com/design/pddSCcCJ1hmYHAZO1GW13b?node-id=1594-28448). The form uses the existing component library and dynamic advisor/payment data. Mock OS chrome is omitted. The page now sits in the account frame as the booking's own page does (`DetailColumn`, with the rail instead of the top navigation); exact whole-screen acceptance is not claimed. The unsupported three-business-day refund promise is replaced with review wording, and the displayed amount is the actual invoice amount, including all sessions that invoice paid for.
 
 JPEG, PNG, WebP and PDF evidence is optional, at most five files per case and50MiB each. Identical retries reuse the stored file. Private links expire after five minutes; admin review refreshes links before expiry. The requester's files are available to their own session and admins with refund-read permission.
 
