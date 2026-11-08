@@ -229,6 +229,36 @@ const FROSTED = (() => {
   ].join(", ");
 })();
 
+/**
+ * The bar's fill. The glass deepens as content passes under the floating
+ * pill. Below `lg` (a phone, an upright tablet) the bar has one look on every
+ * page, the scrolled glass, and never changes with scroll; only a page that
+ * opens on a hero photograph (`clearAtTop`, the home page) starts clear and
+ * frosts once it scrolls.
+ */
+function barFill(frosted: boolean, clearAtTop: boolean): string {
+  if (frosted) return "bg-card/55";
+  return cn(
+    "bg-card/25",
+    clearAtTop ? "below-lg:bg-transparent below-lg:backdrop-blur-none" : "below-lg:bg-card/55",
+  );
+}
+
+/**
+ * Docked, from `lg` only: a phone keeps the capsule at every scroll position,
+ * the shape its own screens are built around. The margin each side becomes
+ * padding of the same width (a percentage in either resolves against the same
+ * row), so nothing inside moves sideways. 72px tall: 88 (enough that nothing
+ * moved vertically either) read as a slab, and the capsule's own 64 as
+ * cramped against the top edge; the content rises 8px, with the same easing.
+ * No flat fill, but `--bar-wash` (the `FROSTED` pair the row already carries,
+ * white that fades out downward over a 45% veil) on a light `blur-sm`, with a
+ * faint white rule, so the band dissolves into the page instead of ending on
+ * a hard edge.
+ */
+const DOCKED =
+  "lg:mx-0 lg:mt-0 lg:h-18 lg:rounded-none lg:border-b lg:border-on-media/20 lg:bg-transparent lg:bg-[image:var(--bar-wash)] lg:pr-[calc(max(0px,calc((100%-984px)/2))+0.5rem)] lg:pl-[calc(max(0px,calc((100%-984px)/2))+1.5rem)] lg:backdrop-blur-sm";
+
 export function TopBar({
   unreadNotifications = false,
   backHref,
@@ -393,34 +423,8 @@ export function TopBar({
               "lg:transition-[margin,padding,height,border-radius,background-color] lg:duration-500 lg:ease-out motion-reduce:transition-none",
               // The glass deepens as content passes under the floating pill;
               // a docked bar replaces the fill entirely (below, merged last).
-              // Below `lg` (a phone, an upright tablet) the bar has one look on
-              // every page, the scrolled glass, and never changes with scroll;
-              // only the home hero (`clearAtTop`) starts clear and frosts.
-              frosted
-                ? "bg-card/55"
-                : cn(
-                    "bg-card/25",
-                    clearAtTop
-                      ? "below-lg:bg-transparent below-lg:backdrop-blur-none"
-                      : "below-lg:bg-card/55",
-                  ),
-              dock && frosted
-                ? // Docked, from `lg` only: a phone keeps the capsule at every
-                  // scroll position, the shape its own screens are built
-                  // around. The margin each side becomes padding of the same
-                  // width (a percentage in either resolves against the same
-                  // row), so nothing inside moves sideways. 72px tall: 88
-                  // (enough that nothing moved vertically either) read as a
-                  // slab, and the capsule's own 64 as cramped against the
-                  // top edge; the content rises 8px, with the same easing.
-                  // mochiice-fe's scrolled header (`Layout/Header.vue`): no
-                  // flat fill, but `--bar-wash` (the `FROSTED` pair the row
-                  // already carries, white that fades out downward over a
-                  // 45% veil) on a light `blur-sm`, with a faint white rule,
-                  // so the band dissolves into the page instead of ending
-                  // on a hard edge.
-                  "lg:mx-0 lg:mt-0 lg:h-18 lg:rounded-none lg:border-b lg:border-on-media/20 lg:bg-transparent lg:bg-[image:var(--bar-wash)] lg:pr-[calc(max(0px,calc((100%-984px)/2))+0.5rem)] lg:pl-[calc(max(0px,calc((100%-984px)/2))+1.5rem)] lg:backdrop-blur-sm"
-                : undefined,
+              barFill(frosted, clearAtTop),
+              dock && frosted && DOCKED,
             )}
           >
             {backHref ? (

@@ -32,9 +32,10 @@ const REVEAL: Keyframe[] = [
  * into two columns. The split is in the data, not in CSS: each column is its
  * own block, so opening an answer grows only its own column.
  *
- * How an answer opens depends on the layout:
- * - One column (a phone, an upright tablet): one answer open in the whole
- *   list, and the movement is on `transform` (FLIP). The page is laid out
+ * One answer open at a time in the whole list, at every width: opening one
+ * closes any other, in either column. How it opens depends on the layout:
+ * - One column (a phone, an upright tablet): the movement is on `transform`
+ *   (FLIP). The page is laid out
  *   once, at the final state, and every question below and the rest of the
  *   page after the list slide from where they were to where they now are,
  *   on the compositor, while the answer is unclipped and fades in. Animating
@@ -42,9 +43,8 @@ const REVEAL: Keyframe[] = [
  *   it on every frame, which is what stuttered. Closing runs the other way:
  *   what is below slides up over the answer as it fades, and only then does
  *   the row collapse.
- * - Two columns: one answer open per column, so a tap in one column never
- *   moves the other, on a grid row going `0fr` → `1fr` with the answer fading
- *   with it. Nothing sets a height on the text either way (iOS re-runs its text
+ * - Two columns: a grid row going `0fr` → `1fr` with the answer fading with
+ *   it. Nothing sets a height on the text either way (iOS re-runs its text
  *   autosizing on a block whose height is animated).
  *
  * 20 / 14 / 14 on a phone (heading, questions, answers), 24 heading from
@@ -56,18 +56,16 @@ export function HomeFaq() {
   const l = useTranslations("landing");
   const panel = useId();
   const list = useRef<HTMLDivElement>(null);
-  // The open answer of each column; one column uses the first slot only.
-  const [open, setOpen] = useState<readonly (number | null)[]>([null, null]);
-  const [oneColumn, setOneColumn] = useState(true);
+  // The one open answer, by its index in the list.
+  const [open, setOpen] = useState<number | null>(null);
   const [flip, setFlip] = useState(false);
 
   useEffect(() => {
     const two = window.matchMedia(TWO_COLUMNS);
     const reduced = window.matchMedia(REDUCED);
     const update = () => {
-      setOneColumn(!two.matches);
       setFlip(!two.matches && !reduced.matches);
-      setOpen([null, null]);
+      setOpen(null);
     };
     update();
     two.addEventListener("change", update);
@@ -97,8 +95,6 @@ export function HomeFaq() {
   const mid = Math.ceil(items.length / 2);
   const columns = [items.slice(0, mid), items.slice(mid)];
 
-  const slotOf = (column: number) => (oneColumn ? 0 : column);
-  const isOpen = (index: number, column: number) => open[slotOf(column)] === index;
   const panelOf = (index: number) => document.getElementById(`${panel}-${index}`);
 
   // Everything that moves when an answer changes height: every question row,
@@ -109,13 +105,12 @@ export function HomeFaq() {
     return [...rows, ...after];
   };
 
-  const toggle = async (index: number, column: number) => {
-    const slot = slotOf(column);
-    const prev = open[slot] ?? null;
+  const toggle = async (index: number) => {
+    const prev = open;
     const next = prev === index ? null : index;
 
     if (!flip) {
-      setOpen((current) => current.map((value, i) => (i === slot ? next : value)));
+      setOpen(next);
       return;
     }
 
@@ -123,7 +118,7 @@ export function HomeFaq() {
     if (next === null && prev !== null) {
       const box = panelOf(prev);
       if (!box) {
-        setOpen([null, null]);
+        setOpen(null);
         return;
       }
       const height = box.offsetHeight;
@@ -142,7 +137,7 @@ export function HomeFaq() {
         fill: "forwards",
       });
       await Promise.all(slides.map((a) => a.finished.catch(() => undefined)));
-      flushSync(() => setOpen([null, null]));
+      flushSync(() => setOpen(null));
       for (const a of slides) a.cancel();
       fade?.cancel();
       return;
@@ -152,7 +147,7 @@ export function HomeFaq() {
     // row from where it was back to where it is now.
     const els = movers();
     const before = new Map(els.map((el) => [el, el.getBoundingClientRect().top]));
-    flushSync(() => setOpen([next, null]));
+    flushSync(() => setOpen(next));
     for (const el of els) {
       const dy = (before.get(el) ?? 0) - el.getBoundingClientRect().top;
       if (Math.abs(dy) < 0.5) continue;
@@ -190,7 +185,7 @@ export function HomeFaq() {
           {columns.map((column, ci) => (
             <Rise className="flex-1" delay={ci * 0.08} key={column[0]?.q ?? ci}>
               {column.map(({ q, a, index }) => {
-                const shown = isOpen(index, ci);
+                const shown = open === index;
                 return (
                   <div
                     className={cn(
@@ -206,14 +201,17 @@ export function HomeFaq() {
                     <button
                       aria-controls={`${panel}-${index}`}
                       aria-expanded={shown}
+                      id={`${panel}-q-${index}`}
                       className="flex w-full cursor-pointer items-center gap-3.5 rounded-lg py-3 text-left outline-none focus-visible:ring-2 focus-visible:ring-faq-accent/40 lg:gap-4 lg:py-5"
-                      onClick={() => void toggle(index, ci)}
+                      onClick={() => void toggle(index)}
                       type="button"
                     >
                       <span aria-hidden className="faq-badge" />
                       <span className="text-sm font-semibold text-faq-accent lg:text-lg">{q}</span>
                     </button>
-                    <div
+                    {/* A `section` named by its question: the answer's region. */}
+                    <section
+                      aria-labelledby={`${panel}-q-${index}`}
                       className={cn(
                         "grid",
                         shown ? "grid-rows-[1fr]" : "grid-rows-[0fr]",
@@ -226,7 +224,6 @@ export function HomeFaq() {
                           ),
                       )}
                       id={`${panel}-${index}`}
-                      role="region"
                     >
                       {/* Both, or a 0fr row does not collapse; and the padding
                           on the text, not this box, or a closed answer keeps it.
@@ -247,7 +244,7 @@ export function HomeFaq() {
                           {a}
                         </p>
                       </div>
-                    </div>
+                    </section>
                   </div>
                 );
               })}

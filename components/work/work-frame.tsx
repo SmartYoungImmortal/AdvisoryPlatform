@@ -108,6 +108,80 @@ function WorkTabs({ current }: { readonly current: WorkTab }) {
   );
 }
 
+/** The page's head: its way back, the place's glyph or name, its title and its action. */
+function WorkHeader({
+  place,
+  title,
+  action,
+  backHref,
+  isPlace,
+  stickyBand,
+}: {
+  readonly place: WorkTab | null;
+  readonly title: ReactNode;
+  readonly action?: ReactNode;
+  readonly backHref?: string;
+  readonly isPlace: boolean;
+  readonly stickyBand: boolean;
+}) {
+  const c = useTranslations("common");
+  const t = useTranslations("work");
+  const PlaceIcon = place === null ? null : PLACE_ICON[place];
+  return (
+    <header
+      className={cn(
+        "flex w-full flex-col items-start gap-3 lg:h-22 lg:shrink-0 lg:flex-row lg:items-center lg:gap-4 lg:border-b lg:border-border lg:px-12",
+        stickyBand && "lg:sticky lg:top-0 lg:z-30 lg:bg-card",
+      )}
+    >
+      {/* The chevron is the phone's way back; from `lg` a page of a place has the
+          place's name before its title instead, and the menu beside it. */}
+      {backHref ? (
+        <Button
+          aria-label={c("back")}
+          className={cn(
+            "relative -ml-1.5 size-8 shrink-0 text-foreground before:absolute before:-inset-1.5 before:content-['']",
+            place !== null && "lg:hidden",
+          )}
+          nativeButton={false}
+          render={<Link href={backHref} />}
+          size="icon"
+          variant="ghost"
+        >
+          <ChevronLeft aria-hidden className="size-6" />
+        </Button>
+      ) : null}
+      <div className="flex w-full min-w-0 flex-1 flex-wrap items-center justify-between gap-x-4 gap-y-3 lg:flex-nowrap">
+        <div className="flex min-w-0 items-center gap-3">
+          {/* From `lg` the place's glyph on a soft grey tile before the title, as the settings page heads each category. */}
+          {PlaceIcon ? (
+            <span className="hidden size-12 shrink-0 items-center justify-center rounded-xl bg-muted text-foreground lg:flex">
+              <PlaceIcon aria-hidden className={cn("size-6", SOLID_GLYPH)} strokeWidth={1.75} />
+            </span>
+          ) : null}
+          {/* From `lg`, a page a place opened is named under it: the place, muted and the way back, then a chevron. */}
+          {backHref && place !== null ? (
+            <span className="hidden shrink-0 items-center gap-2 lg:flex">
+              <Link
+                className="rounded-md text-frame-heading font-semibold text-muted-foreground outline-none transition-colors hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/50"
+                href={backHref}
+              >
+                {t(`tab.${place}`)}
+              </Link>
+              <ChevronRight aria-hidden className="size-5 text-muted-foreground" />
+            </span>
+          ) : null}
+          <h1 className="min-w-0 font-hero text-title-compact font-normal tracking-tight text-hero-ink lg:truncate lg:font-sans lg:text-frame-heading lg:font-semibold lg:tracking-normal lg:text-foreground">
+            {title}
+          </h1>
+        </div>
+        {/* A place's action goes under the capsules on the phone, so they stand at the same height on all six. */}
+        {action ? <div className={cn("shrink-0", isPlace && "below-lg:hidden")}>{action}</div> : null}
+      </div>
+    </header>
+  );
+}
+
 /**
  * Every page of the advisor's desk: the rail with "งาน" current and the white
  * panel, laid out as the settings page is — from `lg` the desk's menu
@@ -156,10 +230,7 @@ export function WorkFrame({
   readonly flushFoot?: boolean;
   readonly children: ReactNode;
 }) {
-  const c = useTranslations("common");
-  const t = useTranslations("work");
   const isPlace = place !== null && backHref === undefined;
-  const PlaceIcon = place === null ? null : PLACE_ICON[place];
 
   return (
     <MobileScreen className="bg-card pb-0" wide="md">
@@ -177,57 +248,14 @@ export function WorkFrame({
               {place !== null ? <WorkMenu current={place} /> : null}
 
               <div className="flex min-w-0 flex-col">
-                <header
-                  className={cn(
-                    "flex w-full flex-col items-start gap-3 lg:h-22 lg:shrink-0 lg:flex-row lg:items-center lg:gap-4 lg:border-b lg:border-border lg:px-12",
-                    stickyBand && "lg:sticky lg:top-0 lg:z-30 lg:bg-card",
-                  )}
-                >
-                  {/* The chevron is the phone's way back; from `lg` a page of a place has the
-                      place's name before its title instead, and the menu beside it. */}
-                  {backHref ? (
-                    <Button
-                      aria-label={c("back")}
-                      className={cn(
-                        "relative -ml-1.5 size-8 shrink-0 text-foreground before:absolute before:-inset-1.5 before:content-['']",
-                        place !== null && "lg:hidden",
-                      )}
-                      nativeButton={false}
-                      render={<Link href={backHref} />}
-                      size="icon"
-                      variant="ghost"
-                    >
-                      <ChevronLeft aria-hidden className="size-6" />
-                    </Button>
-                  ) : null}
-                  <div className="flex w-full min-w-0 flex-1 flex-wrap items-center justify-between gap-x-4 gap-y-3 lg:flex-nowrap">
-                    <div className="flex min-w-0 items-center gap-3">
-                      {/* From `lg` the place's glyph on a soft grey tile before the title, as the settings page heads each category. */}
-                      {PlaceIcon ? (
-                        <span className="hidden size-12 shrink-0 items-center justify-center rounded-xl bg-muted text-foreground lg:flex">
-                          <PlaceIcon aria-hidden className={cn("size-6", SOLID_GLYPH)} strokeWidth={1.75} />
-                        </span>
-                      ) : null}
-                      {/* From `lg`, a page a place opened is named under it: the place, muted and the way back, then a chevron. */}
-                      {backHref && place !== null ? (
-                        <span className="hidden shrink-0 items-center gap-2 lg:flex">
-                          <Link
-                            className="rounded-md text-frame-heading font-semibold text-muted-foreground outline-none transition-colors hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/50"
-                            href={backHref}
-                          >
-                            {t(`tab.${place}`)}
-                          </Link>
-                          <ChevronRight aria-hidden className="size-5 text-muted-foreground" />
-                        </span>
-                      ) : null}
-                      <h1 className="min-w-0 font-hero text-title-compact font-normal tracking-tight text-hero-ink lg:truncate lg:font-sans lg:text-frame-heading lg:font-semibold lg:tracking-normal lg:text-foreground">
-                        {title}
-                      </h1>
-                    </div>
-                    {/* A place's action goes under the capsules on the phone, so they stand at the same height on all six. */}
-                    {action ? <div className={cn("shrink-0", isPlace && "below-lg:hidden")}>{action}</div> : null}
-                  </div>
-                </header>
+                <WorkHeader
+                  action={action}
+                  backHref={backHref}
+                  isPlace={isPlace}
+                  place={place}
+                  stickyBand={stickyBand}
+                  title={title}
+                />
                 {isPlace ? <WorkTabs current={place} /> : null}
                 {isPlace && action ? <div className="mt-4 lg:hidden">{action}</div> : null}
                 <div className={cn("flex min-w-0 flex-1 flex-col lg:px-12", !flushFoot && "lg:pb-16")}>{children}</div>
