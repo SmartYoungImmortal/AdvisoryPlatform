@@ -211,7 +211,8 @@ export function notificationAction(
       return { href: id ? receiptHref(id) : "/transactions", label: "actionReceipt" };
     case "PAYOUT_SENT":
     case "PAYOUT_FAILED":
-      return { href: "/work", label: "actionEarnings" };
+      // The earnings tab; "/work" alone is the advisor's home page.
+      return { href: "/work/earnings", label: "actionEarnings" };
     case "REVIEW_RECEIVED":
       return { href: "/reviews", label: "actionReviews" };
     case "VERIFICATION_DECIDED":
