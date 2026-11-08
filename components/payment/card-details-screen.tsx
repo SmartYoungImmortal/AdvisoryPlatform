@@ -284,7 +284,7 @@ export function CardDetailsScreen({
                 {t("pay")}
               </PrimaryButton>
             ) : (
-              <PrimaryButton block className="lg:h-11" href="/checkout/processing">
+              <PrimaryButton block className="lg:h-11">
                 {t("pay")}
               </PrimaryButton>
             )}

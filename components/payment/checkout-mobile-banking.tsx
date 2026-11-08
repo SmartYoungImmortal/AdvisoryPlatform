@@ -10,6 +10,8 @@ import { createBookingInvoice, payByMobileBanking } from "@/lib/api/resources";
 import type { ApiMobileBank } from "@/lib/api/types";
 import { cn } from "@/lib/utils";
 
+import { rememberCheckout } from "./checkout-return";
+
 /**
  * Paying in a Thai bank's app: the payer picks their bank, the API charges
  * the invoice on that bank's source (`POST /payment/mobile-banking`), and the
@@ -95,6 +97,7 @@ export function useMobileBanking(bookingId: string, couponCode: string | undefin
       try {
         const invoice = await createBookingInvoice(bookingId, couponCode);
         const { url } = await payByMobileBanking({ invoiceId: invoice.id, bank, platform: platformOf() });
+        rememberCheckout(invoice.id, bookingId);
         window.location.assign(url);
       } catch (cause: unknown) {
         setProblem(t("payFailed", { reason: cause instanceof Error ? cause.message : String(cause) }));

@@ -10,6 +10,7 @@ import '@fontsource/kanit/500.css';
 import '@fontsource/sriracha/400.css';
 import "./globals.css";
 import { cn } from "@/lib/utils";
+import { OfflineGate } from "@/components/errors/offline-gate";
 import { IosFocusZoom } from "@/components/mobile/ios-focus-zoom";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { LocaleProvider } from "@/lib/i18n/locale-provider";
@@ -70,6 +71,8 @@ export default function RootLayout({
           <TooltipProvider>
             {children}
           </TooltipProvider>
+          {/* Over any page while the browser is offline. */}
+          <OfflineGate />
         </LocaleProvider>
         <IosFocusZoom />
       </body>

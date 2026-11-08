@@ -25,6 +25,7 @@ import { useSession } from "@/lib/session";
 import { authPill } from "@/components/auth/auth-split";
 import { baht, isoDay, liveServiceHref } from "@/components/bookings/booking-flow";
 import { chatWithHref } from "@/components/chat/chat-data";
+import { OutcomeDialog } from "@/components/payment/checkout-outcome";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogClose, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { Sheet, SheetClose, SheetContent, SheetTitle } from "@/components/ui/sheet";
@@ -126,6 +127,11 @@ export type Picker = {
   readonly showTimes: () => void;
   readonly setDetail: (open: boolean) => void;
   readonly setTimes: (open: boolean) => void;
+  /** The time someone else took first, while its popup is up; null otherwise. */
+  readonly slotTaken: string | null;
+  /** Someone took `time` first: both layers close and the popup says so, alone over the page. */
+  readonly takeSlot: (time: string) => void;
+  readonly dismissSlot: () => void;
 };
 
 function surfaceNow(): "dialog" | "sheet" {
@@ -145,7 +151,13 @@ export function usePicker(): Picker {
   );
   const setDetail = useCallback((open: boolean) => setLayers((current) => ({ ...current, detail: open })), []);
   const setTimes = useCallback((open: boolean) => setLayers((current) => ({ ...current, times: open })), []);
-  return { ...layers, showDetail, showTimes, setDetail, setTimes };
+  const [slotTaken, setSlotTaken] = useState<string | null>(null);
+  const takeSlot = useCallback((time: string) => {
+    setLayers((current) => ({ ...current, detail: false, times: false }));
+    setSlotTaken(time);
+  }, []);
+  const dismissSlot = useCallback(() => setSlotTaken(null), []);
+  return { ...layers, showDetail, showTimes, setDetail, setTimes, slotTaken, takeSlot, dismissSlot };
 }
 
 /** Who the booking is with, for the lines that name them. */
@@ -297,12 +309,13 @@ function SlotsNotice({
 
 /**
  * Booking a taken time: `POST /bookings` holds the slot as `PENDING_PAYMENT`
- * and opens the checkout. A slot taken meanwhile (409) goes to
- * `/checkout/slot-taken`; a time the route offered but the booking refused
- * (400: the rules moved under it) reads the times again (`onRejected`) and
- * says so, for another to be taken. Nothing is charged here.
+ * and opens the checkout. A slot taken meanwhile (409) reads the times again
+ * and hands the time that went to `onTaken`, which closes the picker for its
+ * popup; a time the route offered but the booking refused (400: the rules
+ * moved under it) reads the times again (`onRejected`) and says so, for
+ * another to be taken. Nothing is charged here.
  */
-function useBook(serviceId: string, onRejected: () => void) {
+function useBook(serviceId: string, onRejected: () => void, onTaken: (time: string) => void) {
   const t = useTranslations("service");
   const router = useRouter();
   const session = useSession();
@@ -326,7 +339,8 @@ function useBook(serviceId: string, onRejected: () => void) {
           return;
         }
         if (cause instanceof ApiError && cause.status === 409) {
-          router.push(`/checkout/slot-taken?startTime=${encodeURIComponent(time)}&serviceId=${serviceId}`);
+          onRejected();
+          onTaken(time);
           return;
         }
         if (cause instanceof ApiError && cause.status === 400) {
@@ -903,11 +917,14 @@ function Schedule({
   photos,
   sizes: S,
   Title,
+  onTaken,
 }: Party & {
   readonly selection: Selection;
   readonly photos: readonly string[];
   readonly sizes: typeof WIDE;
   readonly Title: TitleSlot;
+  /** Someone took the time first: the picker closes for the popup that says so (`Picker.takeSlot`). */
+  readonly onTaken: (time: string) => void;
 }) {
   const t = useTranslations("service");
   const format = useFormatter();
@@ -915,10 +932,14 @@ function Schedule({
   const today = useMemo(() => isoDay(new Date()), []);
   const last = addDays(today, SLOT_DAYS - 1);
   const { slots, lanes, openDays } = useServiceSlots(service, today, last);
-  const { booking, failure, book } = useBook(service.id, () => {
-    selection.clearTime();
-    slots.reload();
-  });
+  const { booking, failure, book } = useBook(
+    service.id,
+    () => {
+      selection.clearTime();
+      slots.reload();
+    },
+    onTaken,
+  );
   const [view, setView] = useState<"week" | "month">("week");
   const weeks = useMemo(() => weeksBetween(today, last), [today, last]);
 
@@ -984,6 +1005,49 @@ function Schedule({
         </div>
       ) : null}
     </div>
+  );
+}
+
+/**
+ * Someone took the time first: the picker has closed, and this says so alone
+ * over the page, with the time that went. "Pick another time" opens the
+ * picker again, its times read afresh; any other way out leaves the page.
+ */
+function SlotTakenDialog({ picker }: { readonly picker: Picker }) {
+  const p = useTranslations("payment");
+  const format = useFormatter();
+  const time = picker.slotTaken;
+  return (
+    <OutcomeDialog
+      body={p("slotTakenBody")}
+      icon={CalendarX2}
+      onClose={picker.dismissSlot}
+      open={time !== null}
+      primary={{
+        label: p("pickAnotherTime"),
+        onClick: () => {
+          picker.dismissSlot();
+          picker.showTimes();
+        },
+      }}
+      rows={
+        time
+          ? [
+              {
+                label: p("slotLabel"),
+                value: format.dateTime(new Date(time), {
+                  weekday: "short",
+                  day: "numeric",
+                  month: "short",
+                  hour: "2-digit",
+                  minute: "2-digit",
+                }),
+              },
+            ]
+          : []
+      }
+      title={p("slotTakenTitle")}
+    />
   );
 }
 
@@ -1399,6 +1463,7 @@ function TimesDialog({ service, advisorName, selection, picker, photos }: LayerP
             advisorName={advisorName}
             photos={photos}
             selection={selection}
+            onTaken={picker.takeSlot}
             service={service}
             sizes={WIDE}
             Title={DialogTitle}
@@ -1436,6 +1501,7 @@ function TimesSheet({ service, advisorName, selection, picker, photos }: LayerPr
           advisorName={advisorName}
           photos={photos}
           selection={selection}
+          onTaken={picker.takeSlot}
           service={service}
           sizes={NARROW}
           Title={SheetTitle}
@@ -1474,6 +1540,7 @@ export function BookingPicker(props: LayerProps) {
       {picker.detail ? null : dialog}
       <PackageSheet {...props}>{picker.detail ? sheet : null}</PackageSheet>
       {picker.detail ? null : sheet}
+      <SlotTakenDialog picker={picker} />
     </>
   );
 }

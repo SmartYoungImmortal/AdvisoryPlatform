@@ -27,6 +27,7 @@ import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 
 import { BankMarks } from "./checkout-mobile-banking";
+import { rememberCheckout } from "./checkout-return";
 
 /**
  * The pieces `/checkout/card` is built from, shared by the page's two shapes:
@@ -149,6 +150,7 @@ export function useCardPayment(bookingId: string, couponCode: string | undefined
         const cardToken = await createCardToken(publicKey, ready);
         const invoice = await createBookingInvoice(bookingId, couponCode);
         const { url } = await startCheckout({ invoiceId: invoice.id, cardToken });
+        rememberCheckout(invoice.id, bookingId);
         window.location.assign(url);
       } catch (cause: unknown) {
         setProblem(t("payFailed", { reason: cause instanceof Error ? cause.message : String(cause) }));

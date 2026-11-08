@@ -26,6 +26,7 @@ import {
   type PayMethod,
 } from "./checkout-parts";
 import { GooglePayButton, useGooglePay } from "./checkout-googlepay";
+import { CheckoutOutcomePopup } from "./checkout-outcome";
 import { methodState, payWith, type Payments } from "./checkout-methods";
 import { BankList, useMobileBanking, useOnPhone } from "./checkout-mobile-banking";
 import { PromptPayDialog, usePromptPay } from "./checkout-promptpay";
@@ -248,6 +249,7 @@ function CheckoutReady({ booking }: { readonly booking: ApiBooking }) {
           payments={payments}
         />
         <PromptPayDialog promptPay={promptPay} />
+        <CheckoutOutcomePopup bookingId={booking.id} />
       </>
     );
   }
@@ -255,6 +257,7 @@ function CheckoutReady({ booking }: { readonly booking: ApiBooking }) {
   return (
     <>
       <PromptPayDialog promptPay={promptPay} />
+      <CheckoutOutcomePopup bookingId={booking.id} />
       <TopBar />
       <div className={cn(COLUMN, "relative")}>
         {/* The round way back hangs in the margin, centred on the title's
