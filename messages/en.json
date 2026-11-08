@@ -2202,7 +2202,9 @@
     "inboxAcceptedOn": "Accepted on {date}",
     "inboxDeclinedOn": "Declined on {date}",
     "inboxAcceptedToast": "Accepted {name}'s request",
-    "inboxDeclinedToast": "Declined {name}'s request"
+    "inboxDeclinedToast": "Declined {name}'s request",
+    "loading": "Loading…",
+    "step3Replied": "The advisor replied"
   },
   "errorStates": {
     "offlineTitle": "No internet connection",

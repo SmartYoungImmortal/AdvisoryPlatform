@@ -364,7 +364,7 @@ function PaidBooking({ invoice }: { readonly invoice: ApiAdviseeInvoice }) {
  * one 985-high screen: the booking and the way on on the left, the receipt
  * sheet at its own width on the right.
  */
-function PaidFrame({
+export function PaidFrame({
   children,
   busy = false,
 }: {
