@@ -53,7 +53,7 @@
 - [ ] `/advisors/[advisorId]`, `/about`, `/services`, `/reviews`: ทำใหม่ 30 ต.ค. navbar ของเว็บ + ปุ่มย้อนกลับ การ์ดแบบหน้าค้นหา รีวิวแบบหน้าบริการ แท็บ About
 
 ### RD-04 · จองและชำระเงิน
-- [ ] `/checkout/processing`, `/checkout/success`, `/checkout/failed`, `/checkout/slot-taken`, `/checkout/unconfirmed`: success อ่านใบเสร็จจริง ที่เหลือใช้ component เดียวกัน
+- [ ] `/checkout/success` อ่านใบเสร็จจริง; ชำระไม่สำเร็จ / ธนาคารยังไม่ยืนยัน เป็น popup บน `/checkout/card` (`checkout-outcome.tsx`), เวลาถูกจองแล้วเป็น popup บนตัวเลือกเวลาของหน้าบริการ
 
 ### RD-09 · รีวิวหลังคุย
 - [ ] `/reviews/session`, `/reviews/session/submitted`: ต้องมี `?booking=<id>` ของนัดที่จบแล้วของบัญชีที่ล็อกอิน เปิดเปล่าๆ จะขึ้นว่าไม่มีนัดให้รีวิว
@@ -114,7 +114,7 @@
 `/landing` ลบแล้ว (30 ต.ค.): พี่บอกว่าหน้านี้ไม่ใช่แล้ว ลิงก์ "คำถามที่พบบ่อย" / "ศูนย์ช่วยเหลือ" ไปที่ `/#faq` (home แสดงครบ 8 ข้อ), "ราคาและค่าบริการ" ไปที่ `/#pricing`, "วิธีใช้งาน" ไปที่ `/about`
 
 ### RD-15 · สถานะระบบ
-- [ ] `/status/no-connection`, `/status/not-found`, `/status/server-error`
+- [x] หน้า `/status/*` ลบแล้ว: 404 ขึ้นจริงที่ทุก path ที่ไม่มี (`app/not-found.tsx`), 500 ขึ้นจริงเมื่อหน้าพัง (`app/error.tsx`), ไม่มีเน็ตขึ้นทับทุกหน้าเมื่อ browser ออฟไลน์ (`components/errors/offline-gate.tsx`)
 
 ### RD-16 · Admin console
 - [ ] `/admin`, `/admin/login`, `/admin/dashboard`

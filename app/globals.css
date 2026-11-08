@@ -498,6 +498,16 @@ html:not(.dark) .checkout-surface {
   font-family: var(--font-sans);
 }
 
+/* Google's own Google Pay button draws its words as one picture sized to the
+   button's height less 9px each side, so in the 48 the other buttons have its
+   "ชำระด้วย G Pay" stood 30 tall, a step bigger than their 16px labels. 14px
+   each side brings it down to their size; the button keeps its 48. One class
+   more than Google's own rule, whose sheet is added after ours. */
+.checkout-surface .gpay-button-fill > .gpay-button.pay {
+  padding-top: 14px;
+  padding-bottom: 14px;
+}
+
 /* Admin console — the site's own family rather than a theme of its own: the
    service page's neutral greys (a grey ground round one white panel), ink for
    every solid action as the home hero's button has it, and the site's radius
