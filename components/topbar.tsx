@@ -265,9 +265,16 @@ export function TopBar({
   overlay = false,
   dock = false,
   clearAtTop = false,
+  capsule = false,
   className,
 }: {
   readonly unreadNotifications?: boolean;
+  /**
+   * Keeps the floating capsule below `lg` too, where the bar otherwise fills
+   * its row edge to edge: a 56 pill in a 12 gutter on a phone, the desktop's
+   * 64 pill in its 24 gutter on an upright tablet. Off by default.
+   */
+  readonly capsule?: boolean;
   /**
    * Below `lg`, no surface at all while the page is at its top, so a hero
    * photograph runs up under the bar untouched; the glass comes in once the
@@ -373,6 +380,8 @@ export function TopBar({
             // position, unless the page docks it (`dock`, from `lg`), when the
             // row gives up its side gutters so the band can meet both edges.
             dock && frosted && "lg:px-0",
+            // 12 + 56 + 12 on a phone; the tablet's row is already the desktop's 88.
+            capsule && "h-20 px-3 md:px-6",
             className,
           )}
           style={frosted ? ({ "--bar-wash": FROSTED } as CSSProperties) : undefined}
@@ -425,6 +434,9 @@ export function TopBar({
               // a docked bar replaces the fill entirely (below, merged last).
               barFill(frosted, clearAtTop),
               dock && frosted && DOCKED,
+              // The pill below `lg` as well, its padding back to the pill's own
+              // now that the row keeps a gutter.
+              capsule && "mt-3 h-14 rounded-full pr-2 pl-4 md:h-16 md:rounded-[2rem] md:pr-2 md:pl-6",
             )}
           >
             {backHref ? (
