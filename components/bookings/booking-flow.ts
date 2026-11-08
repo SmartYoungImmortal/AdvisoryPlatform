@@ -171,3 +171,18 @@ export const BOOKING_TONE: Record<ApiBookingState, StatusTone> = {
 export function isCancellable(state: ApiBookingState): boolean {
   return state === "PENDING_PAYMENT" || state === "BOOKED";
 }
+
+/** Where a booking stands for the reader: still ahead of them, behind them, or called off. */
+export type BookingPhase = "ahead" | "past" | "cancelled";
+
+/**
+ * A booking whose end has passed reads as past whatever its state says: a
+ * session the server has not closed yet is behind the reader, not coming up.
+ */
+export function bookingPhase(
+  booking: { readonly state: ApiBookingState; readonly endTime: string },
+  now: number,
+): BookingPhase {
+  if (booking.state === "CANCELLED") return "cancelled";
+  return BOOKING_BUCKET[booking.state] === "upcoming" && Date.parse(booking.endTime) > now ? "ahead" : "past";
+}

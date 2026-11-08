@@ -20,12 +20,14 @@ import { DESKTOP_TYPE_LIFT } from "@/components/account/account-shell";
 import { AUTH_LINK } from "@/components/auth/auth-split";
 import {
   baht,
+  bookingPhase,
   isCancellable,
   liveAdvisorHref,
   liveServiceHref,
-  BOOKING_BUCKET,
+  type BookingPhase,
 } from "@/components/bookings/booking-flow";
 import { downloadBookingCalendar } from "@/components/bookings/booking-calendar";
+import { bookingExit, refundHref, type BookingExit } from "@/components/bookings/booking-exit";
 import { CancellationFeedback } from "@/components/bookings/cancellation-feedback";
 import { RescheduleSlots } from "@/components/bookings/reschedule-booking";
 import { useBookingCancellation } from "@/components/bookings/use-booking-cancellation";
@@ -36,9 +38,17 @@ import { SHEET_W, SHEET_X } from "@/components/payment/invoice-screens";
 import { invoiceHref } from "@/components/payment/transactions-data";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogClose, DialogContent } from "@/components/ui/dialog";
-import { getMyBookingInvoice } from "@/lib/api/resources";
-import type { ApiAdviseeInvoice, ApiBooking, ApiPublicAdvisor, ApiPublicService } from "@/lib/api/types";
-import { useResource } from "@/lib/api/use-resource";
+import { ApiError } from "@/lib/api/client";
+import { getMyBookingInvoice, listMyRefundCases } from "@/lib/api/resources";
+import type {
+  ApiAdviseeInvoice,
+  ApiBooking,
+  ApiPublicAdvisor,
+  ApiPublicService,
+  ApiRefundCase,
+  ApiRefundCaseStatus,
+} from "@/lib/api/types";
+import { useResource, type Resource } from "@/lib/api/use-resource";
 import { cn } from "@/lib/utils";
 import { useBookingMeeting } from "@/components/bookings/use-booking-meeting";
 
@@ -54,17 +64,7 @@ export type BookingEntry = {
   readonly advisor: ApiPublicAdvisor | undefined;
 };
 
-/** Where a booking stands for the reader: still ahead of them, behind them, or called off. */
-export type BookingPhase = "ahead" | "past" | "cancelled";
-
-/**
- * A booking whose end has passed reads as past whatever its state says: a
- * session the server has not closed yet is behind the reader, not coming up.
- */
-export function bookingPhase(booking: ApiBooking, now: number): BookingPhase {
-  if (booking.state === "CANCELLED") return "cancelled";
-  return BOOKING_BUCKET[booking.state] === "upcoming" && Date.parse(booking.endTime) > now ? "ahead" : "past";
-}
+export { bookingPhase, type BookingPhase };
 
 /**
  * How the booking stands, in the words the reader needs. The API's state with
@@ -166,16 +166,48 @@ export function useWaysOn(entry: BookingEntry, now: number): { readonly main: Wa
  * keeps which invoice covers which booking, so a rescheduled booking and one
  * of several sessions on a single invoice each find theirs.
  */
-function useBookingInvoice(booking: ApiBooking): ApiAdviseeInvoice | undefined {
+function useBookingInvoice(booking: ApiBooking): ApiAdviseeInvoice | null | undefined {
   const fetcher = useCallback(
     (signal: AbortSignal) => getMyBookingInvoice(booking.id, signal),
     [booking.id],
   );
-  return useResource<ApiAdviseeInvoice>(
+  const invoice = useResource<ApiAdviseeInvoice>(
     `payment/invoices/for-booking/${booking.id}`,
     fetcher,
-  ).data;
+  );
+  // No invoice for the booking: it was never paid for. Any other failure
+  // leaves it unknown, and a booking whose payment is unknown is offered nothing.
+  if (invoice.error instanceof ApiError && invoice.error.status === 404) return null;
+  return invoice.data;
 }
+
+/** No requests to read: the invoice is not one money was taken on. */
+const NO_CASES = Promise.resolve([] as readonly ApiRefundCase[]);
+
+/**
+ * The refund requests opened on an invoice, read only once it is one the
+ * money was taken on. Keyed as the refund page keys them, so a request sent
+ * there (`invalidate("refunds/me")`) is read again here.
+ */
+export function useRefundCases(
+  invoice: ApiAdviseeInvoice | null | undefined,
+): Resource<readonly ApiRefundCase[]> {
+  const paidFor = invoice?.status === "paid" || invoice?.status === "refunded";
+  const invoiceId = paidFor ? invoice.id : null;
+  const fetcher = useCallback(
+    async (signal: AbortSignal) =>
+      invoiceId ? (await listMyRefundCases({ invoiceId, limit: 100 }, signal)).items : NO_CASES,
+    [invoiceId],
+  );
+  return useResource(`refunds/me?invoiceId=${invoiceId ?? "none"}`, fetcher);
+}
+
+/** A request's standing in its colour: under review is not an alarm, so it keeps the page's ink. */
+export const REFUND_INK = {
+  OPEN: "text-foreground",
+  APPROVED: "text-success",
+  REJECTED: "text-destructive",
+} as const satisfies Record<ApiRefundCaseStatus, string>;
 
 /** The gutter every line hangs from: its icon centred in a column as wide as the title's square's. */
 const GUTTER_W = "w-7 lg:w-10";
@@ -223,8 +255,12 @@ export function AdvisorFace({
   );
 }
 
-/** The card's capsules: the main way on filled in the calendar's blue, the rest outlined. */
-const PILL = "h-10 gap-2 rounded-full px-5 text-sm font-medium lg:h-12 lg:px-6 lg:text-frame-meta";
+/**
+ * The card's capsules: the main way on filled in the calendar's blue, the rest
+ * outlined. A thumb's 44 on a phone; from `lg` the receipt's 56, which the
+ * frame's zoom brings to 47 at 1440. Never wider than the card.
+ */
+const PILL = "h-11 max-w-full gap-2 rounded-full px-5 text-sm font-medium lg:h-14 lg:px-6 lg:text-frame-meta";
 const MAIN_PILL = cn(PILL, "bg-primary text-primary-foreground hover:bg-primary/90");
 const MORE_PILL = cn(PILL, "border border-border bg-card text-foreground hover:bg-muted");
 
@@ -283,26 +319,45 @@ function SheetHeader({
 function PaymentLine({
   booking,
   service,
+  invoice,
+  exit,
 }: {
   readonly booking: ApiBooking;
   readonly service: ApiPublicService | undefined;
+  readonly invoice: ApiAdviseeInvoice | null | undefined;
+  readonly exit: BookingExit;
 }) {
   const r = useTranslations("bookingRefund");
   const t = useTranslations("bookings");
   const tr = useTranslations("transactions");
   const format = useFormatter();
-  const invoice = useBookingInvoice(booking);
 
   if (invoice) {
     return (
       <Line icon={Banknote}>
-        <span className="text-muted-foreground">{tr(`status.${invoice.status}`)}</span>{" "}
-        <span className="font-latin font-medium tabular-nums">{format.number(baht(invoice.amountSatang), "baht")}</span>
-        {" · "}
-        <Link className="font-medium text-primary underline-offset-4 hover:underline" href={invoiceHref(invoice.id)}>
-          {t("viewReceipt")}
-        </Link>
-        {invoice.status === "paid" || invoice.status === "refunded" ? <><span>{" · "}</span><Link className="font-medium text-primary underline-offset-4 hover:underline" href={`/bookings/refund?bookingId=${booking.id}`}>{r("requestLink")}</Link></> : null}
+        <p>
+          <span className="text-muted-foreground">{tr(`status.${invoice.status}`)}</span>{" "}
+          <span className="font-latin font-medium tabular-nums">{format.number(baht(invoice.amountSatang), "baht")}</span>
+          {" · "}
+          <Link
+            className="-my-3 inline-block py-3 font-medium whitespace-nowrap text-primary underline-offset-4 hover:underline"
+            href={invoiceHref(invoice.id)}
+          >
+            {t("viewReceipt")}
+          </Link>
+        </p>
+        {/* Only once a request exists: its standing, the whole row the way to it. */}
+        {exit.kind === "refundStatus" ? (
+          <Link
+            className="-mx-2 mt-1 flex min-h-11 items-center gap-1.5 rounded-lg px-2 outline-none transition-colors duration-150 hover:bg-muted/60 focus-visible:bg-muted/60 motion-reduce:transition-none lg:-mx-3 lg:mt-1.5 lg:min-h-13 lg:gap-2 lg:px-3"
+            href={refundHref(booking.id)}
+          >
+            <span className="font-medium text-foreground">{r("requestLabel")}</span>
+            <span aria-hidden className="text-muted-foreground">·</span>
+            <span className={cn("font-medium", REFUND_INK[exit.refund.status])}>{r(`status.${exit.refund.status}`)}</span>
+            <ChevronRight aria-hidden className="ml-auto size-4 shrink-0 text-muted-foreground lg:size-5" />
+          </Link>
+        ) : null}
       </Line>
     );
   }
@@ -357,10 +412,16 @@ export function BookingSheet({
   // cancellation, none again until the booking itself has been read.
   const cancellation = useBookingCancellation(onChanged);
   const { booking, service, advisor } = entry;
+  const invoice = useBookingInvoice(booking);
+  const cases = useRefundCases(invoice);
+  // The one way out that touches the booking or its money (`bookingExit`).
+  const exit = bookingExit(booking, now, invoice, cases.data);
   const start = new Date(booking.startTime);
   const minutes = Math.round((Date.parse(booking.endTime) - start.getTime()) / 60_000);
   const ahead = bookingPhase(booking, now) === "ahead";
   const changeable = ahead && isCancellable(booking.state);
+  const r = useTranslations("bookingRefund");
+  const confirmId = useId();
   // Only a held time goes in a calendar: an unpaid one may never happen.
   const keepable = ahead && (booking.state === "BOOKED" || booking.state === "IN_PROGRESS");
   const stamp = (iso: string) =>
@@ -425,7 +486,7 @@ export function BookingSheet({
           <ChevronRight aria-hidden className="size-4 shrink-0 text-muted-foreground lg:size-5" />
         </Link>
         <Line icon={Clock3}>{t("detailsDuration", { count: minutes })}</Line>
-        <PaymentLine booking={booking} service={service} />
+        <PaymentLine booking={booking} exit={exit} invoice={invoice} service={service} />
         <Line icon={CalendarPlus}>
           <span className="text-muted-foreground">{t("detailsCreatedLabel")}</span> <Figures>{stamp(booking.createdAt)}</Figures>
         </Line>
@@ -436,7 +497,7 @@ export function BookingSheet({
         ) : null}
       </div>
 
-      {more.length > 0 || keepable || changeable ? (
+      {more.length > 0 || keepable || changeable || exit.kind === "requestRefund" ? (
         <div className={cn("flex flex-wrap gap-2 lg:gap-3", UNDER_TEXT)}>
           {more.map((way) => (
             <Button className={MORE_PILL} key={way.href} nativeButton={false} render={<Link href={way.href} />} variant="ghost">
@@ -454,27 +515,49 @@ export function BookingSheet({
             </Button>
           ) : null}
           {changeable ? (
-            <>
-              <Button
-                aria-expanded={panel === "reschedule"}
-                className={MORE_PILL}
-                onClick={() => setPanel((open) => (open === "reschedule" ? "none" : "reschedule"))}
-                type="button"
-                variant="ghost"
-              >
-                {t("reschedule")}
-              </Button>
-              <Button
-                aria-expanded={panel === "cancel"}
-                className={cn(MORE_PILL, "text-destructive hover:text-destructive")}
-                disabled={cancellation.blocked}
-                onClick={() => setPanel((open) => (open === "cancel" ? "none" : "cancel"))}
-                type="button"
-                variant="ghost"
-              >
-                {t("detailsCancel")}
-              </Button>
-            </>
+            <Button
+              aria-expanded={panel === "reschedule"}
+              className={MORE_PILL}
+              onClick={() => setPanel((open) => (open === "reschedule" ? "none" : "reschedule"))}
+              type="button"
+              variant="ghost"
+            >
+              {t("reschedule")}
+            </Button>
+          ) : null}
+          {/* Never paid for: the plain cancel, which asks once below. */}
+          {exit.kind === "cancel" ? (
+            <Button
+              aria-expanded={panel === "cancel"}
+              className={cn(MORE_PILL, "text-destructive hover:text-destructive")}
+              disabled={cancellation.blocked}
+              onClick={() => setPanel((open) => (open === "cancel" ? "none" : "cancel"))}
+              type="button"
+              variant="ghost"
+            >
+              {t("detailsCancel")}
+            </Button>
+          ) : null}
+          {/* Paid for: the one way out asks for the money back, on its own page. */}
+          {exit.kind === "cancelAndRefund" ? (
+            <Button
+              className={cn(MORE_PILL, "text-destructive hover:text-destructive")}
+              nativeButton={false}
+              render={<Link href={refundHref(booking.id)} />}
+              variant="ghost"
+            >
+              {r("popupCancelAndRefund")}
+            </Button>
+          ) : null}
+          {exit.kind === "requestRefund" ? (
+            <Button
+              className={MORE_PILL}
+              nativeButton={false}
+              render={<Link href={refundHref(booking.id)} />}
+              variant="ghost"
+            >
+              {r(exit.after === "ended" ? "popupReport" : "popupRequest")}
+            </Button>
           ) : null}
         </div>
       ) : null}
@@ -492,14 +575,17 @@ export function BookingSheet({
         </div>
       ) : null}
 
-      {/* Asks once before it calls the booking off: the time goes back on the
-          advisor's calendar, where another advisee can take it. */}
-      {changeable && panel === "cancel" ? (
+      {/* Asks once before it calls an unpaid booking off: the time goes back
+          on the advisor's calendar, where another advisee can take it. Flat on
+          the card's white, as everything inside a popup is. */}
+      {exit.kind === "cancel" && panel === "cancel" ? (
         <div className={UNDER_TEXT}>
-          <fieldset className="flex min-w-0 flex-col gap-3 rounded-xl bg-destructive/5 p-4 lg:gap-4 lg:p-5">
+          <div aria-labelledby={confirmId} className="flex min-w-0 flex-col gap-3 lg:gap-4" role="group">
             <div className="flex flex-col gap-1">
-              <p className="text-sm font-medium text-foreground lg:text-frame-meta">{t("cancelConfirmTitle")}</p>
-              <p className="text-xs text-muted-foreground lg:text-frame-label">{t("cancelConfirmBody")}</p>
+              <p className="text-sm font-medium text-foreground lg:text-frame-meta" id={confirmId}>
+                {t("cancelConfirmTitle")}
+              </p>
+              <p className="text-xs text-balance text-muted-foreground lg:text-frame-label">{t("cancelConfirmBody")}</p>
             </div>
             <div className="flex flex-wrap gap-2">
               <Button
@@ -520,7 +606,7 @@ export function BookingSheet({
                 {t("cancelKeep")}
               </Button>
             </div>
-          </fieldset>
+          </div>
         </div>
       ) : null}
       {cancellation.state.kind === "idle" ? null : (
