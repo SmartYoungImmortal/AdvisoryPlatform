@@ -1,11 +1,13 @@
+import type { ApiPublicServiceQuery, ApiServiceSort } from "@/lib/api/types";
+
 /**
  * What `/search` narrows and orders the catalogue by. Every field has an
  * "any" value, so the empty state is `DEFAULT_FILTERS` and "how many filters
  * are on" is a count of the fields that differ from it.
  *
- * Only what the API can answer. Who is verified is not a filter because the API
- * lists verified advisors only; who is free today comes from the API's
- * `availableOn` search (`useOpenToday`) and is passed in as a set of ids.
+ * Only what the API can answer, and `/search` asks it (`serviceQuery`). Who is
+ * verified is not a filter because the API lists verified advisors only. The
+ * length is the one the API has no parameter for (`matchesLength`).
  */
 export type PriceBand = "any" | "under" | "mid" | "over";
 export type LengthBand = "any" | "short" | "hour" | "long";
@@ -104,6 +106,59 @@ export function applyFilters<T extends Filterable>(
   openToday: ReadonlySet<string> | null = null,
 ): readonly T[] {
   return list.filter((item) => matches(item, filters, openToday)).toSorted(ORDER[sort]);
+}
+
+/** Whether a session this many minutes long is in the band. */
+export function matchesLength(band: LengthBand, minutes: number): boolean {
+  return LENGTH[band](minutes);
+}
+
+/** The bands as the API's price bounds: satang, both ends included. */
+const PRICE_BOUNDS: Readonly<
+  Record<PriceBand, Pick<ApiPublicServiceQuery, "minPriceSatang" | "maxPriceSatang">>
+> = {
+  any: {},
+  under: { maxPriceSatang: 80_000 },
+  mid: { minPriceSatang: 80_001, maxPriceSatang: 150_000 },
+  over: { minPriceSatang: 150_001 },
+};
+
+/**
+ * The sorts as the API names them. "Recommended" has no order of its own
+ * there, so it asks for none and takes the API's default.
+ */
+const SORT_PARAM: Readonly<Record<SortKey, ApiServiceSort | undefined>> = {
+  recommended: undefined,
+  newest: "newest",
+  priceLow: "price_asc",
+  priceHigh: "price_desc",
+  rating: "rating",
+};
+
+/** The longest `q` the API accepts. */
+const QUERY_MAX = 120;
+
+/**
+ * What `/search` asks `GET /services` for: the words, the category, the price
+ * band as bounds, the least score, the reader's `today` while "available
+ * today" is on, and the order. Paging is added by the caller; the length has
+ * no parameter, so it is not here (`matchesLength`).
+ */
+export function serviceQuery(
+  query: string,
+  filters: Filters,
+  sort: SortKey,
+  today: string,
+): ApiPublicServiceQuery {
+  const q = query.trim().slice(0, QUERY_MAX);
+  return {
+    q: q || undefined,
+    categoryId: filters.category ?? undefined,
+    ...PRICE_BOUNDS[filters.price],
+    minRating: filters.rating === "any" ? undefined : Number(filters.rating),
+    availableOn: filters.today ? today : undefined,
+    sort: SORT_PARAM[sort],
+  };
 }
 
 /** How many filters are set, for the phone's "Filters (2)" button. */

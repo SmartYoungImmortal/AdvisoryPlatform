@@ -135,7 +135,8 @@ export function ServiceCard({
           <Mark className="flex min-w-0 items-center gap-2" mark="advisor" on={marks}>
             <Face className="size-7 lg:size-8" face={item.face} name={item.advisorName} />
             <span className="truncate text-sm text-muted-foreground lg:text-base">{item.advisorName}</span>
-            <VerifiedTick className="size-4 lg:size-4.5" />
+            {/* Off only where the API says the advisor is not verified. */}
+            {item.verified === false ? null : <VerifiedTick className="size-4 lg:size-4.5" />}
           </Mark>
           <Mark className="shrink-0" mark="score" on={marks}>
             <Score item={item} sayNone={marks} />
