@@ -29,6 +29,7 @@ describe("notificationAction", () => {
     ["REVIEW_REPLIED", `/bookings?bookingId=${resourceId}`, "actionBooking"],
     ["SCREENING_EXPIRED", liveServiceHref(resourceId), "actionService"],
     ["REFUND_DECIDED", receiptHref(resourceId), "actionReceipt"],
+    ["PAYMENT_FAILED", receiptHref(resourceId), "actionReceipt"],
     ["PAYOUT_SENT", "/work/earnings", "actionEarnings"],
     ["PAYOUT_FAILED", "/work/earnings", "actionEarnings"],
     ["SKILL_PROOF_DECIDED", "/profile", "actionProfile"],
@@ -62,6 +63,7 @@ describe("notificationCategory", () => {
     expect(notificationCategory("BOOKING_RESCHEDULED")).toBe("booking");
     expect(notificationCategory("REFUND_DECIDED")).toBe("payment");
     expect(notificationCategory("PAYOUT_FAILED")).toBe("payment");
+    expect(notificationCategory("PAYMENT_FAILED")).toBe("payment");
     expect(notificationCategory("REPORT_RESOLVED")).toBeNull();
   });
 });

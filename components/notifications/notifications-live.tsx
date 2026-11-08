@@ -84,6 +84,7 @@ const ICON: Record<NotificationType, LucideIcon> = {
   SCREENING_EXPIRED: FileText,
   REVIEW_REPLIED: MessageSquareQuote,
   REPORT_RESOLVED: ShieldCheck,
+  PAYMENT_FAILED: CircleAlert,
 };
 
 /**
