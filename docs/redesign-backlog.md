@@ -3,7 +3,7 @@
 รายการหน้าที่ยังต้อง redesign เรียงตามลำดับที่ควรทำ แต่ละข้อเป็นหนึ่ง ticket
 ติ๊ก `[x]` เมื่อพี่ดูแล้ว **ผ่าน** ไม่ใช่แค่เขียนโค้ดเสร็จ
 
-อัปเดตล่าสุด: 4 พฤศจิกายน 2569
+อัปเดตล่าสุด: 9 พฤศจิกายน 2569
 
 ## หลักที่ใช้กับทุกหน้า
 
@@ -35,6 +35,7 @@
 - [x] RD-13 หน้า auth ที่เหลือ: `/reset-password`, `/verification-sent`, `/email-verified` ผ่าน 1 พ.ย.
 - [x] RD-18 Toast: `components/mobile/toast.tsx` และ `components/notifications/notification-toaster.tsx` เป็นแบบเดียวกันแล้ว ผ่าน 1 พ.ย.
 - [x] RD-04 checkout: `/checkout/card`, `/checkout/card/saved` (บัตรผ่าน Omise, PromptPay, Google Pay, mobile banking, คูปอง) ผ่าน 1 พ.ย.
+- [x] RD-03 จับคู่ผู้เชี่ยวชาญ: `/matching` หน้าเดียว (หน้าแรกพิมพ์ปัญหา แล้วเป็นแชทกับ AI, ผลพร้อมแพ็กเกจที่แนะนำ, การ์ดรายละเอียดขวาบน desktop) ผ่าน 9 พ.ย. (#139, web #185, API #112 #113) แทน `/matching/searching` และ `/matching/results` เดิม
 
 ## ทำแล้วแต่ยังไม่ผ่าน
 
@@ -99,9 +100,6 @@
 - [ ] `/advisor/services/manage`, `/manage/delete`, `/new/limit`, `/new/no-profile`, `/[serviceId]/*` (ของเก่าก่อน editor ใหม่)
 - [ ] `/advisor/profile`: โหมดผู้ให้คำปรึกษารวมเข้า `/profile` แล้ว ยังไม่ได้ตัดสินว่าจะเก็บ route นี้ไหม
 
-### RD-03 · จับคู่ผู้เชี่ยวชาญ
-- [ ] `/matching`, `/matching/searching`, `/matching/results`
-
 ### RD-04 · จองและชำระเงิน (ที่เหลือ)
 - [ ] ข้างในของ `/bookings` (กรอบทำแล้ว ดู RD-01)
 
@@ -141,8 +139,7 @@ redesign แล้ว (28 ต.ค.) รอพี่ดู: กรอบเดี
 `/settings/email/in-use`, `/settings/delete/blocked`, `/profile/edit/photo-rejected`,
 `/advisor-onboarding/stage-1/errors`, `/advisor-onboarding/stage-2/uploaded`,
 `/advisor-onboarding/stage-2/rejected`, `/advisor-onboarding/stage-3/missing-proof`,
-`/checkout/card/errors`, `/notifications/empty`, `/availability/profiles/empty`,
-`/matching/results/no-results`
+`/checkout/card/errors`, `/notifications/empty`, `/availability/profiles/empty`
 
 `/settings/delete` ลบแล้ว (28 ต.ค.): ลบบัญชีเป็น popup ในหน้า `/settings`
 
