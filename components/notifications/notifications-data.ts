@@ -36,7 +36,8 @@ export type NotificationType =
   | "SKILL_PROOF_DECIDED"
   | "SCREENING_EXPIRED"
   | "REVIEW_REPLIED"
-  | "REPORT_RESOLVED";
+  | "REPORT_RESOLVED"
+  | "PAYMENT_FAILED";
 
 /** `NotificationResponseDto` */
 export interface ApiNotification {
@@ -206,6 +207,7 @@ export function notificationAction(
     case "SCREENING_EXPIRED":
       return id ? { href: liveServiceHref(id), label: "actionService" } : null;
     case "PAYMENT_SUCCEEDED":
+    case "PAYMENT_FAILED":
     case "REFUND_DECIDED":
       // The history with this receipt open over it, as a tap in the history opens it.
       return { href: id ? receiptHref(id) : "/transactions", label: "actionReceipt" };
@@ -288,6 +290,7 @@ const CATEGORY: Partial<Record<NotificationType, NotificationCategory>> = {
   SESSION_REMINDER: "booking",
   NEW_MESSAGE: "message",
   PAYMENT_SUCCEEDED: "payment",
+  PAYMENT_FAILED: "payment",
   PAYOUT_SENT: "payment",
   PAYOUT_FAILED: "payment",
   REFUND_DECIDED: "payment",
