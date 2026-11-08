@@ -102,6 +102,15 @@ test("advisee can cancel an upcoming booking and see it in cancelled bookings", 
     bookingState = "CANCELLED";
     await route.fulfill(apiSuccess({}));
   });
+  // Never paid for: no receipt, so the popup offers the plain cancel. Until
+  // it knows, it offers nothing (`bookingExit`'s `waiting`).
+  await page.route(`${api}/payment/invoices/for-booking/booking-1`, (route) =>
+    route.fulfill({
+      status: 404,
+      contentType: "application/json",
+      body: JSON.stringify({ statusCode: 404, message: "Invoice not found" }),
+    }),
+  );
 
   await page.goto("/bookings");
   await expect(page.getByText("Career consultation").first()).toBeVisible();
