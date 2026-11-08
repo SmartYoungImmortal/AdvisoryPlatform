@@ -646,8 +646,30 @@ function ResultsBody({
 }
 
 /**
+ * The page numbers to draw: every page up to seven of them; past that the
+ * first, the last and the ones beside the current page, with a gap ("…")
+ * where pages are skipped. Near either end, that end's first five, so the row
+ * keeps its length. A gap of a single page draws the page instead.
+ */
+function pageItems(page: number, pages: number): readonly (number | "gap")[] {
+  if (pages <= 7) return Array.from({ length: pages }, (_, i) => i + 1);
+  const shown = new Set([1, pages, page - 1, page, page + 1].filter((n) => n >= 1 && n <= pages));
+  if (page <= 4) for (let n = 1; n <= 5; n++) shown.add(n);
+  if (page >= pages - 3) for (let n = pages - 4; n <= pages; n++) shown.add(n);
+  const sorted = [...shown].toSorted((a, b) => a - b);
+  const items: (number | "gap")[] = [];
+  sorted.forEach((n, i) => {
+    const before = sorted[i - 1];
+    if (before !== undefined && n - before === 2) items.push(n - 1);
+    else if (before !== undefined && n - before > 2) items.push("gap");
+    items.push(n);
+  });
+  return items;
+}
+
+/**
  * One page of the results, twelve to a page, with numbered pages under the
- * grid. The server narrows, sorts and pages them (`useCatalogueSearch`), and a
+ * grid (`pageItems`). The server narrows, sorts and pages them (`useCatalogueSearch`), and a
  * new search, filter or sort starts again at one (`SearchScreen`). Changing
  * page brings the top of the results back into view, so the reader starts the
  * new page at its first card rather than at the bottom of the old one.
@@ -684,10 +706,10 @@ function PagedResults({
       </div>
       <div className="flex flex-col items-center gap-4 pt-10">
         {pages > 1 ? (
-          <nav aria-label={t("pagination")} className="flex items-center gap-1">
+          <nav aria-label={t("pagination")} className="flex items-center gap-0.5 md:gap-1">
             <Button
               aria-label={t("previousPage")}
-              className="size-10 rounded-full"
+              className="size-9 rounded-full md:size-10"
               disabled={page === 1}
               onClick={() => go(page - 1)}
               size="icon"
@@ -696,27 +718,33 @@ function PagedResults({
             >
               <ChevronLeft aria-hidden />
             </Button>
-            {Array.from({ length: pages }, (_, i) => i + 1).map((n) => (
-              <Button
-                aria-current={n === page ? "page" : undefined}
-                className={cn(
-                  "size-10 rounded-full font-latin text-sm tabular-nums",
-                  n === page
-                    ? "bg-hero-action text-hero-action-foreground hover:bg-hero-action/85 hover:text-hero-action-foreground"
-                    : "text-foreground",
-                )}
-                key={n}
-                onClick={() => go(n)}
-                size="icon"
-                type="button"
-                variant="ghost"
-              >
-                {n}
-              </Button>
-            ))}
+            {pageItems(page, pages).map((n, index) =>
+              n === "gap" ? (
+                <span aria-hidden className="flex size-9 items-center justify-center text-sm text-muted-foreground md:size-10" key={`gap-${index}`}>
+                  …
+                </span>
+              ) : (
+                <Button
+                  aria-current={n === page ? "page" : undefined}
+                  className={cn(
+                    "size-9 rounded-full font-latin text-sm tabular-nums md:size-10",
+                    n === page
+                      ? "bg-hero-action text-hero-action-foreground hover:bg-hero-action/85 hover:text-hero-action-foreground"
+                      : "text-foreground",
+                  )}
+                  key={n}
+                  onClick={() => go(n)}
+                  size="icon"
+                  type="button"
+                  variant="ghost"
+                >
+                  {n}
+                </Button>
+              ),
+            )}
             <Button
               aria-label={t("nextPage")}
-              className="size-10 rounded-full"
+              className="size-9 rounded-full md:size-10"
               disabled={page === pages}
               onClick={() => go(page + 1)}
               size="icon"
