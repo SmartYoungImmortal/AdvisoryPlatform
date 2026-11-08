@@ -181,8 +181,14 @@ function nameChat(id: string): void {
   window.history.replaceState(null, "", url);
 }
 
+/**
+ * A fresh id for a message or a conversation. `randomUUID` exists only on a
+ * secure page; elsewhere (a phone on the LAN's http address) the same
+ * generator's bytes, as hex.
+ */
 function newId(): string {
-  return typeof crypto.randomUUID === "function" ? crypto.randomUUID() : `${Date.now()}-${Math.random()}`;
+  if (typeof crypto.randomUUID === "function") return crypto.randomUUID();
+  return Array.from(crypto.getRandomValues(new Uint8Array(16)), (byte) => byte.toString(16).padStart(2, "0")).join("");
 }
 
 /** Everything the person has said, latest last, as much as the API reads. */
