@@ -1,83 +1,102 @@
 "use client";
 
-import Link from "next/link";
+import { FileQuestion } from "lucide-react";
 import { useTranslations } from "next-intl";
 import type { ReactNode } from "react";
 
-import { CmsCard } from "@/components/cms/card";
-import { formatStamp } from "@/lib/mock-db/format";
+import { CmsEmpty } from "@/components/cms/card";
+import { CmsLinkButton } from "@/components/cms/fields";
+import { formatDateTime } from "@/lib/mock-db/format";
+import { cn } from "@/lib/utils";
 
 /**
- * Nexus's `CmsSidebarOptions`, the right-hand column of every edit page: a card
- * of state controls, an Information card (created/updated), then the stacked
- * full-width actions.
+ * The column beside a record, in the order the console this is modelled on
+ * stacks its side panel, 16 apart: a card of the record's own controls
+ * (`children`, such as the reason a rejection needs), a card of when it
+ * arrived and when it was decided (and by whom), then the actions at full
+ * width under them, not in a card — so the decision sits beside the record it
+ * is about rather than at the foot of a long page. No rules inside the cards:
+ * each date is a grey label over its value. The record's status is beside
+ * its title.
  */
 export function CmsSidebarOptions({
-  children,
   info,
+  children,
   actions,
 }: {
-  readonly children?: ReactNode;
   readonly info?: ReadonlyArray<{
     readonly label: string;
-    readonly by?: string;
+    readonly by?: string | null;
     readonly at: string | null;
   }>;
+  /** The record's own controls (a reason field), in the card at the top. */
+  readonly children?: ReactNode;
   readonly actions?: ReactNode;
 }) {
   const t = useTranslations("cms.options");
+  const card = "rounded-lg border border-border bg-card p-5";
   return (
-    <div className="space-y-4">
-      {children ? <CmsCard bodyClassName="flex flex-col gap-4">{children}</CmsCard> : null}
+    <div className="flex flex-col gap-4">
+      {children ? <div className={card}>{children}</div> : null}
       {info && info.length > 0 ? (
-        <CmsCard>
-          <p className="mb-3 text-sm font-semibold text-highlighted">{t("information")}</p>
-          <div className="space-y-2 text-sm">
-            {info.map((row) => (
-              <div key={row.label}>
-                <span className="block font-medium text-foreground">{row.label}</span>
-                <div className="flex justify-between gap-2 text-xs text-muted-foreground">
-                  <span className="truncate">{row.by ?? ""}</span>
-                  <span className="shrink-0 font-latin">{formatStamp(row.at)}</span>
-                </div>
-              </div>
-            ))}
-          </div>
-        </CmsCard>
+        <dl className={cn(card, "flex flex-col gap-4")}>
+          {info.map((row) => (
+            <div className="flex flex-col gap-1" key={row.label}>
+              <dt className="text-sm text-muted-foreground">{row.label}</dt>
+              <dd className="text-sm font-medium text-foreground">
+                {formatDateTime(row.at)}
+                {row.by ? (
+                  <span className="block font-normal text-muted-foreground">{t("by", { name: row.by })}</span>
+                ) : null}
+              </dd>
+            </div>
+          ))}
+        </dl>
       ) : null}
-      {actions ? <div className="space-y-2">{actions}</div> : null}
+      {actions ? <div className="flex flex-col gap-2">{actions}</div> : null}
     </div>
   );
 }
 
-/** A label/value pair — the read-only rows on a review page. */
+/**
+ * The facts of a record, as a form's fields are laid out but to be read: two
+ * columns from `sm`, each a grey label over its value, with no rules between.
+ */
+export function CmsDataList({ children }: { readonly children: ReactNode }) {
+  return <dl className="grid gap-x-8 gap-y-5 sm:grid-cols-2">{children}</dl>;
+}
+
 export function CmsDataRow({
   label,
+  wide = false,
   children,
 }: {
   readonly label: string;
+  /** Across both columns: a long text, a reason, a description. */
+  readonly wide?: boolean;
   readonly children: ReactNode;
 }) {
   return (
-    <div className="grid gap-1 text-sm sm:grid-cols-[10rem_1fr] sm:gap-4">
-      <dt className="text-muted-foreground">{label}</dt>
-      <dd className="min-w-0 font-medium break-words text-highlighted">{children}</dd>
+    <div className={cn("flex min-w-0 flex-col gap-1", wide && "sm:col-span-2")}>
+      <dt className="text-sm text-muted-foreground">{label}</dt>
+      <dd className="min-w-0 text-base break-words text-foreground">{children}</dd>
     </div>
   );
 }
 
-/** Shown when `?id=` names nothing — a stale link or a reset database. */
+/** Shown when `?id=` names nothing — a stale link or a record since removed. */
 export function CmsMissing({ backHref }: { readonly backHref: string }) {
   const t = useTranslations("cms.options");
   return (
-    <CmsCard>
-      <div className="flex flex-col items-center gap-2 py-6 text-center">
-        <p className="text-base font-semibold text-highlighted">{t("missingTitle")}</p>
-        <p className="text-sm text-muted-foreground">{t("missingBody")}</p>
-        <Link className="text-sm font-medium text-action hover:text-action/75" href={backHref}>
+    <CmsEmpty
+      action={
+        <CmsLinkButton href={backHref} variant="secondary">
           {t("backToList")}
-        </Link>
-      </div>
-    </CmsCard>
+        </CmsLinkButton>
+      }
+      body={t("missingBody")}
+      icon={FileQuestion}
+      title={t("missingTitle")}
+    />
   );
 }

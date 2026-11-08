@@ -17,24 +17,27 @@ import type { Paginated } from "@/lib/api/client";
 import { useResource } from "@/lib/api/use-resource";
 
 /**
- * The console dashboard's counters, read from the API.
+ * The console's counters, read from the API: the dashboard's figures, the
+ * waiting counts beside the sidebar's desks, and the counts on the tabs of the
+ * two-queue pages. All three read the same keys, so the cache asks once.
  *
  * ## Why a one-row request per counter
  *
  * Every paginated body carries `total`, so asking for a single row answers "how
- * many are waiting" without pulling the queue. Six requests rather than one is the
- * cost of there being no aggregate endpoint; each is a count, none returns a list,
- * and the cache means a second screen asking the same question does not ask twice.
+ * many are waiting" without pulling the queue. Several requests rather than one is
+ * the cost of there being no aggregate endpoint; each is a count, none returns a
+ * list, and the cache means a second screen asking the same question does not ask
+ * twice.
  *
  * ## The two figures that are not here
  *
  * **Revenue by month** has no endpoint. `service_invoices` exists but the payment
  * module exposes only `POST /payment/checkout`, so nothing can read invoices at all
- * — there is no route to sum.
+ * — there is no route to sum, and the console no longer draws one from fixtures.
  *
  * **The audit log has no table.** `auth.config.ts` defines an `auditLog` permission
- * and `src/database/schema` has nothing for it to govern. The dashboard's activity
- * feed therefore cannot be backed; it stays on the fixture, and the screen says so.
+ * and `src/database/schema` has nothing for it to govern, so there is no activity
+ * feed to show.
  *
  * Those two are API work. Everything below is a real number.
  */
@@ -61,12 +64,16 @@ export interface DashboardCounts {
   readonly identity: Count;
   readonly proofs: Count;
   readonly refunds: Count;
+  /** Open reports plus flags waiting — the two tabs of the reports desk. */
+  readonly cases: Count;
   readonly reports: Count;
   readonly flags: Count;
   readonly users: Count;
   readonly services: Count;
   /** Satang still owed to advisors: every payout not yet PAID. */
   readonly payoutsDue: Count;
+  /** How many payouts that is. */
+  readonly payoutsWaiting: Count;
 }
 
 /**
@@ -110,9 +117,8 @@ export function useDashboardCounts(): DashboardCounts {
     `${ADMIN_KEYS.payouts}?limit=${ADMIN_MAX_LIMIT}`,
     (signal) => listPayouts({ limit: ADMIN_MAX_LIMIT }, signal),
   ).data;
-  const payoutsDue = payouts?.items
-    .filter((p) => p.status !== "PAID")
-    .reduce((sum, p) => sum + p.amountSatang, 0);
+  const owed = payouts?.items.filter((p) => p.status !== "PAID");
+  const payoutsDue = owed?.reduce((sum, p) => sum + p.amountSatang, 0);
 
   return {
     verification:
@@ -120,10 +126,12 @@ export function useDashboardCounts(): DashboardCounts {
     identity,
     proofs,
     refunds,
+    cases: reports === undefined || flags === undefined ? undefined : reports + flags,
     reports,
     flags,
     users,
     services,
     payoutsDue,
+    payoutsWaiting: owed?.length,
   };
 }

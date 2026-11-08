@@ -1,5 +1,5 @@
-import { ProfileEditorScreen } from "@/components/availability/profile-editor-screen";
+import { ScheduleEditorScreen } from "@/components/availability/schedule-editor";
 
 export default function ProfileEditorWeeklyPage() {
-  return <ProfileEditorScreen />;
+  return <ScheduleEditorScreen mode="edit" />;
 }

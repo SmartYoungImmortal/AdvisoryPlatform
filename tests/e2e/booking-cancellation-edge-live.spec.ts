@@ -1,5 +1,5 @@
 import { execFileSync } from "node:child_process";
-import { expect, test, type BrowserContext, type Page } from "@playwright/test";
+import { expect, test, type BrowserContext, type Page } from "./support/coverage";
 import { z } from "zod";
 
 // Only the named disposable database is used for fixture changes. API responses are real.

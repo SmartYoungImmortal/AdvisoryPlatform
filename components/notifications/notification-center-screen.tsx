@@ -525,7 +525,7 @@ const ADVISOR_SAMPLE: typeof ADVISEE_SAMPLE = [
     today: false,
     rows: [
       ["review", Star, null, "reviewTitle", "reviewBody", "/reviews"],
-      ["verified", BadgeCheck, null, "verifiedTitle", "verifiedBody", "/advisor/profile"],
+      ["verified", BadgeCheck, null, "verifiedTitle", "verifiedBody", "/work"],
     ],
   },
 ];

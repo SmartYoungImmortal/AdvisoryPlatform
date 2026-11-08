@@ -709,7 +709,7 @@ function ReceiptFacts({ receipt }: { readonly receipt: Receipt }) {
  * and shadow, and its heading is an `h2` under the page's `h1`, named by
  * `titleId` for the dialog to be labelled by.
  */
-function ReceiptCard({
+export function ReceiptCard({
   receipt,
   inDialog = false,
   titleId,

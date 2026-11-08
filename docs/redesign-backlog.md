@@ -3,7 +3,7 @@
 รายการหน้าที่ยังต้อง redesign เรียงตามลำดับที่ควรทำ แต่ละข้อเป็นหนึ่ง ticket
 ติ๊ก `[x]` เมื่อพี่ดูแล้ว **ผ่าน** ไม่ใช่แค่เขียนโค้ดเสร็จ
 
-อัปเดตล่าสุด: 28 ตุลาคม 2569
+อัปเดตล่าสุด: 2 พฤศจิกายน 2569
 
 ## หลักที่ใช้กับทุกหน้า
 
@@ -30,6 +30,11 @@
 - [x] `/notifications` ผ่าน 25 ต.ค.; `/notifications/view` (ทุกแถวเปิดหน้านี้ มีปุ่มไปต่อ: แชท, การจองเปิด popup บน `/bookings`, ใบเสร็จเปิด popup บน `/transactions`) และ `/notifications/advisor` ผ่าน 28 ต.ค.
 - [x] `/settings` และ popup ของมัน: เปลี่ยนอีเมล (`/settings/email`, `/settings/email/verify`), เปลี่ยนรหัสผ่าน (`/settings/password` + ตั้งรหัสใหม่ทางอีเมลใน popup ถัดไป), ออกจากระบบ (`/settings/logout`), ลบบัญชี (popup ในหน้า), `/settings/updated` ผ่าน 28 ต.ค.
 - [x] `/transactions` (+ popup ใบเสร็จ, "ดูการจองของฉัน" เปิด popup การจองนั้นบน `/bookings`), `/transactions/detail`, `/transactions/detail/failed`, `/transactions/detail/refunded` ผ่าน 28 ต.ค.
+- [x] RD-11 แชต: `/chat`, `/chat/empty`, `/chat/session-banner`, `/chat/[id]` (+ `/message-failed`, `/report`, `/report/submitted`) ผ่าน 1 พ.ย.
+- [x] RD-03 หน้าบริการ: `/service/[id]` (หัว showcase, แพ็กเกจ, กล่องจองสองขั้น, รีวิว) ผ่าน 1 พ.ย.
+- [x] RD-13 หน้า auth ที่เหลือ: `/reset-password`, `/verification-sent`, `/email-verified` ผ่าน 1 พ.ย.
+- [x] RD-18 Toast: `components/mobile/toast.tsx` และ `components/notifications/notification-toaster.tsx` เป็นแบบเดียวกันแล้ว ผ่าน 1 พ.ย.
+- [x] RD-04 checkout: `/checkout/card`, `/checkout/card/saved` (บัตรผ่าน Omise, PromptPay, Google Pay, mobile banking, คูปอง) ผ่าน 1 พ.ย.
 
 ## ทำแล้วแต่ยังไม่ผ่าน
 
@@ -45,88 +50,84 @@
 - [ ] `/bookings`: ใส่กรอบและปรับขนาดตัวหนังสือ ข้างในยังไม่ redesign
 
 ### RD-02 · โปรไฟล์สาธารณะของผู้ให้คำปรึกษา
-- [ ] `/advisors/[advisorId]`, `/about`, `/services`, `/reviews`: หน้าโปรไฟล์สาธารณะ อยู่ใน `AppFrame`
+- [ ] `/advisors/[advisorId]`, `/about`, `/services`, `/reviews`: ทำใหม่ 30 ต.ค. navbar ของเว็บ + ปุ่มย้อนกลับ การ์ดแบบหน้าค้นหา รีวิวแบบหน้าบริการ แท็บ About
 
-### RD-03 · หน้าบริการ
-- [ ] `/service/[id]`: หัว showcase + แกลเลอรี (ปก + 2 รูปจาก `service_images`) + กล่องจองติดขวา + รีวิว/ผู้เชี่ยวชาญ/บริการอื่น
+### RD-04 · จองและชำระเงิน
+- [ ] `/checkout/processing`, `/checkout/success`, `/checkout/failed`, `/checkout/slot-taken`, `/checkout/unconfirmed`: success อ่านใบเสร็จจริง ที่เหลือใช้ component เดียวกัน
+
+### RD-09 · รีวิวหลังคุย
+- [ ] `/reviews/session`, `/reviews/session/submitted`: ต้องมี `?booking=<id>` ของนัดที่จบแล้วของบัญชีที่ล็อกอิน เปิดเปล่าๆ จะขึ้นว่าไม่มีนัดให้รีวิว
+
+### RD-17 · Footer (ทุกหน้า)
+- [ ] `components/marketing/site-footer.tsx`: ทำแล้ว 30 ต.ค. (สามคอลัมน์บนพื้นสว่าง + แถวล่าง) พี่ดูแล้ว 1 พ.ย. ยังไม่ผ่าน
+
+### RD-16 · Admin console
+- [ ] ทั้ง 18 หน้า redesign แล้ว 28–30 ต.ค. รายการหน้าอยู่ใน RD-16 ด้านล่าง
 
 ### RD-10 · สมัครเป็นผู้ให้คำปรึกษา
 - [ ] `/advisor/apply`
 - [ ] `/advisor-onboarding/stage-1`, `/stage-2`, `/stage-3`: กรอบเดียวกับ login ขนาดตัวอักษรเท่าหน้า login
 - [ ] `/advisor-onboarding/thank-you`, `/pending`, `/failed`
 
-### RD-11 · แชตและการแจ้งเตือน
-- [ ] `/chat`, `/chat/empty`, `/chat/session-banner`; ห้องแชตย้ายไป `/chat/room?id=…` (+ `/message-failed`, `/report`, `/report/submitted`)
+### งาน (RD-05 ถึง RD-08) · กรอบเดียวทั้งหมด (2 พ.ย.)
+ทุกหน้าในงานอยู่ใน `components/work/work-frame.tsx`: เมนู "งานของฉัน" ซ้าย (วันนี้ ปฏิทิน บริการ เวลาว่าง คำขอปรึกษา รายได้)
+อยู่ทุกหน้าและไฮไลต์หมวดของหน้า, หัวหน้ามีไอคอนในกรอบเทาแบบหน้าตั้งค่า ไม่มีบรรทัดคำอธิบาย, หน้าย่อยใช้ breadcrumb
+"หมวด › ชื่อหน้า" แทน `<` บน desktop, มือถือเป็นแคปซูลใต้หัว + ลูกศรย้อนกลับในหน้าย่อย, เนื้อหาใช้ชิ้นของหน้า
+ธุรกรรม (แคปซูลกรอง กล่องว่าง skeleton) และแถวของหน้าตั้งค่า (`components/work/desk-parts.tsx`)
+- [ ] RD-05 `/work` (วันนี้: นัดถัดไป + รายการ + แผงภาพรวมขวา), `/work/calendar`, `/work/earnings`, `/work/session`
+  ยังเหลือ: skeleton ของวันนี้กับปฏิทินให้ตรงหน้าจริง, ตัวอักษรหัวข้อในเนื้อหาให้เข้าชุด
+- [ ] RD-05 `/advisor/edit`: อยู่ใต้ "โปรไฟล์" แล้ว (ไม่ใช่งาน) มีผลงาน (portfolio)
+- [ ] RD-06 `/advisor/services`: แคปซูล ทั้งหมด / เปิดให้จอง / ซ่อนอยู่ + การ์ดรูป 4 คอลัมน์
+- [ ] RD-06 `/advisor/services/new` และ `/advisor/services/view` (แก้ไข): หน้ายาวหน้าเดียว ไม่ยิง API จนกดบันทึก,
+  รูปปกใหญ่ซ้ายรูปอื่นข้างๆ, หัวเหลือชื่อบริการ, เปิดให้จองอยู่ในส่วนการจอง, ตารางเวลาอยู่ในส่วนชุดเวลาว่าง
+  กำลังทำ: กล่องขวาสลับ แก้ไข / ดูแบบลูกค้า และภาษาที่แก้ ไทย / English
+- [ ] RD-06 `/advisor/services/schedule`: ในกรอบงานแล้ว
+- [ ] RD-07 `/availability` (และ `/availability/configured`, `/custom` ซึ่งเป็นหน้าเดียวกันกับค่าตัวอย่าง): แถวแบบหน้าตั้งค่า กติกาการจองแต่ละข้อเปิด popup (ยังไม่ commit)
+- [ ] RD-07 `/availability/profiles/new`, `/availability/profiles/edit`: ในกรอบงานแล้ว ย้อนกลับไปเวลาว่าง
+- [ ] RD-08 `/work/earnings` (`/earnings`): แคปซูลกรองพร้อมยอดเงิน + รายการแบ่งตามเดือน
+- [ ] RD-08 `/earnings/payout-account` + ตั้งบัญชีเป็น popup (`/setup` เปิดหน้าเดียวกันพร้อม popup) ยังบันทึกจริงไม่ได้ เพราะ API ไม่มี route
+- [ ] RD-08 `/screening/requests`: แคปซูล ทั้งหมด / รอตอบกลับ / ตอบแล้ว
 
 ## ยังไม่ได้ทำ
 
-### RD-17 · Footer (ทุกหน้า)
-- [ ] `components/marketing/site-footer.tsx`
-
-ใช้ร่วมกันทุกหน้า แก้ครั้งเดียวได้ทุกหน้า ตอนนี้ยังเป็นแบบที่ลอก Systronic มา ต้อง redesign ให้เข้าชุดกับ home / login / terms (ปุ่มแคปซูล, Kanit, พื้นขาวหรือแสงฟ้า-ม่วงจางๆ) พร้อมสองภาษา และ scale จาก 1710 บน iPad แนวนอน
-
-### RD-18 · Toast (ทุกหน้า)
-- [ ] `components/mobile/toast.tsx` (`StatusToast`): การ์ดขาว ไอคอนติ๊ก แถบนับถอยหลัง มุมขวาล่างบน desktop ใช้กับเปิด/ปิดแจ้งเตือนบนอุปกรณ์ (การ์ดข้าง `/notifications`) และ "อัปเดตรหัสผ่านแล้ว" (`/settings/updated`)
-- [ ] `components/notifications/notification-toaster.tsx`: แจ้งเตือนใหม่ที่เด้งทุกหน้า ยังเป็นแถบดำแบบ Figma "In-app toast" คนละหน้าตากับตัวบน
-
-ตอนนี้มี toast สองแบบที่ไม่เข้าชุดกัน ต้อง redesign ให้เป็นแบบเดียว (ตำแหน่ง ขนาด สี ไอคอน ปุ่ม "ดู" ของแจ้งเตือนใหม่) แล้วค่อยใช้แทน banner ที่ยังเหลือในหน้าอื่น ฝั่ง admin มีของตัวเองใน `components/cms/feedback.tsx` อยู่ใน RD-16
+### งาน · หน้าเก่าที่ยังไม่อยู่ในกรอบงาน
+- [ ] `/advisor/skills`, `/earnings/payout-history`, `/earnings/payout-history/failed`, `/screening/setup`
+- [ ] `/screening/questions`, `/screening/review`, `/screening/review/decline`
+- [ ] หน้าสถานะคัดกรองฝั่งลูกค้า: `/screening/submitted`, `/screening/accepted`, `/screening/declined`, `/screening/trial`
+- [ ] `/availability/profiles` (รายการเก่า ไม่มีลิงก์ไปแล้ว รายการอยู่ใน `/availability`), `/add-date`, `/delete`, `/new/blocked`, `/new/from-list`, `/new/specific`, `/edit/blocked`, `/edit/picker`, `/edit/specific` (`/edit/error` เก็บไว้ให้เทส e2e)
+- [ ] `/advisor/services/manage`, `/manage/delete`, `/new/limit`, `/new/no-profile`, `/[serviceId]/*` (ของเก่าก่อน editor ใหม่)
+- [ ] `/advisor/profile`: โหมดผู้ให้คำปรึกษารวมเข้า `/profile` แล้ว ยังไม่ได้ตัดสินว่าจะเก็บ route นี้ไหม
 
 ### RD-03 · จับคู่ผู้เชี่ยวชาญ
 - [ ] `/matching`, `/matching/searching`, `/matching/results`
 
-### RD-04 · จองและชำระเงิน
-- [ ] `/checkout/card`, `/checkout/card/saved`
-- [ ] `/checkout/processing`, `/checkout/success`, `/checkout/failed`
-- [ ] `/checkout/slot-taken`, `/checkout/unconfirmed`
+### RD-04 · จองและชำระเงิน (ที่เหลือ)
 - [ ] ข้างในของ `/bookings` (กรอบทำแล้ว ดู RD-01)
+- [ ] `/bookings/refund`: หน้าใหม่ที่ Taj ทำใน #91 (ขอยกเลิก/คืนเงินพร้อมหลักฐาน) อยู่บน `dev` ยังไม่ได้ redesign
 
-### RD-05 · โปรไฟล์และหน้าทำงานของผู้ให้คำปรึกษา ⭐
-- [ ] `/advisor/profile` (ควรเป็น dashboard: สวิตช์รับงาน นัดวันนี้ คำขอที่รอตอบ รายได้ สถานะยืนยันตัวตน)
-- [ ] `/advisor/edit`
-- [ ] `/advisor/skills`
-- [ ] `/work`, `/work/calendar`, `/work/earnings`, `/work/session`
-
-### RD-06 · บริการของผู้ให้คำปรึกษา
-- [ ] `/advisor/services`, `/advisor/services/view`, `/advisor/services/manage`, `/advisor/services/manage/delete`
-- [ ] `/advisor/services/new`, `/advisor/services/new/limit`, `/advisor/services/new/no-profile`
-- [ ] `/advisor/services/[serviceId]`, `/advisor/services/[serviceId]/edit`, `/advisor/services/[serviceId]/edit/delete`, `/advisor/services/[serviceId]/schedule`
-
-### RD-07 · ตารางเวลาว่าง
-- [ ] `/availability`, `/availability/configured`, `/availability/custom`
-- [ ] `/availability/profiles`, `/availability/profiles/add-date`, `/availability/profiles/delete`
-- [ ] `/availability/profiles/new`, `/availability/profiles/new/blocked`, `/availability/profiles/new/from-list`, `/availability/profiles/new/specific`
-- [ ] `/availability/profiles/edit`, `/availability/profiles/edit/blocked`, `/availability/profiles/edit/error`, `/availability/profiles/edit/picker`, `/availability/profiles/edit/specific`
-
-### RD-08 · รายได้และการคัดกรอง
-- [ ] `/earnings`, `/earnings/payout-account`, `/earnings/payout-account/setup`, `/earnings/payout-history`, `/earnings/payout-history/failed`
-- [ ] `/screening/setup`, `/screening/questions`, `/screening/requests`, `/screening/review`, `/screening/review/decline`
-- [ ] `/screening/submitted`, `/screening/accepted`, `/screening/declined`, `/screening/trial`
-
-### RD-09 · รีวิว
+### RD-09 · รีวิวของผู้ให้คำปรึกษา
 - [ ] `/reviews`, `/reviews/empty`, `/reviews/replying`, `/reviews/reply-failed`
-- [ ] `/reviews/session`, `/reviews/session/submitted`
-
-### RD-13 · หน้า auth ที่เหลือ (เร็ว ใช้ `AuthSplit` ได้เลย)
-- [ ] `/reset-password`: ทำแล้วบน `AuthSplit` (ฟอร์ม, เปลี่ยนแล้ว, ลิงก์ใช้ไม่ได้) รอพี่ดู
-- [ ] `/verification-sent`: ทำแล้วบน `AuthSplit` จัดกึ่งกลางใต้ `lg` รอพี่ดู (อีเมลยังไม่ถูกส่งจริง เพราะ API ยังไม่มีบริการส่งเมล)
-- [ ] `/email-verified`: ทำแล้วบน `AuthSplit` จัดกึ่งกลางใต้ `lg` รอพี่ดู
 
 ### RD-14 · หน้าการตลาด
 - [ ] `/about`
-- [ ] `/landing`
+
+`/landing` ลบแล้ว (30 ต.ค.): พี่บอกว่าหน้านี้ไม่ใช่แล้ว ลิงก์ "คำถามที่พบบ่อย" / "ศูนย์ช่วยเหลือ" ไปที่ `/#faq` (home แสดงครบ 8 ข้อ), "ราคาและค่าบริการ" ไปที่ `/#pricing`, "วิธีใช้งาน" ไปที่ `/about`
 
 ### RD-15 · สถานะระบบ
 - [ ] `/status/no-connection`, `/status/not-found`, `/status/server-error`
 
 ### RD-16 · Admin console
-- [ ] `/admin`, `/admin/login`, `/admin/login/error`, `/admin/dashboard`
-- [ ] `/admin/users`, `/admin/users/edit`, `/admin/manage`, `/admin/manage/edit`
-- [ ] `/admin/verification`, `/admin/verification/review`, `/admin/skill-proofs`, `/admin/skill-proofs/review`
-- [ ] `/admin/services`, `/admin/services/edit`, `/admin/skills`, `/admin/skills/edit`
-- [ ] `/admin/transactions`, `/admin/payouts`, `/admin/refunds`, `/admin/refunds/review`
-- [ ] `/admin/reports`, `/admin/reports/review`, `/admin/off-platform`, `/admin/off-platform/review`
+- [ ] `/admin`, `/admin/login`, `/admin/dashboard`
+- [ ] `/admin/users`, `/admin/users/edit`
+- [ ] `/admin/verification` (แท็บ ตัวตน / เอกสารทักษะ `?tab=skills`), `/admin/verification/review`, `/admin/verification/proof`
+- [ ] `/admin/reports` (แท็บ จากผู้ใช้ / ระบบตรวจพบ `?tab=flags`), `/admin/reports/review`, `/admin/reports/flag`
+- [ ] `/admin/services`, `/admin/services/edit`
+- [ ] `/admin/manage` (แท็บ หมวดหมู่ / ทักษะ `?tab=skills`), `/admin/manage/edit`, `/admin/manage/skill`
+- [ ] `/admin/refunds`, `/admin/refunds/review`, `/admin/payouts`
 
-รอบก่อนแก้เฉพาะจุด (sidebar, PDF viewer, ปุ่มหน้า verification, ข้อความหน้า login) ยังไม่ใช่ redesign
+redesign แล้ว (28 ต.ค.) รอพี่ดู: กรอบเดียวกับหน้าบัญชี (แถบเมนูบนพื้นเทา หน้าอยู่ในแผ่นขาวมุมโค้ง) เมนูเหลือ 7
+ลบแล้ว: `/admin/login/error` (หน้า login แสดง error เอง), `/admin/transactions` (ไม่มี API ข้อมูลเป็นตัวอย่างล้วน),
+`/admin/skill-proofs`, `/admin/skills`, `/admin/off-platform` (รวมเป็นแท็บของหน้าที่ใกล้กัน)
 
 ## ไม่ต้องทำ
 
@@ -151,6 +152,8 @@
 เก็บ `/availability/profiles/edit/error` ไว้ เพราะเทส e2e ใช้เป็น fixture
 
 ## เรื่องค้างที่ไม่ใช่หน้า
+
+- [ ] Admin: user guide แบบ Systronics ในหน้า `/admin/services` (และหน้าอื่นของ admin) พี่สั่งให้ทำหลัง redesign admin ผ่าน (1 พ.ย.)
 
 - [ ] หน้า home ยังกระตุกนิดหน่อยตอนเลื่อน
 - [ ] Google / Facebook / Apple login: ต้องสร้าง OAuth client แล้วใส่ `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` ฯลฯ ใน `.env` ของ API (โค้ดทั้งสองฝั่งพร้อมแล้ว)

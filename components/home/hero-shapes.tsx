@@ -8,6 +8,7 @@ import Link from "next/link";
 import { useTranslations } from "next-intl";
 import { useEffect, useRef, type CSSProperties } from "react";
 
+import { SMOOTH_QUERY } from "@/components/mobile/screen-body";
 import { heroCards } from "@/lib/assets/r2";
 import { useLiveCatalogue } from "@/lib/catalogue/live";
 import { cn } from "@/lib/utils";
@@ -83,9 +84,9 @@ export function HeroShapes({ className }: { readonly className?: string }) {
       if (!el || !track || !band) return;
 
       const mm = gsap.matchMedia();
-      // Desktop only, like the ring itself, and not a single tween under
+      // At every width, as the ring itself is, and not a single tween under
       // `prefers-reduced-motion`: the hero then simply scrolls away as it is.
-      mm.add("(min-width: 1024px) and (prefers-reduced-motion: no-preference)", () => {
+      mm.add("(prefers-reduced-motion: no-preference)", () => {
         gsap
           .timeline({
             scrollTrigger: {
@@ -106,12 +107,21 @@ export function HeroShapes({ className }: { readonly className?: string }) {
           // a blur: re-blurring the full-screen band on every frame was the
           // other half of the stutter, and opacity alone stays on the GPU.
           .fromTo(band, { autoAlpha: 1 }, { autoAlpha: 0, ease: "none", duration: 1 }, 0);
+      });
 
-        // What follows the hero, held still against the scroll while the band
-        // holds, then faded in as the band clears: it appears where it stands
-        // instead of sliding up. Its own trigger, with `scrub: true` and no
-        // smoothing, because a counter-move that lags the scroll even a
-        // little reads as a wobble.
+      // What follows the hero, held still against the scroll while the band
+      // holds, then faded in as the band clears: it appears where it stands
+      // instead of sliding up. Its own trigger, with `scrub: true` and no
+      // smoothing, because a counter-move that lags the scroll even a little
+      // reads as a wobble.
+      //
+      // Only where the page scrolls under Lenis (`SMOOTH_QUERY`, a desktop
+      // with a mouse), where scroll and counter-move are stepped together on
+      // one tick. Under native scrolling (a phone, any tablet) the scroll runs
+      // on the compositor and the counter-move a frame behind it on the main
+      // thread, and the section shook as the hero let go. There it simply
+      // rises under the fading band.
+      mm.add(SMOOTH_QUERY, () => {
         const after: Element[] = [];
         for (let node = track.nextElementSibling; node; node = node.nextElementSibling) {
           after.push(node);
@@ -155,7 +165,7 @@ export function HeroShapes({ className }: { readonly className?: string }) {
       // layers read the pair in `app/globals.css` at three strengths. A mouse
       // only: on touch there is no hovering cursor to follow.
       mm.add(
-        "(min-width: 1024px) and (pointer: fine) and (prefers-reduced-motion: no-preference)",
+        "(min-width: 1024px) and (orientation: landscape) and (pointer: fine) and (prefers-reduced-motion: no-preference)",
         () => {
           const toX = gsap.quickTo(band, "--hero-px", { duration: 0.8, ease: "power3.out" });
           const toY = gsap.quickTo(band, "--hero-py", { duration: 0.8, ease: "power3.out" });
@@ -202,7 +212,8 @@ export function HeroShapes({ className }: { readonly className?: string }) {
                 // photograph is the card; the type under it is small on purpose.
                 // The link is the still hit area; the face inside it is what
                 // grows on hover (see `.hero-card-face`).
-                "hero-card animate-hero-pop pointer-events-auto block w-52 rounded-[0.75rem] outline-none",
+                // A touch wider on a phone (216 against 208), the circle the same.
+                "hero-card animate-hero-pop pointer-events-auto block w-54 rounded-[0.75rem] outline-none md:w-52",
                 // The ring every other interactive surface in the app focuses
                 // with, from `components/ui/button.tsx`.
                 "focus-visible:ring-3 focus-visible:ring-ring/50",

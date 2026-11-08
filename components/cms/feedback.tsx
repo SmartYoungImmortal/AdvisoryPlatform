@@ -32,22 +32,20 @@ import {
 import { cn } from "@/lib/utils";
 
 /**
- * Nexus's `useCmsConfirm` + `CmsConfirmModal` and its toast helper.
+ * The console's confirmations and toasts.
  *
  * `confirm()` resolves true or false; `prompt()` resolves the typed reason or
- * `null` — the reject and suspend flows need a reason on record, which Nexus's
- * modal has no field for, so the field sits under the description here.
+ * `null` — the reject and suspend flows need a reason on record, so the field
+ * sits under the question.
  */
 export type ConfirmType = "danger" | "warning" | "info" | "success";
 
-const TYPE: Record<
-  ConfirmType,
-  { readonly icon: LucideIcon; readonly text: string; readonly button: "error" | "warning" | "action" | "success" }
-> = {
-  danger: { icon: TriangleAlert, text: "text-destructive", button: "error" },
-  warning: { icon: CircleAlert, text: "text-warning", button: "warning" },
-  info: { icon: Info, text: "text-info", button: "action" },
-  success: { icon: CircleCheck, text: "text-success", button: "success" },
+/** The mark over each kind of question; only what cannot be undone is drawn in red. */
+const TYPE: Record<ConfirmType, { readonly icon: LucideIcon; readonly danger: boolean }> = {
+  danger: { icon: TriangleAlert, danger: true },
+  warning: { icon: CircleAlert, danger: false },
+  info: { icon: Info, danger: false },
+  success: { icon: CircleCheck, danger: false },
 };
 
 export type ConfirmOptions = {
@@ -89,12 +87,19 @@ export function useCmsFeedback(): FeedbackApi {
   return api;
 }
 
+/** How long a confirmation stays, and a refusal: the API's sentence takes longer to read. */
+const TOAST_MS = 4000;
+const PROBLEM_TOAST_MS = 8000;
+
 export function CmsFeedbackProvider({ children }: { readonly children: ReactNode }) {
   return (
-    <Toast.Provider timeout={4000}>
+    <Toast.Provider timeout={TOAST_MS}>
       <FeedbackHost>{children}</FeedbackHost>
       <Toast.Portal>
-        <Toast.Viewport className="fixed right-4 bottom-4 z-[100] flex w-full max-w-sm flex-col gap-2 outline-none">
+        {/* Where the site's toasts stand: centred near the foot on a phone,
+            24 off the bottom right corner of the screen from `lg`, outside
+            the page's zoom so its sizes are the screen's. */}
+        <Toast.Viewport className="group/toasts fixed inset-x-0 bottom-4 z-[100] flex flex-col items-center gap-2 px-4 outline-none lg:inset-x-auto lg:right-6 lg:bottom-6 lg:items-end lg:px-0">
           <ToastList />
         </Toast.Viewport>
       </Toast.Portal>
@@ -118,7 +123,12 @@ function FeedbackHost({ children }: { readonly children: ReactNode }) {
   );
   const toast = useCallback<FeedbackApi["toast"]>(
     ({ color = "success", title, description }) => {
-      manager.add({ title, description, type: color });
+      manager.add({
+        title,
+        description,
+        type: color,
+        timeout: color === "error" ? PROBLEM_TOAST_MS : TOAST_MS,
+      });
     },
     [manager],
   );
@@ -143,9 +153,15 @@ function FeedbackHost({ children }: { readonly children: ReactNode }) {
 }
 
 /**
- * `CmsConfirmModal`: centred icon, title and description, the actions centred in
- * the footer band. Only the buttons close it — Nexus turns off backdrop and
- * Escape dismissal so a destructive choice is always explicit.
+ * The question, as the site's centred popup asks one (the settings' change of
+ * password): a white card with 18px corners over a dimmed page, the mark in a
+ * soft grey disc, the title and its line centred under it, the reason field
+ * when one is needed, and the two capsules stacked full width — what is being
+ * done in ink (in red when it cannot be undone), the way out in soft grey.
+ * Nothing boxed inside it but the field.
+ *
+ * Only the buttons close it: a backdrop press or Escape could otherwise
+ * dismiss a destructive choice by accident.
  */
 function ConfirmModal({
   pending,
@@ -159,6 +175,7 @@ function ConfirmModal({
   const config = TYPE[pending.type ?? "info"];
   const Icon = config.icon;
   const inputId = useId();
+  const popup = useRef<HTMLDivElement>(null);
   const [value, setValue] = useState(pending.kind === "prompt" ? (pending.defaultValue ?? "") : "");
   const [touched, setTouched] = useState(false);
   const inputRef = useRef<HTMLTextAreaElement>(null);
@@ -169,29 +186,41 @@ function ConfirmModal({
     <Dialog
       disablePointerDismissal
       onOpenChange={(open, details) => {
-        // Escape is a dismissal Nexus switches off too.
         if (!open && details.reason === "escape-key") details.cancel();
       }}
       open
     >
       <DialogContent
-        className="max-w-[calc(100vw-2rem)] gap-0 divide-y divide-border rounded-lg bg-card p-0 shadow-lg ring-1 ring-border sm:max-w-lg"
-        initialFocus={pending.kind === "prompt" ? inputRef : undefined}
+        className="block w-auto max-w-[calc(100%-2rem)] gap-0 rounded-2xl bg-card p-0 text-foreground shadow-hero-card ring-0 outline-none sm:max-w-none"
+        // A prompt opens on its field; a plain question on the card itself, so
+        // the first button does not open showing its focus ring.
+        initialFocus={pending.kind === "prompt" ? inputRef : popup}
+        overlayClassName="bg-scrim/50"
+        ref={popup}
         showCloseButton={false}
       >
-        <div className="flex flex-col items-center gap-3 p-4 py-5 text-center sm:p-6">
-          <Icon aria-hidden className={cn("size-10", config.text)} />
-          <DialogTitle className="text-base font-semibold text-highlighted">
-            {pending.title}
-          </DialogTitle>
-          {pending.description !== undefined ? (
-            <DialogDescription className="text-sm text-muted-foreground">
-              {pending.description}
-            </DialogDescription>
-          ) : null}
+        <div className="cms-scale flex w-[min(27.5rem,calc(100vw-2rem))] flex-col p-6 md:p-8">
+          <div className="flex flex-col items-center text-center">
+            <span
+              className={cn(
+                "flex size-12 items-center justify-center rounded-full md:size-14",
+                config.danger ? "bg-destructive/10 text-destructive" : "bg-muted text-foreground",
+              )}
+            >
+              <Icon aria-hidden className="size-6 md:size-7" strokeWidth={1.75} />
+            </span>
+            <DialogTitle className="mt-3 text-lg font-semibold text-foreground">
+              {pending.title}
+            </DialogTitle>
+            {pending.description !== undefined ? (
+              <DialogDescription className="mt-1 text-sm text-balance text-muted-foreground">
+                {pending.description}
+              </DialogDescription>
+            ) : null}
+          </div>
           {pending.kind === "prompt" ? (
             <CmsFormField
-              className="w-full text-start"
+              className="mt-5 w-full"
               error={touched && missing ? t("reasonRequired") : undefined}
               htmlFor={inputId}
               label={pending.inputLabel}
@@ -208,60 +237,74 @@ function ConfirmModal({
               />
             </CmsFormField>
           ) : null}
-        </div>
-        <div className="flex items-center justify-center gap-1.5 p-4 sm:px-6">
-          <CmsButton color="neutral" onClick={() => onClose(null)} variant="outline">
-            {pending.cancelLabel ?? t("cancel")}
-          </CmsButton>
-          <CmsButton
-            color={config.button}
-            onClick={() => {
-              if (missing) {
-                setTouched(true);
-                inputRef.current?.focus();
-                return;
-              }
-              onClose(value.trim());
-            }}
-          >
-            {pending.confirmLabel ?? t("confirm")}
-          </CmsButton>
+          <div className="mt-6 flex flex-col gap-2">
+            <CmsButton
+              block
+              onClick={() => {
+                if (missing) {
+                  setTouched(true);
+                  inputRef.current?.focus();
+                  return;
+                }
+                onClose(value.trim());
+              }}
+              size="lg"
+              variant={config.danger ? "danger" : "primary"}
+            >
+              {pending.confirmLabel ?? t("confirm")}
+            </CmsButton>
+            <CmsButton block onClick={() => onClose(null)} size="lg" variant="soft">
+              {pending.cancelLabel ?? t("cancel")}
+            </CmsButton>
+          </div>
         </div>
       </DialogContent>
     </Dialog>
   );
 }
 
-const TOAST_ICON: Record<ToastColor, { readonly icon: LucideIcon; readonly text: string; readonly bar: string }> = {
-  success: { icon: CircleCheck, text: "text-success", bar: "bg-success" },
-  error: { icon: TriangleAlert, text: "text-destructive", bar: "bg-destructive" },
-  info: { icon: Info, text: "text-info", bar: "bg-info" },
-  warning: { icon: CircleAlert, text: "text-warning", bar: "bg-warning" },
+const TOAST_LOOK: Record<ToastColor, { readonly icon: LucideIcon; readonly ink: string; readonly bar: string }> = {
+  success: { icon: CircleCheck, ink: "text-confirm", bar: "bg-confirm" },
+  error: { icon: TriangleAlert, ink: "text-destructive", bar: "bg-destructive" },
+  info: { icon: Info, ink: "text-muted-foreground", bar: "bg-muted-foreground" },
+  warning: { icon: CircleAlert, ink: "text-warning", bar: "bg-warning" },
 };
 
-/** Nuxt UI's `UToast`: white card, ring, coloured icon, a close button. */
+/**
+ * The site's toast card: white, 356 wide from `lg`, 14px corners, a hairline
+ * and a soft shadow; the icon bare at the left, what happened over a second
+ * line when there is one, and the time it has left running out along its
+ * foot, held while the pointer is over the toasts (as their timers are).
+ */
 function ToastList() {
   const t = useTranslations("cms.feedback");
   const { toasts } = Toast.useToastManager();
   return toasts.map((toast) => {
-    const style = TOAST_ICON[(toast.type as ToastColor | undefined) ?? "success"];
-    const Icon = style.icon;
+    const look = TOAST_LOOK[(toast.type as ToastColor | undefined) ?? "success"];
+    const Icon = look.icon;
     return (
       <Toast.Root
-        className="relative flex gap-2.5 overflow-hidden rounded-lg bg-card p-4 shadow-lg ring-1 ring-border transition-all data-[ending-style]:translate-x-4 data-[ending-style]:opacity-0 data-[starting-style]:translate-y-2 data-[starting-style]:opacity-0"
+        className="relative flex w-full max-w-sm items-center gap-3 overflow-hidden rounded-xl border border-border bg-card py-3.5 ps-4 pe-2 text-sm text-foreground shadow-panel data-[ending-style]:opacity-0 data-[starting-style]:opacity-0 lg:w-[356px] lg:max-w-none"
         key={toast.id}
         toast={toast}
       >
-        <Icon aria-hidden className={cn("size-5 shrink-0", style.text)} />
-        <div className="flex min-w-0 flex-1 flex-col gap-1">
-          <Toast.Title className="text-sm font-medium text-highlighted" />
-          <Toast.Description className="text-sm text-muted-foreground" />
+        <Icon aria-hidden className={cn("size-4.5 shrink-0", look.ink)} strokeWidth={2.25} />
+        <div className="flex min-w-0 flex-1 flex-col gap-0.5">
+          <Toast.Title className="line-clamp-3 font-medium" />
+          <Toast.Description className="line-clamp-3 text-muted-foreground" />
         </div>
         <Toast.Close
           aria-label={t("dismiss")}
-          render={<CmsButton color="neutral" icon={X} size="sm" variant="link" />}
+          render={<CmsButton icon={X} size="sm" variant="ghost" />}
         />
-        <span aria-hidden className={cn("absolute inset-x-0 bottom-0 h-1", style.bar)} />
+        <span
+          aria-hidden
+          className={cn(
+            "animate-toast-countdown absolute inset-x-0 bottom-0 h-0.5 group-hover/toasts:[animation-play-state:paused] motion-reduce:hidden",
+            look.bar,
+          )}
+          style={{ animationDuration: `${toast.timeout ?? TOAST_MS}ms` }}
+        />
       </Toast.Root>
     );
   });

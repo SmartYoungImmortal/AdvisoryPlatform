@@ -51,17 +51,6 @@ import type { Account, Role } from "@/lib/mock-db/types";
  * in, which is a far better signal to build a three-state session on.
  */
 
-/**
- * Kept because it is exported, and for nothing else.
- *
- * Locking an account after five wrong passwords was a mock-database behaviour:
- * the store owned `failedLogins` and could count. better-auth has no lockout and
- * publishes no remaining-attempts figure, so nothing here can honestly say "two
- * tries left" — and a number invented on the client is worse than no number. The
- * login screen shows the API's own sentence instead.
- */
-export const MAX_FAILED_LOGINS = 5;
-
 export type Session =
   | { readonly status: "loading" }
   | { readonly status: "anonymous" }
@@ -310,7 +299,7 @@ export function roleHome(role: Role): string {
  * link cannot bounce a fresh session somewhere else.
  */
 export function safeNext(next: string | null | undefined): string | null {
-  if (!next?.startsWith("/") || next.startsWith("//")) return null;
+  if (!next?.startsWith("/") || next.startsWith("//") || /[\\\u0000-\u001f\u007f]/.test(next)) return null;
   return next;
 }
 
@@ -336,9 +325,7 @@ export type SignInResult =
        *   build made without `NEXT_PUBLIC_API_URL`.
        * - `forbidden` — the right password at the wrong door. Decided here, not
        *   by the API; see `options.allow`.
-       * - `locked` — never produced. There is no lockout (see
-       *   `MAX_FAILED_LOGINS`); it stays in the union because the locked frame
-       *   still opens on its own route and maps copy off this name.
+       * - `locked` — five failed attempts within 15 minutes; the API owns the timer.
        */
       readonly reason:
         | "invalid"
@@ -349,13 +336,15 @@ export type SignInResult =
         | "unreachable";
       /** The API's own sentence, when the API answered. Safe to show. */
       readonly message?: string;
+      readonly retryAfterSeconds?: number;
     };
 
 function rejected(cause: unknown): SignInResult {
   if (!(cause instanceof ApiError)) return { ok: false, reason: "unreachable" };
   const reason =
+    cause.status === 429 && cause.code === "LOGIN_LOCKED" ? "locked" :
     cause.status === 401 ? "invalid" : cause.status === 403 ? "suspended" : "failed";
-  return { ok: false, reason, message: cause.message };
+  return { ok: false, reason, message: cause.message, retryAfterSeconds: cause.retryAfterSeconds };
 }
 
 /**
@@ -394,7 +383,7 @@ export async function signIn(
   }
 
   if (options.allow && !options.allow.includes(account.role)) {
-    await signOut();
+    if (!(await signOut())) return { ok: false, reason: "unreachable" };
     return { ok: false, reason: "forbidden" };
   }
 
@@ -402,22 +391,16 @@ export async function signIn(
   return { ok: true, account };
 }
 
-/**
- * Drop the session here first, then ask the API to drop its cookie.
- *
- * That order is deliberate: the screen shows signed-out at once, and if the
- * caller leaves early the local half has already happened. Callers that leave
- * with a full `window.location.replace` (the log-out dialog, the console menu)
- * wait for this first, because a navigation cancels the in-flight POST and
- * the cookie would outlive the sign-out.
- */
-export async function signOut(): Promise<void> {
-  publish(ANONYMOUS);
+/** Only mark the browser signed out after the API confirms session revocation. */
+export async function signOut(): Promise<boolean> {
   try {
     await authSignOut();
+    publish(ANONYMOUS);
+    return true;
   } catch {
-    // The cookie may outlive this tab's idea of the session. Nothing a screen
-    // can do about it, and the next `/users/me` is the authority either way.
+    // A failed request can leave the cookie valid, or lose a successful response.
+    // The caller must offer retry without claiming that logout completed.
+    return false;
   }
 }
 

@@ -1,593 +1,540 @@
 "use client";
 
-import Image, { type StaticImageData } from "next/image";
+import { CreditCard, ShieldCheck, Wallet } from "lucide-react";
 import Link from "next/link";
-import {
-  CalendarDays,
-  ChevronRight,
-  Clock,
-  CreditCard,
-  FileText,
-  History,
-  MessageSquare,
-  ShieldCheck,
-  Star,
-  Wallet,
-  type LucideIcon,
-} from "lucide-react";
-import { useTranslations } from "next-intl";
-import { Suspense } from "react";
+import { useFormatter, useTranslations } from "next-intl";
+import { useCallback, useState, type ReactNode } from "react";
 
-import { NeutralButton, PrimaryButton } from "@/components/mobile/buttons";
-import {
-  MobileScreen,
-  ScreenBody,
-  ScreenTopBar,
-} from "@/components/mobile/screen";
-import { StatusPill, type StatusTone } from "@/components/mobile/status-pill";
-import { Surface, SurfaceList, surfaceClass } from "@/components/mobile/surface";
+import { initialsOf } from "@/components/advisor-public/headline";
+import { authPill } from "@/components/auth/auth-split";
+import { useMountTime } from "@/components/bookings/booking-flow";
+import { DayGroup } from "@/components/notifications/notification-center-screen";
+import { useOwnProfile } from "@/components/profile/profile-data";
+import { ApiErrorCard } from "@/components/service/parts";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
-import { WorkSectionHead } from "@/components/work/section-head";
-import {
-  SessionDetailFallback,
-  SessionDetailFromQuery,
-} from "@/components/work/session-detail";
-import { WorkHub, useTodayLabel } from "@/components/work/work-hub";
-import { WEEKDAY_KEYS, buddhistYear, monthGrid } from "@/lib/calendar";
-import { SPLIT_WITH_RAIL } from "@/lib/layout";
+import { AdvisorCalendarScreen } from "@/components/work/advisor-calendar-screen";
+import { AdvisorSessionDetailScreen } from "@/components/work/session-detail";
+import { useAdvisorBookings, usePayouts } from "@/components/work/work-data";
+import { DESK_PILL } from "@/components/work/desk-page";
+import { DESK_BONE, DeskEmpty, DeskFilter, DeskListSkeleton } from "@/components/work/desk-parts";
+import { WorkHub } from "@/components/work/work-hub";
+import type { AdvisorBooking } from "@/lib/api/advisor-bookings";
+import type { ApiPayout } from "@/lib/api/advisor-work";
+import { getOwnAdvisorProfile, type ApiOwnAdvisorProfile } from "@/lib/api/onboarding";
+import type { ApiOwnProfile } from "@/lib/api/types";
+import { useResource } from "@/lib/api/use-resource";
+import { bookingDay } from "@/lib/work/booking-calendar";
 import { cn } from "@/lib/utils";
-import {
-  FREE_GAPS,
-  LATER_TODAY,
-  MONTH_SESSION_COUNT,
-  NEXT_SESSION,
-  PAYOUT_ACCOUNT,
-  PENDING_ITEMS,
-  RECENT_CONSULTATIONS,
-  SESSIONS_BY_DAY,
-  TODAY,
-  TODAY_SESSIONS,
-  type SessionFixture,
-} from "@/lib/work";
+
+/** The earnings page's capsules while they load: everything, paid and on its way, at their labels' widths. */
+const EARNINGS_CAPSULES = ["w-22 lg:w-26", "w-32 lg:w-38", "w-26 lg:w-30"];
+
+/** `ApiErrorCard` at the frame's type steps from `lg`, as the transactions page draws it. */
+const ERROR_CARD_LG =
+  "lg:gap-4 lg:p-7 lg:[&_[data-slot=button]]:h-12 lg:[&_[data-slot=button]]:px-5 lg:[&_[data-slot=button]]:text-frame-meta lg:[&_p]:text-frame-meta lg:[&_p:first-child]:text-frame-figure";
+
+/** A booking still to happen, or happening: held-for-payment ones are not the advisor's yet. */
+function isAhead(booking: AdvisorBooking, now: number): boolean {
+  return (booking.state === "BOOKED" || booking.state === "IN_PROGRESS") && Date.parse(booking.endTime) > now;
+}
+
+/** Satang as baht with the ฿ sign; satang shown only when there are some. */
+function useBaht(): (satang: number) => string {
+  const format = useFormatter();
+  return (satang) => {
+    const digits = satang % 100 === 0 ? 0 : 2;
+    return format.number(satang / 100, {
+      style: "currency",
+      currency: "THB",
+      currencyDisplay: "narrowSymbol",
+      minimumFractionDigits: digits,
+      maximumFractionDigits: digits,
+    });
+  };
+}
+
+/* -------------------------------------------------------------- the pieces */
 
 /**
- * A block in the hub's column.
- *
- * On the phone it keeps Figma's 24px inset; from `lg` the inset belongs to the page
- * (`PAGE`, applied once in `WorkHub`) and the vertical rhythm to the column's own
- * gap, so a block stops carrying either. No `overflow-clip` here any more: these
- * blocks hold cards that now cast a shadow, and clipping the block clipped it.
+ * The account the desk belongs to, read once; each view draws from it, and
+ * until it lands the view's own skeleton (`skeleton`) holds its place.
  */
-const BLOCK =
-  "flex w-full shrink-0 flex-col items-start gap-2.5 px-6 pt-2 pb-1 lg:px-0 lg:pt-0 lg:pb-0";
-
-/** A row that opens something — every one of them lights up under the pointer. */
-const ROW = "flex w-full items-center gap-3 p-3.5 transition-colors hover:bg-muted/50";
-
-function Avatar({
-  src,
-  size,
-}: {
-  readonly src: StaticImageData;
-  readonly size: "md" | "lg";
+function WithProfile({ tab, skeleton, children }: {
+  readonly tab: "today" | "earnings";
+  readonly skeleton: ReactNode;
+  readonly children: (profile: ApiOwnProfile) => ReactNode;
 }) {
+  const t = useTranslations("workDesk");
+  const profile = useOwnProfile();
+  if (profile.data) return children(profile.data);
   return (
-    <Image
-      alt=""
-      className={cn(
-        "shrink-0 rounded-full object-cover",
-        size === "lg" ? "size-11" : "size-10",
+    <WorkHub tab={tab}>
+      {profile.error ? (
+        <div className="mt-5 lg:mt-8">
+          <ApiErrorCard className={ERROR_CARD_LG} error={profile.error} onRetry={profile.reload} title={t("loadFailed")} />
+        </div>
+      ) : (
+        skeleton
       )}
-      src={src}
-    />
+    </WorkHub>
   );
 }
 
-/**
- * Figma "Session row" — portrait, name over service, the time, a chevron.
- *
- * The href carries the session's id. Every row used to point at a bare
- * `/work/session`, so three different sessions opened one sheet describing a fourth.
- */
-function SessionRow({ session }: { readonly session: SessionFixture }) {
-  return (
-    <Link className={ROW} href={`/work/session?id=${session.id}`}>
-      <Avatar size="md" src={session.avatar} />
-      <div className="flex min-w-px flex-1 flex-col items-start gap-0.5 overflow-clip">
-        <p className="w-full text-sm font-semibold text-foreground">
-          {session.adviseeName}
-        </p>
-        <p className="w-full truncate text-xs font-normal text-muted-foreground">
-          {session.serviceTitle}
-        </p>
-      </div>
-      <p className="shrink-0 font-latin text-sm font-medium tabular-nums whitespace-nowrap text-foreground">
-        {session.range}
-      </p>
-      <ChevronRight className="size-4 shrink-0 text-muted-foreground" />
-    </Link>
-  );
-}
-
-const PENDING_ICON: Record<(typeof PENDING_ITEMS)[number]["id"], LucideIcon> = {
-  bookings: CalendarDays,
-  screening: FileText,
-  reviews: Star,
-};
+/* ------------------------------------------------------------------- today */
 
 /**
- * Figma "Advisor dashboard" (1962:9214) — today at a glance. The next session is the
- * only card the accent outlines, because it is the one thing on the screen that can
- * be acted on right now.
+ * `/work`: the advisor's sessions, one column down the middle of the page.
+ * Two capsules choose the day — today, or everything from tomorrow on — and
+ * under them one large line says how many there are, then each session is a
+ * card: when, who in a large circle, the service, and a word when it is under
+ * way or over. A card is the way into its session, where joining and the chat
+ * are. With nothing there, the line, what will land here, and one grey button
+ * (to the sessions ahead, or to the services). A banner says so above it all
+ * while the advisor's identity is not verified. Every session is the API's.
  */
 export function WorkTodayScreen() {
-  const t = useTranslations("work");
-  const today = useTodayLabel();
+  return (
+    <WithProfile skeleton={<TodaySkeleton />} tab="today">
+      {(profile) => <Today profile={profile} />}
+    </WithProfile>
+  );
+}
+
+/** The page's two views, in the capsules' order. */
+const VIEWS = ["today", "upcoming"] as const;
+
+type View = (typeof VIEWS)[number];
+
+/** How many sessions ahead the upcoming view draws. */
+const UPCOMING_CARDS = 12;
+
+/** A capsule: 36 tall on a phone, 48 from `lg`, the label at 14 then 16, 12 apart. */
+const VIEW_CAPSULE = "h-9 rounded-full px-4 text-sm font-medium lg:h-12 lg:px-6 lg:text-base";
+
+/** The capsules while they load, at their labels' widths. */
+const VIEW_BONES = ["w-16 lg:w-21", "w-24 lg:w-30"];
+
+/** The large line's type: 32 on 36, semibold and drawn in. */
+const HEADLINE_TYPE = "text-heading-lg leading-9 font-semibold tracking-tight";
+
+/** How far the large line sits under the capsules: further when nothing follows it. */
+const HEADLINE_GAP = "mt-8 lg:mt-16";
+const HEADLINE_GAP_EMPTY = "mt-12 lg:mt-24";
+
+/**
+ * The cards: one column on a phone, at most 352 wide; from `md` as many
+ * 17rem columns as the page holds (four abreast on a 1440 screen), the empty
+ * ones folded away so one or two cards still stand in the middle.
+ */
+const CARD_GRID =
+  "mt-8 grid w-full max-w-88 grid-cols-1 gap-4 md:max-w-none md:grid-cols-[repeat(auto-fit,minmax(0,17rem))] md:justify-center lg:mt-10 lg:gap-6";
+
+/** A session's card: white, a hairline and a soft shadow, everything on its centre line. */
+const CARD = "flex w-full min-w-0 flex-col items-center rounded-3xl border border-border bg-card p-6 text-center shadow-hero-card lg:px-8 lg:py-10";
+
+/**
+ * The card's lines, top to bottom: when, the face, who, and the service.
+ * When is held to one line box (`h-lh`): its figures are in the Latin face,
+ * whose own leading would otherwise make the line a hair taller than its bone.
+ */
+const CARD_WHEN = "h-lh text-sm font-medium lg:text-frame-meta";
+const CARD_FACE = "mt-6 size-20 shrink-0 rounded-full lg:mt-9 lg:size-24";
+const CARD_NAME = "mt-6 w-full text-xl font-semibold lg:mt-8 lg:text-frame-figure";
+const CARD_LINE = "mt-1 w-full text-sm lg:text-frame-meta";
+
+/** The grey button under an empty page: 40 tall on a phone, 48 from `lg`, on the `xl` corner. */
+const EMPTY_ACTION =
+  "mt-8 h-10 rounded-xl bg-muted px-5 text-sm font-medium text-foreground hover:bg-muted/70 hover:text-foreground lg:mt-12 lg:h-12 lg:px-6 lg:text-base";
+
+/** On the advisor's day: confirmed, under way or done — not held for payment, not called off. */
+function isConfirmed(booking: AdvisorBooking): boolean {
+  return booking.state === "BOOKED" || booking.state === "IN_PROGRESS" || booking.state === "COMPLETED";
+}
+
+/**
+ * One session as a card, the whole of it the way into the session: when it
+ * is (the hours today; the day and the hours ahead), who in a large circle,
+ * their name, the service, and one small word while it is under way or once
+ * it is over. Times are in the advisor's own zone.
+ */
+function SessionCard({ booking, view, now, timeZone }: {
+  readonly booking: AdvisorBooking;
+  readonly view: View;
+  readonly now: number;
+  readonly timeZone: string;
+}) {
+  const t = useTranslations("workDesk");
+  const format = useFormatter();
+  const clock = (iso: string) => format.dateTime(new Date(iso), { hour: "2-digit", minute: "2-digit", hourCycle: "h23", timeZone });
+  const finished = booking.state === "COMPLETED" || Date.parse(booking.endTime) <= now;
+  const live = !finished && Date.parse(booking.startTime) <= now;
 
   return (
-    <WorkHub
-      subtitle={t("todaySubtitle", { date: today, count: TODAY_SESSIONS.length })}
-      tab="today"
-    >
-      {/* Figma's desktop dashboard stands the pending desk beside today's
-          sessions rather than under them; the phone stacks the two. */}
-      <div className={cn("contents", SPLIT_WITH_RAIL)}>
-        <section className={BLOCK}>
-          <WorkSectionHead
-            title={t("todaySessions")}
-            trailing={
-              <p className="shrink-0 text-sm font-normal whitespace-nowrap text-muted-foreground">
-                {t("sessionCount", { count: TODAY_SESSIONS.length })}
-              </p>
-            }
-          />
+    <li className="flex min-w-0">
+      <Link
+        className={cn(CARD, "outline-none hover:shadow-hero-card-hover focus-visible:ring-3 focus-visible:ring-ring/50")}
+        href={`/work/session?id=${booking.id}`}
+      >
+        <span className={cn(CARD_WHEN, "text-foreground")}>
+          {view === "upcoming" ? (
+            <>
+              {format.dateTime(new Date(booking.startTime), { weekday: "short", day: "numeric", month: "short", timeZone })}
+              {" · "}
+            </>
+          ) : null}
+          <span className="font-latin tabular-nums">
+            {clock(booking.startTime)}–{clock(booking.endTime)}
+          </span>
+        </span>
+        {/* Their face, and the service's photograph on its lower right edge,
+            ringed in the card's white; the initial while there is no face. */}
+        <span aria-hidden className={cn(CARD_FACE, "relative")}>
+          <Avatar className="size-full after:hidden">
+            {booking.adviseeAvatarUrl ? <AvatarImage alt="" src={booking.adviseeAvatarUrl} /> : null}
+            <AvatarFallback className="bg-muted text-2xl font-medium text-foreground lg:text-frame-title">
+              {initialsOf(booking.adviseeName).charAt(0)}
+            </AvatarFallback>
+          </Avatar>
+          {booking.serviceImageUrl ? (
+            <Avatar className="absolute -right-5 bottom-0 size-9 rounded-lg ring-3 ring-card after:hidden lg:-right-6.5 lg:size-11">
+              <AvatarImage alt="" className="rounded-lg" src={booking.serviceImageUrl} />
+              <AvatarFallback className="rounded-lg" />
+            </Avatar>
+          ) : null}
+        </span>
+        <span className={cn(CARD_NAME, "truncate text-foreground")}>{booking.adviseeName}</span>
+        <span className={cn(CARD_LINE, "truncate text-muted-foreground")}>{booking.serviceName}</span>
+        {live || finished ? (
+          <span className={cn("mt-1 text-xs font-medium lg:text-frame-label", live ? "text-hero-ink" : "text-muted-foreground")}>
+            {live ? t("inSession") : t("finished")}
+          </span>
+        ) : null}
+      </Link>
+    </li>
+  );
+}
 
-          {/* The accent border stays — it is the one card on the screen that can be
-              acted on now — and it finally sits on the elevation the rest of the
-              app got, so it reads as raised rather than merely outlined. */}
-          <Surface className="flex w-full flex-col items-start gap-3.5 border-primary p-3.5 lg:p-4">
-            <div className="flex w-full shrink-0 items-center gap-2">
-              <p className="min-w-px flex-1 text-sm font-semibold text-primary">
-                {t("nextSession")}
-              </p>
-              <StatusPill tone="accent">
-                {t("startsIn", { minutes: NEXT_SESSION.startsInMinutes })}
-              </StatusPill>
-            </div>
-            <div className="flex w-full shrink-0 items-center gap-3">
-              <Avatar size="lg" src={NEXT_SESSION.avatar} />
-              <div className="flex min-w-px flex-1 flex-col items-start gap-0.5 overflow-clip">
-                <p className="text-base font-semibold text-foreground lg:text-lg">
-                  {NEXT_SESSION.adviseeName}
-                </p>
-                <p className="text-sm font-normal text-muted-foreground">
-                  {t("serviceAndLength", {
-                    service: NEXT_SESSION.serviceTitle,
-                    hours: NEXT_SESSION.durationHours,
-                  })}
-                </p>
-              </div>
-            </div>
-            <div className="flex w-full shrink-0 items-center gap-2">
-              <Clock className="size-4 shrink-0 text-muted-foreground" />
-              <p className="font-latin text-sm font-medium tabular-nums whitespace-nowrap text-foreground">
-                {t("todayRange", { range: NEXT_SESSION.range })}
-              </p>
-            </div>
-            {/* Two thumb-width buttons on the phone; on a 1200 column they size to
-                their labels instead of stretching into a pair of slabs. */}
-            <div className="flex w-full shrink-0 items-start gap-2 lg:w-auto">
-              <PrimaryButton
-                className="min-w-px flex-1 lg:flex-none"
-                href="/chat/sarah-jenskins"
-              >
-                {t("joinRoom")}
-              </PrimaryButton>
-              <NeutralButton
-                className="w-auto shrink-0"
-                href={`/work/session?id=${NEXT_SESSION.id}`}
-              >
-                {t("details")}
-              </NeutralButton>
-            </div>
-          </Surface>
+/** A card while the bookings load: the same card, each line one line box of its step with the bone inside, the circle whole. */
+function SessionCardBone() {
+  return (
+    <li className="flex min-w-0">
+      <div className={CARD}>
+        <span className={cn(CARD_WHEN, "flex items-center")}>
+          <span className={cn(DESK_BONE, "h-3.5 w-24 rounded lg:h-4 lg:w-28")} />
+        </span>
+        <span className={cn(DESK_BONE, CARD_FACE)} />
+        <span className={cn(CARD_NAME, "flex h-lh items-center justify-center")}>
+          <span className={cn(DESK_BONE, "h-5 w-36 rounded-md lg:h-5.5 lg:w-40")} />
+        </span>
+        <span className={cn(CARD_LINE, "flex h-lh items-center justify-center")}>
+          <span className={cn(DESK_BONE, "h-3.5 w-28 rounded lg:h-4 lg:w-32")} />
+        </span>
+      </div>
+    </li>
+  );
+}
 
-          <SurfaceList>
-            {LATER_TODAY.map((session) => (
-              <SessionRow key={session.id} session={session} />
-            ))}
-          </SurfaceList>
-        </section>
+/**
+ * `/work` while the account or its bookings are on their way: the capsules
+ * at their sizes, the large line as one line box with its bone, and three
+ * cards in the cards' own shape, so nothing shifts when the sessions land.
+ */
+function TodaySkeleton() {
+  const t = useTranslations("workDesk");
+  return (
+    <div aria-busy className="flex w-full flex-col items-center">
+      <span className="sr-only">{t("loading")}</span>
+      <div aria-hidden className="mt-6 flex gap-3">
+        {VIEW_BONES.map((width) => (
+          <span className={cn(DESK_BONE, "h-9 shrink-0 rounded-full lg:h-12", width)} key={width} />
+        ))}
+      </div>
+      <span aria-hidden className={cn(HEADLINE_TYPE, HEADLINE_GAP, "flex h-lh items-center")}>
+        <span className={cn(DESK_BONE, "h-6 w-64 rounded-md")} />
+      </span>
+      <ul aria-hidden className={CARD_GRID}>
+        {[0, 1, 2].map((card) => (
+          <SessionCardBone key={card} />
+        ))}
+      </ul>
+    </div>
+  );
+}
 
-        <section className={BLOCK}>
-          <WorkSectionHead title={t("pendingTitle")} />
-          <SurfaceList>
-            {PENDING_ITEMS.map((item) => {
-              const Icon = PENDING_ICON[item.id];
+/** Said once, above everything, while customers cannot book the advisor yet. */
+function VerificationBanner() {
+  const t = useTranslations("workDesk");
+  const profile = useResource<ApiOwnAdvisorProfile | null>(
+    "advisors/me",
+    useCallback((signal: AbortSignal) => getOwnAdvisorProfile(signal), []),
+  );
+  const status = profile.data?.verificationStatus;
+  if (!status || status === "VERIFIED") return null;
+  return (
+    <div className="mt-5 flex flex-col gap-3 rounded-2xl bg-muted/60 px-4 py-3.5 md:flex-row md:items-center md:justify-between lg:mt-8 lg:px-6 lg:py-5" role="status">
+      <div className="flex items-start gap-3">
+        <ShieldCheck aria-hidden className="mt-0.5 size-5 shrink-0 text-foreground" />
+        <div className="flex flex-col gap-0.5">
+          <p className="text-sm font-semibold text-foreground lg:text-frame-body">{t(`verify.${status}.title`)}</p>
+          <p className="text-xs text-muted-foreground lg:text-frame-meta">{t(`verify.${status}.body`)}</p>
+        </div>
+      </div>
+      {status !== "SUBMITTED" ? (
+        <Button className={cn(authPill(true), DESK_PILL)} nativeButton={false} render={<Link href="/advisor-onboarding/stage-2" />}>
+          {t("verifyAction")}
+        </Button>
+      ) : null}
+    </div>
+  );
+}
+
+function Today({ profile }: { readonly profile: ApiOwnProfile }) {
+  const t = useTranslations("workDesk");
+  const now = useMountTime();
+  const timeZone = profile.timezone;
+  const bookings = useAdvisorBookings(profile);
+  const [view, setView] = useState<View>("today");
+
+  const today = bookingDay(now, timeZone);
+  const all = (bookings.data ?? []).toSorted((a, b) => a.startTime.localeCompare(b.startTime));
+  // Today: every confirmed session on the advisor's day, the ones already over too.
+  const todays = all.filter((booking) => isConfirmed(booking) && bookingDay(booking.startTime, timeZone) === today);
+  // Upcoming: what is still ahead from tomorrow on.
+  const upcoming = all.filter((booking) => isAhead(booking, now) && bookingDay(booking.startTime, timeZone) > today);
+  const count = view === "today" ? todays.length : upcoming.length;
+  const cards = view === "today" ? todays : upcoming.slice(0, UPCOMING_CARDS);
+  // Today empty with sessions ahead: the way to them; otherwise the way to the services that get booked.
+  const toUpcoming = view === "today" && upcoming.length > 0;
+
+  return (
+    <WorkHub tab="today">
+      <VerificationBanner />
+      {bookings.error ? (
+        <div className="mt-5 lg:mt-8">
+          <ApiErrorCard className={ERROR_CARD_LG} error={bookings.error} onRetry={bookings.reload} title={t("loadFailed")} />
+        </div>
+      ) : !bookings.data ? (
+        <TodaySkeleton />
+      ) : (
+        <div className="flex w-full flex-col items-center">
+          {/* `<fieldset>`: a group by its own semantics; reset so it lays out as the row it is. */}
+          <fieldset aria-label={t("viewsLabel")} className="mx-0 mt-6 flex min-w-0 gap-3 border-0 p-0">
+            {VIEWS.map((key) => {
+              const active = key === view;
               return (
-                <Link className={ROW} href={item.href} key={item.id}>
-                  <Icon className="size-4.5 shrink-0 text-muted-foreground" />
-                  <p className="min-w-px flex-1 text-sm font-medium text-foreground">
-                    {t(`pending.${item.id}`)}
-                  </p>
-                  <span className="shrink-0 rounded-full bg-primary px-[9px] py-0.5 font-latin text-xs font-normal tabular-nums text-primary-foreground">
-                    {item.count}
-                  </span>
-                  <ChevronRight className="size-4 shrink-0 text-muted-foreground" />
-                </Link>
+                <Button
+                  aria-pressed={active}
+                  className={cn(
+                    VIEW_CAPSULE,
+                    active
+                      ? "bg-hero-action/85 text-hero-action-foreground hover:bg-hero-action hover:text-hero-action-foreground"
+                      : "bg-muted text-foreground hover:bg-muted/70 hover:text-foreground",
+                  )}
+                  key={key}
+                  onClick={() => setView(key)}
+                  type="button"
+                >
+                  {t(key)}
+                </Button>
               );
             })}
-          </SurfaceList>
-        </section>
-      </div>
-    </WorkHub>
-  );
-}
+          </fieldset>
 
-/**
- * Figma "Advisor calendar" (1374:20803) — the month around today. Past days fade,
- * today takes the accent, and a dot under a date means a session is booked on it.
- *
- * The grid is computed, so it disagrees with the frame on purpose: the frame puts
- * the 16th on a Saturday, and 16 August 2026 is a Sunday.
- *
- * Three things were wrong with it. The dots started on the 17th while the same
- * screen listed three sessions today. The legend drew a filled circle for "วันนี้"
- * next to a cell that was a filled *square*, and a dot for "มีเซสชัน" that the cell
- * did draw — so half the key described something that was not on screen. And at 1440
- * it was forty-eight-pixel dots floating in 171px columns with no grid at all, which
- * is not a calendar, it is a scatter plot.
- */
-export function WorkCalendarScreen() {
-  const t = useTranslations("work");
-  const s = useTranslations("serviceSchedule");
-  const today = useTodayLabel();
-  const cells = monthGrid(TODAY.year, TODAY.month);
-  /** Where the last week starts — its cells own the card's bottom edge. */
-  const lastRow = cells.length - 7;
-
-  return (
-    <WorkHub subtitle={t("calendarSubtitle")} tab="calendar">
-      <div className={cn("contents", SPLIT_WITH_RAIL)}>
-        <section className={BLOCK}>
-          {/* The month used to sit between two `<span role="img">`s dressed as
-              buttons — a control that could not be pressed, with an aria-label
-              promising it could. Only this month has sessions, so there is nowhere
-              for an arrow to go; the row states the month and what is booked in it. */}
-          <WorkSectionHead
-            title={t("monthLabel", { year: buddhistYear(TODAY.year) })}
-            trailing={
-              <p className="shrink-0 text-sm font-normal whitespace-nowrap text-muted-foreground">
-                {t("sessionCount", { count: MONTH_SESSION_COUNT })}
-              </p>
-            }
-          />
-
-          <Surface className="w-full overflow-hidden">
-            <div className="grid w-full grid-cols-7">
-              {WEEKDAY_KEYS.map((key) => (
-                <p
-                  className="py-2 text-center text-xs font-normal text-muted-foreground lg:border-b lg:border-border lg:bg-muted/40 lg:py-2.5"
-                  key={key}
-                >
-                  {s(`weekdayShort.${key}`)}
-                </p>
-              ))}
-              {cells.map((cell, index) => {
-                const isToday = cell.inMonth && cell.day === TODAY.day;
-                const past = cell.inMonth && cell.day < TODAY.day;
-                const count = cell.inMonth
-                  ? SESSIONS_BY_DAY.get(cell.day)
-                  : undefined;
-
-                return (
-                  <div
-                    className={cn(
-                      // A 48px dot on the phone; a real 171×88 cell with a
-                      // hairline on every edge from `lg`.
-                      "relative flex h-12 flex-col items-center justify-center",
-                      "lg:h-22 lg:items-start lg:justify-start lg:gap-1 lg:p-2",
-                      index % 7 !== 6 && "lg:border-r lg:border-border",
-                      index < lastRow && "lg:border-b lg:border-border",
-                      !cell.inMonth && "lg:bg-muted/40",
-                    )}
-                    // The same date can appear twice (a trailing 1 and the 1st).
-                    key={`${index}-${cell.day}`}
-                  >
-                    <span
-                      className={cn(
-                        "flex size-10 shrink-0 items-center justify-center rounded-full font-latin text-base font-normal tabular-nums lg:size-8 lg:text-sm",
-                        (!cell.inMonth || past) && "text-muted-foreground/50",
-                        cell.inMonth && !past && !isToday && "text-foreground",
-                        // A filled circle, which is what the legend has always
-                        // drawn for it.
-                        isToday && "bg-primary font-medium text-primary-foreground",
-                      )}
-                    >
-                      {cell.day}
-                    </span>
-                    {count ? (
-                      <span className="absolute bottom-1.5 flex items-center gap-1.5 lg:static lg:pl-1.5">
-                        <span
-                          className={cn(
-                            "size-1.5 shrink-0 rounded-full",
-                            // Inside the accent circle on the phone, on the cell
-                            // ground at desktop — it has to stay visible on both.
-                            isToday
-                              ? "bg-primary-foreground lg:bg-primary"
-                              : "bg-primary",
-                          )}
-                        />
-                        <span className="hidden text-xs font-normal whitespace-nowrap text-muted-foreground lg:inline">
-                          {t("sessionCount", { count })}
-                        </span>
-                      </span>
-                    ) : null}
-                  </div>
-                );
-              })}
-            </div>
-          </Surface>
-
-          <div className="flex w-full shrink-0 items-center gap-4 py-1">
-            <span className="flex items-center gap-1.5 text-xs font-normal text-muted-foreground">
-              <span className="size-1.5 rounded-full bg-primary" />
-              {t("legendSession")}
-            </span>
-            <span className="flex items-center gap-1.5 text-xs font-normal text-muted-foreground">
-              <span className="size-2.5 rounded-full bg-primary" />
-              {t("legendToday")}
-            </span>
-          </div>
-        </section>
-
-        <section className={BLOCK}>
-          <WorkSectionHead
-            title={t("todayHeading", { date: today })}
-            trailing={
-              <p className="shrink-0 text-sm font-normal whitespace-nowrap text-muted-foreground">
-                {t("sessionCount", { count: TODAY_SESSIONS.length })}
-              </p>
-            }
-          />
-          <SurfaceList>
-            {TODAY_SESSIONS.map((session) => (
-              <SessionRow key={session.id} session={session} />
-            ))}
-          </SurfaceList>
-          {/* A well, not a card: the free slots are what is *left* of the day above
-              them, so they belong under that surface rather than beside it. */}
-          <Link
-            className={cn(
-              surfaceClass({ tier: "well" }),
-              "flex w-full items-center gap-3 p-3.5 transition-colors hover:bg-border/40",
-            )}
-            href="/availability/profiles"
+          <h2
+            className={cn(HEADLINE_TYPE, "max-w-93 text-center text-balance text-foreground", cards.length > 0 ? HEADLINE_GAP : HEADLINE_GAP_EMPTY)}
+            id="work-today-headline"
           >
-            <div className="flex min-w-px flex-1 flex-col items-start gap-0.5 overflow-clip">
-              <p className="text-sm font-semibold text-foreground">
-                {t("freeGaps", { count: FREE_GAPS.length })}
+            {view === "today" ? t("todayHeadline", { count }) : t("upcomingHeadline", { count })}
+          </h2>
+
+          {cards.length > 0 ? (
+            <ul aria-labelledby="work-today-headline" className={CARD_GRID}>
+              {cards.map((booking) => (
+                <SessionCard booking={booking} key={booking.id} now={now} timeZone={timeZone} view={view} />
+              ))}
+            </ul>
+          ) : (
+            <>
+              <p className="mt-4 max-w-93 text-center text-base text-balance text-muted-foreground lg:text-lg lg:leading-6">
+                {toUpcoming ? t("todayEmptyBody") : t("emptyBody")}
               </p>
-              <p className="font-latin text-xs font-normal tabular-nums text-muted-foreground">
-                {FREE_GAPS.join(" · ")}
-              </p>
-            </div>
-            <span className="shrink-0 text-sm font-medium text-primary">
-              {t("manage")}
-            </span>
-            <ChevronRight className="size-4 shrink-0 text-muted-foreground" />
-          </Link>
-        </section>
-      </div>
+              {toUpcoming ? (
+                <Button className={EMPTY_ACTION} onClick={() => setView("upcoming")} type="button" variant="ghost">
+                  {t("seeUpcoming")}
+                </Button>
+              ) : (
+                <Button className={EMPTY_ACTION} nativeButton={false} render={<Link href="/advisor/services" />} variant="ghost">
+                  {t("emptyAction")}
+                </Button>
+              )}
+            </>
+          )}
+        </div>
+      )}
     </WorkHub>
   );
 }
 
-/**
- * The ledger's three buckets. The tone is the point: "รอยืนยัน", "อยู่ระหว่างการถอน"
- * and "ถอนแล้ว" were three lines of identical grey, so the reader had to read the
- * words to learn whether the money had arrived.
- */
-const LEDGER = [
-  { key: "inTransit", icon: Clock, tone: "info" },
-  { key: "pending", icon: ShieldCheck, tone: "warning" },
-  { key: "withdrawn", icon: Wallet, tone: "success" },
-] as const satisfies ReadonlyArray<{
-  readonly key: string;
-  readonly icon: LucideIcon;
-  readonly tone: StatusTone;
-}>;
+/* ---------------------------------------------------------------- calendar */
 
-/** A paid session's payout state, in the same colour vocabulary as the ledger. */
-const CONSULTATION_TONE: Record<
-  (typeof RECENT_CONSULTATIONS)[number]["state"],
-  StatusTone
-> = {
-  pending: "warning",
-  available: "success",
+export function WorkCalendarScreen() {
+  return <AdvisorCalendarScreen />;
+}
+
+/* ---------------------------------------------------------------- earnings */
+
+/** A payout's state in its own word and ink, as the transactions page colours an outcome. */
+const PAYOUT_INK: Record<ApiPayout["status"], string> = {
+  PENDING: "text-warning",
+  PAID: "text-success",
+  FAILED: "text-destructive",
 };
 
 /**
- * Figma "Advisor dashboard - Earnings" (1374:20941) — the balance, the ledger and
- * the latest paid sessions. Also `/earnings`: there were two earnings screens with
- * two copies of the same ledger, and this is the one that survived.
- *
- * One figure is set at 28px — the balance — and every other amount on the screen at
- * 14px, in `font-latin tabular-nums` and right-aligned, so a column of money lines
- * up on the decimal instead of wandering a pixel per digit.
+ * `/work/earnings`: what the platform has paid the advisor and what it is
+ * paying. The figures (paid in, on its way, how many transfers), then every
+ * payout a month to a group, newest first — each the net that reached the
+ * account over its state, the transfer fee under the date. All of it is
+ * `GET /advisors/me/payouts`.
  */
 export function WorkEarningsScreen() {
-  const t = useTranslations("work");
-  const a = useTranslations("advisor");
-  const today = useTodayLabel();
+  return (
+    <WithProfile skeleton={<EarningsSkeleton />} tab="earnings">
+      {(profile) => <Earnings profile={profile} />}
+    </WithProfile>
+  );
+}
+
+/** The earnings page while it loads, the account or its payouts: the capsules' row over a month of payouts. */
+function EarningsSkeleton() {
+  const t = useTranslations("workDesk");
+  return <DeskListSkeleton capsules={EARNINGS_CAPSULES} label={t("loading")} rows={1} />;
+}
+
+function Earnings({ profile }: { readonly profile: ApiOwnProfile }) {
+  const t = useTranslations("workDesk");
+  const format = useFormatter();
+  const baht = useBaht();
+  const payouts = usePayouts();
+  const timeZone = profile.timezone;
+
+  const [shown, setShown] = useState<"all" | ApiPayout["status"]>("all");
+  const items = payouts.data?.items ?? [];
+  const sum = (status: ApiPayout["status"]) =>
+    items.filter((item) => item.status === status).reduce((total, item) => total + item.netAmountSatang, 0);
+  const visible = shown === "all" ? items : items.filter((item) => item.status === shown);
+
+  const months: { key: string; label: string; rows: ApiPayout[] }[] = [];
+  for (const payout of visible.toSorted((a, b) => b.createdAt.localeCompare(a.createdAt))) {
+    const key = bookingDay(payout.createdAt, timeZone).slice(0, 7);
+    let group = months.at(-1);
+    if (group?.key !== key) {
+      group = { key, label: format.dateTime(new Date(payout.createdAt), { month: "long", year: "numeric", timeZone }), rows: [] };
+      months.push(group);
+    }
+    group.rows.push(payout);
+  }
 
   return (
     <WorkHub
-      subtitle={t("todaySubtitle", { date: today, count: TODAY_SESSIONS.length })}
+      action={
+        <Button className={cn(authPill(false), DESK_PILL)} nativeButton={false} render={<Link href="/earnings/payout-account" />} variant="outline">
+          <CreditCard aria-hidden />
+          {t("toolPayoutAccount")}
+        </Button>
+      }
       tab="earnings"
     >
-      <div className={cn("contents", SPLIT_WITH_RAIL)}>
-        {/* The money reads as one column and the account settings as another; on the
-            phone the four blocks stay in the order they are written. */}
-        <div className="contents lg:flex lg:flex-col lg:gap-5">
-          <section className={BLOCK}>
-            <Surface className="flex w-full flex-col items-start gap-4 p-4 lg:flex-row lg:items-end lg:justify-between lg:p-5">
-              <div className="flex min-w-px items-start gap-3">
-                <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
-                  <Wallet aria-hidden className="size-4.5" />
-                </span>
-                <div className="flex min-w-px flex-col items-start gap-0.5">
-                  <p className="text-xs font-normal text-muted-foreground">
-                    {a("available")}
-                  </p>
-                  <p className="font-latin text-heading font-semibold tabular-nums text-foreground">
-                    {a("availableAmount")}
-                  </p>
-                  <p className="text-xs font-normal text-muted-foreground">
-                    {a("withdrawnMeta")}
-                  </p>
-                </div>
-              </div>
-              <PrimaryButton href="/earnings/payout-account">
-                {a("withdrawCta")}
-              </PrimaryButton>
-            </Surface>
-
-            <SurfaceList>
-              {LEDGER.map(({ icon: Icon, key, tone }) => (
-                <div
-                  className="flex w-full items-start gap-3 p-3.5"
-                  key={key}
-                >
-                  <Icon className="mt-0.5 size-4.5 shrink-0 text-muted-foreground" />
-                  <div className="flex min-w-px flex-1 flex-col items-start gap-1 overflow-clip">
-                    <StatusPill tone={tone}>{a(key)}</StatusPill>
-                    <p className="w-full text-xs font-normal text-muted-foreground">
-                      {a(`${key}Meta`)}
-                    </p>
-                  </div>
-                  <p className="shrink-0 pt-0.5 text-right font-latin text-sm font-medium tabular-nums text-foreground">
-                    {a(`${key}Amount`)}
-                  </p>
-                </div>
-              ))}
-            </SurfaceList>
-          </section>
-
-          <section className={BLOCK}>
-            <div className="flex w-full shrink-0 items-center gap-2">
-              <h2 className="min-w-px flex-1 text-base font-semibold text-foreground lg:text-lg">
-                {t("recentTitle")}
-              </h2>
-              <Link
-                className="shrink-0 text-sm font-medium text-primary"
-                href="/transactions"
-              >
-                {t("seeAll")}
-              </Link>
-            </div>
-            <SurfaceList>
-              {RECENT_CONSULTATIONS.map((item) => (
-                <div
-                  className="flex w-full items-center gap-3 p-3.5"
-                  key={item.id}
-                >
-                  <Avatar size="md" src={item.avatar} />
-                  <div className="flex min-w-px flex-1 flex-col items-start gap-0.5 overflow-clip">
-                    <p className="text-sm font-semibold text-foreground">
-                      {item.name}
-                    </p>
-                    <p className="truncate text-xs font-normal text-muted-foreground">
-                      {item.meta}
-                    </p>
-                  </div>
-                  <div className="flex shrink-0 flex-col items-end gap-1">
-                    <p className="text-right font-latin text-sm font-medium tabular-nums text-foreground">
-                      {item.amount}
-                    </p>
-                    <StatusPill tone={CONSULTATION_TONE[item.state]}>
-                      {t(`consultationState.${item.state}`)}
-                    </StatusPill>
-                  </div>
-                </div>
-              ))}
-            </SurfaceList>
-          </section>
+      {payouts.error ? (
+        <div className="mt-5 lg:mt-8">
+          <ApiErrorCard className={ERROR_CARD_LG} error={payouts.error} onRetry={payouts.reload} title={t("earningsLoadFailed")} />
         </div>
-
-        <section className={BLOCK}>
-          <SurfaceList>
-            <Link className={ROW} href="/earnings/payout-account">
-              <CreditCard className="size-4.5 shrink-0 text-muted-foreground" />
-              <p className="min-w-px flex-1 text-sm font-medium text-foreground">
-                {t("payoutAccount")}
-              </p>
-              <p className="shrink-0 text-xs font-normal text-muted-foreground">
-                {PAYOUT_ACCOUNT}
-              </p>
-              <ChevronRight className="size-4 shrink-0 text-muted-foreground" />
-            </Link>
-            <Link className={ROW} href="/earnings/payout-history">
-              <History className="size-4.5 shrink-0 text-muted-foreground" />
-              <p className="min-w-px flex-1 text-sm font-medium text-foreground">
-                {t("payoutHistory")}
-              </p>
-              <ChevronRight className="size-4 shrink-0 text-muted-foreground" />
-            </Link>
-          </SurfaceList>
-        </section>
-      </div>
+      ) : !payouts.data ? (
+        <EarningsSkeleton />
+      ) : items.length === 0 ? (
+        <DeskEmpty
+          action={{ label: t("earningsEmptyAction"), href: "/earnings/payout-account" }}
+          body={t("earningsEmptyBody")}
+          icon={Wallet}
+          title={t("earningsEmptyTitle")}
+        />
+      ) : (
+        <>
+          {/* What each holds is its sum: the money is the point of the page. */}
+          <DeskFilter
+            label={t("historyTitle")}
+            onChange={setShown}
+            options={[
+              { key: "all", label: t("filterAll"), note: format.number(items.length) },
+              { key: "PAID", label: t("payoutStatus.PAID"), note: baht(sum("PAID")) },
+              { key: "PENDING", label: t("payoutStatus.PENDING"), note: baht(sum("PENDING")) },
+              ...(items.some((item) => item.status === "FAILED")
+                ? [{ key: "FAILED" as const, label: t("payoutStatus.FAILED"), note: baht(sum("FAILED")) }]
+                : []),
+            ]}
+            value={shown}
+          />
+          {months.length === 0 ? (
+            <p className="pt-8 text-sm text-muted-foreground lg:pt-12 lg:text-frame-body">{t("filteredEmpty")}</p>
+          ) : (
+            <div className="flex flex-col divide-y divide-border">
+              {months.map((month) => (
+                <DayGroup key={month.key} label={month.label}>
+                  {month.rows.map((payout) => (
+                    <PayoutRow baht={baht} key={payout.id} payout={payout} timeZone={timeZone} />
+                  ))}
+                </DayGroup>
+              ))}
+            </div>
+          )}
+        </>
+      )}
     </WorkHub>
   );
 }
 
-/**
- * Figma "Session detail - advisor" (1961:32956) — one booked session opened up.
- *
- * The chrome stays on the server; the body is the client half, because the session
- * it describes comes from `?id=` and a static export has no server to resolve that.
- * The fallback is the next session, which is what the route showed when it could not
- * tell one session from another at all.
- */
-export function SessionDetailScreen() {
-  const t = useTranslations("work");
-  const c = useTranslations("common");
+/** One payout, the transactions page's row: the wallet in a soft circle, the transfer and its day, the net over its state. */
+function PayoutRow({ payout, timeZone, baht }: {
+  readonly payout: ApiPayout;
+  readonly timeZone: string;
+  readonly baht: (satang: number) => string;
+}) {
+  const t = useTranslations("workDesk");
+  const format = useFormatter();
+  const day = format.dateTime(new Date(payout.paidAt ?? payout.createdAt), { day: "numeric", month: "short", timeZone });
 
   return (
-    // Figma "Desktop / Session detail - advisor" (1998:29715) reads the same
-    // blocks on a column rather than a phone frame; the back chevron stays,
-    // because the workspace nav has nowhere else to put it.
-    <MobileScreen className="pb-0" wide>
-      <ScreenTopBar href="/work" label={c("back")} />
-
-      <ScreenBody className="gap-4 pb-6 lg:pb-14 lg:[&>*]:mx-auto lg:[&>*]:w-full lg:[&>*]:max-w-220">
-        <h1 className="w-full shrink-0 px-6 text-2xl font-semibold text-foreground">
-          {t("sessionTitle")}
-        </h1>
-
-        <Suspense fallback={<SessionDetailFallback />}>
-          <SessionDetailFromQuery />
-        </Suspense>
-      </ScreenBody>
-
-      <div className="flex w-full shrink-0 items-center gap-3 border-t border-border bg-card px-6 py-3 lg:justify-center">
-        <Button
-          aria-label={t("openChat")}
-          className="size-9 shrink-0"
-          nativeButton={false}
-          render={<Link href="/chat/sarah-jenskins" />}
-          size="icon"
-          variant="outline"
+    <li className="-mx-3 flex items-start gap-3 rounded-card px-3 py-2.5 lg:-mx-4 lg:gap-5 lg:px-4 lg:py-3.5">
+      <span className="flex size-9 shrink-0 items-center justify-center rounded-full bg-muted text-foreground lg:size-12">
+        <Wallet aria-hidden className="size-4 lg:size-6" strokeWidth={1.75} />
+      </span>
+      <span className="flex min-w-0 flex-1 flex-col gap-0.5 lg:gap-1">
+        <span className="truncate text-sm font-medium text-foreground lg:text-frame-body">{t("payoutTitle")}</span>
+        <span className="truncate text-xs text-muted-foreground lg:text-frame-meta">
+          <span className="font-latin tabular-nums">{day}</span>
+          {payout.transferFeeSatang > 0 ? ` · ${t("payoutFee", { fee: baht(payout.transferFeeSatang) })}` : null}
+        </span>
+      </span>
+      <span className="flex shrink-0 flex-col items-end gap-0.5 lg:gap-1">
+        <span
+          className={cn(
+            "font-latin text-sm font-semibold whitespace-nowrap tabular-nums lg:text-frame-meta",
+            payout.status === "PAID" ? "text-foreground" : "text-muted-foreground",
+          )}
         >
-          <MessageSquare className="size-4" />
-        </Button>
-        <PrimaryButton
-          className="min-w-px flex-1 lg:flex-none"
-          href="/chat/sarah-jenskins"
-        >
-          {t("joinRoom")}
-        </PrimaryButton>
-      </div>
-    </MobileScreen>
+          {baht(payout.netAmountSatang)}
+        </span>
+        <span className={cn("text-xs whitespace-nowrap lg:text-frame-label", PAYOUT_INK[payout.status])}>
+          {t(`payoutStatus.${payout.status}`)}
+        </span>
+      </span>
+    </li>
   );
+}
+
+/* ----------------------------------------------------------------- session */
+
+export function SessionDetailScreen() {
+  return <AdvisorSessionDetailScreen />;
 }

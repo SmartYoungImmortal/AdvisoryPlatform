@@ -5,9 +5,8 @@
  * can be moved into the shared `lib/api/resources.ts` later without changes.
  *
  * Each user only sees their own notifications. Other features create them on the
- * server (screening now; booking, payment, chat and reviews once they call
- * `NotificationsService.notify()`), so this file only reads them and marks them as
- * read.
+ * server (`NotificationsService.notify()`), so this file only reads them and marks
+ * them as read.
  */
 
 import { liveServiceHref } from "@/components/bookings/booking-flow";
@@ -29,7 +28,16 @@ export type NotificationType =
   | "VERIFICATION_DECIDED"
   | "POLICY_WARNING"
   /** The one each account gets on sign-up (and every account had backfilled). */
-  | "WELCOME";
+  | "WELCOME"
+  | "BOOKING_CANCELLED"
+  | "BOOKING_RESCHEDULED"
+  | "REFUND_DECIDED"
+  | "PAYOUT_FAILED"
+  | "SKILL_PROOF_DECIDED"
+  | "SCREENING_EXPIRED"
+  | "REVIEW_REPLIED"
+  | "REPORT_RESOLVED"
+  | "PAYMENT_FAILED";
 
 /** `NotificationResponseDto` */
 export interface ApiNotification {
@@ -66,6 +74,34 @@ export function countUnreadNotifications(
 
 /* -------------------------------------------------------------------- writes */
 
+/** `GET /notifications/:id`: one of the user's notifications; returns 404 for someone else's. */
+export function getNotification(
+  notificationId: string,
+  signal?: AbortSignal,
+): Promise<ApiNotification> {
+  return api.get(`notifications/${notificationId}`, { signal });
+}
+
+/** `UpcomingSessionResponseDto`: the session the mobile banner announces. */
+export interface ApiUpcomingSession {
+  readonly bookingId: string;
+  readonly serviceName: string;
+  /** The other person in the session. */
+  readonly counterpartName: string;
+  readonly role: "advisee" | "advisor";
+  readonly state: "BOOKED" | "IN_PROGRESS";
+  readonly startTime: string;
+  readonly endTime: string;
+}
+
+/**
+ * `GET /notifications/upcoming-session`: the user's session that starts within the
+ * next 10 minutes or is in progress, or null.
+ */
+export function getUpcomingSession(signal?: AbortSignal): Promise<ApiUpcomingSession | null> {
+  return api.get("notifications/upcoming-session", { signal });
+}
+
 /** `PATCH /notifications/:id/read`: returns 404 for someone else's notification. */
 export function markNotificationRead(
   notificationId: string,
@@ -101,6 +137,7 @@ export function notificationHref(notification: ApiNotification): string | null {
     case "SCREENING_REQUESTED":
       return id ? `/screening/review?requestId=${id}` : "/screening/requests";
     case "BOOKING_RECEIVED":
+    case "BOOKING_RESCHEDULED":
       return "/work/calendar";
     case "WELCOME":
       // Its first step, which its copy names. The API marks an advisor's
@@ -144,9 +181,9 @@ export type NotificationActionLabel =
  * The way on from a notification's own page, as a capsule under its message:
  * the chat it came from, the booking or the receipt it is about, and so on,
  * named for where it goes. `resourceId` is the record the API sent it about:
- * the chat room, the appointment (a booking, a reminder), the invoice, the
- * screening request, the service a decision was on. Null for a notice that
- * only informs (a policy warning).
+ * the chat room, the appointment (a booking, a reminder, a review), the invoice,
+ * the screening request, the service a decision was on. Null for a notice that
+ * only informs (a cancelled booking, a policy warning, a resolved report).
  */
 export function notificationAction(
   notification: ApiNotification,
@@ -160,19 +197,28 @@ export function notificationAction(
       // The bookings list with this one open over it, as a tap in the list opens it.
       return { href: id ? `/bookings?bookingId=${id}` : "/bookings", label: "actionBooking" };
     case "BOOKING_RECEIVED":
+    case "BOOKING_RESCHEDULED":
       return { href: "/work/calendar", label: "actionCalendar" };
+    case "REVIEW_REPLIED":
+      return { href: id ? `/bookings?bookingId=${id}` : "/bookings", label: "actionBooking" };
     case "SCREENING_REQUESTED":
       return { href: id ? `/screening/review?requestId=${id}` : "/screening/requests", label: "actionRequest" };
     case "SCREENING_DECIDED":
+    case "SCREENING_EXPIRED":
       return id ? { href: liveServiceHref(id), label: "actionService" } : null;
     case "PAYMENT_SUCCEEDED":
+    case "PAYMENT_FAILED":
+    case "REFUND_DECIDED":
       // The history with this receipt open over it, as a tap in the history opens it.
       return { href: id ? receiptHref(id) : "/transactions", label: "actionReceipt" };
     case "PAYOUT_SENT":
-      return { href: "/work", label: "actionEarnings" };
+    case "PAYOUT_FAILED":
+      // The earnings tab; "/work" alone is the advisor's home page.
+      return { href: "/work/earnings", label: "actionEarnings" };
     case "REVIEW_RECEIVED":
       return { href: "/reviews", label: "actionReviews" };
     case "VERIFICATION_DECIDED":
+    case "SKILL_PROOF_DECIDED":
       return { href: "/profile", label: "actionProfile" };
     case "WELCOME":
       return id ? { href: "/advisor/edit", label: "actionEditProfile" } : { href: "/search", label: "actionFindExpert" };
@@ -239,10 +285,15 @@ export type NotificationCategory = "booking" | "message" | "payment";
 const CATEGORY: Partial<Record<NotificationType, NotificationCategory>> = {
   BOOKING_CONFIRMED: "booking",
   BOOKING_RECEIVED: "booking",
+  BOOKING_CANCELLED: "booking",
+  BOOKING_RESCHEDULED: "booking",
   SESSION_REMINDER: "booking",
   NEW_MESSAGE: "message",
   PAYMENT_SUCCEEDED: "payment",
+  PAYMENT_FAILED: "payment",
   PAYOUT_SENT: "payment",
+  PAYOUT_FAILED: "payment",
+  REFUND_DECIDED: "payment",
 };
 
 export function notificationCategory(type: NotificationType): NotificationCategory | null {

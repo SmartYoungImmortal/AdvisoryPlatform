@@ -29,7 +29,7 @@ const SECTIONS: ReadonlyArray<{
   {
     title: "Marketing",
     node: "1090:16061",
-    screens: [{ href: "/landing", label: "Landing – About & FAQ" }],
+    screens: [{ href: "/about", label: "About" }],
   },
   {
     title: "Auth",
@@ -84,7 +84,6 @@ const SECTIONS: ReadonlyArray<{
     node: "995:11175",
     screens: [
       { href: "/matching", label: "Problem description" },
-      { href: "/matching/searching", label: "Matching in progress" },
       { href: "/matching/results", label: "Matched advisors" },
     ],
   },
@@ -145,7 +144,6 @@ const SECTIONS: ReadonlyArray<{
     title: "Advisor profile & payouts",
     node: "995:8632",
     screens: [
-      { href: "/advisor/profile", label: "Advisor profile – View" },
       { href: "/advisor/edit", label: "Advisor profile – Edit" },
       { href: "/advisor/skills", label: "Skill management" },
       { href: "/earnings", label: "Advisor – Earnings" },

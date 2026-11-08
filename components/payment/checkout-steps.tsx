@@ -1,0 +1,418 @@
+"use client";
+
+import { ArrowLeft, CreditCard, X } from "lucide-react";
+import Link from "next/link";
+import { useEffect, useRef, useState, type ReactNode } from "react";
+import { useTranslations } from "next-intl";
+
+import type { ApiBooking, ApiCouponPreview, ApiMobileBank } from "@/lib/api/types";
+import { PrimaryButton } from "@/components/mobile/buttons";
+import { Button } from "@/components/ui/button";
+import { Dialog, DialogClose, DialogContent, DialogTitle } from "@/components/ui/dialog";
+import { cn } from "@/lib/utils";
+
+import {
+  BookingWhen,
+  CardBrands,
+  CardFields,
+  GooglePayMark,
+  MethodList,
+  OrderHead,
+  OrderSection,
+  POPUP_OVERLAY,
+  PriceBreakdown,
+  PromptPayMark,
+  TermsNote,
+  useOrder,
+  useTotal,
+  type CardPayment,
+  type PayMethod,
+} from "./checkout-parts";
+import { GooglePayButton } from "./checkout-googlepay";
+import { methodState, payWith, type Payments } from "./checkout-methods";
+import { BankList, BankMark } from "./checkout-mobile-banking";
+
+/**
+ * The checkout on a phone, below 744: not one long page but three steps, one
+ * screen each, the way the booking sites take a payment on a phone.
+ *
+ * 1. Review and continue: the order as a card — the service, when, and its
+ *    total, with the price line by line and the coupon one press away.
+ * 2. Add a payment method: the ways to pay as a card of 72-high rows. Next
+ *    with the card chosen raises a sheet for its fields, from 12 under the top
+ *    of the screen; its own Next checks them and moves on.
+ * 3. Confirm and pay: the order again, the card that will pay, the terms, and
+ *    the button that pays.
+ *
+ * Every step opens with the way out at the top right (and the way back at the
+ * left after the first), its title at 26 under them, and ends on a bar held
+ * to the bottom of the screen: the steps as three 4-high segments, those done
+ * in ink, and under them the step's button, 40 high, 24 in from each side.
+ */
+
+const STEP_COUNT = 3;
+
+/** A bar of ink: the steps' Next and the sheet's. */
+const INK_BUTTON = "h-10 rounded-[12px] bg-foreground text-sm font-medium text-background hover:bg-foreground/85";
+
+/** The order as the phone's steps show it: a card 16 in, 12 round, its total at the end with the price behind a button. */
+function OrderSummary({
+  booking,
+  coupon,
+  onCoupon,
+  extra,
+}: {
+  readonly booking: ApiBooking;
+  readonly coupon: ApiCouponPreview | null;
+  readonly onCoupon: (coupon: ApiCouponPreview | null) => void;
+  readonly extra?: ReactNode;
+}) {
+  const t = useTranslations("payment");
+  const c = useTranslations("common");
+  const order = useOrder(booking);
+  const total = useTotal(order, coupon);
+  const [priceOpen, setPriceOpen] = useState(false);
+
+  return (
+    <div className="rounded-[12px] border border-border p-4">
+      <OrderHead compact order={order} />
+      <BookingWhen booking={booking} />
+      <OrderSection
+        aside={
+          <Button
+            className="h-8 rounded-lg bg-muted px-4 text-xs font-medium text-foreground hover:bg-accent"
+            onClick={() => setPriceOpen(true)}
+            type="button"
+            variant="ghost"
+          >
+            {t("details")}
+          </Button>
+        }
+        label={t("totalPrice")}
+      >
+        <p className="font-latin tabular-nums">{total}</p>
+      </OrderSection>
+      {extra}
+
+      {/* The price line by line and the coupon, in a popup like the
+          desktop's coupon box: a title over a hairline, the way out at its
+          right. */}
+      <Dialog onOpenChange={setPriceOpen} open={priceOpen}>
+        <DialogContent className="gap-0 rounded-[24px] p-0 sm:max-w-[569px]" overlayClassName={POPUP_OVERLAY} showCloseButton={false}>
+          <div className="relative flex h-16 items-center justify-center border-b border-border">
+            <DialogTitle className="text-base leading-5 font-semibold text-foreground">{t("priceDetails")}</DialogTitle>
+            <DialogClose
+              aria-label={c("close")}
+              className="absolute top-1/2 right-2.5 flex size-11 -translate-y-1/2 items-center justify-center rounded-full outline-none hover:bg-muted focus-visible:ring-2 focus-visible:ring-foreground"
+            >
+              <X aria-hidden className="size-4" strokeWidth={2.5} />
+            </DialogClose>
+          </div>
+          <div className="px-6 pt-6 pb-6">
+            <PriceBreakdown bookingId={booking.id} coupon={coupon} flush onCoupon={onCoupon} order={order} />
+          </div>
+        </DialogContent>
+      </Dialog>
+    </div>
+  );
+}
+
+/**
+ * The card's fields in a sheet raised from the bottom of the screen, 12 under
+ * its top, its corners 24: its title in a 48-high head with the way out at
+ * the right, the fields 24 under it, and at its foot Cancel at the left and
+ * Next in ink at the right.
+ */
+function CardSheet({
+  open,
+  onOpenChange,
+  payment,
+  onDone,
+}: {
+  readonly open: boolean;
+  readonly onOpenChange: (open: boolean) => void;
+  readonly payment: CardPayment;
+  readonly onDone: () => void;
+}) {
+  const t = useTranslations("payment");
+  const c = useTranslations("common");
+  return (
+    <Dialog onOpenChange={onOpenChange} open={open}>
+      <DialogContent
+        className="top-3 bottom-0 flex max-w-md translate-y-0 flex-col gap-0 rounded-none rounded-t-[24px] p-0 ring-0 duration-200 sm:max-w-md data-closed:slide-out-to-bottom-8 data-open:slide-in-from-bottom-8"
+        overlayClassName={POPUP_OVERLAY}
+        showCloseButton={false}
+      >
+        <div className="relative flex h-12 shrink-0 items-center justify-center">
+          <DialogTitle className="text-base leading-5 font-semibold text-foreground">{t("addCardTitle")}</DialogTitle>
+          <DialogClose
+            aria-label={c("close")}
+            className="absolute top-1/2 right-2.5 flex size-11 -translate-y-1/2 items-center justify-center rounded-full outline-none hover:bg-muted focus-visible:ring-2 focus-visible:ring-foreground"
+          >
+            <X aria-hidden className="size-4" strokeWidth={2.5} />
+          </DialogClose>
+        </div>
+        <div className="min-h-0 flex-1 overflow-y-auto px-6 pt-6 pb-6">
+          <CardFields payment={payment} />
+          {payment.problem ? (
+            <p className="mt-3 text-sm text-destructive" role="alert">
+              {payment.problem}
+            </p>
+          ) : null}
+        </div>
+        <div className="flex shrink-0 items-center justify-between border-t border-border px-3 py-3">
+          <DialogClose render={<Button className="h-10 px-3 text-sm font-semibold text-foreground underline" type="button" variant="link" />}>
+            {t("couponCancel")}
+          </DialogClose>
+          <Button
+            className={cn(INK_BUTTON, "mr-3 px-8")}
+            onClick={() => {
+              if (payment.ready) {
+                payment.setProblem(null);
+                onDone();
+              } else {
+                payment.setProblem(t("cardIncomplete"));
+              }
+            }}
+            type="button"
+          >
+            {t("next")}
+          </Button>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+/**
+ * The way to pay as the last step names it: the card's last four, the bank
+ * and its app, or the method's mark and name.
+ */
+function ChosenMethod({ method, last4, bank }: { readonly method: PayMethod; readonly last4: string; readonly bank: ApiMobileBank | null }) {
+  const t = useTranslations("payment");
+  if (method === "card") {
+    return (
+      <>
+        <p className="flex items-center gap-2">
+          <CreditCard aria-hidden className="size-5 shrink-0" strokeWidth={1.5} />
+          <span>{t("cardEnding", { last4 })}</span>
+        </p>
+        <CardBrands className="pt-0" />
+      </>
+    );
+  }
+  if (method === "mobilebanking" && bank) {
+    return (
+      <p className="flex items-center gap-2">
+        <BankMark bank={bank} className="size-6" />
+        <span>{t(`bank.${bank}`)}</span>
+      </p>
+    );
+  }
+  return (
+    <p className="flex items-center gap-2">
+      {method === "googlepay" ? <GooglePayMark /> : <PromptPayMark />}
+      <span>{method === "googlepay" ? t("methodGooglePay") : t("methodPromptPay")}</span>
+    </p>
+  );
+}
+
+/**
+ * The foot bar's button: Next until the last step, then Google Pay's own
+ * button or the pay button for every other way.
+ */
+function StepAction({
+  last,
+  method,
+  payments,
+  onNext,
+}: {
+  readonly last: boolean;
+  readonly method: PayMethod;
+  readonly payments: Payments;
+  readonly onNext: () => void;
+}) {
+  const t = useTranslations("payment");
+  const { working, workingLabel, ready } = methodState(method, payments);
+
+  if (!last) {
+    return (
+      <Button className={cn(INK_BUTTON, "w-full")} onClick={onNext} type="button">
+        {t("next")}
+      </Button>
+    );
+  }
+  if (method === "googlepay") return <GooglePayButton googlePay={payments.googlePay} />;
+  return (
+    <PrimaryButton
+      block
+      className="h-10 rounded-[12px] text-sm font-medium lg:h-10"
+      disabled={!payments.payment.configured || working || !ready}
+      onClick={payWith(method, payments)}
+      type="button"
+    >
+      {working ? t(workingLabel) : t("confirmTitle")}
+    </PrimaryButton>
+  );
+}
+
+export function CheckoutSteps({
+  booking,
+  coupon,
+  onCoupon,
+  method,
+  onMethodChange,
+  payments,
+  mobileBankingOffered,
+}: {
+  readonly booking: ApiBooking;
+  readonly coupon: ApiCouponPreview | null;
+  readonly onCoupon: (coupon: ApiCouponPreview | null) => void;
+  readonly method: PayMethod;
+  readonly onMethodChange: (method: PayMethod) => void;
+  readonly payments: Payments;
+  /** Whether a bank's app is a way to pay here: on a phone or tablet. */
+  readonly mobileBankingOffered: boolean;
+}) {
+  const t = useTranslations("payment");
+  const c = useTranslations("common");
+  const { payment, googlePay, mobileBanking } = payments;
+  const [step, setStep] = useState(0);
+  const [cardOpen, setCardOpen] = useState(false);
+  /** Next was pressed on a bank's app with no bank picked. */
+  const [bankMissing, setBankMissing] = useState(false);
+  const rootRef = useRef<HTMLDivElement>(null);
+  const titles = [t("reviewTitle"), t("addMethodTitle"), t("confirmTitle")];
+  const last4 = payment.card.number.replace(/\D/g, "").slice(-4);
+  const byCard = method === "card";
+  const { problem } = methodState(method, payments);
+
+  // Each step starts at its top, as a new screen would.
+  useEffect(() => {
+    rootRef.current?.closest('[data-slot="screen-body"]')?.scrollTo({ top: 0 });
+  }, [step]);
+
+  // The card asks for its fields in a sheet before the last step, and a
+  // bank's app for the bank (listed under its row); PromptPay and Google Pay
+  // need nothing more, they ask when they are paid.
+  const onNext = () => {
+    if (step === 0) setStep(1);
+    else if (byCard) setCardOpen(true);
+    else if (method === "mobilebanking" && !mobileBanking.bank) setBankMissing(true);
+    else setStep(2);
+  };
+
+  return (
+    <div className="flex w-full flex-1 flex-col" ref={rootRef}>
+      <div className="w-full flex-1 px-6 pb-8">
+        {/* The way back and the way out, each a 44 target round its 16 glyph,
+            the glyphs 24 in from the edges and 20 down. */}
+        <div className="relative -mx-6 h-14">
+          {step > 0 ? (
+            <Button
+              aria-label={c("back")}
+              className="absolute top-1.5 left-2.5 size-11 rounded-full"
+              onClick={() => setStep(step - 1)}
+              size="icon"
+              type="button"
+              variant="ghost"
+            >
+              <ArrowLeft absoluteStrokeWidth aria-hidden className="size-4" strokeWidth={2} />
+            </Button>
+          ) : null}
+          <Link
+            aria-label={t("exit")}
+            className="absolute top-1.5 right-2.5 flex size-11 items-center justify-center rounded-full text-foreground hover:bg-muted"
+            href="/search"
+          >
+            <X aria-hidden className="size-4" strokeWidth={2.5} />
+          </Link>
+        </div>
+        <h1 className="text-2xl leading-7.5 font-semibold tracking-tight text-foreground">{titles[step]}</h1>
+
+        <div className="mt-6">
+          {step === 0 ? <OrderSummary booking={booking} coupon={coupon} onCoupon={onCoupon} /> : null}
+          {step === 1 ? (
+            <>
+              <MethodList
+                className="rounded-[12px] border border-border"
+                googlePay={googlePay.available}
+                method={method}
+                mobileBanking={mobileBankingOffered ? <BankList mobileBanking={mobileBanking} /> : null}
+                onMethodChange={onMethodChange}
+                tall
+              />
+              {bankMissing && method === "mobilebanking" && !mobileBanking.bank ? (
+                <p className="mt-3 text-sm text-destructive" role="alert">
+                  {t("bankRequired")}
+                </p>
+              ) : null}
+            </>
+          ) : null}
+          {step === 2 ? (
+            <>
+              <OrderSummary
+                booking={booking}
+                coupon={coupon}
+                extra={
+                  <OrderSection
+                    aside={
+                      <Button
+                        className="h-8 rounded-lg bg-muted px-4 text-xs font-medium text-foreground hover:bg-accent"
+                        onClick={() => (byCard ? setCardOpen(true) : setStep(1))}
+                        type="button"
+                        variant="ghost"
+                      >
+                        {t("change")}
+                      </Button>
+                    }
+                    label={t("methodTitle")}
+                  >
+                    <ChosenMethod bank={mobileBanking.bank} last4={last4} method={method} />
+                  </OrderSection>
+                }
+                onCoupon={onCoupon}
+              />
+              <TermsNote className="mt-4" />
+              {problem ? (
+                <p className="mt-3 text-sm text-destructive" role="alert">
+                  {problem}
+                </p>
+              ) : null}
+            </>
+          ) : null}
+        </div>
+      </div>
+
+      {/* The bar at the foot of every step, held to the bottom of the screen. */}
+      <div className="sticky bottom-0 z-10 mt-auto w-full bg-card">
+        {/* The steps as the screen reader hears them, a native progress; the
+            segments are what the eye reads, and say nothing more. */}
+        <progress
+          aria-label={t("stepOf", { step: step + 1, total: STEP_COUNT })}
+          className="sr-only"
+          max={STEP_COUNT}
+          value={step + 1}
+        />
+        <div aria-hidden className="flex gap-1">
+          {titles.map((title, i) => (
+            <span className={cn("h-1 flex-1 transition-colors duration-300", i <= step ? "bg-foreground" : "bg-border")} key={title} />
+          ))}
+        </div>
+        <div className="px-6 py-3">
+          <StepAction last={step === 2} method={method} onNext={onNext} payments={payments} />
+        </div>
+      </div>
+
+      <CardSheet
+        onDone={() => {
+          setCardOpen(false);
+          setStep(2);
+        }}
+        onOpenChange={setCardOpen}
+        open={cardOpen}
+        payment={payment}
+      />
+    </div>
+  );
+}

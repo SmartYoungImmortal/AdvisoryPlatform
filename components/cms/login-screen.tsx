@@ -12,15 +12,22 @@ import { CmsFormField, CmsInput } from "@/components/cms/fields";
 import { Checkbox } from "@/components/ui/checkbox";
 import { logo } from "@/lib/assets/r2";
 import { isEmail, safeNext, signIn, useSession } from "@/lib/session";
-import { cn } from "@/lib/utils";
 
 type FieldErrors = { email?: string; password?: string };
 
 /**
  * Nexus's login pins both inputs' ring to `#e2e8f0` — the border slate, a step
- * lighter than every other console control — and keeps it there on focus.
+ * lighter than every other console control — and keeps it there on focus. The
+ * console's own fields have since grown to the site's 40px rounded control;
+ * these keep Nexus's 32px one with its small corners.
  */
-const LOGIN_RING = "[&_input]:ring-border [&_input]:focus-visible:ring-border";
+const LOGIN_INPUT =
+  "h-8 rounded-md border-0 px-2.5 py-1.5 text-sm text-highlighted ring-1 ring-border ring-inset placeholder:text-dimmed focus-visible:ring-2 focus-visible:ring-border focus-visible:ring-inset aria-invalid:ring-1 aria-invalid:ring-destructive md:h-8 md:text-sm";
+
+/** The console's labels are muted now; Nexus's sat in full ink. */
+function Label({ children }: { readonly children: string }) {
+  return <span className="text-foreground">{children}</span>;
+}
 
 /**
  * Nexus's `/admin/login`: the `auth` layout (grey page, centred 448px column)
@@ -120,11 +127,18 @@ export function CmsLoginScreen({ preset = "default" }: { readonly preset?: "defa
                 <h1 className="sr-only">{t("title")}</h1>
               </div>
               <div className="space-y-5">
-                <CmsFormField error={errors.email} htmlFor={emailId} label={t("email")} required>
+                <CmsFormField
+                  className="gap-1"
+                  error={errors.email}
+                  htmlFor={emailId}
+                  label={<Label>{t("email")}</Label>}
+                  required
+                >
                   <CmsInput
                     autoComplete="username"
-                    className={cn("w-full", LOGIN_RING)}
+                    className="w-full"
                     id={emailId}
+                    inputClassName={LOGIN_INPUT}
                     invalid={Boolean(errors.email)}
                     onChange={(event) => setEmail(event.target.value)}
                     placeholder={t("emailPlaceholder")}
@@ -133,15 +147,16 @@ export function CmsLoginScreen({ preset = "default" }: { readonly preset?: "defa
                   />
                 </CmsFormField>
                 <CmsFormField
+                  className="gap-1"
                   error={errors.password}
                   htmlFor={passwordId}
-                  label={t("password")}
+                  label={<Label>{t("password")}</Label>}
                   required
                 >
                   <CmsInput
                     autoComplete="current-password"
-                    className={LOGIN_RING}
                     id={passwordId}
+                    inputClassName={LOGIN_INPUT}
                     invalid={Boolean(errors.password)}
                     onChange={(event) => setPassword(event.target.value)}
                     placeholder={t("passwordPlaceholder")}
@@ -149,8 +164,7 @@ export function CmsLoginScreen({ preset = "default" }: { readonly preset?: "defa
                       <CmsButton
                         aria-label={revealed ? t("hidePassword") : t("showPassword")}
                         aria-pressed={revealed}
-                        className="p-0 text-dimmed [&_svg]:size-5"
-                        color="neutral"
+                        className="p-0 text-dimmed hover:text-foreground [&_svg]:size-5"
                         icon={revealed ? EyeOff : Eye}
                         onClick={() => setRevealed((value) => !value)}
                         type="button"
@@ -172,11 +186,11 @@ export function CmsLoginScreen({ preset = "default" }: { readonly preset?: "defa
                   </label>
                 </div>
                 {/* Nexus's submit is `#2B7FFF` — Tailwind's own blue-500, a shade
-                    brighter than the console's secondary — with a 300ms fade. */}
+                    brighter than the console's secondary — with a 300ms fade,
+                    square-cornered where the console's buttons are now round. */}
                 <CmsButton
                   block
-                  className="bg-blue-500 py-2 transition-all duration-300 hover:bg-blue-500/90 disabled:bg-blue-500 disabled:opacity-80"
-                  color="action"
+                  className="h-auto rounded-md bg-blue-500 py-2 text-action-foreground transition-all duration-300 hover:bg-blue-500/90 disabled:bg-blue-500 disabled:opacity-80 md:h-auto"
                   loading={loading}
                   type="submit"
                 >

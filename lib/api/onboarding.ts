@@ -1,4 +1,5 @@
-import { ApiError, api } from "@/lib/api/client";
+import { ApiError, api, type Paginated } from "@/lib/api/client";
+import type { ApiAdvisorBackground, ApiNamedRecord, ApiPortfolioItem } from "@/lib/api/types";
 
 /**
  * Becoming an advisor, against `AdvisoryPlatformAPI` (docs/api-spec.md,
@@ -61,6 +62,63 @@ export function updateAdvisorProfile(body: {
   return api.patch<ApiOwnAdvisorProfile>("advisors/me", { body });
 }
 
+/** The caller's background: work, education, languages, licences and awards. */
+export function getOwnAdvisorBackground(signal?: AbortSignal): Promise<ApiAdvisorBackground> {
+  return api.get<ApiAdvisorBackground>("advisors/me/background", { signal });
+}
+
+/** Replaces every list of the caller's background at once, and answers what was stored. */
+export function replaceOwnAdvisorBackground(body: ApiAdvisorBackground): Promise<ApiAdvisorBackground> {
+  return api.put<ApiAdvisorBackground>("advisors/me/background", { body });
+}
+
+/** The words of a piece of work; an empty optional line clears it. */
+export interface PortfolioItemInput {
+  readonly title: string;
+  readonly description?: string;
+  readonly link?: string;
+}
+
+/** The most pieces a profile shows, and pictures a piece carries (`PORTFOLIO_*_MAX`). */
+export const MAX_PORTFOLIO_ITEMS = 12;
+export const MAX_PORTFOLIO_IMAGES = 4;
+
+/** The caller's own pieces of work, in the order their profile shows them. */
+export function listOwnPortfolio(signal?: AbortSignal): Promise<ApiPortfolioItem[]> {
+  return api.get<ApiPortfolioItem[]>("advisors/me/portfolio", { signal });
+}
+
+/** A new piece, last in the order. Its pictures are added to it after. */
+export function createPortfolioItem(body: PortfolioItemInput): Promise<ApiPortfolioItem> {
+  return api.post<ApiPortfolioItem>("advisors/me/portfolio", { body });
+}
+
+export function updatePortfolioItem(id: string, body: PortfolioItemInput): Promise<ApiPortfolioItem> {
+  return api.patch<ApiPortfolioItem>(`advisors/me/portfolio/${encodeURIComponent(id)}`, { body });
+}
+
+/** Takes the piece and its pictures away; answers the pieces left. */
+export function deletePortfolioItem(id: string): Promise<ApiPortfolioItem[]> {
+  return api.delete<ApiPortfolioItem[]>(`advisors/me/portfolio/${encodeURIComponent(id)}`);
+}
+
+/** One picture after the others (JPEG, PNG or WebP, up to 5 MiB). */
+export function uploadPortfolioImage(id: string, file: File): Promise<ApiPortfolioItem> {
+  const body = new FormData();
+  body.append("file", file);
+  return api.post<ApiPortfolioItem>(`advisors/me/portfolio/${encodeURIComponent(id)}/images`, { body });
+}
+
+/** Takes the picture at `index` out; the rest close up. */
+export function removePortfolioImage(id: string, index: number): Promise<ApiPortfolioItem> {
+  return api.delete<ApiPortfolioItem>(`advisors/me/portfolio/${encodeURIComponent(id)}/images/${index}`);
+}
+
+/** Every piece's id, in the order the profile should show them. */
+export function reorderPortfolio(ids: readonly string[]): Promise<ApiPortfolioItem[]> {
+  return api.put<ApiPortfolioItem[]>("advisors/me/portfolio/order", { body: { ids } });
+}
+
 /** The ID card's review, or `null` before one has been sent. */
 export function getOwnIdentityVerification(
   signal?: AbortSignal,
@@ -81,4 +139,33 @@ export function submitSkillProof(skillId: string, file: File): Promise<unknown> 
   body.append("skillId", skillId);
   body.append("file", file);
   return api.post("advisors/me/skill-proofs", { body });
+}
+
+/** `skillProofReviewStatusEnum`: a document waits for one review, and that review is final. */
+export type SkillProofReviewStatus = "PENDING" | "APPROVED" | "REJECTED";
+
+/** `OwnSkillProofResponseDto`: a document the caller sent for a skill, and how its review went. */
+export interface ApiOwnSkillProof {
+  readonly id: string;
+  readonly skillId: string;
+  readonly skillName: string;
+  readonly originalFileName: string;
+  readonly reviewStatus: SkillProofReviewStatus;
+  readonly rejectionReason: string | null;
+  readonly reviewedAt: string | null;
+  readonly createdAt: string;
+}
+
+/**
+ * `GET /advisors/me/skill-proofs` — every document the caller has sent, oldest
+ * first, one page of up to 100. Sending one is what claims its skill, so these
+ * are the advisor's skills too.
+ */
+export function listOwnSkillProofs(signal?: AbortSignal): Promise<Paginated<ApiOwnSkillProof>> {
+  return api.get("advisors/me/skill-proofs", { query: { page: 1, limit: 100 }, signal });
+}
+
+/** `GET /skills` in one page of up to 100: the API's default page is 20, which a picker would cut short. */
+export function listSkillCatalogue(signal?: AbortSignal): Promise<Paginated<ApiNamedRecord>> {
+  return api.get("skills", { query: { page: 1, limit: 100 }, signal });
 }

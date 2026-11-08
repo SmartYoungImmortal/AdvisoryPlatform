@@ -2,6 +2,7 @@
 
 import {
   Bell,
+  Briefcase,
   CalendarDays,
   CircleUserRound,
   Globe,
@@ -28,7 +29,7 @@ import {
 import { isApiConfigured } from "@/lib/api/client";
 import { logo } from "@/lib/assets/r2";
 import { useAppLocale } from "@/lib/i18n/locale-provider";
-import { useSessionStatusHint } from "@/lib/session";
+import { useSession, useSessionStatusHint } from "@/lib/session";
 import { cn } from "@/lib/utils";
 
 /**
@@ -92,6 +93,7 @@ import { cn } from "@/lib/utils";
 /** The places on the rail. `explore` draws no item now: the mark goes home, where the search is. */
 export type RailKey =
   | "explore"
+  | "work"
   | "chat"
   | "bookings"
   | "notifications"
@@ -247,6 +249,10 @@ function Rail({ active }: { readonly active?: RailKey }) {
   const pathname = usePathname();
   const status = useSessionStatusHint();
   const signedIn = status === "authenticated";
+  const session = useSession();
+  // An advisor's desk: the work they take, beside the account's own places.
+  // Everyone else books and does not see it.
+  const advisor = session.status === "authenticated" && session.account.role === "advisor";
   const { unread } = useNotificationPulse(isApiConfigured && signedIn);
   const group = "flex flex-col gap-[14.25px]";
 
@@ -279,6 +285,14 @@ function Rail({ active }: { readonly active?: RailKey }) {
         {signedIn ? (
           <>
             <ProfileLink current={active === "profile"} />
+            {advisor ? (
+              <RailLink
+                current={active === "work"}
+                href="/work"
+                icon={<Briefcase aria-hidden className={ICON} strokeWidth={ICON_STROKE} />}
+                label={t("work")}
+              />
+            ) : null}
             {PLACES.map(({ key, href, icon: Icon }) => (
               <RailLink
                 badge={key === "notifications" && unread !== null && unread > 0 ? <Badge count={unread} /> : undefined}

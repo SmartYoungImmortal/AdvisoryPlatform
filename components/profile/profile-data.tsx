@@ -3,8 +3,9 @@
 import { useCallback } from "react";
 
 import { BOOKING_BUCKET } from "@/components/bookings/booking-flow";
-import { api, ApiError, type Paginated } from "@/lib/api/client";
-import { getOwnAvatarUrl, listAdvisors, listMyBookings } from "@/lib/api/resources";
+import { api, ApiError } from "@/lib/api/client";
+import { getOwnAvatarUrl } from "@/lib/api/resources";
+import { listAllMyBookings, listBookingAdvisors } from "@/lib/api/my-bookings";
 import { fetchOwnProfile } from "@/lib/session";
 import type { ApiAvatarUrl, ApiBooking, ApiOwnProfile, ApiPublicAdvisor } from "@/lib/api/types";
 import { useResource, type Resource } from "@/lib/api/use-resource";
@@ -96,7 +97,7 @@ export type BookingEntry = {
 };
 
 export type BookingHistory = {
-  readonly bookings: Resource<Paginated<ApiBooking>>;
+  readonly bookings: Resource<ApiBooking[]>;
   /** Open and still ahead of the clock, soonest first. */
   readonly upcoming: readonly BookingEntry[];
   /** Completed, missed or cancelled, newest first. */
@@ -113,24 +114,23 @@ export type BookingHistory = {
  * and to the advisor list. The profile and its edit page both read it; the
  * cache keys are shared, so the second one asks for nothing.
  *
- * 100 is the most one page holds. The API answers oldest first, so an
- * account past a hundred bookings would see its first hundred here.
+ * Read every page so older appointments cannot hide the newest bookings.
  */
 export function useBookingHistory(now: number): BookingHistory {
-  const bookings = useResource<Paginated<ApiBooking>>(
-    "bookings/me?limit=100",
-    useCallback((signal: AbortSignal) => listMyBookings({ limit: 100 }, signal), []),
+  const bookings = useResource<ApiBooking[]>(
+    "bookings/me/all",
+    listAllMyBookings,
   );
   const catalogue = useLiveCatalogue();
   // The catalogue's own key, so this is a read of the list it already asked for.
-  const advisors = useResource<Paginated<ApiPublicAdvisor>>(
-    "advisors?limit=100",
-    useCallback((signal: AbortSignal) => listAdvisors({ limit: 100 }, signal), []),
+  const advisors = useResource<ApiPublicAdvisor[]>(
+    "advisors/all",
+    listBookingAdvisors,
   );
 
   const serviceById = new Map(catalogue.items.map((item) => [item.id, item]));
-  const advisorById = new Map((advisors.data?.items ?? []).map((item) => [item.id, item]));
-  const entries = (bookings.data?.items ?? []).map((booking) => ({
+  const advisorById = new Map((advisors.data ?? []).map((item) => [item.id, item]));
+  const entries = (bookings.data ?? []).map((booking) => ({
     booking,
     service: serviceById.get(booking.serviceId),
     advisor: advisorById.get(booking.advisorId),

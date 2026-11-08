@@ -10,7 +10,7 @@ import { cn } from "@/lib/utils";
 gsap.registerPlugin(ScrollTrigger);
 
 /** Where the inertia applies: a desktop pointer, with motion allowed. Touch keeps its own. */
-const SMOOTH_QUERY = "(min-width: 1024px) and (pointer: fine) and (prefers-reduced-motion: no-preference)";
+export const SMOOTH_QUERY = "(min-width: 1024px) and (pointer: fine) and (prefers-reduced-motion: no-preference)";
 
 /**
  * Inertial scrolling for the page's scroller on desktop: the wheel and the

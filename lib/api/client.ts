@@ -54,12 +54,14 @@ export interface CursorPage<T> {
 export class ApiError extends Error {
   readonly status: number;
   readonly code?: string;
+  readonly retryAfterSeconds?: number;
 
-  constructor(status: number, message: string, code?: string) {
+  constructor(status: number, message: string, code?: string, retryAfterSeconds?: number) {
     super(message);
     this.name = "ApiError";
     this.status = status;
     this.code = code;
+    this.retryAfterSeconds = retryAfterSeconds;
   }
 
   /** The session is missing or expired, and signing in again is the fix. */
@@ -105,6 +107,12 @@ export interface RequestOptions {
   readonly signal?: AbortSignal;
   /** Prefixed with `/api/v1` unless this is set — better-auth lives outside it. */
   readonly unprefixed?: boolean;
+  /**
+   * The language to read or write translated content in, in place of the
+   * reader's (`setRequestLocale`): an editor of a service's own words in each
+   * language asks for each one by name.
+   */
+  readonly locale?: "th" | "en";
 }
 
 function buildUrl(path: string, query?: Query, unprefixed = false): string {
@@ -186,7 +194,11 @@ async function unwrap<T>(response: Response, enveloped: boolean): Promise<T> {
       typeof (payload as { code: unknown }).code === "string"
         ? (payload as { code: string }).code
         : undefined;
-    throw new ApiError(response.status, message, code);
+    const retryAfterSeconds = typeof payload === "object" && payload !== null &&
+      "retryAfterSeconds" in payload && typeof payload.retryAfterSeconds === "number" &&
+      Number.isFinite(payload.retryAfterSeconds) && payload.retryAfterSeconds > 0
+      ? payload.retryAfterSeconds : undefined;
+    throw new ApiError(response.status, message, code, retryAfterSeconds);
   }
 
   if (!enveloped) return payload as T;
@@ -234,7 +246,7 @@ async function request<T>(
       // replace the boundary with nothing and the upload would arrive unparseable.
       headers: {
         Accept: "application/json",
-        "Accept-Language": requestLocale,
+        "Accept-Language": options.locale ?? requestLocale,
         ...(options.body !== undefined && !isFormData
           ? { "Content-Type": "application/json" }
           : {}),

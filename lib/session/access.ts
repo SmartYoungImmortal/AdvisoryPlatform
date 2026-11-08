@@ -11,7 +11,6 @@ export type Access = "public" | "signed-in" | Role;
 const RULES: ReadonlyArray<{ readonly prefix: string; readonly exact?: boolean; readonly access: Access }> = [
   // Advisor workspace.
   { prefix: "/work", access: "advisor" },
-  { prefix: "/advisor/profile", access: "advisor" },
   { prefix: "/advisor/edit", access: "advisor" },
   { prefix: "/advisor/services", access: "advisor" },
   { prefix: "/advisor/skills", access: "advisor" },

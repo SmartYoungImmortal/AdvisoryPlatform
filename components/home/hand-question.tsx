@@ -70,7 +70,7 @@ export function HandQuestion({
 
       const mm = gsap.matchMedia();
       if (onHold) {
-        mm.add("(min-width: 1024px) and (prefers-reduced-motion: no-preference)", () => {
+        mm.add("(min-width: 1024px) and (orientation: landscape) and (prefers-reduced-motion: no-preference)", () => {
           const track = heroTrack();
           if (!track) return;
           // Positions are fractions of the hold. The block only becomes

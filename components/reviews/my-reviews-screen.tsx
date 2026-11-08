@@ -4,24 +4,10 @@ import { Star } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { useCallback, useState } from "react";
 
-import { SiteFooter } from "@/components/marketing/site-footer";
-import { NeutralButton } from "@/components/mobile/buttons";
-import { EmptyState } from "@/components/mobile/empty-state";
-import {
-  MobileScreen,
-  ScreenBody,
-  ScreenHeading,
-  ScreenSpacer,
-  ScreenTopBar,
-} from "@/components/mobile/screen";
-import { Surface } from "@/components/mobile/surface";
 import { ThaiText } from "@/components/mobile/thai-text";
-import {
-  ACCOUNT_NAV,
-  ACCOUNT_PAGE,
-  AccountBackBar,
-} from "@/components/profile/account-chrome";
 import { useOwnProfile } from "@/components/profile/profile-data";
+import { ApiErrorCard } from "@/components/service/parts";
+import { DESK_BOX, DeskPage } from "@/components/work/desk-page";
 import {
   ReplyComposer,
   ReviewCard,
@@ -29,12 +15,10 @@ import {
   Stars,
 } from "@/components/reviews/review-parts";
 import { listOwnAdvisorReviews, replyToReview } from "@/components/reviews/reviews-data";
-import { TopBar } from "@/components/topbar";
 import type { Paginated } from "@/lib/api/client";
 import { getAdvisorRatingSummary } from "@/lib/api/resources";
 import type { ApiRatingSummary, ApiReview } from "@/lib/api/types";
 import { invalidate, useResource } from "@/lib/api/use-resource";
-import { NARROW_COLUMN, PAGE } from "@/lib/layout";
 import { cn } from "@/lib/utils";
 
 /**
@@ -82,7 +66,7 @@ function DistributionRow({ label, fill }: { readonly label: string; readonly fil
       {/* The track was `bg-muted`, which is the tint the whole summary block now
           sits on, so an empty bar was invisible and only the fill read. */}
       <div className="ml-2 h-1.5 min-w-px flex-1 overflow-clip rounded-full bg-accented/60">
-        <div className="h-full rounded-full bg-primary" style={{ width: `${fill}%` }} />
+        <div className="h-full rounded-full bg-foreground" style={{ width: `${fill}%` }} />
       </div>
     </div>
   );
@@ -96,7 +80,7 @@ function shortDate(iso: string): string {
 /** A card-shaped skeleton, so the list does not reflow when the reviews land. */
 function CardSkeleton() {
   return (
-    <Surface className="flex w-full shrink-0 flex-col items-start gap-2.5 p-3.5">
+    <div aria-hidden className="flex w-full animate-pulse flex-col items-start gap-2.5 py-5 motion-reduce:animate-none lg:py-7">
       <div className="flex w-full shrink-0 items-center gap-2.5">
         <div className="size-9 shrink-0 rounded-full bg-muted" />
         <div className="flex min-w-px flex-1 flex-col gap-1.5">
@@ -107,9 +91,11 @@ function CardSkeleton() {
       <div className="h-3.5 w-20 rounded-md bg-muted" />
       <div className="h-4 w-full rounded-md bg-muted" />
       <div className="h-4 w-4/5 rounded-md bg-muted" />
-    </Surface>
+    </div>
   );
 }
+
+type ReviewsState = "default" | "empty" | "replying" | "reply-failed";
 
 export function MyReviewsScreen({
   state = "default",
@@ -121,10 +107,23 @@ export function MyReviewsScreen({
    * on whatever the API says. Composing and failing are both reachable by using
    * the screen.
    */
-  readonly state?: "default" | "empty" | "replying" | "reply-failed";
+  readonly state?: ReviewsState;
 }) {
   const t = useTranslations("reviews");
-  const c = useTranslations("common");
+  return (
+    <DeskPage title={t("title")}>
+      <ReceivedReviews state={state} />
+    </DeskPage>
+  );
+}
+
+/**
+ * The reviews customers left the advisor, with the score beside them and a
+ * reply under each: the `/reviews` page's body, and the "received" half of
+ * an advisor's reviews tab on `/profile`.
+ */
+export function ReceivedReviews({ state = "default" }: { readonly state?: ReviewsState }) {
+  const t = useTranslations("reviews");
   const s = useTranslations("search");
   // `reviews.reviewCount` is the frame's fixed "32 รีวิว", so the real count is
   // built from the number and the noun the profile's stat row already owns.
@@ -192,96 +191,49 @@ export function MyReviewsScreen({
   const average = total > 0 ? summary.data?.average : undefined;
 
   return (
-    <MobileScreen wide>
-      <ScreenTopBar className="lg:hidden" href="/profile" label={c("back")} />
-      <ScreenBody>
-        <div className={ACCOUNT_NAV}>
-          <TopBar unreadNotifications />
-        </div>
-        <AccountBackBar href="/profile" label={c("back")} />
-
-        {/* Figma "Head Band" — the title on the card surface, above the page. It
-            holds the page column rather than the account column: what runs under
-            it here is the 1200 grid, not an 800px form. */}
-        <div className="w-full shrink-0 lg:border-b lg:border-border lg:bg-card lg:shadow-card">
-          <ScreenHeading
-            className={cn(ACCOUNT_PAGE, "pt-4 lg:pt-5 lg:pb-9")}
-            title={t("title")}
-          />
-        </div>
-
+    <>
         {reviews.error ? (
           /* The API's own sentence and a retry. Not the empty state: "nobody has
              reviewed you" and "the list did not load" are different facts. */
-          <div className={cn("w-full shrink-0 px-6 pt-6 lg:px-0", NARROW_COLUMN)}>
-            <Surface className="flex w-full shrink-0 flex-col items-start gap-3 p-5">
-              <p className="w-full text-base font-semibold text-foreground">
-                {s("loadFailedTitle")}
-              </p>
-              <p className="w-full text-sm font-normal text-muted-foreground">
-                {reviews.error.message}
-              </p>
-              <NeutralButton onClick={reviews.reload} size="sm">
-                {s("retry")}
-              </NeutralButton>
-            </Surface>
+          <div className="mt-5 lg:mt-8">
+            <ApiErrorCard error={reviews.error} onRetry={reviews.reload} title={s("loadFailedTitle")} />
           </div>
         ) : isEmpty ? (
-          /* Figma "Empty State": a badge, the title block, then a 5-star row —
-             `EmptyState` holds the first three and the star row rides in its
-             action slot, which is where the frame puts it. */
-          <div className={cn("w-full shrink-0 pt-14 lg:pt-24", NARROW_COLUMN)}>
-            <EmptyState
-              action={<Stars filled={0} gap={3} size={20} />}
-              body={<ThaiText>{t("emptyBody")}</ThaiText>}
-              icon={Star}
-              title={t("emptyTitle")}
-            />
+          <div className={cn(DESK_BOX, "mt-5 flex flex-col items-center gap-3 px-6 py-12 text-center lg:mt-8 lg:gap-5 lg:py-20")}>
+            <span className="flex size-11 items-center justify-center rounded-full bg-muted text-hero-ink/75 lg:size-14">
+              <Star aria-hidden className="size-5 lg:size-7" strokeWidth={1.5} />
+            </span>
+            <div className="flex flex-col items-center gap-1">
+              <h2 className="text-base font-semibold text-foreground lg:text-frame-figure">{t("emptyTitle")}</h2>
+              <p className="text-xs text-balance text-muted-foreground lg:text-frame-meta">
+                <ThaiText>{t("emptyBody")}</ThaiText>
+              </p>
+            </div>
           </div>
         ) : (
-          /* Figma "Body" (1787:26467) — the score stops being the first card of
-             the list and becomes the column beside it, so a reader scrolling the
-             reviews still has the shape of the score in view. */
-          <div
-            className={cn(
-              "flex w-full shrink-0 flex-col items-start lg:grid lg:grid-cols-[384px_minmax(0,1fr)] lg:items-start lg:gap-8 lg:pt-12 lg:pb-24",
-              PAGE,
-            )}
-          >
-            {/* Figma "Summary Card": the score block beside the 5-bar
-                distribution. The score is the one figure on the page, so it is
-                set at the size a figure gets — `StatTile`'s step. */}
-            <div className="flex w-full shrink-0 flex-col items-start px-6 pt-2 lg:px-0 lg:pt-0">
-              <Surface className="flex w-full shrink-0 items-start gap-4 p-3.5">
-                <div className="flex w-[72px] shrink-0 flex-col items-center gap-2 pt-2">
-                  <p className="font-latin text-heading leading-9 font-semibold tabular-nums text-foreground">
-                    {average === undefined ? "—" : average.toFixed(1)}
-                  </p>
-                  <Stars
-                    filled={average === undefined ? 0 : Math.round(average)}
-                    gap={3}
-                    size={13}
-                  />
-                  <p className="text-xs font-normal tabular-nums whitespace-nowrap text-muted-foreground">
-                    {`${total} ${p("stats.reviews")}`}
-                  </p>
-                </div>
-                <div className="flex min-w-px flex-1 flex-col items-start gap-[5px] pt-1.5">
-                  {/* `distribution` always has all five, highest first, so there
-                      is nothing to fill in here — a star nobody gave is a zero. */}
-                  {(summary.data?.distribution ?? []).map((bar) => (
-                    <DistributionRow
-                      fill={total > 0 ? (bar.count / total) * 100 : 0}
-                      key={bar.stars}
-                      label={String(bar.stars)}
-                    />
-                  ))}
-                </div>
-              </Surface>
+          /* The reviews as a feed, and the score beside them from `lg` (above
+             them on the phone), so a reader scrolling still has its shape in view. */
+          <div className="mt-5 grid grid-cols-1 gap-6 lg:mt-8 lg:grid-cols-[minmax(0,1fr)_24rem] lg:gap-8">
+            <div className={cn(DESK_BOX, "flex h-fit items-start gap-5 p-5 lg:col-start-2 lg:row-start-1 lg:p-6")}>
+              <div className="flex shrink-0 flex-col items-center gap-2">
+                <p className="font-latin text-heading leading-none font-semibold text-foreground tabular-nums lg:text-frame-title">
+                  {average === undefined ? "—" : average.toFixed(1)}
+                </p>
+                <Stars filled={average === undefined ? 0 : Math.round(average)} gap={3} size={13} />
+                <p className="text-xs whitespace-nowrap text-muted-foreground tabular-nums lg:text-frame-label">
+                  {`${total} ${p("stats.reviews")}`}
+                </p>
+              </div>
+              <div className="flex min-w-0 flex-1 flex-col gap-1.5 pt-1">
+                {/* `distribution` always has all five, highest first, so there
+                    is nothing to fill in here — a star nobody gave is a zero. */}
+                {(summary.data?.distribution ?? []).map((bar) => (
+                  <DistributionRow fill={total > 0 ? (bar.count / total) * 100 : 0} key={bar.stars} label={String(bar.stars)} />
+                ))}
+              </div>
             </div>
 
-            {/* Figma "Review List": 20px top padding, 12px between cards. */}
-            <div className="flex w-full shrink-0 flex-col items-start gap-3 px-6 pt-5 lg:px-0 lg:pt-0">
+            <div className="-mt-5 flex min-w-0 flex-col divide-y divide-border lg:col-start-1 lg:row-start-1 lg:-mt-7">
               {reviews.loading ? (
                 <>
                   <CardSkeleton />
@@ -335,19 +287,13 @@ export function MyReviewsScreen({
                   belongs to. `ReplyComposer` turns its guidance line destructive
                   on `failed`; this is the sentence that line cannot carry. */}
               {failure ? (
-                <p className="w-full text-xs font-normal text-destructive" role="alert">
+                <p className="w-full border-0 pb-4 text-xs text-destructive lg:text-frame-label" role="alert">
                   {failure}
                 </p>
               ) : null}
             </div>
           </div>
         )}
-
-        {/* The slack under a short list on the phone; at 1440 it is also what
-            holds the footer on the bottom edge of a tall viewport. */}
-        <ScreenSpacer className="lg:min-h-24" />
-        <SiteFooter className="hidden lg:flex" />
-      </ScreenBody>
-    </MobileScreen>
+    </>
   );
 }

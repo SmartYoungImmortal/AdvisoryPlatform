@@ -6,6 +6,7 @@ import { useTranslations } from "next-intl";
 import { useState, type FormEvent } from "react";
 
 import { AuthHeading, AuthMark, AuthSplit, authPill } from "@/components/auth/auth-split";
+import { PasswordRules } from "@/components/auth/register-screen";
 import { AlertBanner } from "@/components/mobile/banner";
 import { Field, RevealPasswordButton } from "@/components/mobile/field";
 import { Button } from "@/components/ui/button";
@@ -95,7 +96,10 @@ function ResetForm({
           autoComplete="new-password"
           // The page exists to take this one answer.
           autoFocus
-          hint={t("hint")}
+          // The rules themselves, each turning green as it is met, as on sign-up:
+          // the button stays grey until all three are, and a single sentence
+          // left the reader guessing which one was missing.
+          hint={<PasswordRules password={password} ranged={false} />}
           id="reset-password"
           label={t("passwordLabel")}
           onChange={(event) => {

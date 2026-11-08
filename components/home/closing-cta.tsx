@@ -2,50 +2,46 @@
 
 import { useGSAP } from "@gsap/react";
 import gsap from "gsap";
-import { ArrowRight, Search } from "lucide-react";
+import { ArrowRight } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
-import { useRef, useState, type FormEvent } from "react";
+import { useRef, type ReactNode } from "react";
 
 import { FRAME } from "@/components/home/section-parts";
 import { ThaiText } from "@/components/mobile/thai-text";
-import { Magnetic, Rise, SETTLE, onFirstView } from "@/components/motion";
-import { Button } from "@/components/ui/button";
-import { InputGroup, InputGroupAddon, InputGroupInput } from "@/components/ui/input-group";
-import { heroGround } from "@/lib/assets/r2";
+import { Rise, SETTLE, onFirstView } from "@/components/motion";
+import { homeClosing, homeClosingWide } from "@/lib/assets/r2";
 import { cn } from "@/lib/utils";
 
 /**
- * Where the page ends: "go ahead, ask", and a field to ask in. What is typed
- * there is set in the visitor's hand, the face every question on this page is
- * written in, and it opens `/search` on it. For someone who cannot put it in
- * words, the matching flow.
+ * Where the page ends: "go ahead, ask", and a field to ask in, the hero's own
+ * (`search`, a `HeroSearch` with its suggestions panel). For someone who cannot
+ * put it in words, the matching flow.
  *
- * Set in the room the hero is set in, the empty desk and its chair, so the
- * page ends where it began. The photograph melts into the page at its edges
- * and comes into focus as it arrives. The search button leans towards the
- * cursor (`Magnetic`): the one primary action, answering the hand.
+ * One shape at every width: the copy in white over a white room, a table and a
+ * chair by the window, under a grey veil it reads on. The phone and an upright
+ * tablet take a 5:4 crop of the photograph, the desktop and a landscape tablet
+ * a 2.5:1 strip across the same table. The photograph comes into focus as it
+ * arrives. In the dark theme there is no photograph and the copy sits on the
+ * page's own ground.
  */
-export function ClosingCta() {
+export function ClosingCta({
+  search,
+}: {
+  /** The field to ask in: the hero's `HeroSearch`. */
+  readonly search: ReactNode;
+}) {
   const t = useTranslations("home");
-  const c = useTranslations("common");
-  const router = useRouter();
-  const [query, setQuery] = useState("");
   const room = useRef<HTMLDivElement>(null);
-
-  const ask = (event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-    const q = query.trim();
-    router.push(q ? `/search?q=${encodeURIComponent(q)}` : "/search");
-  };
 
   useGSAP(
     () => {
       const el = room.current;
-      const photo = el?.querySelector("img");
-      if (!el || !photo) return;
+      // Both photographs: one of them is hidden at any width, and the tween on
+      // it is harmless.
+      const photo = el ? Array.from(el.querySelectorAll("img")) : [];
+      if (!el || photo.length === 0) return;
       const mm = gsap.matchMedia();
       mm.add("(prefers-reduced-motion: no-preference)", () => {
         gsap.set(photo, { scale: 1.08, filter: "blur(10px)", autoAlpha: 0 });
@@ -66,71 +62,47 @@ export function ClosingCta() {
   );
 
   return (
-    <section className="relative w-full shrink-0 pt-16 lg:pt-0" data-slot="home-cta">
-      {/* Over the bare wall on `lg`; above the photograph on the phone, and
-          over plain ground in the dark theme, which has no photograph. */}
-      <div
-        className={cn(
-          FRAME,
-          "relative z-1 flex flex-col items-center gap-6 text-center lg:absolute lg:inset-x-0 lg:top-24 lg:gap-8 dark:lg:static dark:lg:py-28",
-        )}
-      >
-        <Rise className="flex max-w-4xl flex-col items-center gap-3 lg:gap-5">
-          <h2 className="font-hero text-3xl leading-snug font-normal tracking-tight text-hero-ink lg:text-6xl lg:leading-tight">
+    <section className="relative w-full shrink-0 py-8 md:py-12 lg:py-14" data-slot="home-cta">
+      {/* The phone's block at every width: 24 headline, 14 body, the phone's
+          40 field (`compact`), a 12 link. From `lg` (the desktop and a
+          landscape tablet) the same block, values and all, zoomed 1.5 times
+          as one piece, so its sizes keep the phone's proportions to each
+          other instead of each growing by its own step. */}
+      <div className={cn(FRAME, "relative z-1 flex flex-col items-center gap-5 text-center lg:[zoom:1.5]")}>
+        {/* 12px lower, nearer the field, the field itself staying put; the
+            body tucked up under the headline. */}
+        <Rise className="flex max-w-4xl translate-y-3 flex-col items-center gap-2">
+          <h2 className="font-hero text-2xl leading-snug font-normal tracking-tight text-on-media">
             {t("closeTitle")}
           </h2>
-          <p className="max-w-2xl text-base text-muted-foreground lg:text-xl">
+          <p className="-mt-1.5 max-w-2xl text-sm text-on-media/85">
             <ThaiText>{t("closeBody")}</ThaiText>
           </p>
         </Rise>
-        <Rise className="w-full max-w-2xl" delay={0.15}>
-          <form onSubmit={ask} role="search">
-            <InputGroup className="h-14 rounded-full border-border bg-card pr-1.5 pl-4 shadow-hero lg:h-18 lg:pr-2 lg:pl-6">
-              <InputGroupAddon className="p-0 text-muted-foreground">
-                <Search aria-hidden className="size-5 lg:size-6" />
-              </InputGroupAddon>
-              {/* The visitor's own words, in the hand the page's questions are written in. */}
-              <InputGroupInput
-                aria-label={t("closeLabel")}
-                className="h-full px-3 font-hand text-lg placeholder:text-muted-foreground lg:px-4 lg:text-2xl"
-                name="q"
-                onChange={(event) => setQuery(event.target.value)}
-                placeholder={t("searchExample2")}
-                type="search"
-                value={query}
-              />
-              <InputGroupAddon align="inline-end" className="p-0">
-                <Magnetic strength={0.2}>
-                  <Button
-                    className="h-11 rounded-full bg-hero-action px-5 text-base font-medium text-hero-action-foreground hover:bg-hero-action/85 lg:h-14 lg:px-8 lg:text-lg"
-                    type="submit"
-                  >
-                    {c("search")}
-                  </Button>
-                </Magnetic>
-              </InputGroupAddon>
-            </InputGroup>
-          </form>
+        {/* 352 wide, 432 on an upright tablet. From `lg` taken back to 0.8 of
+            the block's zoom (1.2 in all), so the field is the hero's own 48
+            by 422 rather than half as big again. */}
+        <Rise className="flex w-full max-w-88 text-left md:max-w-108 lg:max-w-88 lg:[zoom:0.8]" delay={0.15}>
+          {search}
         </Rise>
-        <Rise delay={0.25}>
+        {/* 8px nearer the field; from `lg` a step smaller than the block's zoom. */}
+        <Rise className="-mt-2 lg:[zoom:0.8]" delay={0.25}>
           <Link
-            className="group/match flex h-11 items-center gap-1.5 text-base font-medium text-foreground lg:h-12 lg:text-lg"
+            className="group/match flex h-11 items-center gap-1.5 text-xs font-medium text-on-media md:text-sm lg:text-xs"
             href="/matching"
           >
             <span className="underline underline-offset-4">{t("closeMatch")}</span>
             <ArrowRight
               aria-hidden
-              className="size-4 transition-transform duration-300 group-hover/match:translate-x-1 motion-reduce:transition-none lg:size-5"
+              className="size-3.5 transition-transform duration-300 group-hover/match:translate-x-1 motion-reduce:transition-none md:size-4 lg:size-3.5"
             />
           </Link>
         </Rise>
       </div>
-      <div
-        aria-hidden
-        className="relative mt-8 aspect-[4/3] w-full overflow-hidden mask-y-from-80% lg:mt-0 lg:aspect-[1710/900] dark:hidden"
-        ref={room}
-      >
-        <Image alt="" className="size-full object-cover object-bottom" src={heroGround} />
+      <div aria-hidden className="absolute inset-0 overflow-hidden dark:hidden" ref={room}>
+        <Image alt="" className="size-full object-cover lg:hidden" src={homeClosing} />
+        <Image alt="" className="hidden size-full object-cover lg:block" src={homeClosingWide} />
+        <div className="absolute inset-0 bg-scrim/65" />
       </div>
     </section>
   );

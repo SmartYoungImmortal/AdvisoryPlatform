@@ -1,6 +1,6 @@
 "use client";
 
-import { CalendarDays, Trash2 } from "lucide-react";
+import { CalendarDays, Trash2, Wallet } from "lucide-react";
 import Link from "next/link";
 import { useTranslations } from "next-intl";
 import { useState, type FormEvent } from "react";
@@ -19,6 +19,7 @@ import { deleteOwnAccount } from "@/lib/api/account";
 import { signOut } from "@/lib/session";
 
 interface AccountDeletionBlockers {
+  readonly hasUnsettledEarnings: boolean;
   readonly upcomingAppointments: readonly {
     readonly appointmentId: string;
     readonly startTime: string;
@@ -62,6 +63,7 @@ export function DeleteAccountDialog({
 function DeleteAccountForm({ onClose }: { readonly onClose: () => void }) {
   const t = useTranslations("deleteAccount");
   const [isBlocked, setIsBlocked] = useState(false);
+  const [hasUnsettledEarnings, setHasUnsettledEarnings] = useState(false);
   const [upcomingAppointments, setUpcomingAppointments] = useState<
     AccountDeletionBlockers["upcomingAppointments"]
   >([]);
@@ -72,8 +74,10 @@ function DeleteAccountForm({ onClose }: { readonly onClose: () => void }) {
   async function refreshBlockers() {
     const result = await api.get<AccountDeletionBlockers>("users/me/deletion-blockers");
     setUpcomingAppointments(result.upcomingAppointments);
-    setIsBlocked(result.upcomingAppointments.length > 0);
-    return result.upcomingAppointments;
+    setHasUnsettledEarnings(result.hasUnsettledEarnings);
+    const blocked = result.upcomingAppointments.length > 0 || result.hasUnsettledEarnings;
+    setIsBlocked(blocked);
+    return blocked;
   }
 
   async function submit(event: FormEvent<HTMLFormElement>) {
@@ -90,7 +94,7 @@ function DeleteAccountForm({ onClose }: { readonly onClose: () => void }) {
       if (error instanceof ApiError && error.status === 409) {
         try {
           const blockers = await refreshBlockers();
-          if (blockers.length > 0) {
+          if (blockers) {
             setFailed(false);
             return;
           }
@@ -110,12 +114,13 @@ function DeleteAccountForm({ onClose }: { readonly onClose: () => void }) {
           list is the bookings in the way, when there are some. */}
       {isBlocked ? (
         <SettingsDialogList caption={t("blockedTitle")}>
-          <InfoStackRow
+          {upcomingAppointments.length > 0 ? <InfoStackRow
             body={t("blocked1Body")}
             icon={CalendarDays}
             iconClassName="text-destructive"
             title={t("blocked1Title")}
-          />
+          /> : null}
+          {hasUnsettledEarnings ? <InfoStackRow body={t("blocked2Body")} icon={Wallet} iconClassName="text-destructive" title={t("blocked2Title")} /> : null}
           {upcomingAppointments.map((appointment) => (
             <p className="w-full pl-6.5 text-xs text-muted-foreground md:text-sm" key={appointment.appointmentId}>
               {new Intl.DateTimeFormat(undefined, { dateStyle: "medium", timeStyle: "short" }).format(
@@ -147,9 +152,9 @@ function DeleteAccountForm({ onClose }: { readonly onClose: () => void }) {
       <div className={SETTINGS_DIALOG_STACK}>
         {isBlocked ? (
           <>
-            <Button className={settingsStackPill("solid")} nativeButton={false} render={<Link href="/bookings" />}>
+            {upcomingAppointments.length > 0 ? <Button className={settingsStackPill("solid")} nativeButton={false} render={<Link href="/bookings" />}>
               {t("viewBookings")}
-            </Button>
+            </Button> : null}
             <Button className={settingsStackPill("soft")} onClick={onClose} type="button" variant="ghost">
               {t("backToSettings")}
             </Button>

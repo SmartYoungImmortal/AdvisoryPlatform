@@ -23,6 +23,8 @@ export interface ApiPublicService {
   readonly id: string;
   readonly advisorId: string;
   readonly categoryId: string;
+  /** The categories it is also found under, beside `categoryId`; absent from an older API. */
+  readonly extraCategoryIds?: readonly string[];
   readonly name: string;
   readonly description: string;
   readonly priceSatang: number;
@@ -30,6 +32,11 @@ export interface ApiPublicService {
   readonly screeningRequired: boolean;
   readonly trialEnabled: boolean;
   readonly trialDurationMinutes: number | null;
+  /**
+   * The advisor's other services this page shows, in their order; empty (or
+   * absent, from an older API) leaves the choice to the page.
+   */
+  readonly relatedServiceIds?: readonly string[];
   /** ISO timestamp the service was listed. */
   readonly createdAt: string;
   /**
@@ -41,6 +48,23 @@ export interface ApiPublicService {
    * field existed does not send it; read it as empty then.
    */
   readonly images?: readonly string[];
+  /**
+   * The packages the service is sold in, in the order offered, on the detail
+   * route only. Empty (or absent, from an API built before them) means it is
+   * sold as itself, at `priceSatang` for `durationMinutes`.
+   */
+  readonly packages?: readonly ApiServicePackage[];
+}
+
+/** `ServicePackageResponseDto` — advisor-services/dtos/service-package.dto.ts */
+export interface ApiServicePackage {
+  readonly id: string;
+  readonly name: string;
+  readonly description: string | null;
+  readonly durationMinutes: number;
+  readonly priceSatang: number;
+  /** The package's own picture, apart from the service's photographs; null (or absent, from an older API) without one. */
+  readonly image?: string | null;
 }
 
 /** `PublicServiceQueryDto` — the filters `GET /services` accepts. */
@@ -81,6 +105,65 @@ export interface ApiPublicAdvisorQuery {
   readonly skillId?: string;
 }
 
+/** How well an advisor speaks a language, strongest first. */
+export type ApiLanguageProficiency = "NATIVE" | "FLUENT" | "PROFESSIONAL" | "BASIC";
+
+/** A job; no end while it is the advisor's current work. */
+export interface ApiAdvisorExperience {
+  readonly title: string;
+  readonly organization: string;
+  readonly startYear: number;
+  readonly startMonth: number | null;
+  readonly endYear: number | null;
+  readonly endMonth: number | null;
+  readonly description: string | null;
+}
+
+export interface ApiAdvisorEducation {
+  readonly institution: string;
+  readonly degree: string | null;
+  readonly startYear: number | null;
+  readonly endYear: number | null;
+}
+
+export interface ApiAdvisorLanguage {
+  readonly language: string;
+  readonly proficiency: ApiLanguageProficiency;
+}
+
+/** A licence, certificate or award. */
+export interface ApiAdvisorCredential {
+  readonly title: string;
+  readonly issuer: string | null;
+  readonly year: number | null;
+}
+
+/**
+ * `AdvisorBackgroundResponseDto` — `GET /advisors/:id/background`, and the
+ * advisor's own at `advisors/me/background`. Each list in the advisor's order.
+ */
+export interface ApiAdvisorBackground {
+  readonly experiences: readonly ApiAdvisorExperience[];
+  readonly educations: readonly ApiAdvisorEducation[];
+  readonly languages: readonly ApiAdvisorLanguage[];
+  readonly credentials: readonly ApiAdvisorCredential[];
+}
+
+/**
+ * `PortfolioItemResponseDto` — a piece of work on the advisor's profile:
+ * `GET /advisors/:id/portfolio`, and the advisor's own at
+ * `advisors/me/portfolio`, in the advisor's order.
+ */
+export interface ApiPortfolioItem {
+  readonly id: string;
+  readonly title: string;
+  readonly description: string | null;
+  readonly link: string | null;
+  /** URLs to show as they are; an uploaded one is signed for an hour. */
+  readonly images: readonly string[];
+  readonly createdAt: string;
+}
+
 /** `AvailabilitySlotResponseDto` — availability/dtos/availability.dto.ts:134 */
 export interface ApiSlot {
   readonly startTime: string;
@@ -93,6 +176,8 @@ export interface ApiSlotQuery {
   readonly from: string;
   /** `YYYY-MM-DD` */
   readonly to: string;
+  /** Cuts the slots to this package's length; the service's own without it. */
+  readonly packageId?: string;
 }
 
 /** `ReviewResponseDto` — reviews/dtos */
@@ -104,8 +189,11 @@ export interface ApiReview {
   readonly createdAt: string;
   readonly modifiedAt: string;
   readonly appointmentStartTime: string;
+  readonly serviceId: string;
   readonly serviceName: string;
   readonly serviceDurationMinutes: number;
+  /** The package it was booked on; null for a service sold whole. */
+  readonly packageName: string | null;
   readonly reviewerDisplayName: string;
   /** A storage key, not a URL. See `avatarUrl` on the user endpoints. */
   readonly reviewerAvatarKey: string | null;
@@ -190,6 +278,8 @@ export type ApiBookingState =
 export interface ApiBooking {
   readonly id: string;
   readonly serviceId: string;
+  /** The package booked; null (or absent, from an older API) for a service sold as itself. */
+  readonly packageId?: string | null;
   readonly advisorId: string;
   readonly adviseeId: string;
   readonly startTime: string;
@@ -200,6 +290,11 @@ export interface ApiBooking {
   readonly cancelledAt: string | null;
   readonly cancelledByUserId: string | null;
   readonly createdAt: string;
+}
+
+/** `MeetingResponseDto` — bookings/dtos/meeting-response.dto.ts: the session's video call. */
+export interface ApiMeeting {
+  readonly url: string;
 }
 
 /** `OffsetPaginationDto` — the page/limit pair every paginated route accepts. */
@@ -214,6 +309,8 @@ export interface ApiBookingInput {
   readonly serviceId: string;
   /** ISO 8601, and the exact `startTime` of a slot the slots route returned. */
   readonly startTime: string;
+  /** The package to book, when the service is sold in packages; its length sets the end. */
+  readonly packageId?: string;
 }
 
 /* ------------------------------------------------------------- own reviews */
@@ -288,16 +385,59 @@ export interface ApiAdviseeInvoice {
   readonly card: { readonly brand: string; readonly lastDigits: string } | null;
 }
 
+/** `InvoiceDto` — payment/dto/invoice.dto.ts: what a booking's payment charges. */
+export interface ApiInvoice {
+  readonly id: string;
+  readonly createdAt: string;
+  readonly status: ApiInvoiceStatus;
+  readonly amountSatang: number;
+  readonly platformFeeSatang: number;
+}
+
 /**
  * `CheckoutDto` — payment/dto/checkout.dto.ts
  *
  * `cardToken` is an Omise token (`tokn_…`), minted in the browser by Omise's own
- * script against the publishable key. Nothing in this app loads that script, so
- * there is no way to produce this value here yet — see `startCheckout`.
+ * script against the public key (`lib/payment/omise.ts`).
  */
 export interface ApiCheckoutInput {
-  readonly serviceId: string;
-  /** One or more slot starts, ISO 8601. */
-  readonly startTimes: readonly string[];
+  readonly invoiceId: string;
   readonly cardToken: string;
+}
+
+/** `CouponPreviewResponse` — payment/dto/coupon.dto.ts, in satang. */
+export interface ApiCouponPreview {
+  readonly code: string;
+  readonly priceSatang: number;
+  readonly discountSatang: number;
+  readonly amountSatang: number;
+}
+
+/** `CheckoutResponse`: the card's 3-D Secure page, which the browser goes to. */
+export interface ApiCheckoutResult {
+  readonly url: string;
+}
+
+/** `PromptPayResponse`: the QR code to scan, what it charges, and when it expires. */
+export interface ApiPromptPay {
+  readonly qrImageUrl: string;
+  readonly amountSatang: number;
+  readonly expiresAt: string;
+}
+
+/** `PromptPayStatusResponse`: `url` is null until the code's outcome is known. */
+export interface ApiPromptPayStatus {
+  readonly status: "pending" | "success" | "failed";
+  readonly url: string | null;
+}
+
+/** The Thai banks whose app pays an invoice (`MOBILE_BANKS` in the API's payment providers). */
+export type ApiMobileBank = "scb" | "kbank" | "ktb" | "bbl" | "bay";
+
+/** `MobileBankingDto` — `POST /payment/mobile-banking` */
+export interface ApiMobileBankingInput {
+  readonly invoiceId: string;
+  readonly bank: ApiMobileBank;
+  /** The phone the app is on, when the browser can tell. */
+  readonly platform?: "IOS" | "ANDROID";
 }

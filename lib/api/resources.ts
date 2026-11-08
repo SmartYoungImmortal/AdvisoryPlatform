@@ -22,13 +22,22 @@
 import { api, type Paginated } from "@/lib/api/client";
 import type {
   ApiAdviseeInvoice,
+  ApiAdvisorBackground,
   ApiAvatarUrl,
   ApiBooking,
   ApiBookingInput,
   ApiCheckoutInput,
+  ApiCheckoutResult,
+  ApiCouponPreview,
+  ApiMobileBankingInput,
+  ApiPromptPay,
+  ApiPromptPayStatus,
+  ApiInvoice,
+  ApiMeeting,
   ApiNamedRecord,
   ApiOwnProfile,
   ApiPageQuery,
+  ApiPortfolioItem,
   ApiPublicAdvisor,
   ApiPublicAdvisorQuery,
   ApiPublicService,
@@ -75,6 +84,18 @@ export function listServiceSlots(
   return api.get(`services/${serviceId}/slots`, { query: { ...range }, signal });
 }
 
+/** Read replacement slots using the stored booking duration and ownership. */
+export function listBookingRescheduleSlots(
+  bookingId: string,
+  range: Pick<ApiSlotQuery, "from" | "to">,
+  signal?: AbortSignal,
+): Promise<readonly ApiSlot[]> {
+  return api.get(`bookings/${encodeURIComponent(bookingId)}/reschedule-slots`, {
+    query: range,
+    signal,
+  });
+}
+
 /** `GET /service-categories` — public. */
 export function listServiceCategories(
   signal?: AbortSignal,
@@ -110,6 +131,22 @@ export function getAdvisor(
   signal?: AbortSignal,
 ): Promise<ApiPublicAdvisor> {
   return api.get(`advisors/${advisorId}`, { signal });
+}
+
+/** `GET /advisors/:id/background` — work, education, languages, licences and awards. */
+export function getAdvisorBackground(
+  advisorId: string,
+  signal?: AbortSignal,
+): Promise<ApiAdvisorBackground> {
+  return api.get(`advisors/${advisorId}/background`, { signal });
+}
+
+/** `GET /advisors/:id/portfolio` — the work their profile shows, in their order. */
+export function getAdvisorPortfolio(
+  advisorId: string,
+  signal?: AbortSignal,
+): Promise<ApiPortfolioItem[]> {
+  return api.get(`advisors/${advisorId}/portfolio`, { signal });
 }
 
 /* ------------------------------------------------------------------ reviews */
@@ -284,6 +321,21 @@ export function rescheduleBooking(
   });
 }
 
+/**
+ * `POST /bookings/:bookingId/meeting` — where the session's video call is.
+ *
+ * The room is named the first time anyone opens it. Only the booking's two
+ * people get it (404 otherwise), only while it is `BOOKED` or `IN_PROGRESS`
+ * (409 otherwise), and a `BOOKED` one only from 10 minutes before it starts to
+ * its end (400 outside that, with the API's own sentence).
+ */
+export function openBookingMeeting(
+  bookingId: string,
+  signal?: AbortSignal,
+): Promise<ApiMeeting> {
+  return api.post(`bookings/${bookingId}/meeting`, { signal });
+}
+
 /* ------------------------------------------------------------- own reviews */
 
 /**
@@ -333,8 +385,7 @@ export function putBookingReview(
  * resolved through its appointment rather than trusted from the body.
  *
  * The id it needs belongs to `service_invoices`, which is what
- * `listMyInvoices` returns. Nothing in the app opens a case yet: there is no
- * refund button on a receipt.
+ * `listMyInvoices` and `getMyBookingInvoice` return.
  */
 export function openRefundCase(
   input: ApiRefundCaseInput,
@@ -345,7 +396,7 @@ export function openRefundCase(
 
 /** `GET /refunds/me` — the cases this advisee opened. `refund:readSelf`. */
 export function listMyRefundCases(
-  query: ApiPageQuery = {},
+  query: ApiPageQuery & { readonly invoiceId?: string } = {},
   signal?: AbortSignal,
 ): Promise<Paginated<ApiRefundCase>> {
   return api.get("refunds/me", { query: { ...query }, signal });
@@ -366,6 +417,14 @@ export function listMyInvoices(
   return api.get("payment/invoices", { query: { ...query }, signal });
 }
 
+/** The exact invoice linked to an owned booking; 404 when no receipt exists. */
+export function getMyBookingInvoice(
+  bookingId: string,
+  signal?: AbortSignal,
+): Promise<ApiAdviseeInvoice> {
+  return api.get(`payment/invoices/for-booking/${encodeURIComponent(bookingId)}`, { signal });
+}
+
 /**
  * `GET /payment/invoices/:invoiceId` — one of them. 404 for anyone else's, as
  * for a missing one. The id comes from an address bar, so it is encoded: a
@@ -378,33 +437,82 @@ export function getMyInvoice(
   return api.get(`payment/invoices/${encodeURIComponent(invoiceId)}`, { signal });
 }
 
+/** `GET /payment/public-key` — public: the Omise key a card is tokenised with. Empty when the API has none. */
+export function getPaymentPublicKey(signal?: AbortSignal): Promise<{ readonly publicKey: string }> {
+  return api.get("payment/public-key", { signal });
+}
+
 /**
- * `POST /payment/checkout` — recorded here, callable by nothing.
- *
- * Three separate reasons, all on the API's side, and all worth writing down so
- * the next person does not rediscover them one at a time:
- *
- * 1. It answers **303 with a `Location`** to the provider's 3-D Secure page
- *    (`res.redirect(HttpStatus.SEE_OTHER, …)`). `lib/api/client.ts` uses fetch's
- *    default `redirect: "follow"`, so the browser would chase that hop into an
- *    origin with no CORS headers and the call would surface as
- *    `ApiUnreachableError`. A redirect is a browser navigation, not a fetch.
- * 2. `cardToken` must be an Omise token minted client-side by Omise's own
- *    script. Nothing in this app loads it, so the value cannot be produced.
- * 3. `PaymentService.checkout` still reads `@/mock/services` and
- *    `@/mock/invoices` and charges the mock price. It writes no appointment and
- *    no `service_invoices` row, so nothing downstream — the invoice screens, a
- *    refund case — would have anything to read afterwards.
- *
- * Until (1) becomes a JSON body carrying the redirect URL and (3) writes a real
- * invoice, the booking flow stops at `PENDING_PAYMENT`, which is what
- * `POST /bookings` honestly leaves behind.
+ * `POST /payment/invoice/for-booking/:bookingId` — the invoice for a booking
+ * `POST /bookings` holds, priced as booked. The same one again while it is
+ * unpaid, so a second try pays the same invoice.
+ */
+export function createBookingInvoice(
+  bookingId: string,
+  couponCode?: string,
+  signal?: AbortSignal,
+): Promise<ApiInvoice> {
+  return api.post(`payment/invoice/for-booking/${encodeURIComponent(bookingId)}`, {
+    body: couponCode ? { couponCode } : {},
+    signal,
+  });
+}
+
+/**
+ * `POST /payment/coupons/preview` — what a coupon would take off a booking,
+ * before anything is charged. 400 for any code that cannot be used.
+ */
+export function previewCoupon(
+  bookingId: string,
+  code: string,
+  signal?: AbortSignal,
+): Promise<ApiCouponPreview> {
+  return api.post("payment/coupons/preview", { body: { bookingId, code }, signal });
+}
+
+/**
+ * `POST /payment/checkout` — charge the invoice to a tokenised card. The answer
+ * is the card's 3-D Secure page; the browser goes there, and the bank returns it
+ * to the API's callback, which confirms the booking and sends it on to
+ * `/checkout/success`, `/checkout/failed` or `/checkout/unconfirmed`.
  */
 export function startCheckout(
   input: ApiCheckoutInput,
   signal?: AbortSignal,
-): Promise<never> {
+): Promise<ApiCheckoutResult> {
   return api.post("payment/checkout", { body: input, signal });
+}
+
+/**
+ * `POST /payment/promptpay` — charge the invoice by a PromptPay QR code. The
+ * answer is the code's image (an SVG the provider serves to anyone), the
+ * amount it charges and when it expires (15 minutes on). Asking again makes a
+ * new code; an invoice no longer waiting for payment answers 400.
+ */
+export function payByPromptPay(invoiceId: string, signal?: AbortSignal): Promise<ApiPromptPay> {
+  return api.post("payment/promptpay", { body: { invoiceId }, signal });
+}
+
+/**
+ * `GET /payment/invoice/:id/promptpay-status` — whether the code was paid.
+ * The first answer that is not `pending` records the outcome and books the
+ * bookings, and `url` is the page checkout goes to.
+ */
+export function getPromptPayStatus(invoiceId: string, signal?: AbortSignal): Promise<ApiPromptPayStatus> {
+  return api.get(`payment/invoice/${invoiceId}/promptpay-status`, { signal });
+}
+
+/**
+ * `POST /payment/mobile-banking` — charge the invoice in a bank's app. `url`
+ * opens the app (in test mode, Omise's page to mark the charge paid or
+ * failed); the bank sends the payer back through the card's 3-D Secure
+ * return, which books the booking.
+ */
+export function payByMobileBanking(
+  input: ApiMobileBankingInput,
+  signal?: AbortSignal,
+): Promise<ApiCheckoutResult> {
+  return api.post("payment/mobile-banking", { body: input, signal });
 }
 
 /** `GET /health` — unprefixed by nothing: it is `/api/v1/health` like the rest. */
@@ -414,4 +522,24 @@ export function getHealth(signal?: AbortSignal): Promise<{
   readonly databaseLatencyMs: number;
 }> {
   return api.get("health", { signal });
+}
+
+export interface RefundEvidence {
+  readonly objectKey: string;
+  readonly originalFileName: string;
+  readonly mimeType: string;
+  readonly createdAt: string;
+}
+
+export function listRefundEvidence(id: string, signal?: AbortSignal): Promise<RefundEvidence[]> {
+  return api.get(`refunds/${encodeURIComponent(id)}/evidence`, { signal });
+}
+
+export function uploadRefundEvidence(id: string, file: File): Promise<RefundEvidence> {
+  const body = new FormData(); body.append("file", file);
+  return api.post(`refunds/${encodeURIComponent(id)}/evidence`, { body });
+}
+
+export function getRefundEvidenceUrl(id: string, objectKey: string): Promise<{ url: string; expiresInSeconds: number }> {
+  return api.get(`refunds/${encodeURIComponent(id)}/evidence-url`, { query: { objectKey } });
 }

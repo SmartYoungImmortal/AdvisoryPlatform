@@ -33,9 +33,16 @@ export function MobileScreen({
    * that is one column of text: a document has no blocks to rearrange at 768px,
    * so the only thing the cap achieves there is a phone-width page with empty
    * margins. `true` keeps the `lg` behaviour every arranged screen wants.
+   * `"tablet"` lifts it at 744, for a screen built to a reference's own steps.
    */
-  readonly wide?: boolean | "md";
+  readonly wide?: boolean | "md" | "tablet";
 }) {
+  // What `MobileViewport` reads to lift its cap: the step a screen asks for, or
+  // an empty mark for the `lg` every other wide screen wants.
+  let wideMark: string | undefined;
+  if (typeof wide === "string") wideMark = wide;
+  else if (wide) wideMark = "";
+
   return (
     <div
       className={cn(
@@ -43,10 +50,11 @@ export function MobileScreen({
         // the frame, so the tab bar would slide off the viewport.
         "relative flex h-dvh w-full flex-col items-center overflow-hidden bg-background pb-4",
         wide === "md" && "md:pb-0",
+        wide === "tablet" && "min-[46.5rem]:pb-0",
         wide === true && "lg:pb-0",
         className,
       )}
-      data-wide={wide === "md" ? "md" : wide ? "" : undefined}
+      data-wide={wideMark}
     >
       {children}
     </div>

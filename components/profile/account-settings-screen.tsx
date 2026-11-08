@@ -157,7 +157,7 @@ function SettingsSection({
         </h2>
       </header>
       {/* Straight under the band, the same inset from both of the panel's edges. */}
-      <ul className="flex flex-col max-lg:[&>li:last-child]:border-b-0 lg:mx-12">{children}</ul>
+      <ul className="flex flex-col below-lg:[&>li:last-child]:border-b-0 lg:mx-12">{children}</ul>
     </section>
   );
 }
@@ -407,7 +407,13 @@ export function AccountSettingsScreen({
       </AppFrame>
       {overlay}
       <DeleteAccountDialog onOpenChange={setDeleting} open={deleting} />
-      <StatusToast leaving={updated.leaving} toast={updated.toast} />
+      <StatusToast
+        dismiss={updated.dismiss}
+        leaving={updated.leaving}
+        paused={updated.paused}
+        setPaused={updated.setPaused}
+        toast={updated.toast}
+      />
     </MobileScreen>
   );
 }

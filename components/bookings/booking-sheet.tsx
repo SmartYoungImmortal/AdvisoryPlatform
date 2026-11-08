@@ -7,6 +7,7 @@ import {
   CircleX,
   Clock3,
   MessageSquare,
+  Video,
   X,
   type LucideIcon,
 } from "lucide-react";
@@ -35,11 +36,11 @@ import { SHEET_W, SHEET_X } from "@/components/payment/invoice-screens";
 import { invoiceHref } from "@/components/payment/transactions-data";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogClose, DialogContent } from "@/components/ui/dialog";
-import type { Paginated } from "@/lib/api/client";
-import { listMyInvoices } from "@/lib/api/resources";
+import { getMyBookingInvoice } from "@/lib/api/resources";
 import type { ApiAdviseeInvoice, ApiBooking, ApiPublicAdvisor, ApiPublicService } from "@/lib/api/types";
 import { useResource } from "@/lib/api/use-resource";
 import { cn } from "@/lib/utils";
+import { useBookingMeeting } from "@/components/bookings/use-booking-meeting";
 
 /**
  * One booking as the screens show it: the appointment row, joined to the
@@ -161,24 +162,19 @@ export function useWaysOn(entry: BookingEntry, now: number): { readonly main: Wa
 }
 
 /**
- * The invoice that paid for a booking, if the reader's history holds one.
- *
- * The invoice names no booking: it carries its service and the start of the
- * appointment it covers, which a rescheduling moves with it. The two together
- * pick out one booking, so that is the match. The history is the payments
- * page's own request, so the cache answers it there and here alike.
+ * The invoice that paid for a booking, read by the booking's own id: the API
+ * keeps which invoice covers which booking, so a rescheduled booking and one
+ * of several sessions on a single invoice each find theirs.
  */
 function useBookingInvoice(booking: ApiBooking): ApiAdviseeInvoice | undefined {
-  const fetcher = useCallback((signal: AbortSignal) => listMyInvoices({ page: 1, limit: 50 }, signal), []);
-  const invoices = useResource<Paginated<ApiAdviseeInvoice>>("payment/invoices?page=1&limit=50", fetcher);
-  // `items` guarded too: an API (or a stand-in for one) that answers without
-  // a page simply has no invoice to show.
-  return invoices.data?.items?.find(
-    (invoice) =>
-      invoice.service.id === booking.serviceId &&
-      invoice.session !== null &&
-      Date.parse(invoice.session.startTime) === Date.parse(booking.startTime),
+  const fetcher = useCallback(
+    (signal: AbortSignal) => getMyBookingInvoice(booking.id, signal),
+    [booking.id],
   );
+  return useResource<ApiAdviseeInvoice>(
+    `payment/invoices/for-booking/${booking.id}`,
+    fetcher,
+  ).data;
 }
 
 /** The gutter every line hangs from: its icon centred in a column as wide as the title's square's. */
@@ -291,6 +287,7 @@ function PaymentLine({
   readonly booking: ApiBooking;
   readonly service: ApiPublicService | undefined;
 }) {
+  const r = useTranslations("bookingRefund");
   const t = useTranslations("bookings");
   const tr = useTranslations("transactions");
   const format = useFormatter();
@@ -305,6 +302,7 @@ function PaymentLine({
         <Link className="font-medium text-primary underline-offset-4 hover:underline" href={invoiceHref(invoice.id)}>
           {t("viewReceipt")}
         </Link>
+        {invoice.status === "paid" || invoice.status === "refunded" ? <><span>{" · "}</span><Link className="font-medium text-primary underline-offset-4 hover:underline" href={`/bookings/refund?bookingId=${booking.id}`}>{r("requestLink")}</Link></> : null}
       </Line>
     );
   }
@@ -350,6 +348,10 @@ export function BookingSheet({
   const clock = useClock();
   const ways = useWaysOn(entry, now);
   const MainIcon = ways.main.icon;
+  const call = useBookingMeeting(entry.booking, now);
+  // While the call can be joined, joining it is the way on; what was the way
+  // on (the chat) moves in with the rest.
+  const more = call.open ? [ways.main, ...ways.more.filter((way) => way.href !== ways.main.href)] : ways.more;
   const [panel, setPanel] = useState<"none" | "reschedule" | "cancel">("none");
   // One cancellation at a time; after an answer that may hide a committed
   // cancellation, none again until the booking itself has been read.
@@ -381,11 +383,28 @@ export function BookingSheet({
     >
       <SheetHeader booking={booking} heading={inDialog ? "h2" : "h1"} now={now} service={service} titleId={titleId} />
 
-      <div className={UNDER_TEXT}>
-        <Button className={MAIN_PILL} nativeButton={false} render={<Link href={ways.main.href} />}>
-          {MainIcon ? <MainIcon aria-hidden className="size-4 lg:size-5" /> : null}
-          {ways.main.label}
-        </Button>
+      <div className={cn("flex flex-col items-start gap-2", UNDER_TEXT)}>
+        {call.open ? (
+          <Button className={MAIN_PILL} disabled={call.joining} onClick={call.join} type="button">
+            <Video aria-hidden className="size-4 lg:size-5" />
+            {call.joining ? t("joinOpening") : t("join")}
+          </Button>
+        ) : (
+          <Button className={MAIN_PILL} nativeButton={false} render={<Link href={ways.main.href} />}>
+            {MainIcon ? <MainIcon aria-hidden className="size-4 lg:size-5" /> : null}
+            {ways.main.label}
+          </Button>
+        )}
+        {call.opensAt ? (
+          <p className="text-xs text-muted-foreground lg:text-frame-label">
+            {t("joinOpensAt", { time: clock(call.opensAt) })}
+          </p>
+        ) : null}
+        {call.problem ? (
+          <p className="text-xs text-destructive lg:text-frame-label" role="alert">
+            {call.problem}
+          </p>
+        ) : null}
       </div>
 
       <div className="flex flex-col gap-4 lg:gap-5">
@@ -417,9 +436,9 @@ export function BookingSheet({
         ) : null}
       </div>
 
-      {ways.more.length > 0 || keepable || changeable ? (
+      {more.length > 0 || keepable || changeable ? (
         <div className={cn("flex flex-wrap gap-2 lg:gap-3", UNDER_TEXT)}>
-          {ways.more.map((way) => (
+          {more.map((way) => (
             <Button className={MORE_PILL} key={way.href} nativeButton={false} render={<Link href={way.href} />} variant="ghost">
               {way.label}
             </Button>

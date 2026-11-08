@@ -1,8 +1,9 @@
 "use client";
 
 import { useCallback, useSyncExternalStore } from "react";
+import { io, type Socket } from "socket.io-client";
 
-import { isApiConfigured } from "@/lib/api/client";
+import { apiSocketTarget, isApiConfigured } from "@/lib/api/client";
 import {
   countUnreadNotifications,
   listNotifications,
@@ -16,14 +17,15 @@ import {
  * toast and the notification center all read from it, so a read, "mark all read" or
  * a new notification shows everywhere at once, without a reload.
  *
- * - Pulse: checks the unread count every 30 seconds while the tab is visible. When
- *   the count goes up, it loads the newest notification for the toast and reloads
- *   the open list.
+ * - Pulse: checks the unread count. The API's `/notifications` socket says when a
+ *   notification arrives, and the check runs at once; when the count goes up, it
+ *   loads the newest notification for the toast and reloads the open list. While
+ *   the socket is down, the check also runs every 30 seconds as a backup.
  * - Feed: the notification center's list. It loads fresh every time the center
  *   opens, and read changes are applied to it directly.
  *
- * Polling is used until the team decides on `socket.io-client`. Only this file
- * would need to change.
+ * The socket carries no text, only "something new": each app reads the
+ * notification from the API in its own language.
  */
 
 /* --------------------------------------------------------------------- pulse */
@@ -35,7 +37,7 @@ export interface Pulse {
   readonly fresh: ApiNotification | null;
 }
 
-/** How often an open tab checks for new notifications. */
+/** How often an open tab checks for new notifications while the socket is down. */
 const POLL_MS = 30_000;
 
 const IDLE: Pulse = { unread: null, fresh: null };
@@ -43,6 +45,7 @@ const IDLE: Pulse = { unread: null, fresh: null };
 let pulse: Pulse = IDLE;
 const pulseListeners = new Set<() => void>();
 let timer: ReturnType<typeof setInterval> | undefined;
+let socket: Socket<{ "notification:new": () => void }> | null = null;
 
 function publishPulse(next: Pulse): void {
   pulse = next;
@@ -79,16 +82,40 @@ function subscribePulse(listener: () => void): () => void {
   pulseListeners.add(listener);
   if (pulseListeners.size === 1) {
     void tick(true);
-    timer = setInterval(() => void tick(), POLL_MS);
+    timer = setInterval(() => {
+      if (!socket?.connected) void tick();
+    }, POLL_MS);
     document.addEventListener("visibilitychange", onVisible);
+    openSocket();
   }
   return () => {
     pulseListeners.delete(listener);
     if (pulseListeners.size === 0) {
       clearInterval(timer);
       document.removeEventListener("visibilitychange", onVisible);
+      closeSocket();
     }
   };
+}
+
+/**
+ * Listens on the API's `/notifications` namespace with the session cookie. Every
+ * connect, including a reconnect after a drop, checks once, to catch anything sent
+ * while the socket was down. If the server refuses the connection, the backup check
+ * keeps running.
+ */
+function openSocket(): void {
+  const target = apiSocketTarget("notifications");
+  if (!target || socket) return;
+  socket = io(target.url, { path: target.path, withCredentials: true });
+  socket.on("connect", () => void tick(true));
+  socket.on("notification:new", () => void tick(true));
+}
+
+function closeSocket(): void {
+  socket?.removeAllListeners();
+  socket?.disconnect();
+  socket = null;
 }
 
 const ignore = () => () => {};

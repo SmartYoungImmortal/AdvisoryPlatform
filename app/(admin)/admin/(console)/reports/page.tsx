@@ -1,5 +1,6 @@
-import { ReportsScreen } from "@/components/cms/screens/cases";
+import { CasesScreen } from "@/components/cms/screens/cases";
 
+/** User reports, and the scanner's off-platform flags on `?tab=flags`. */
 export default function ReportsPage() {
-  return <ReportsScreen />;
+  return <CasesScreen />;
 }

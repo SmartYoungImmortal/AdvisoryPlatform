@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useEffect, useState, type FormEvent } from "react";
 import {
   CalendarOff,
@@ -29,11 +30,13 @@ import { NeutralButton } from "@/components/mobile/buttons";
 import { TopBar } from "@/components/topbar";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Switch } from "@/components/ui/switch";
 import { READING_COLUMN } from "@/lib/layout";
 import { cn } from "@/lib/utils";
 import { availabilityApi, type AvailabilityProfile, type BlockedAvailabilityPeriod, type SpecificAvailabilityWindow, type UpsertAvailabilityProfile, type WeeklyAvailabilityWindow } from "@/lib/availability/api";
 import { invalidate } from "@/lib/api/use-resource";
+import { useLocationSearch } from "@/lib/navigation/use-location-search";
 import {
   PRESET_WEEKLY_DAYS,
   WEEKLY_DAYS,
@@ -186,13 +189,13 @@ function EditorTabs({
 function TimeTrigger({
   value,
   invalid = false,
-  open = false,
+  trailing,
   name,
   valueChanged,
 }: {
   readonly value: string;
   readonly invalid?: boolean;
-  readonly open?: boolean;
+  readonly trailing?: ReactNode;
   readonly name?: string;
   readonly valueChanged?: (value: string) => void;
 }) {
@@ -201,12 +204,11 @@ function TimeTrigger({
       className={cn(
         "flex min-w-px flex-1 items-center gap-1 overflow-clip rounded-md border bg-muted py-2 pr-2.5 pl-3",
         invalid && "border-destructive",
-        open && "border-primary",
-        !invalid && !open && "border-border",
+        !invalid && "border-border focus-within:border-primary",
       )}
     >
-      {name ? <input aria-label={name} className="min-w-px flex-1 bg-transparent font-latin text-sm font-medium text-foreground outline-none" name={name} type="time" value={value} onChange={(event) => valueChanged?.(event.currentTarget.value)} /> : <span className="min-w-px flex-1 font-latin text-sm font-medium text-foreground">{value}</span>}
-      <ChevronDown className="size-3.5 shrink-0 text-muted-foreground" />
+      {name ? <Input aria-label={name} aria-invalid={invalid || undefined} className="h-auto min-w-px flex-1 rounded-none border-0 bg-transparent p-0 font-latin text-sm font-medium text-foreground shadow-none dark:bg-transparent" name={name} type="time" value={value} onChange={(event) => valueChanged?.(event.currentTarget.value)} /> : <span className="min-w-px flex-1 font-latin text-sm font-medium text-foreground">{value}</span>}
+      {trailing ?? <ChevronDown className="size-3.5 shrink-0 text-muted-foreground" />}
     </span>
   );
 }
@@ -227,6 +229,7 @@ function RangeRow({
   readonly startName?: string;
   readonly endName?: string;
 }) {
+  const t = useTranslations("availability");
   const [start, setStart] = useState(range.start);
   const [end, setEnd] = useState(range.end);
   return (
@@ -240,11 +243,10 @@ function RangeRow({
       {/* The popover anchors to the end trigger, so that half of the row — and only
           that half — becomes the positioning context. */}
       <span className="relative flex min-w-px flex-1 items-center">
-        <TimeTrigger invalid={invalid} name={endName} open={picker} value={end} valueChanged={setEnd} />
-        {picker ? <TimePickerPopover value={end} onSelect={setEnd} /> : null}
+        <TimeTrigger invalid={invalid} name={endName} value={end} valueChanged={setEnd} trailing={<TimePickerPopover start={start} value={end} onSelect={setEnd} defaultOpen={picker} />} />
       </span>
       {removable ? (
-        <Button type="button" variant="ghost" size="icon-xs" aria-label="Remove time range" onClick={() => { setStart(""); setEnd(""); }} className="text-muted-foreground">×</Button>
+        <Button type="button" variant="ghost" size="icon-xs" aria-label={t("removeRange")} onClick={() => { setStart(""); setEnd(""); }} className="text-muted-foreground">×</Button>
       ) : null}
     </div>
   );
@@ -361,7 +363,9 @@ function EmptyDatesCard({
 }
 
 /** Figma "เริ่มจากรูปแบบสำเร็จรูป" — the shapes a new week can start as. */
-function PresetRow() {
+type WeekPreset = (typeof WEEK_PRESETS)[number]["id"];
+
+function PresetRow({ selected, onSelect }: { readonly selected: WeekPreset; readonly onSelect: (preset: WeekPreset) => void }) {
   const t = useTranslations("availability");
 
   return (
@@ -371,17 +375,21 @@ function PresetRow() {
       </p>
       <div className="flex w-full flex-wrap content-start items-start gap-2">
         {WEEK_PRESETS.map((preset) => (
-          <span
+          <Button
+            variant={selected === preset.id ? "default" : "outline"}
+            type="button"
+            aria-pressed={selected === preset.id}
+            onClick={() => onSelect(preset.id)}
             className={cn(
-              "flex shrink-0 items-center rounded-full px-3.5 py-[7px] text-sm font-medium",
-              preset.selected
-                ? "bg-primary text-primary-foreground"
+              "h-auto shrink-0 rounded-full px-3.5 py-[7px] text-sm font-medium shadow-none",
+              selected === preset.id
+                ? "border-0 bg-primary text-primary-foreground"
                 : "border border-border bg-card text-foreground",
             )}
             key={preset.id}
           >
             {t(`preset.${preset.id}`)}
-          </span>
+          </Button>
         ))}
       </div>
     </div>
@@ -425,16 +433,29 @@ function WeeklyTab({
 }) {
   const t = useTranslations("availability");
   const [extraRangeCount, setExtraRangeCount] = useState<Record<string, number>>({});
+  const [selectedPreset, setSelectedPreset] = useState<WeekPreset>("weekdays");
+  const [schedulePreset, setSchedulePreset] = useState<Exclude<WeekPreset, "custom">>("weekdays");
+  const [presetRevision, setPresetRevision] = useState(0);
+  const [openDays, setOpenDays] = useState<Partial<Record<string, boolean>>>({});
   const create = isCreate(mode);
   const days = WEEKLY_DAYS.map(({ day }, index) => {
     const persisted = profile?.weeklyWindows.filter((window) => window.dayOfWeek === index + 1).map(({ startTime, endTime }) => ({ start: timeInputValue(startTime), end: timeInputValue(endTime) }));
-    const ranges = persisted ?? (create ? PRESET_WEEKLY_DAYS[index]?.ranges ?? [] : []);
+    const presetOpen = schedulePreset === "everyday" || (schedulePreset === "weekend" ? index >= 5 : index < 5);
+    const ranges = persisted ?? (create && presetOpen ? [{ start: "09:00", end: "17:00" }] : []);
     return { day, ranges };
   });
 
   return (
     <div className="flex w-full shrink-0 flex-col items-start gap-2.5 px-6 lg:px-0">
-      {create ? <PresetRow /> : null}
+      {create ? <PresetRow selected={selectedPreset} onSelect={(preset) => {
+        setSelectedPreset(preset);
+        if (preset !== "custom") {
+          setSchedulePreset(preset);
+          setPresetRevision((revision) => revision + 1);
+          setOpenDays({});
+          setExtraRangeCount({});
+        }
+      }} /> : null}
       {create ? (
         <p className="w-full pt-1.5 text-sm font-medium text-foreground">
           {t("weeklyLabel")}
@@ -454,14 +475,14 @@ function WeeklyTab({
       {days.map(({ day, ranges }) => {
         const dayInvalid = invalid && day === WEEKLY_ERROR.day;
         const shown = dayInvalid ? WEEKLY_ERROR.ranges : ranges;
-        const isOpen = shown.length > 0;
+        const isOpen = openDays[day] ?? shown.length > 0;
         const pickerDay = picker && day === "mon";
 
         return (
           <EditorCard
             className={pickerDay ? "overflow-visible" : "overflow-clip"}
             invalid={dayInvalid}
-            key={day}
+            key={`${presetRevision}-${day}`}
           >
             <div className="flex w-full shrink-0 items-center gap-2 overflow-clip">
               <p className="min-w-px flex-1 text-base font-medium text-foreground">
@@ -478,11 +499,15 @@ function WeeklyTab({
                 aria-label={t(`weekday.${day}`)}
                 className="shrink-0"
                 name={`dayOpen-${day}`}
-                defaultChecked={isOpen}
+                checked={isOpen}
+                onCheckedChange={(checked) => {
+                  setOpenDays((current) => ({ ...current, [day]: checked }));
+                  setSelectedPreset("custom");
+                }}
               />
             </div>
 
-            {shown.map((range, index) => (
+            {isOpen ? shown.map((range, index) => (
               <RangeRow
                 invalid={dayInvalid && index === WEEKLY_ERROR.rangeIndex}
                 key={`${range.start}-${range.end}`}
@@ -492,11 +517,11 @@ function WeeklyTab({
                 endName={`weeklyEnd-${day}-${index}`}
                 removable={shown.length > 1}
               />
-            ))}
-            {Array.from({ length: extraRangeCount[day] ?? 1 }, (_, extraIndex) => {
+            )) : null}
+            {isOpen ? Array.from({ length: extraRangeCount[day] ?? 1 }, (_, extraIndex) => {
               const index = shown.length + extraIndex;
               return <RangeRow key={`new-${day}-${extraIndex}`} range={{ start: "", end: "" }} startName={`weeklyStart-${day}-${index}`} endName={`weeklyEnd-${day}-${index}`} removable={extraIndex > 0} />;
-            })}
+            }) : null}
 
             {dayInvalid ? (
               <p className="w-full text-xs font-normal text-destructive">
@@ -531,7 +556,7 @@ function SpecificTab({ mode, profile, profileId = "", addingDate = false }: { re
         />
       ) : null}
 
-      {create ? (
+      {!profile?.specificWindows.length ? (
         <EmptyDatesCard
           body={t("specificEmptyBody")}
           icon={CalendarPlus}
@@ -544,7 +569,7 @@ function SpecificTab({ mode, profile, profileId = "", addingDate = false }: { re
               <p className="min-w-px flex-1 text-base font-medium text-foreground">
                 {date}
               </p>
-              <label className="shrink-0 text-sm font-medium whitespace-nowrap text-destructive"><input className="mr-1" type="checkbox" name="removeSpecificDate" value={date} />{t("delete")}</label>
+              <label className="shrink-0 text-sm font-medium whitespace-nowrap text-destructive"><Checkbox className="mr-1 inline-flex size-3.5 align-middle" name="removeSpecificDate" value={date} />{t("delete")}</label>
             </div>
             {windows.map((window, index) => (
               <RangeRow
@@ -582,7 +607,7 @@ function BlockedTab({ mode, profile }: { readonly mode: EditorMode; readonly pro
         <SectionIntro hint={t("blockedHint")} label={t("tab.blocked")} />
       ) : null}
 
-      {create ? (
+      {!profile?.blockedPeriods.length ? (
         <EmptyDatesCard
           body={t("blockedEmptyBody")}
           icon={CalendarOff}
@@ -598,7 +623,7 @@ function BlockedTab({ mode, profile }: { readonly mode: EditorMode; readonly pro
                 <p className="min-w-px flex-1 text-base font-medium text-foreground">
                   {date.blockedDate}
                 </p>
-                <label className="shrink-0 text-sm font-medium whitespace-nowrap text-destructive"><input className="mr-1" type="checkbox" name="removeBlockedPeriod" value={index} />{t("delete")}</label>
+                <label className="shrink-0 text-sm font-medium whitespace-nowrap text-destructive"><Checkbox className="mr-1 inline-flex size-3.5 align-middle" name="removeBlockedPeriod" value={String(index)} />{t("delete")}</label>
               </div>
               {/* The two blocks are not the same severity and the tab used to say
                   both in the same grey: a whole day off the calendar is the hard
@@ -627,7 +652,7 @@ function BlockedTab({ mode, profile }: { readonly mode: EditorMode; readonly pro
       <EditorCard>
         <label className="grid w-full gap-1 text-sm font-medium">{t("addBlockedDate")}<Input name="newBlockedDate" type="date" /></label>
         <RangeRow range={{ start: "", end: "" }} startName="newBlockedStart" endName="newBlockedEnd" removable={false} />
-        <p className="text-xs text-muted-foreground">เว้นเวลาเริ่มและสิ้นสุดว่างไว้เพื่อปิดทั้งวัน</p>
+        <p className="text-xs text-muted-foreground">{t("blockedBlankHint")}</p>
       </EditorCard>
 
       <AddDashedRow href={href}>{t("addBlockedDate")}</AddDashedRow>
@@ -648,8 +673,8 @@ function BlockedTab({ mode, profile }: { readonly mode: EditorMode; readonly pro
  * drawn and it reads as deliberate — the name is edited where the week is — so it is
  * reproduced rather than normalised.
  *
- * Every control is presentational. The tabs are sibling routes and the two overlays
- * are routes of their own, so this screen needs no client boundary.
+ * Tabs and the add-date dialog have their own routes. Form values are saved
+ * together through the advisor's availability API.
  */
 export function ProfileEditorScreen({
   tab = "weekly",
@@ -662,34 +687,42 @@ export function ProfileEditorScreen({
 }) {
   const t = useTranslations("availability");
   const c = useTranslations("common");
-  const create = isCreate(mode);
+  const queryId = new URLSearchParams(useLocationSearch()).get("id") ?? "";
+  const router = useRouter();
+  const create = isCreate(mode) && !queryId;
+  const editorMode = create ? mode : "edit";
   const invalid = state === "error";
   const picker = state === "picker";
-  const queryId = typeof window === "undefined" ? "" : new URLSearchParams(window.location.search).get("id") ?? "";
   const [profileId, setProfileId] = useState("");
+  const [profileName, setProfileName] = useState("");
   const [profile, setProfile] = useState<AvailabilityProfile | null>(null);
-  const [loading, setLoading] = useState(!create);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
+  const loading = !create && !error && (!profile || Boolean(queryId && profile.id !== queryId));
   useEffect(() => {
-    if (create) return;
+    if (create && !queryId) return;
+    let active = true;
     void availabilityApi.getProfiles().then((profiles) => {
-      const current = profiles.find((candidate) => candidate.id === queryId) ?? profiles[0];
-      if (!current) throw new Error("ยังไม่มีชุดเวลาว่าง กรุณาสร้างชุดใหม่ก่อน");
-      setProfile(current); setProfileId(current.id); setLoading(false);
-    }).catch((cause: unknown) => { setError(cause instanceof Error ? cause.message : "โหลดชุดเวลาว่างไม่สำเร็จ"); setLoading(false); });
-  }, [create, queryId]);
+      if (!active) return;
+      const current = queryId ? profiles.find((candidate) => candidate.id === queryId) : profiles[0];
+      if (!current) throw new Error(t("profileMissing"));
+      setProfile(current); setProfileId(current.id); setProfileName(current.name);
+    }).catch((cause: unknown) => { if (active) setError(cause instanceof Error ? cause.message : t("profileLoadFailed")); });
+    return () => { active = false; };
+  }, [create, queryId, t]);
 
   const saveProfile = async (event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault(); setBusy(true); setError(null); setSaved(false);
+    event.preventDefault();
+    if (busy) return;
+    setBusy(true); setError(null); setSaved(false);
     const form = new FormData(event.currentTarget);
     const name = String(form.get("name") ?? profile?.name ?? "").trim();
-    if (!name) { setError("กรุณาตั้งชื่อชุดเวลาว่าง"); setBusy(false); return; }
+    if (!name) { setError(t("nameRequired")); setBusy(false); return; }
     const parseRange = (start: FormDataEntryValue | null, end: FormDataEntryValue | null) => {
       const from = typeof start === "string" ? start : ""; const to = typeof end === "string" ? end : "";
       if (!from && !to) return null;
-      if (!from || !to || from >= to) throw new Error("เวลาเริ่มต้องอยู่ก่อนเวลาสิ้นสุด และต้องกรอกทั้งสองช่อง");
+      if (!from || !to || from >= to) throw new Error(t("rangeInvalid"));
       return { startTime: from, endTime: to };
     };
     try {
@@ -709,9 +742,11 @@ export function ProfileEditorScreen({
           ranges.forEach((range, index) => { const edited = parseRange(form.get(`specificStart-${date}-${index}`), form.get(`specificEnd-${date}-${index}`)); if (edited) updated.push({ ...edited, availableDate: date }); });
         }
         specificWindows = updated;
-        const date = String(form.get("newSpecificDate") ?? ""); const range = parseRange(form.get("newSpecificStart"), form.get("newSpecificEnd"));
-        if (date && range) specificWindows = [...specificWindows.filter((window) => window.availableDate !== date), { ...range, availableDate: date }];
-        if (Boolean(date) !== Boolean(range)) throw new Error("กรุณากรอกวันที่และช่วงเวลาให้ครบ");
+        const date = String(form.get("newSpecificDate") ?? "");
+        const ends = form.getAll("newSpecificEnd");
+        const newRanges = form.getAll("newSpecificStart").map((start, index) => parseRange(start, ends[index] ?? null)).filter((range) => range !== null);
+        if (Boolean(date) !== Boolean(newRanges.length)) throw new Error(t("specificIncomplete"));
+        if (date) specificWindows.push(...newRanges.map((range) => ({ ...range, availableDate: date })));
       }
       const removedBlocked = new Set(form.getAll("removeBlockedPeriod").filter((value): value is string => typeof value === "string").map(Number));
       let blockedPeriods: BlockedAvailabilityPeriod[] = [...(profile?.blockedPeriods ?? [])].filter((_, index) => !removedBlocked.has(index));
@@ -724,16 +759,17 @@ export function ProfileEditorScreen({
         });
         const date = String(form.get("newBlockedDate") ?? ""); const range = parseRange(form.get("newBlockedStart"), form.get("newBlockedEnd"));
         if (date) blockedPeriods.push({ blockedDate: date, ...(range ?? {}) });
-        if (!date && range) throw new Error("กรุณาเลือกวันที่ที่ต้องการปิด");
+        if (!date && range) throw new Error(t("blockedDateRequired"));
       }
       const ranges = [...weeklyWindows.map((window) => ({ key: `weekly-${window.dayOfWeek}`, ...window })), ...specificWindows.map((window) => ({ key: `date-${window.availableDate}`, startTime: window.startTime, endTime: window.endTime }))];
       const overlap = ranges.find((range, index) => ranges.slice(index + 1).some((other) => range.key === other.key && range.startTime < other.endTime && other.startTime < range.endTime));
-      if (overlap) throw new Error("ช่วงเวลาทับซ้อนกัน กรุณาปรับเวลาเริ่มหรือเวลาสิ้นสุด");
+      if (overlap) throw new Error(t("rangesOverlap"));
       const values: UpsertAvailabilityProfile = { name, weeklyWindows, specificWindows, blockedPeriods };
       const result = profileId ? await availabilityApi.updateProfile(profileId, values) : await availabilityApi.createProfile(values);
-      setProfile(result); setProfileId(result.id); invalidate("availability/profiles"); setSaved(true);
+      setProfile(result); setProfileId(result.id); setProfileName(result.name); invalidate("availability/profiles"); invalidate("advisors/me/services"); invalidate("services/"); setSaved(true);
       window.history.replaceState(null, "", `${window.location.pathname}?id=${encodeURIComponent(result.id)}`);
-    } catch (cause) { setError(cause instanceof Error ? cause.message : "บันทึกชุดเวลาว่างไม่สำเร็จ"); }
+      if (state === "add-date") router.push(`/availability/profiles/edit/specific?id=${encodeURIComponent(result.id)}`);
+    } catch (cause) { setError(cause instanceof Error ? cause.message : t("profileSaveFailed")); }
     finally { setBusy(false); }
   };
 
@@ -746,11 +782,11 @@ export function ProfileEditorScreen({
       </NeutralButton>
       {/* Nothing can be saved while a range is invalid, which the frame shows by
           dimming the action rather than removing it. */}
-      <button className="min-w-px flex-1 rounded-lg bg-primary px-6 py-2 font-medium text-primary-foreground disabled:opacity-50 lg:w-auto lg:flex-none lg:px-8" disabled={invalid || busy || (!create && !profileId)} type="submit">{busy ? "กำลังบันทึก…" : create && !profileId ? t("createProfile") : t("saveProfile")}</button>
+      <Button className="h-auto min-w-px flex-1 rounded-lg border-0 px-6 py-2 text-base lg:w-auto lg:flex-none lg:px-8" disabled={invalid || busy || (!create && !profileId)} form="availability-profile-form" type="submit">{busy ? t("saving") : create && !profileId ? t("createProfile") : t("saveProfile")}</Button>
     </>
   );
 
-  if (loading) return <div className="mx-auto max-w-3xl p-8" role="status">กำลังโหลดชุดเวลาว่าง…</div>;
+  if (loading) return <div className="mx-auto max-w-3xl p-8" role="status">{t("profileLoading")}</div>;
   return (
     // Figma "Desktop / Availability - Profile / …" (1994:29171, 29651, 29917)
     // and the create variants (1994:28617, 28790, 28970, 29071): the heading
@@ -780,7 +816,7 @@ export function ProfileEditorScreen({
           </div>
         </div>
 
-        <form className={FORM_CARD} onSubmit={saveProfile}>
+        <form id="availability-profile-form" className={FORM_CARD} onChange={() => { setError(null); setSaved(false); }} onSubmit={saveProfile}>
         {create || tab === "weekly" ? (
           <div className="flex w-full shrink-0 flex-col items-start gap-1 overflow-clip px-6 lg:px-0">
             <p className="w-full text-sm font-medium text-foreground">
@@ -789,25 +825,26 @@ export function ProfileEditorScreen({
             <Input
               className="h-9"
               name="name"
-              defaultValue={profile?.name ?? ""}
+              value={profileName}
+              onChange={(event) => setProfileName(event.target.value)}
               placeholder={create ? t("namePlaceholder") : undefined}
               type="text"
             />
             <p className="w-full text-xs font-normal text-muted-foreground">
-              <ThaiText>{create ? "ตั้งชื่อชุดเวลาว่างเพื่อบันทึก" : t("nameHint")}</ThaiText>
+              <ThaiText>{create ? t("nameCreateHint") : t("nameHint")}</ThaiText>
             </p>
           </div>
         ) : null}
 
-        <EditorTabs current={tab} mode={mode} profileId={profileId} />
+        <EditorTabs current={tab} mode={editorMode} profileId={profileId} />
 
         {tab === "weekly" ? (
-          <WeeklyTab invalid={invalid} mode={mode} picker={picker} profile={profile} />
+          <WeeklyTab invalid={invalid} mode={editorMode} picker={picker} profile={profile} />
         ) : null}
-        {tab === "specific" ? <SpecificTab mode={mode} profile={profile} profileId={profileId} addingDate={state === "add-date"} /> : null}
-        {tab === "blocked" ? <BlockedTab mode={mode} profile={profile} /> : null}
+        {tab === "specific" ? <SpecificTab mode={editorMode} profile={profile} profileId={profileId} addingDate={state === "add-date"} /> : null}
+        {tab === "blocked" ? <BlockedTab mode={editorMode} profile={profile} /> : null}
 
-        {mode === "create" ? <ApplyToServiceBlock /> : null}
+        {editorMode === "create" ? <ApplyToServiceBlock /> : null}
 
         {/* The weekly note is a different message in each mode — validation while
             editing, and where the dates and the service come next while creating.
@@ -822,11 +859,11 @@ export function ProfileEditorScreen({
                 : t("createNote.weeklyFromList")}
         </Note>
 
-        {error ? <p role="alert" className="text-sm text-destructive">{error}</p> : null}{saved ? <p role="status" className="text-sm text-primary">บันทึกชุดเวลาว่างแล้ว</p> : null}
+        {error && state !== "add-date" ? <p role="alert" className="text-sm text-destructive">{error}</p> : null}{saved ? <p role="status" className="text-sm text-primary">{t("profileSaved")}</p> : null}
         <div className="hidden w-full shrink-0 items-center justify-end gap-3 lg:flex">
           {actions}
         </div>
-        {state === "add-date" ? <AddDateSheet profileId={profileId} /> : null}
+        {state === "add-date" ? <AddDateSheet profileId={profileId} busy={busy} error={error} /> : null}
         </form>
 
         <SiteFooter className="mt-auto hidden lg:flex" />

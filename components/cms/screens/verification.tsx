@@ -1,7 +1,6 @@
 "use client";
 
-import { useRouter } from "next/navigation";
-import { Check } from "lucide-react";
+import { Check, ShieldCheck } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { useCallback, useMemo } from "react";
 
@@ -9,13 +8,13 @@ import { CmsApiError, CmsTableSkeleton, useRuling } from "@/components/cms/api";
 import { CmsButton } from "@/components/cms/button";
 import { useCmsFeedback } from "@/components/cms/feedback";
 import { CmsPage } from "@/components/cms/layout";
-import { CmsApiStatus, useApiStatusOptions } from "@/components/cms/status";
-import { useAccountName, useAuditHeaders } from "@/components/cms/people";
+import { useAccountName } from "@/components/cms/people";
+import { CmsStatus, useStatusLabel } from "@/components/cms/status";
 import {
-  auditColumns,
-  CmsFilterMenu,
+  CmsChips,
   CmsTable,
-  createdColumn,
+  countBy,
+  dateColumn,
   statusColumn,
   type CmsColumn,
 } from "@/components/cms/table";
@@ -24,7 +23,6 @@ import {
   ADMIN_KEYS,
   ADMIN_MAX_LIMIT,
   approveIdentityVerification,
-  approveSkillProof,
   listIdentityVerifications,
   listSkillProofs,
   type IdentityVerification,
@@ -36,142 +34,103 @@ import { timeValue } from "@/lib/mock-db/format";
 
 const IDENTITY_KEY = ADMIN_KEYS.identity;
 const PROOFS_KEY = ADMIN_KEYS.skillProofs;
+const BASE = "/admin/verification";
 
-/** Waiting items first, then newest — a review queue reads top-down. */
-function queueOrder<T>(
-  rows: readonly T[],
-  waiting: (row: T) => boolean,
-  at: (row: T) => string | null,
-): readonly T[] {
-  return [...rows].sort((a, b) => {
-    const rank = Number(waiting(b)) - Number(waiting(a));
-    return rank !== 0 ? rank : (at(b) ?? "").localeCompare(at(a) ?? "");
-  });
-}
+/** Where an advisor stands: anything still to check, or their identity's ruling. */
+type Stage = "SUBMITTED" | "VERIFIED" | "REJECTED" | "NONE";
+const STAGES: readonly Stage[] = ["SUBMITTED", "VERIFIED", "REJECTED"];
+
+/** One advisor: their identity request and every skill document they sent. */
+type AdvisorRow = IdentityVerification & {
+  readonly id: string;
+  readonly proofs: readonly SkillProof[];
+  readonly pendingProofs: number;
+  readonly stage: Stage;
+};
 
 /**
- * The verification desk, from `GET /api/v1/admin/identity-verifications` and
- * `GET /api/v1/admin/skill-proofs`.
+ * Verifying advisors, one row per advisor: is this person who they say, and
+ * can they do what they say. The identity request
+ * (`GET /api/v1/admin/identity-verifications`) and their skill documents
+ * (`GET /api/v1/admin/skill-proofs`) are one job, so they are one row — the
+ * identity's status and how many documents still wait — and the row opens the
+ * advisor's page, where the ID card and every document are ruled on together.
  *
- * ## Both queues are empty, and that is the database, not a failure
+ * An advisor is waiting while their identity is submitted or any document is
+ * pending; the capsules count that, then the verified and the rejected.
  *
- * `advisor_identity` and `skill_proof_documents` have no rows, and nothing can put
- * one in the identity queue yet: there is no advisor-facing submission endpoint, so
- * no advisor can send an identity document at all. The empty state is therefore the
- * honest state — an empty list here is not an error, and the table says "ยังไม่มี
- * รายการ" rather than pretending something went wrong.
+ * A row is keyed by `advisorId` — `advisor_identity` has no surrogate key. A
+ * document whose advisor has no identity row has no page to open, so it is not
+ * listed: every advisor profile carries an identity row, `NONE` until the card
+ * is sent.
  *
- * The two queues are two collections, so they are two pages — `/admin/verification`
- * and `/admin/skill-proofs`, each its own sidebar entry — the way Nexus gives
- * Blogs and Blog Categories one entry apiece rather than tabs on one screen.
+ * An empty queue is the state of the database, not a failure.
  */
 export function VerificationScreen() {
   const t = useTranslations("cms.verification");
-  const fetcher = useCallback(
+  return (
+    <CmsPage full title={t("title")}>
+      <AdvisorQueue />
+    </CmsPage>
+  );
+}
+
+function AdvisorQueue() {
+  const t = useTranslations("cms.verification");
+  const tTable = useTranslations("cms.table");
+  const accountName = useAccountName();
+  const statusLabel = useStatusLabel();
+  const { confirm } = useCmsFeedback();
+  const rule = useRuling();
+
+  const identityFetcher = useCallback(
     (signal: AbortSignal) => listIdentityVerifications({ limit: ADMIN_MAX_LIMIT }, signal),
+    [],
+  );
+  const proofsFetcher = useCallback(
+    (signal: AbortSignal) => listSkillProofs({ limit: ADMIN_MAX_LIMIT }, signal),
     [],
   );
   const identity = useResource<Paginated<IdentityVerification>>(
     `${IDENTITY_KEY}?limit=${ADMIN_MAX_LIMIT}`,
-    fetcher,
+    identityFetcher,
   );
-  const requests = useMemo(() => identity.data?.items ?? [], [identity.data]);
+  const proofs = useResource<Paginated<SkillProof>>(`${PROOFS_KEY}?limit=${ADMIN_MAX_LIMIT}`, proofsFetcher);
 
-  return (
-    <CmsPage title={t("title")}>
-      {identity.loading ? (
-        <CmsTableSkeleton columns={3} />
-      ) : identity.error ? (
-        <CmsApiError error={identity.error} onRetry={identity.reload} />
-      ) : (
-        <IdentityTable requests={requests} />
-      )}
-    </CmsPage>
-  );
-}
+  const rows = useMemo<readonly AdvisorRow[]>(() => {
+    const byAdvisor = new Map<string, SkillProof[]>();
+    for (const proof of proofs.data?.items ?? []) {
+      byAdvisor.set(proof.advisorId, [...(byAdvisor.get(proof.advisorId) ?? []), proof]);
+    }
+    const advisors = (identity.data?.items ?? []).map((request) => {
+      const own = byAdvisor.get(request.advisorId) ?? [];
+      const pendingProofs = own.filter((p) => p.reviewStatus === "PENDING").length;
+      const stage: Stage =
+        request.verificationStatus === "SUBMITTED" || pendingProofs > 0 ? "SUBMITTED" : request.verificationStatus;
+      return { ...request, id: request.advisorId, proofs: own, pendingProofs, stage };
+    });
+    // Waiting first, then the newest submission.
+    return advisors.sort((a, b) => {
+      const rank = Number(b.stage === "SUBMITTED") - Number(a.stage === "SUBMITTED");
+      return rank !== 0 ? rank : (b.submittedAt ?? "").localeCompare(a.submittedAt ?? "");
+    });
+  }, [identity.data, proofs.data]);
+  const count = useMemo(() => countBy(rows, (r) => r.stage), [rows]);
 
-/** Skill proofs — the second verification queue, on its own page. */
-export function SkillProofsScreen() {
-  const t = useTranslations("cms.verification");
-  const fetcher = useCallback(
-    (signal: AbortSignal) => listSkillProofs({ limit: ADMIN_MAX_LIMIT }, signal),
-    [],
-  );
-  const proofs = useResource<Paginated<SkillProof>>(
-    `${PROOFS_KEY}?limit=${ADMIN_MAX_LIMIT}`,
-    fetcher,
-  );
-  const items = useMemo(() => proofs.data?.items ?? [], [proofs.data]);
-
-  return (
-    <CmsPage title={t("tab.skills")}>
-      {proofs.loading ? (
-        <CmsTableSkeleton columns={5} />
-      ) : proofs.error ? (
-        <CmsApiError error={proofs.error} onRetry={proofs.reload} />
-      ) : (
-        <ProofTable proofs={items} />
-      )}
-    </CmsPage>
-  );
-}
-
-/**
- * Identity requests.
- *
- * A row is keyed by `advisorId` — `advisor_identity` has no surrogate key — so the
- * review link carries the advisor id, not a request id. `fullName`, birth date,
- * national id, credential and field are not on `IdentityVerificationResponseDto`,
- * so the credential column is gone: the applicant is named by display name and
- * email, which is what the route returns.
- */
-function IdentityTable({ requests }: { readonly requests: readonly IdentityVerification[] }) {
-  const t = useTranslations("cms.verification");
-  const tUsers = useTranslations("cms.users");
-  const tTable = useTranslations("cms.table");
-  const audit = useAuditHeaders();
-  const accountName = useAccountName();
-  const router = useRouter();
-  const { confirm } = useCmsFeedback();
-  const rule = useRuling();
-  const statusOptions = useApiStatusOptions("identity", [
-    "SUBMITTED",
-    "VERIFIED",
-    "REJECTED",
-  ]);
-  const rows = useMemo(
-    () =>
-      queueOrder(
-        requests,
-        (r) => r.verificationStatus === "SUBMITTED",
-        (r) => r.submittedAt,
-      ),
-    [requests],
-  );
-
-  // `useCmsList` keys rows by `id`; this queue's key is the advisor's id.
-  const keyed = useMemo(() => rows.map((r) => ({ ...r, id: r.advisorId })), [rows]);
-  const list = useCmsList(keyed, {
-    prefix: "i_",
-    searchText: (r) => `${r.displayName} ${r.email}`,
+  const list = useCmsList(rows, {
+    searchText: (r) => `${r.displayName} ${r.email} ${r.proofs.map((p) => p.skillName).join(" ")}`,
     sortValue: (r, id) => {
-      if (id === "createdAt") return timeValue(r.submittedAt);
+      if (id === "submittedAt") return timeValue(r.submittedAt);
       if (id === "status") return r.verificationStatus;
+      if (id === "proofs") return r.pendingProofs;
       return r.displayName;
     },
-    filters: [
-      { key: "status", test: (r, values) => values.includes(r.verificationStatus) },
-    ],
+    filters: [{ key: "status", test: (r, values) => values.includes(r.stage) }],
   });
 
-  type Row = (typeof keyed)[number];
-
-  /**
-   * Approving takes no body, so several go at once; a rejection needs its reason.
-   * Only rows still waiting are approved — a ruled one would answer 409.
-   */
-  const waiting = (ids: readonly string[]) =>
-    ids.filter((id) => keyed.find((r) => r.id === id)?.verificationStatus === "SUBMITTED");
+  /** Only identities still submitted are approved in bulk — a ruled one would answer 409. */
+  const submitted = (ids: readonly string[]) =>
+    ids.filter((id) => rows.find((r) => r.id === id)?.verificationStatus === "SUBMITTED");
 
   async function approve(advisorIds: readonly string[]) {
     if (advisorIds.length === 0) return;
@@ -189,152 +148,82 @@ function IdentityTable({ requests }: { readonly requests: readonly IdentityVerif
     });
   }
 
-  // A submission's "created" is when it was sent — the row has no other date.
-  const columns: ReadonlyArray<CmsColumn<Row>> = [
-    createdColumn(tTable("createdAt"), (r) => r.submittedAt),
-    statusColumn(t("col.status"), (r) => (
-      <CmsApiStatus group="identity" value={r.verificationStatus} />
-    )),
+  const columns: ReadonlyArray<CmsColumn<AdvisorRow>> = [
     {
       id: "applicant",
       header: t("col.applicant"),
       sortable: true,
+      primary: true,
       render: (r) => accountName(r.advisorId) ?? r.displayName,
+      sub: (r) => <span className="font-latin">{r.email}</span>,
     },
-    { id: "email", header: tUsers("col.email"), className: "font-latin", render: (r) => r.email },
-    // The applicant sends it; the admin who ruled is the last to touch it.
-    ...auditColumns<Row>(
-      audit,
-      (r) => accountName(r.advisorId) ?? r.displayName,
-      (r) => accountName(r.verifiedByAdminId),
-    ),
+    statusColumn(t("col.status"), (r) => <CmsStatus group="identity" value={r.verificationStatus} />),
+    {
+      id: "proofs",
+      header: t("tab.skills"),
+      sortable: true,
+      render: (r) => {
+        if (r.proofs.length === 0) return <span className="text-muted-foreground">-</span>;
+        if (r.pendingProofs > 0) {
+          return (
+            <span className="font-medium text-warning">
+              {t("proofsPending", { pending: r.pendingProofs, total: r.proofs.length })}
+            </span>
+          );
+        }
+        return <span className="text-muted-foreground">{t("proofsCount", { total: r.proofs.length })}</span>;
+      },
+    },
+    dateColumn("submittedAt", t("col.submittedAt"), (r) => r.submittedAt),
+    {
+      id: "reviewer",
+      header: t("col.reviewer"),
+      className: "text-muted-foreground",
+      render: (r) => accountName(r.verifiedByAdminId) ?? "-",
+    },
   ];
 
-  return (
-    <CmsTable
-      bulkActions={(ids) => {
-        const open = waiting(ids);
-        // Nothing selected is still waiting: no action to offer.
-        return open.length === 0 ? null : (
-          <CmsButton color="success" icon={Check} onClick={() => approve(open)}>
-            {t("approveSelected", { count: open.length })}
-          </CmsButton>
-        );
-      }}
-      columns={columns}
-      filters={
-        <CmsFilterMenu
-          label={t("allStatuses")}
-          onChange={(values) => list.setFilter("status", values)}
-          options={statusOptions}
-          values={list.filterValues.status ?? []}
-        />
-      }
-      list={list}
-      onRowClick={(r) => router.push(`/admin/verification/review?id=${r.advisorId}`)}
-      searchPlaceholder={t("searchIdentity")}
-    />
-  );
-}
-
-/**
- * Skill proofs. A row opens `/admin/skill-proofs/review`, where the document is
- * shown and a rejection carries its reason — no inline buttons, no prompt.
- * Approving several at once stays a bulk action: it takes no body.
- */
-function ProofTable({ proofs }: { readonly proofs: readonly SkillProof[] }) {
-  const t = useTranslations("cms.verification");
-  const tTable = useTranslations("cms.table");
-  const audit = useAuditHeaders();
-  const accountName = useAccountName();
-  const router = useRouter();
-  const { confirm } = useCmsFeedback();
-  const rule = useRuling();
-  const statusOptions = useApiStatusOptions("proof", ["PENDING", "APPROVED", "REJECTED"]);
-  const rows = useMemo(
-    () => queueOrder(proofs, (p) => p.reviewStatus === "PENDING", (p) => p.createdAt),
-    [proofs],
-  );
-
-  const list = useCmsList(rows, {
-    prefix: "s_",
-    searchText: (p) =>
-      `${p.skillName} ${p.originalFileName} ${p.advisorDisplayName}`,
-    sortValue: (p, id) => {
-      if (id === "createdAt") return timeValue(p.createdAt);
-      if (id === "status") return p.reviewStatus;
-      return p.skillName;
-    },
-    filters: [{ key: "status", test: (p, values) => values.includes(p.reviewStatus) }],
-  });
-
-  /** Only proofs still pending are approved — a ruled one would answer 409. */
-  const pendingIds = (ids: readonly string[]) =>
-    ids.filter((id) => rows.find((p) => p.id === id)?.reviewStatus === "PENDING");
-
-  async function approve(ids: readonly string[]) {
-    if (ids.length === 0) return;
-    const ok = await confirm({
-      type: "success",
-      title: t("approveProofTitle", { count: ids.length }),
-      confirmLabel: t("approve"),
-    });
-    if (!ok) return;
-    await rule({
-      keyPrefix: PROOFS_KEY,
-      onDone: list.clearSelection,
-      run: ids.map((id) => () => approveSkillProof(id)),
-      success: t("approvedProof", { count: ids.length }),
-    });
+  if (identity.loading || proofs.loading) return <CmsTableSkeleton columns={columns.length} />;
+  const failed = identity.error ?? proofs.error;
+  if (failed) {
+    return (
+      <CmsApiError
+        error={failed}
+        onRetry={() => {
+          identity.reload();
+          proofs.reload();
+        }}
+      />
+    );
   }
 
-  const columns: ReadonlyArray<CmsColumn<SkillProof>> = [
-    createdColumn(tTable("createdAt"), (p) => p.createdAt),
-    statusColumn(t("col.status"), (p) => (
-      <CmsApiStatus group="proof" value={p.reviewStatus} />
-    )),
-    {
-      id: "advisor",
-      header: t("col.advisor"),
-      render: (p) => accountName(p.advisorId) ?? p.advisorDisplayName,
-    },
-    { id: "skill", header: t("col.skill"), sortable: true, render: (p) => p.skillName },
-    {
-      id: "file",
-      header: t("col.file"),
-      className: "font-latin",
-      render: (p) => <span className="block max-w-64 truncate">{p.originalFileName}</span>,
-    },
-    ...auditColumns<SkillProof>(
-      audit,
-      (p) => accountName(p.advisorId) ?? p.advisorDisplayName,
-      (p) => accountName(p.reviewedByAdminId),
-    ),
-  ];
-
   return (
     <CmsTable
-      bulkActions={(ids) => {
-        const open = pendingIds(ids);
-        // Nothing selected is still pending: no action to offer.
+      chips={
+        <CmsChips
+          label={t("col.status")}
+          onChange={(value) => list.setFilter("status", value ? [value] : [])}
+          options={[
+            { value: "", label: tTable("all"), count: count("") },
+            ...STAGES.map((value) => ({ value, label: statusLabel("identity", value), count: count(value) })),
+          ]}
+          value={list.filterValues.status?.[0] ?? ""}
+        />
+      }
+      columns={columns}
+      empty={{ icon: ShieldCheck, title: t("emptyIdentity"), body: t("emptyIdentityBody") }}
+      leadingIcon={ShieldCheck}
+      list={list}
+      renderBulkActions={(ids) => {
+        const open = submitted(ids);
         return open.length === 0 ? null : (
-          <CmsButton color="success" icon={Check} onClick={() => approve(open)}>
+          <CmsButton icon={Check} onClick={() => approve(open)} size="sm">
             {t("approveSelected", { count: open.length })}
           </CmsButton>
         );
       }}
-      columns={columns}
-      onRowClick={(p) => router.push(`/admin/skill-proofs/review?id=${p.id}`)}
-      filters={
-        <CmsFilterMenu
-          label={t("allStatuses")}
-          onChange={(values) => list.setFilter("status", values)}
-          options={statusOptions}
-          values={list.filterValues.status ?? []}
-        />
-      }
-      list={list}
-      searchPlaceholder={t("searchProof")}
+      rowHref={(r) => `${BASE}/review?id=${r.advisorId}`}
+      searchPlaceholder={t("searchIdentity")}
     />
   );
 }

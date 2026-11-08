@@ -63,4 +63,6 @@ export const SPLIT_WITH_RAIL =
  * needs it. Most screens render the footer `hidden lg:flex`, where the tab bar and
  * the footer never meet.
  */
-export const FOOTER_ABOVE_TAB_BAR = "pb-[101px] lg:pb-0";
+// In rem (101px at 16), so it grows with the bar on an upright tablet, whose
+// root font size scales the whole page up (`app/globals.css`).
+export const FOOTER_ABOVE_TAB_BAR = "pb-[6.3125rem] lg:pb-0";

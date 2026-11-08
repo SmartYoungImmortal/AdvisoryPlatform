@@ -143,7 +143,7 @@ function ChangeStep({
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
-  const [problem, setProblem] = useState<"wrong-current" | "invalid" | null>(
+  const [problem, setProblem] = useState<"wrong-current" | "invalid" | "request-failed" | null>(
     state === "wrong-current" ? "wrong-current" : null,
   );
   const [submitting, setSubmitting] = useState(false);
@@ -155,6 +155,7 @@ function ChangeStep({
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (submitting) return;
     if (!ready) {
       setProblem("invalid");
       return;
@@ -164,7 +165,7 @@ function ChangeStep({
       await changePassword({ currentPassword, newPassword });
       router.push("/settings/updated");
     } catch (error) {
-      setProblem(error instanceof ApiError && error.status === 400 ? "wrong-current" : "invalid");
+      setProblem(error instanceof ApiError && error.code === "INVALID_PASSWORD" ? "wrong-current" : "request-failed");
     } finally {
       setSubmitting(false);
     }
@@ -173,69 +174,71 @@ function ChangeStep({
   return (
     <SettingsDialog description={t("subtitle")} icon={LockKeyhole} title={t("title")}>
       <form className="flex w-full flex-col" onSubmit={submit}>
-        <div className="flex w-full flex-col gap-4 lg:gap-6">
-          <PasswordField
-            autoComplete="current-password"
-            error={isWrong ? t("wrongCurrentFieldError") : undefined}
-            id="current-password"
-            invalid={isWrong}
-            label={t("currentLabel")}
-            onChange={(event) => {
-              setCurrentPassword(event.target.value);
-              setProblem(null);
-            }}
-            placeholder={t("currentPlaceholder")}
-            value={currentPassword}
-          />
-          <PasswordField
-            autoComplete="new-password"
-            hint={t("newHint")}
-            id="new-password"
-            label={t("newLabel")}
-            onChange={(event) => {
-              setNewPassword(event.target.value);
-              setProblem(null);
-            }}
-            placeholder={t("newPlaceholder")}
-            value={newPassword}
-          />
-          <PasswordField
-            autoComplete="new-password"
-            id="confirm-password"
-            label={t("confirmLabel")}
-            onChange={(event) => {
-              setConfirmPassword(event.target.value);
-              setProblem(null);
-            }}
-            placeholder={t("confirmPlaceholder")}
-            value={confirmPassword}
-          />
-        </div>
+        <fieldset className="contents" disabled={submitting}>
+          <div className="flex w-full flex-col gap-4 lg:gap-6">
+            <PasswordField
+              autoComplete="current-password"
+              error={isWrong ? t("wrongCurrentFieldError") : undefined}
+              id="current-password"
+              invalid={isWrong}
+              label={t("currentLabel")}
+              onChange={(event) => {
+                setCurrentPassword(event.target.value);
+                setProblem(null);
+              }}
+              placeholder={t("currentPlaceholder")}
+              value={currentPassword}
+            />
+            <PasswordField
+              autoComplete="new-password"
+              hint={t("newHint")}
+              id="new-password"
+              label={t("newLabel")}
+              onChange={(event) => {
+                setNewPassword(event.target.value);
+                setProblem(null);
+              }}
+              placeholder={t("newPlaceholder")}
+              value={newPassword}
+            />
+            <PasswordField
+              autoComplete="new-password"
+              id="confirm-password"
+              label={t("confirmLabel")}
+              onChange={(event) => {
+                setConfirmPassword(event.target.value);
+                setProblem(null);
+              }}
+              placeholder={t("confirmPlaceholder")}
+              value={confirmPassword}
+            />
+          </div>
 
-        {problem === "invalid" ? (
-          // The fields' own error size: it is about them.
-          <p className="mt-3 text-xs text-destructive" role="alert">
-            {t("invalid")}
+          {problem === "invalid" || problem === "request-failed" ? (
+            // The fields' own error size: it is about them.
+            <p className="mt-3 text-xs text-destructive" role="alert">
+              {t(problem === "invalid" ? "invalid" : "requestFailed")}
+            </p>
+          ) : null}
+
+          <div className={SETTINGS_DIALOG_STACK}>
+            <Button className={settingsStackPill("solid")} disabled={!ready || submitting} type="submit">
+              {t("submit")}
+            </Button>
+            <Button className={settingsStackPill("soft")} nativeButton={false} render={<Link href="/settings" />} variant="ghost">
+              {c("cancel")}
+            </Button>
+          </div>
+
+          {/* For a reader who does not know the password asked for first, a
+              line under the answers, as the receipt's help line sits. */}
+          <p className="mt-3 text-center text-fine text-muted-foreground md:mt-4 md:text-xs">
+            {t("forgotPrompt")}{" "}
+            <Button className={cn(AUTH_LINK, "h-auto p-0 text-fine md:text-xs")} onClick={onForgot} type="button" variant="link">
+              {t("forgotAction")}
+            </Button>
           </p>
-        ) : null}
-
-        <div className={SETTINGS_DIALOG_STACK}>
-          <Button className={settingsStackPill("solid")} disabled={!ready || submitting} type="submit">
-            {t("submit")}
-          </Button>
-          <Button className={settingsStackPill("soft")} nativeButton={false} render={<Link href="/settings" />} variant="ghost">
-            {c("cancel")}
-          </Button>
-        </div>
-
-        {/* For a reader who does not know the password asked for first, a
-            line under the answers, as the receipt's help line sits. */}
-        <p className="mt-3 text-center text-fine text-muted-foreground md:mt-4 md:text-xs">
-          {t("forgotPrompt")}{" "}
-          <Button className={cn(AUTH_LINK, "h-auto p-0 text-fine md:text-xs")} onClick={onForgot} type="button" variant="link">
-            {t("forgotAction")}
-          </Button>
-        </p>
+        </fieldset>
       </form>
     </SettingsDialog>
   );

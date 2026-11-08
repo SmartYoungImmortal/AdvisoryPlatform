@@ -67,6 +67,10 @@ export type LiveService = {
   readonly title: string;
   readonly description: string;
   readonly category: string;
+  /** The category's id; its name above is in the page's language. */
+  readonly categoryId: string;
+  /** The categories it is also found under, beside `categoryId`. */
+  readonly extraCategoryIds?: readonly string[];
   /** Baht, from the API's satang. */
   readonly price: number;
   readonly minutes: number;
@@ -164,16 +168,23 @@ const SPARE_COVERS: readonly StaticImageData[] = [
 ];
 
 /**
- * Gives each service its picture, in three passes so no two cards share one:
- * the picture chosen for that service, then the ring card's photo for one
- * service of each advisor on the ring, then a spare nobody has yet (cycling
- * only once every spare is in use).
+ * Gives each service its picture. A service with photographs in the API wears
+ * the first of them, the cover its owner set, so a card shows what the
+ * service's page and its editor show. The rest get a picture of the site's in
+ * three passes so no two cards share one: the picture chosen for that
+ * service, then the ring card's photo for one service of each advisor on the
+ * ring, then a spare nobody has yet (cycling only once every spare is in
+ * use).
  * Ordered by id first, so a service keeps its picture from one load to the next.
  */
 function assignCovers(items: readonly LiveService[]): readonly LiveService[] {
   const sorted = items.toSorted((a, b) => a.id.localeCompare(b.id));
   const covers = new Map<string, StaticImageData>();
   for (const item of sorted) {
+    if (item.images.length > 0) covers.set(item.id, { src: item.images[0], width: 1600, height: 1200 });
+  }
+  for (const item of sorted) {
+    if (covers.has(item.id)) continue;
     const own = COVER_BY_TITLE.get(item.title);
     if (own) covers.set(item.id, own);
   }
@@ -218,6 +229,8 @@ function join(
     title: service.name,
     description: service.description,
     category,
+    categoryId: service.categoryId,
+    extraCategoryIds: service.extraCategoryIds ?? [],
     price: service.priceSatang / 100,
     minutes: service.durationMinutes,
     advisorId: advisor.id,

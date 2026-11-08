@@ -2,7 +2,9 @@
 
 import Link from "next/link";
 import {
+  ArrowRight,
   Banknote,
+  FileBadge,
   Flag,
   Radar,
   Receipt,
@@ -12,207 +14,147 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import { useTranslations } from "next-intl";
-import { useMemo, type ReactNode } from "react";
 
-import { useDashboardCounts } from "@/components/cms/dashboard-data";
+import { CmsSection } from "@/components/cms/card";
+import { useDashboardCounts, type Count } from "@/components/cms/dashboard-data";
 import { CmsPage } from "@/components/cms/layout";
 import { formatBaht } from "@/lib/mock-db/format";
-import { useDatabase } from "@/lib/mock-db/store";
-import type { Database } from "@/lib/mock-db/types";
-
-const MONTHS = 6;
-
-/** Platform fee per month over the last six, from paid transactions. */
-function revenueByMonth(db: Database) {
-  const now = new Date();
-  const buckets = Array.from({ length: MONTHS }, (_, i) => {
-    const date = new Date(now.getFullYear(), now.getMonth() - (MONTHS - 1 - i), 1);
-    return {
-      key: `${date.getFullYear()}-${date.getMonth()}`,
-      label: new Intl.DateTimeFormat("th-TH", { month: "short" }).format(date),
-      fee: 0,
-    };
-  });
-  for (const tx of db.transactions) {
-    if (tx.status !== "paid") continue;
-    const date = new Date(tx.createdAt);
-    const bucket = buckets.find((b) => b.key === `${date.getFullYear()}-${date.getMonth()}`);
-    if (bucket) bucket.fee += tx.feeSatang;
-  }
-  return buckets;
-}
 
 /**
- * The console's landing page, in phonerefun's dashboard anatomy — Nexus has
- * none: a row of stat cards (label top-left, the figure bottom-left, a large
- * standalone icon top-right, 155px tall), two chart cards, and a second row of
- * stat cards. No "latest" lists; neither reference console has them.
+ * The console's landing page: what is waiting, then the size of the platform.
  *
- * Every figure is the API's, read as `?limit=1` totals (and the payouts page for
- * the amount owed), except the fee chart: the API has no route that lists
- * invoices, so that one chart still sums `lib/mock-db` transactions and says so
- * under its title.
+ * Two rows of figures and nothing else. The first is the work — one figure per
+ * queue, each the way into it, a queue with nothing in it said in grey rather
+ * than as a loud zero. The second is the platform itself: accounts, listings
+ * and the money still owed to advisors. Every figure is the API's, read as
+ * `?limit=1` totals (and the payouts page for the amount owed); there is no
+ * chart, because there is no invoices route to draw one from.
  */
 export function DashboardScreen() {
   const t = useTranslations("cms.dashboard");
   const live = useDashboardCounts();
-  const db = useDatabase((d) => d);
-  const revenue = useMemo(() => revenueByMonth(db), [db]);
-  const peak = Math.max(1, ...revenue.map((m) => m.fee));
-  const totalFee = revenue.reduce((sum, m) => sum + m.fee, 0);
 
-  const queues = [
-    { label: t("identity"), value: live.identity, href: "/admin/verification" },
-    { label: t("proofs"), value: live.proofs, href: "/admin/skill-proofs" },
-    { label: t("refunds"), value: live.refunds, href: "/admin/refunds" },
-    { label: t("reports"), value: live.reports, href: "/admin/reports" },
-    { label: t("flags"), value: live.flags, href: "/admin/off-platform" },
+  const queues: ReadonlyArray<{
+    readonly label: string;
+    readonly value: Count;
+    readonly href: string;
+    readonly icon: LucideIcon;
+  }> = [
+    { label: t("identity"), value: live.identity, href: "/admin/verification", icon: ShieldCheck },
+    { label: t("proofs"), value: live.proofs, href: "/admin/verification?tab=skills", icon: FileBadge },
+    { label: t("refunds"), value: live.refunds, href: "/admin/refunds", icon: Receipt },
+    { label: t("reports"), value: live.reports, href: "/admin/reports", icon: Flag },
+    { label: t("flags"), value: live.flags, href: "/admin/reports?tab=flags", icon: Radar },
   ];
-  const queuePeak = Math.max(1, ...queues.map((q) => q.value ?? 0));
-  const waiting = queues.reduce((sum, q) => sum + (q.value ?? 0), 0);
+  const waiting = queues.some((queue) => queue.value === undefined)
+    ? undefined
+    : queues.reduce((sum, queue) => sum + (queue.value ?? 0), 0);
+  // No line until every queue has answered; then all clear, or how many wait.
+  let summary: string | undefined;
+  if (waiting === 0) summary = t("allClear");
+  else if (waiting !== undefined) summary = t("waitingSummary", { count: waiting });
 
   return (
-    <CmsPage title={t("title")}>
-      <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 xl:grid-cols-4">
-        <StatCard href="/admin/users" icon={Users} label={t("users")} value={live.users} />
-        <StatCard
-          href="/admin/verification"
-          icon={ShieldCheck}
-          label={t("verifications")}
-          value={live.verification}
-        />
-        <StatCard href="/admin/refunds" icon={Receipt} label={t("refunds")} value={live.refunds} />
-        <StatCard href="/admin/reports" icon={Flag} label={t("reports")} value={live.reports} />
-      </div>
+    <CmsPage
+      description={summary}
+      title={t("title")}
+    >
+      <CmsSection title={t("queuesTitle")}>
+        <ul className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-5">
+          {queues.map((queue) => (
+            <li key={queue.href}>
+              <Tile
+                href={queue.href}
+                icon={queue.icon}
+                label={queue.label}
+                quiet={queue.value === 0}
+                value={queue.value}
+                way={queue.value === 0 ? t("nothingWaiting") : t("openQueue")}
+              />
+            </li>
+          ))}
+        </ul>
+      </CmsSection>
 
-      <div className="grid grid-cols-1 gap-6 xl:grid-cols-2">
-        <ChartCard
-          subtitle={t("revenueHint")}
-          title={t("revenueTitle")}
-          value={formatBaht(totalFee)}
-        >
-          <div className="flex h-full items-end gap-4 sm:gap-6" role="list">
-            {revenue.map((month) => (
-              <div
-                aria-label={`${month.label} ${formatBaht(month.fee)}`}
-                className="flex h-full min-w-0 flex-1 flex-col items-center justify-end gap-2"
-                key={month.key}
-                role="listitem"
-              >
-                <span className="font-latin text-xs font-medium text-muted-foreground">
-                  {formatBaht(month.fee)}
-                </span>
-                <span
-                  className="w-full max-w-12 rounded-t-md bg-action"
-                  style={{ height: `${Math.max(2, (month.fee / peak) * 100)}%` }}
-                />
-                <span className="text-xs text-muted-foreground">{month.label}</span>
-              </div>
-            ))}
-          </div>
-        </ChartCard>
-
-        <ChartCard subtitle={t("queuesHint")} title={t("queuesTitle")} value={String(waiting)}>
-          <ul className="flex h-full flex-col justify-center gap-5">
-            {queues.map((queue) => (
-              <li key={queue.href}>
-                <Link className="group flex flex-col gap-2" href={queue.href}>
-                  <span className="flex items-center justify-between text-sm">
-                    <span className="text-foreground group-hover:text-highlighted">{queue.label}</span>
-                    <span className="font-latin font-semibold text-highlighted">
-                      {queue.value ?? "-"}
-                    </span>
-                  </span>
-                  <span className="h-2 w-full overflow-hidden rounded-full bg-muted">
-                    <span
-                      className="block h-full rounded-full bg-action transition-[width]"
-                      style={{ width: `${((queue.value ?? 0) / queuePeak) * 100}%` }}
-                    />
-                  </span>
-                </Link>
-              </li>
-            ))}
-          </ul>
-        </ChartCard>
-      </div>
-
-      <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 xl:grid-cols-4">
-        <StatCard
-          href="/admin/payouts"
-          icon={Banknote}
-          label={t("payoutsDue")}
-          value={live.payoutsDue === undefined ? undefined : formatBaht(live.payoutsDue)}
-        />
-        <StatCard href="/admin/off-platform" icon={Radar} label={t("flags")} value={live.flags} />
-        <StatCard href="/admin/services" icon={Store} label={t("services")} value={live.services} />
-        <StatCard
-          href="/admin/skill-proofs"
-          icon={ShieldCheck}
-          label={t("proofs")}
-          value={live.proofs}
-        />
-      </div>
+      <CmsSection title={t("platformTitle")}>
+        <ul className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+          <li>
+            <Tile href="/admin/users" icon={Users} label={t("users")} value={live.users} way={t("openList")} />
+          </li>
+          <li>
+            <Tile
+              href="/admin/services"
+              icon={Store}
+              label={t("services")}
+              value={live.services}
+              way={t("openList")}
+            />
+          </li>
+          <li>
+            <Tile
+              href="/admin/payouts"
+              icon={Banknote}
+              label={t("payoutsDue")}
+              value={live.payoutsDue === undefined ? undefined : formatBaht(live.payoutsDue)}
+              way={
+                live.payoutsWaiting
+                  ? t("payoutsWaiting", { count: live.payoutsWaiting })
+                  : t("openList")
+              }
+            />
+          </li>
+        </ul>
+      </CmsSection>
     </CmsPage>
   );
 }
 
 /**
- * phonerefun's `StatCard`: white, 8px corners, a slate hairline, 24px padding,
- * 155px tall; the label top-left, the figure bottom-left at 32px bold, and a
- * 56px icon standing on its own top-right — no chip behind it.
+ * One figure: a white tile on a hairline with 18px corners (the bordered
+ * empty states on the account pages), its name and line icon over the figure
+ * in the Latin face, and where it leads along the foot. The whole tile is the
+ * link.
  */
-function StatCard({
+function Tile({
   href,
   icon: Icon,
   label,
   value,
+  way,
+  quiet = false,
 }: {
   readonly href: string;
   readonly icon: LucideIcon;
   readonly label: string;
   /** `undefined` while it loads or if the read failed: a dash, never a false zero. */
   readonly value: number | string | undefined;
+  readonly way: string;
+  /** Nothing waiting: the figure in grey. */
+  readonly quiet?: boolean;
 }) {
   return (
     <Link
-      className="flex h-[155px] items-stretch justify-between rounded-lg border border-border bg-card p-6 transition-colors hover:border-accented"
+      className="group flex h-full flex-col gap-4 rounded-2xl border border-border bg-card p-5 outline-none transition-colors hover:border-accented hover:bg-muted/30 focus-visible:ring-3 focus-visible:ring-ring/50"
       href={href}
     >
-      <span className="flex h-full min-w-0 flex-col justify-between">
-        <span className="truncate text-sm font-medium text-muted-foreground">{label}</span>
-        {/* Size and colour on separate elements: tailwind-merge reads the custom
-            `text-heading-lg` as a colour and would drop it beside `text-highlighted`. */}
-        <span className="font-latin text-heading-lg leading-none font-bold tracking-tight">
-          <span className={value === undefined ? "text-dimmed" : "text-highlighted"}>
+      <span className="flex items-start justify-between gap-3">
+        <span className="text-sm font-medium text-muted-foreground">{label}</span>
+        <Icon aria-hidden className="size-5 shrink-0 text-muted-foreground" strokeWidth={1.75} />
+      </span>
+      {/* At the foot, so the figures of a row line up when a name wraps. Size
+          and colour on separate elements: the merge reads the theme's own
+          `text-heading` as a colour and would drop it beside one. */}
+      <span className="mt-auto flex flex-col gap-4">
+        <span className="font-latin text-heading leading-none font-semibold tracking-tight">
+          <span className={value === undefined || quiet ? "text-dimmed" : "text-hero-ink"}>
             {value ?? "-"}
           </span>
         </span>
+        <span className="flex items-center gap-1 text-sm text-muted-foreground transition-colors group-hover:text-foreground">
+          {way}
+          <ArrowRight aria-hidden className="size-3.5" />
+        </span>
       </span>
-      <Icon aria-hidden className="size-14 shrink-0 text-accented" strokeWidth={1.5} />
     </Link>
-  );
-}
-
-/** phonerefun's chart card: title and total on one line, a muted subtitle, the chart. */
-function ChartCard({
-  title,
-  subtitle,
-  value,
-  children,
-}: {
-  readonly title: string;
-  readonly subtitle: string;
-  readonly value: string;
-  readonly children: ReactNode;
-}) {
-  return (
-    <section className="rounded-lg border border-border bg-card p-6">
-      <div className="mb-2 flex items-start justify-between gap-4">
-        <h2 className="font-bold text-highlighted">{title}</h2>
-        <span className="font-latin text-lg font-bold text-highlighted">{value}</span>
-      </div>
-      <p className="mb-4 text-xs text-dimmed">{subtitle}</p>
-      <div className="h-[280px]">{children}</div>
-    </section>
   );
 }

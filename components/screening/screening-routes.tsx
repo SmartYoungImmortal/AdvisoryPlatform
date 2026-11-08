@@ -1,43 +1,54 @@
 "use client";
 
-import { useTranslations } from "next-intl";
+import { useSearchParams } from "next/navigation";
+import { Suspense } from "react";
 
 import { asUuid, useQueryValue } from "@/components/bookings/booking-flow";
 import {
   LiveScreeningOutcome,
   LiveScreeningQuestions,
+  ScreeningQuestionsLoading,
 } from "@/components/screening/advisee-live";
 import {
   ScreeningAcceptedScreen,
   ScreeningDeclinedScreen,
-  ScreeningQuestionsScreen,
   ScreeningSubmittedScreen,
 } from "@/components/screening/advisee-screens";
 import {
   LiveReviewAnswers,
   LiveScreeningRequests,
   LiveScreeningSetup,
+  ReviewAnswersLoading,
+  ScreeningSetupLoading,
 } from "@/components/screening/advisor-live";
-import {
-  ReviewAnswersScreen,
-  ScreeningRequestsScreen,
-  ScreeningSetupScreen,
-} from "@/components/screening/advisor-screens";
-import { DeclineScreeningDialog } from "@/components/screening/decline-dialog";
+import { ScreeningRequestsScreen } from "@/components/screening/advisor-screens";
 import { isApiConfigured } from "@/lib/api/client";
 
 /**
  * Decides which version of each screening screen a route shows.
  *
- * With an id in the query string (`?serviceId=` or `?requestId=`), the screen uses
- * the API. The static export can only prerender fixed slugs, so ids go in the query
- * string (see `components/bookings/booking-flow.ts`). Without an id, the route
- * shows the sample screen used by the `/screens` index and the prototype.
+ * The ids go in the query string (`?serviceId=` or `?requestId=`): the static
+ * export can only prerender fixed slugs (see `components/bookings/booking-flow.ts`).
+ *
+ * The questions, the review and the setup pages are the API's only. They read
+ * the id with `useSearchParams` under a `Suspense`, so the prerendered page is
+ * their skeleton and the first render on the client already knows the id —
+ * without one each says so, rather than showing sample data. The outcome
+ * pages and the requests list still fall back to the sample screens used by
+ * the `/screens` index and the prototype.
  */
 
 export function ScreeningQuestionsRoute() {
-  const serviceId = asUuid(useQueryValue("serviceId"));
-  return serviceId ? <LiveScreeningQuestions serviceId={serviceId} /> : <ScreeningQuestionsScreen />;
+  return (
+    <Suspense fallback={<ScreeningQuestionsLoading />}>
+      <QuestionsFromQuery />
+    </Suspense>
+  );
+}
+
+function QuestionsFromQuery() {
+  const serviceId = asUuid(useSearchParams().get("serviceId"));
+  return <LiveScreeningQuestions serviceId={serviceId} />;
 }
 
 export function ScreeningOutcomeRoute({
@@ -57,25 +68,29 @@ export function ScreeningRequestsRoute() {
   return isApiConfigured ? <LiveScreeningRequests /> : <ScreeningRequestsScreen />;
 }
 
+/** `/screening/review` and, with `declining`, `/screening/review/decline`. */
 export function ReviewAnswersRoute({ declining = false }: { readonly declining?: boolean }) {
-  const t = useTranslations("screening");
-  const requestId = asUuid(useQueryValue("requestId"));
-  if (requestId) return <LiveReviewAnswers declining={declining} requestId={requestId} />;
   return (
-    <>
-      <ReviewAnswersScreen />
-      {declining ? (
-        <DeclineScreeningDialog
-          cancelHref="/screening/review"
-          confirmHref="/screening/requests"
-          name={t("req1Name")}
-        />
-      ) : null}
-    </>
+    <Suspense fallback={<ReviewAnswersLoading />}>
+      <ReviewFromQuery declining={declining} />
+    </Suspense>
   );
 }
 
+function ReviewFromQuery({ declining }: { readonly declining: boolean }) {
+  const requestId = asUuid(useSearchParams().get("requestId"));
+  return <LiveReviewAnswers declining={declining} requestId={requestId} />;
+}
+
 export function ScreeningSetupRoute() {
-  const serviceId = asUuid(useQueryValue("serviceId"));
-  return serviceId ? <LiveScreeningSetup serviceId={serviceId} /> : <ScreeningSetupScreen />;
+  return (
+    <Suspense fallback={<ScreeningSetupLoading />}>
+      <SetupFromQuery />
+    </Suspense>
+  );
+}
+
+function SetupFromQuery() {
+  const serviceId = asUuid(useSearchParams().get("serviceId"));
+  return <LiveScreeningSetup serviceId={serviceId} />;
 }

@@ -1,15 +1,16 @@
 "use client";
 
-import Image from "next/image";
+import Image, { type StaticImageData } from "next/image";
 import Link from "next/link";
 import { useEffect, useRef, useState, type CSSProperties } from "react";
 import { useGSAP } from "@gsap/react";
 import gsap from "gsap";
 import { useTranslations } from "next-intl";
-import { Bell, ChevronLeft } from "lucide-react";
+import { Bell, ChevronLeft, UserRound } from "lucide-react";
 
 import { logo } from "@/lib/assets/r2";
-import { avatarImage, initials } from "@/lib/mock-db/avatars";
+import { avatarImage } from "@/lib/mock-db/avatars";
+import { useOwnAvatarUrl } from "@/components/profile/profile-data";
 import { useAppLocale } from "@/lib/i18n/locale-provider";
 import { useSession, useSessionStatusHint } from "@/lib/session";
 import { useUnreadDot } from "@/components/notifications/notification-store";
@@ -19,10 +20,12 @@ import { cn } from "@/lib/utils";
 gsap.registerPlugin(useGSAP);
 
 /**
- * The one navigation bar, on every screen and at every width: the desktop's
- * floating capsule, the lockup at the left and TH / EN, the bell (or "Get
- * started" for a guest) and the portrait at the right. The phone has no menu
- * of its own here; its navigation is the tab bar along the bottom.
+ * The one navigation bar, on every screen and at every width: the lockup at
+ * the left and TH / EN, the bell (or "Get started" for a guest) and the
+ * portrait at the right. From `lg` it is the desktop's floating capsule; on a
+ * phone and an upright tablet it is a plain bar running edge to edge from the
+ * top. The phone has no menu of its own here; its navigation is the tab bar
+ * along the bottom.
  *
  * It has no surface of its own at the top of a screen and frosts into a
  * translucent one once the content scrolls under it — the treatment the Mochi Ice
@@ -169,9 +172,6 @@ function NavAvatar() {
   const session = useSession();
   if (session.status !== "authenticated") return null;
 
-  const { account } = session;
-  const image = avatarImage(account.avatar);
-
   return (
     <Link
       aria-label={t("profile")}
@@ -183,25 +183,41 @@ function NavAvatar() {
       className="mr-1 block shrink-0 rounded-full ring-2 ring-transparent transition-[box-shadow,--tw-ring-color] duration-150 hover:ring-border motion-reduce:transition-none"
       href="/profile"
     >
-      {image ? (
-        <Image
-          alt=""
-          // 48px from `lg`, which is the height every other control in the
-          // cluster stands at; 36 left the portrait visibly short beside them.
-          className="size-10 rounded-full object-cover"
-          height={40}
-          src={image}
-          width={40}
-        />
-      ) : (
-        <span
-          aria-hidden
-          className="flex size-10 items-center justify-center rounded-full bg-muted text-sm font-medium text-muted-foreground"
-        >
-          {initials(account)}
-        </span>
-      )}
+      <NavPortrait bundled={avatarImage(session.account.avatar)} />
     </Link>
+  );
+}
+
+/**
+ * The reader's own photograph when they have one, a person glyph when they do
+ * not — never their initials. Its own component so `GET /users/me/avatar` is
+ * only asked for once someone is signed in.
+ *
+ * The photo is the presigned URL the profile screens use (`useOwnAvatarUrl`), so
+ * a plain `<img>`: `next/image` only accepts the R2 assets host, and the URL
+ * expires before any cache would help. `bundled` is a demo portrait from the
+ * offline mock, used only when the API has none.
+ */
+function NavPortrait({ bundled }: { readonly bundled: StaticImageData | null }) {
+  const photo = useOwnAvatarUrl();
+  // 32px: a step under the 40 of the bell beside it, so the portrait reads as
+  // a portrait rather than one more button.
+  const box = "block size-8 rounded-full object-cover";
+
+  if (photo.data) {
+    // eslint-disable-next-line @next/next/no-img-element
+    return <img alt="" className={box} height={32} src={photo.data.url} width={32} />;
+  }
+  if (bundled) {
+    return <Image alt="" className={box} height={32} src={bundled} width={32} />;
+  }
+  // No photo: the tab bar's own person glyph, drawn as the bell beside it is
+  // (20px at lucide's stroke), in ink softened to 70% so it reads grey rather
+  // than black, on a light 32 disc the size a photo takes.
+  return (
+    <span aria-hidden className="flex size-8 items-center justify-center rounded-full bg-muted text-foreground/70">
+      <UserRound className="size-5" />
+    </span>
   );
 }
 
@@ -213,14 +229,51 @@ const FROSTED = (() => {
   ].join(", ");
 })();
 
+/**
+ * The bar's fill. The glass deepens as content passes under the floating
+ * pill. Below `lg` (a phone, an upright tablet) the bar has one look on every
+ * page, the scrolled glass, and never changes with scroll; only a page that
+ * opens on a hero photograph (`clearAtTop`, the home page) starts clear and
+ * frosts once it scrolls.
+ */
+function barFill(frosted: boolean, clearAtTop: boolean): string {
+  if (frosted) return "bg-card/55";
+  return cn(
+    "bg-card/25",
+    clearAtTop ? "below-lg:bg-transparent below-lg:backdrop-blur-none" : "below-lg:bg-card/55",
+  );
+}
+
+/**
+ * Docked, from `lg` only: a phone keeps the capsule at every scroll position,
+ * the shape its own screens are built around. The margin each side becomes
+ * padding of the same width (a percentage in either resolves against the same
+ * row), so nothing inside moves sideways. 72px tall: 88 (enough that nothing
+ * moved vertically either) read as a slab, and the capsule's own 64 as
+ * cramped against the top edge; the content rises 8px, with the same easing.
+ * No flat fill, but `--bar-wash` (the `FROSTED` pair the row already carries,
+ * white that fades out downward over a 45% veil) on a light `blur-sm`, with a
+ * faint white rule, so the band dissolves into the page instead of ending on
+ * a hard edge.
+ */
+const DOCKED =
+  "lg:mx-0 lg:mt-0 lg:h-18 lg:rounded-none lg:border-b lg:border-on-media/20 lg:bg-transparent lg:bg-[image:var(--bar-wash)] lg:pr-[calc(max(0px,calc((100%-984px)/2))+0.5rem)] lg:pl-[calc(max(0px,calc((100%-984px)/2))+1.5rem)] lg:backdrop-blur-sm";
+
 export function TopBar({
   unreadNotifications = false,
   backHref,
   overlay = false,
   dock = false,
+  clearAtTop = false,
   className,
 }: {
   readonly unreadNotifications?: boolean;
+  /**
+   * Below `lg`, no surface at all while the page is at its top, so a hero
+   * photograph runs up under the bar untouched; the glass comes in once the
+   * page scrolls. The home page only.
+   */
+  readonly clearAtTop?: boolean;
   /**
    * From `lg`, once the page scrolls, the capsule docks: it grows to the full
    * width, meets the top edge, loses its corners and turns a solid light grey,
@@ -234,9 +287,10 @@ export function TopBar({
   /**
    * Floats the bar over what follows instead of sitting above it, for frames
    * that open on a photo or video. The capsule carries its own light surface,
-   * so its ink stays dark over the photo.
+   * so its ink stays dark over the photo. `"phone"` floats it below `md` only,
+   * for a page whose photo runs edge to edge on the phone alone.
    */
-  readonly overlay?: boolean;
+  readonly overlay?: boolean | "phone";
   readonly className?: string;
 }) {
   const t = useTranslations("common");
@@ -288,7 +342,7 @@ export function TopBar({
       <div aria-hidden className="-mb-px h-px w-full shrink-0" ref={sentinelRef} />
       {/* `h-0` lets an overlay bar hang over the content below it, so a full-bleed
           hero still starts at the very top of the frame. */}
-      <div className={cn("sticky top-0 z-10 w-full shrink-0", overlay && "h-0")}>
+      <div className={cn("sticky top-0 z-10 w-full shrink-0", overlay === true && "h-0", overlay === "phone" && "h-0 md:h-auto")}>
         <div
           className={cn(
             // The row is only the gutter the capsule floats in: 12px on the
@@ -302,7 +356,11 @@ export function TopBar({
             // out again on every frame of the transition and the scroll
             // stalled for half a second. The capsule's own top margin does that
             // job now, inside a box whose size does not move.
-            "flex h-20 w-full items-start px-3 md:h-22 md:px-6",
+            //
+            // Below `lg` (phone and upright tablet) there is no capsule: the bar
+            // fills the whole row, edge to edge and from the top, so the row
+            // has no gutter of its own.
+            "flex h-18 w-full items-start md:h-22 lg:px-6",
             // From `lg` the bar shrinks with the page it sits on (the 1710 frame
             // zoomed down on a landscape tablet), instead of staying full size
             // above a content column that is not.
@@ -353,30 +411,20 @@ export function TopBar({
               // as wide as the screen allows below that. The capsule keeps that
               // box at every scroll position; only the glass behind it deepens
               // as content passes under, which is what the reference does too.
-              "mt-3 h-14 rounded-[2rem] py-2 pr-2 pl-4 backdrop-blur-[20px] md:h-16 md:pl-6",
-              "mx-[max(0px,calc((100%-984px)/2))]",
+              // Below `lg` a full-width bar, square and flush with the top, as
+              // tall as the row (72 on a phone, 88 on a tablet). Its side
+              // padding is the old gutter plus the capsule's own, so the lockup
+              // and the actions keep their x from when it was a capsule:
+              // 28 / 20 in on a phone, 48 / 32 on a tablet.
+              "h-18 py-2 pr-5 pl-7 backdrop-blur-[20px] md:h-22 md:pr-8 md:pl-12 lg:mt-3 lg:h-16 lg:rounded-[2rem] lg:pr-2 lg:pl-6",
+              // 61.5rem (984 at 16px), so it scales with an upright tablet.
+              "mx-[max(0px,calc((100%-61.5rem)/2))]",
               // From `lg` only, as the row's: a phone's bar switches at once.
               "lg:transition-[margin,padding,height,border-radius,background-color] lg:duration-500 lg:ease-out motion-reduce:transition-none",
               // The glass deepens as content passes under the floating pill;
               // a docked bar replaces the fill entirely (below, merged last).
-              frosted ? "bg-card/55" : "bg-card/25",
-              dock && frosted
-                ? // Docked, from `lg` only: a phone keeps the capsule at every
-                  // scroll position, the shape its own screens are built
-                  // around. The margin each side becomes padding of the same
-                  // width (a percentage in either resolves against the same
-                  // row), so nothing inside moves sideways. 72px tall: 88
-                  // (enough that nothing moved vertically either) read as a
-                  // slab, and the capsule's own 64 as cramped against the
-                  // top edge; the content rises 8px, with the same easing.
-                  // mochiice-fe's scrolled header (`Layout/Header.vue`): no
-                  // flat fill, but `--bar-wash` (the `FROSTED` pair the row
-                  // already carries, white that fades out downward over a
-                  // 45% veil) on a light `blur-sm`, with a faint white rule,
-                  // so the band dissolves into the page instead of ending
-                  // on a hard edge.
-                  "lg:mx-0 lg:mt-0 lg:h-18 lg:rounded-none lg:border-b lg:border-on-media/20 lg:bg-transparent lg:bg-[image:var(--bar-wash)] lg:pr-[calc(max(0px,calc((100%-984px)/2))+0.5rem)] lg:pl-[calc(max(0px,calc((100%-984px)/2))+1.5rem)] lg:backdrop-blur-sm"
-                : undefined,
+              barFill(frosted, clearAtTop),
+              dock && frosted && DOCKED,
             )}
           >
             {backHref ? (

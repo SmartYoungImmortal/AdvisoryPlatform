@@ -20,8 +20,10 @@ export function MobileViewport({ children }: { readonly children: ReactNode }) {
     // left a tablet showing a phone with 320px of empty page either side. The
     // `lg` rule stays for every other wide screen: those do have blocks to place,
     // and giving them the full width before their `lg:` variants exist would
-    // stretch a phone layout across a tablet.
-    <div className="mx-auto flex min-h-dvh w-full max-w-md flex-col md:has-[[data-wide='md']]:max-w-none lg:has-[[data-wide]]:max-w-none">
+    // stretch a phone layout across a tablet. `data-wide="tablet"` lifts it at
+    // 744, for a screen laid out to the booking sites' own steps (744, 950,
+    // 1128, 1440) rather than ours.
+    <div className="mx-auto flex min-h-dvh w-full max-w-md flex-col md:has-[[data-wide='md']]:max-w-none min-[46.5rem]:has-[[data-wide='tablet']]:max-w-none lg:has-[[data-wide]]:max-w-none">
       {children}
     </div>
   );
