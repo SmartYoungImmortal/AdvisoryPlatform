@@ -1,6 +1,6 @@
 "use client";
 
-import { CircleHelp, Package, Plus } from "lucide-react";
+import { CircleHelp, Inbox, Package, Plus } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
@@ -93,9 +93,12 @@ export function LiveReviewAnswers({
   if (!requestId) {
     return (
       <DeskPage backHref="/screening/requests" title={t("reviewPageTitle")}>
-        <p className="mt-5 text-sm text-muted-foreground lg:mt-8 lg:text-frame-meta" role="alert">
-          {t("missingRequest")}
-        </p>
+        <DeskEmpty
+          action={{ label: t("requestsTitle"), href: "/screening/requests" }}
+          body={t("missingRequest")}
+          icon={Inbox}
+          title={t("inboxPick")}
+        />
       </DeskPage>
     );
   }
@@ -161,7 +164,7 @@ function ReviewView({ requestId, declining }: { readonly requestId: string; read
     const declineHref = `/screening/review/decline?requestId=${requestId}`;
 
     body = (
-      <div className="mt-5 flex w-full max-w-220 flex-col gap-8 lg:mt-8 lg:gap-10">
+      <div className="mt-5 flex w-full flex-col gap-8 lg:mt-8 lg:gap-10">
         {/* Who, where it stands, and the two answers: the reason to open this page. */}
         <section className="flex flex-col gap-5 border-b border-border pb-8 md:flex-row md:items-end md:justify-between lg:pb-10">
           <div className="flex min-w-0 flex-col gap-2">
@@ -257,7 +260,7 @@ function ReviewView({ requestId, declining }: { readonly requestId: string; read
 function ReviewSkeleton() {
   const w = useTranslations("workDesk");
   return (
-    <div aria-busy className="mt-5 flex w-full max-w-220 flex-col gap-8 lg:mt-8 lg:gap-10">
+    <div aria-busy className="mt-5 flex w-full flex-col gap-8 lg:mt-8 lg:gap-10">
       <span className="sr-only">{w("loading")}</span>
       <div aria-hidden className="flex flex-col gap-5 border-b border-border pb-8 md:flex-row md:items-end md:justify-between lg:pb-10">
         <div className="flex min-w-0 flex-col gap-2">
@@ -348,7 +351,7 @@ function ServicePicker() {
     // The ones that already screen first: those are the questions an advisor comes back to.
     const rows = services.data.items.toSorted((a, b) => Number(b.screeningRequired) - Number(a.screeningRequired));
     body = (
-      <div className="flex w-full max-w-220 flex-col">
+      <div className="flex w-full flex-col">
         <DeskSection className="mt-5 lg:mt-8" id="screening-services" title={t("setupServicesTitle")}>
           <ul className="flex flex-col">
             {rows.map((service) => (
@@ -434,7 +437,7 @@ function QuestionsEditor({ serviceId }: { readonly serviceId: string }) {
   } else {
     const count = t("setupCount", { count: list.length, max: SCREENING_MAX_QUESTIONS });
     body = (
-      <div className="flex w-full max-w-220 flex-col">
+      <div className="flex w-full flex-col">
         <DeskSection
           className="mt-5 lg:mt-8"
           hint={service.data.screeningRequired ? count : `${count} · ${t("screeningOff")}`}
@@ -594,7 +597,7 @@ function QuestionDialog({
 function SetupSkeleton({ hint }: { readonly hint: boolean }) {
   const w = useTranslations("workDesk");
   return (
-    <div aria-busy className="flex w-full max-w-220 flex-col">
+    <div aria-busy className="flex w-full flex-col">
       <span className="sr-only">{w("loading")}</span>
       <div aria-hidden className="mt-5 flex flex-col lg:mt-8">
         <div className="flex min-h-11 items-end justify-between gap-3">

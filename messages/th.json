@@ -2179,7 +2179,9 @@
     "inboxAcceptedOn": "รับคำขอเมื่อ {date}",
     "inboxDeclinedOn": "ปฏิเสธเมื่อ {date}",
     "inboxAcceptedToast": "รับคำขอของ {name} แล้ว",
-    "inboxDeclinedToast": "ปฏิเสธคำขอของ {name} แล้ว"
+    "inboxDeclinedToast": "ปฏิเสธคำขอของ {name} แล้ว",
+    "loading": "กำลังโหลด…",
+    "step3Replied": "ที่ปรึกษาตอบกลับแล้ว"
   },
   "payment": {
     "advisor": "Sarah Jenskins",
