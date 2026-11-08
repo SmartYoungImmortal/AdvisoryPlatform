@@ -5,8 +5,11 @@ import { useTranslations } from "next-intl";
 import { openBookingMeeting } from "@/lib/api/resources";
 import type { ApiBooking } from "@/lib/api/types";
 
+/** What opening a session's call needs to know about its booking. */
+export type MeetingBooking = Pick<ApiBooking, "id" | "state" | "startTime" | "endTime">;
+
 /** Matches the API: booked calls open ten minutes early; in-progress calls remain open. */
-export function bookingCallWindow(booking: ApiBooking, at: number) {
+export function bookingCallWindow(booking: MeetingBooking, at: number) {
   if (booking.state === "IN_PROGRESS") return { open: true, opensAt: null };
   if (booking.state !== "BOOKED" || at >= Date.parse(booking.endTime))
     return { open: false, opensAt: null };
@@ -16,7 +19,7 @@ export function bookingCallWindow(booking: ApiBooking, at: number) {
     : { open: false, opensAt: new Date(opens) };
 }
 
-export function useBookingMeeting(booking: ApiBooking, from: number) {
+export function useBookingMeeting(booking: MeetingBooking, from: number) {
   const t = useTranslations("bookings");
   const [tick, setTick] = useState(from);
   const [joining, setJoining] = useState(false);
