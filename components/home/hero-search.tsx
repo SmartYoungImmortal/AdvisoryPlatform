@@ -78,6 +78,36 @@ function writeRecent(list: readonly string[]) {
 
 const searchHref = (q: string) => `/search?q=${encodeURIComponent(q)}`;
 
+/**
+ * The field's three looks: its group (the pill), its input and its submit
+ * button.
+ * - `page`: `/search`'s header, on a hairline, 16px on the right where there
+ *   is no submit pill (below `md`) so the clear cross sits off the curve.
+ * - `hero`: the home hero's, no outline, only the hero's long soft shadow; 40
+ *   on a phone, 44 on an upright tablet, 48 from `lg`. Its placeholder is 14px
+ *   on a phone, the size its typed-out examples already are, while the input
+ *   stays 16px so iOS does not zoom in on focus.
+ * - `compact`: the phone's hero field at every width, for a block that is
+ *   scaled up whole on the desktop rather than restyled.
+ */
+const FIELD_LOOK = {
+  page: {
+    group: "h-11 rounded-full border-border bg-card pr-4 pl-4 shadow-card md:h-12 md:pr-1.5",
+    input: "text-base md:text-sm",
+    button: "md:flex",
+  },
+  hero: {
+    group: "h-10 rounded-full border-transparent pr-1 pl-4 shadow-hero md:h-11 lg:h-12 lg:pr-1.5",
+    input: "text-base max-md:placeholder:text-sm lg:text-sm",
+    button: "flex h-8 px-4 text-xs md:h-9 md:px-6 md:text-sm",
+  },
+  compact: {
+    group: "h-10 rounded-full border-transparent pr-1 pl-4 shadow-hero",
+    input: "text-base placeholder:text-sm",
+    button: "flex h-8 px-4 text-xs",
+  },
+} as const;
+
 /** `text` with the first match of `query` set bold. */
 function highlight(text: string, query: string): ReactNode {
   const at = normalise(text).indexOf(normalise(query));
@@ -157,6 +187,10 @@ export function HeroSearch({
   );
 
   const query = value.trim();
+  // `compact` only applies to the hero's look.
+  let lookKey: keyof typeof FIELD_LOOK = variant;
+  if (variant === "hero" && compact) lookKey = "compact";
+  const look = FIELD_LOOK[lookKey];
   // The placeholder's examples end in an ellipsis to read as half-typed; as
   // things to press they are whole questions.
   const questions = useMemo(
@@ -315,29 +349,10 @@ export function HeroSearch({
         aria-label={placeholder}
         autoComplete="off"
         enterKeyHint="search"
-        // The hero's field is a pill at every width, with its button a pill
-        // inset by the same 6px on every side, so the two curves run parallel;
-        // no outline, only the hero's long soft shadow, the same one the cards
-        // float on. 16px type below `lg` so a phone does not zoom into it.
-        groupClassName={
-          variant === "page"
-            ? // 16px on the right where there is no submit pill (below `md`),
-              // so the field's clear cross sits off the curve rather than on it.
-              "h-11 rounded-full border-border bg-card pr-4 pl-4 shadow-card md:h-12 md:pr-1.5"
-            : compact
-              ? "h-10 rounded-full border-transparent pr-1 pl-4 shadow-hero"
-              : "h-10 rounded-full border-transparent pr-1 pl-4 shadow-hero md:h-11 lg:h-12 lg:pr-1.5"
-        }
-        // The hero's placeholder at 14px on a phone, the size its typed-out
-        // examples already are; the input itself stays 16px so iOS does not
-        // zoom in on focus.
-        inputClassName={
-          variant === "page"
-            ? "text-base md:text-sm"
-            : compact
-              ? "text-base placeholder:text-sm"
-              : "text-base max-md:placeholder:text-sm lg:text-sm"
-        }
+        // A pill at every width, its button a pill inset evenly inside it so
+        // the two curves run parallel (`FIELD_LOOK`).
+        groupClassName={look.group}
+        inputClassName={look.input}
         name="q"
         onBlur={(event) => {
           // Focus moving into the panel (its clear button) keeps it open.
@@ -372,12 +387,7 @@ export function HeroSearch({
           <button
             className={cn(
               "hidden h-9 shrink-0 items-center rounded-full bg-hero-action px-6 text-sm font-medium text-hero-action-foreground outline-none hover:bg-hero-action/85 focus-visible:ring-3 focus-visible:ring-ring/50 active:translate-y-px",
-              // The hero's: a step smaller on a phone, in a 44 field.
-              variant === "page"
-                ? "md:flex"
-                : compact
-                  ? "flex h-8 px-4 text-xs"
-                  : "flex h-8 px-4 text-xs md:h-9 md:px-6 md:text-sm",
+              look.button,
             )}
             type="submit"
           >
