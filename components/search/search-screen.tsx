@@ -6,6 +6,7 @@ import Link from "next/link";
 import { useFormatter, useTranslations } from "next-intl";
 import { useRef, useState, useSyncExternalStore, type ReactNode } from "react";
 
+import { useLevelText } from "@/components/advisor-public/level-badge";
 import { authPill } from "@/components/auth/auth-split";
 import { HeroSearch } from "@/components/home/hero-search";
 import { VerifiedTick } from "@/components/home/parts";
@@ -364,6 +365,7 @@ export function ResultCard({ item, quote, onSelect, selected = false, reviewCoun
 }) {
   const t = useTranslations("search");
   const format = useFormatter();
+  const levelText = useLevelText();
   const shape = "group flex flex-col gap-3 rounded-2xl outline-none focus-visible:ring-3 focus-visible:ring-ring/50";
   const body = (
     <>
@@ -386,6 +388,12 @@ export function ResultCard({ item, quote, onSelect, selected = false, reviewCoun
           <AdvisorFace item={item} />
           <span className="truncate text-xs font-medium text-foreground">{item.advisorName}</span>
           {item.verified ? <VerifiedTick /> : null}
+          {/* The name comes first: on a narrow card the level is what gets cut. */}
+          {item.advisorLevel ? (
+            <span className="min-w-0 shrink-[2] truncate text-xs text-muted-foreground">
+              · {levelText.title(item.advisorLevel)}
+            </span>
+          ) : null}
         </span>
         {/* The title on one line and what it covers on two, both held at that
             height, so every card matches and a row's prices line up. */}

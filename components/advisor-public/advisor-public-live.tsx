@@ -4,6 +4,7 @@ import { useCallback, useMemo } from "react";
 import { useFormatter, useTranslations } from "next-intl";
 
 import { initialsOf, splitHeadline } from "@/components/advisor-public/headline";
+import { asAdvisorLevel } from "@/components/advisor-public/level-badge";
 import {
   AboutView,
   EmptyNotice,
@@ -377,6 +378,7 @@ export function LiveAdvisorProfileScreen({
     portrait: live.image ?? null,
     initials: initialsOf(live.displayName),
     verified: true,
+    level: asAdvisorLevel(live.level),
     reviewCount: reviewCountOf(summary),
     role: role || null,
     place,

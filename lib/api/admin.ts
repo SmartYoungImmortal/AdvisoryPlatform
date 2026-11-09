@@ -243,6 +243,8 @@ export interface IdentityVerification {
   readonly submittedAt: string | null;
   readonly verifiedAt: string | null;
   readonly verifiedByAdminId: string | null;
+  /** The advisor's level (1–3); optional so an API from before levels keeps working. */
+  readonly level?: number;
 }
 
 export interface IdentityVerificationQuery extends AdminPageQuery {
@@ -266,16 +268,28 @@ export function getIdentityVerification(
 }
 
 /**
- * `POST /admin/identity-verifications/:advisorId/approve` — **no body**.
- *
- * There is no advisor level on this route, so approving cannot set one. 409 when
- * already decided, and 409 when nothing has been submitted yet.
+ * `POST /admin/identity-verifications/:advisorId/approve` — `level` (1–3) is saved
+ * with the approval; left out, the level stays as it is. 409 when already decided,
+ * and 409 when nothing has been submitted yet.
  */
 export function approveIdentityVerification(
   advisorId: string,
+  level?: number,
   signal?: AbortSignal,
 ): Promise<IdentityVerification> {
-  return api.post(`admin/identity-verifications/${advisorId}/approve`, { signal });
+  return api.post(`admin/identity-verifications/${advisorId}/approve`, {
+    body: level === undefined ? undefined : { level },
+    signal,
+  });
+}
+
+/** `PATCH .../level`: changes a verified advisor's level; 409 before they are verified. */
+export function setAdvisorLevel(
+  advisorId: string,
+  level: number,
+  signal?: AbortSignal,
+): Promise<IdentityVerification> {
+  return api.patch(`admin/identity-verifications/${advisorId}/level`, { body: { level }, signal });
 }
 
 /** `POST .../:advisorId/reject` — `reason` required, max 4000. */

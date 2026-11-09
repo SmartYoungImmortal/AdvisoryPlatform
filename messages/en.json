@@ -2919,6 +2919,10 @@
     "portfolioDeleteFailed": "Could not delete the work"
   },
   "advisorProfile": {
+    "level": "Level {number} · {title}",
+    "levelTitle1": "Advisor",
+    "levelTitle2": "Expert",
+    "levelTitle3": "Senior expert",
     "credentialField": "{credential} · {field}",
     "statRating": "Rating",
     "statReviews": "Reviews",
@@ -3222,7 +3226,10 @@
       "proofsCount": "{total} files",
       "rejectProofTitle": "Reject “{skill}”?",
       "submittedAt": "Sent",
-      "decidedAt": "Decided"
+      "decidedAt": "Decided",
+      "level": "Advisor level",
+      "levelHint": "Clients see this level before they book",
+      "levelSaved": "Level saved"
     },
     "services": {
       "title": "All services",

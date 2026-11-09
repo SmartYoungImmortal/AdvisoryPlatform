@@ -4,13 +4,20 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Check, FileText, IdCard, X } from "lucide-react";
 import { useTranslations } from "next-intl";
-import { useCallback, useMemo } from "react";
+import { useCallback, useMemo, useState } from "react";
 
+import {
+  ADVISOR_LEVELS,
+  asAdvisorLevel,
+  useLevelText,
+  type AdvisorLevel,
+} from "@/components/advisor-public/level-badge";
 import { CmsApiError, CmsDetailSkeleton, useRuling } from "@/components/cms/api";
 import { CmsButton } from "@/components/cms/button";
 import { CmsEmpty, CmsSection } from "@/components/cms/card";
 import { CmsDocument, CmsStoredDocument } from "@/components/cms/document";
 import { useCmsFeedback } from "@/components/cms/feedback";
+import { CmsSelect } from "@/components/cms/fields";
 import { useRecordId } from "@/components/cms/hooks";
 import { CmsPage } from "@/components/cms/layout";
 import { useAccountName } from "@/components/cms/people";
@@ -35,6 +42,7 @@ import {
   listSkillProofs,
   rejectIdentityVerification,
   rejectSkillProof,
+  setAdvisorLevel,
   type IdentityVerification,
   type SkillProof,
 } from "@/lib/api/admin";
@@ -140,6 +148,24 @@ function Review({ request }: { readonly request: IdentityVerification }) {
   const waiting = useMemo(() => queue.data?.items ?? [], [queue.data]);
   const proofItems = useMemo(() => proofs.data?.items ?? [], [proofs.data]);
   const pending = request.verificationStatus === "SUBMITTED";
+  const verified = request.verificationStatus === "VERIFIED";
+  // The level chosen here: sent with the approval while the request waits,
+  // saved straight away once the advisor is verified.
+  const [level, setLevel] = useState<AdvisorLevel>(asAdvisorLevel(request.level));
+  const levelText = useLevelText();
+
+  async function changeLevel(next: AdvisorLevel) {
+    if (!verified) {
+      setLevel(next);
+      return;
+    }
+    const result = await rule({
+      keyPrefix: IDENTITY_KEY,
+      run: [() => setAdvisorLevel(request.advisorId, next)],
+      success: t("levelSaved"),
+    });
+    if (result.ok) setLevel(next);
+  }
 
   /** After a decision, move on to the next request still waiting. */
   function advance() {
@@ -157,7 +183,7 @@ function Review({ request }: { readonly request: IdentityVerification }) {
     if (!ok) return;
     const result = await rule({
       keyPrefix: IDENTITY_KEY,
-      run: [() => approveIdentityVerification(request.advisorId)],
+      run: [() => approveIdentityVerification(request.advisorId, level)],
       success: tStatus("identity.VERIFIED"),
     });
     if (result.ok) advance();
@@ -229,6 +255,18 @@ function Review({ request }: { readonly request: IdentityVerification }) {
           ) : null}
         </CmsDataList>
       </CmsSection>
+
+      {pending || verified ? (
+        <CmsSection description={t("levelHint")} title={t("level")}>
+          <CmsSelect
+            aria-label={t("level")}
+            className="max-w-xs"
+            items={ADVISOR_LEVELS.map((value) => ({ value: String(value), label: levelText.full(value) }))}
+            onValueChange={(value) => void changeLevel(asAdvisorLevel(Number(value)))}
+            value={String(level)}
+          />
+        </CmsSection>
+      ) : null}
 
       <CmsSection title={t("idCard")}>
         {document ? (
