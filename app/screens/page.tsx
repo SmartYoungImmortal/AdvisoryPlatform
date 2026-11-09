@@ -83,8 +83,7 @@ const SECTIONS: ReadonlyArray<{
     title: "Matching",
     node: "995:11175",
     screens: [
-      { href: "/matching", label: "Problem description" },
-      { href: "/matching/results", label: "Matched advisors" },
+      { href: "/matching", label: "Matching chat" },
     ],
   },
   {
@@ -107,11 +106,9 @@ const SECTIONS: ReadonlyArray<{
     node: "995:9906",
     screens: [
       { href: "/checkout/card", label: "Payment – Card details" },
-      { href: "/checkout/processing", label: "Payment – Bank verification" },
       { href: "/checkout/success", label: "Payment – Success" },
       { href: "/checkout/failed", label: "Payment – Failed" },
       { href: "/checkout/unconfirmed", label: "Payment – Unconfirmed" },
-      { href: "/checkout/slot-taken", label: "Payment – Slot taken" },
       { href: "/transactions", label: "Transaction history" },
       { href: "/transactions/detail", label: "Invoice detail" },
       { href: "/transactions/detail/failed", label: "Invoice detail – Failed" },
@@ -206,15 +203,6 @@ const SECTIONS: ReadonlyArray<{
       { href: "/advisors/sarah-jenskins/about", label: "Public profile – About" },
       { href: "/advisors/sarah-jenskins/reviews", label: "Public profile – Reviews" },
       { href: "/advisors/sarah-jenskins/services", label: "Public profile – All services" },
-    ],
-  },
-  {
-    title: "Error states",
-    node: "995:5918",
-    screens: [
-      { href: "/status/no-connection", label: "Error – No connection" },
-      { href: "/status/not-found", label: "Error – Not found" },
-      { href: "/status/server-error", label: "Error – Server" },
     ],
   },
 ];

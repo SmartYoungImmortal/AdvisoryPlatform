@@ -15,6 +15,8 @@ import {
 import { createGooglePayToken } from "@/lib/payment/omise";
 import { cn } from "@/lib/utils";
 
+import { rememberCheckout } from "./checkout-return";
+
 /**
  * Paying by Google Pay: Google's own button and sheet, then the card as any
  * other (`lib/payment/google-pay.ts`).
@@ -77,6 +79,7 @@ export function useGooglePay(bookingId: string, couponCode: string | undefined, 
         const cardToken = await createGooglePayToken(publicKey, wallet);
         const invoice = await createBookingInvoice(bookingId, couponCode);
         const { url } = await startCheckout({ invoiceId: invoice.id, cardToken });
+        rememberCheckout(invoice.id, bookingId);
         window.location.assign(url);
       } catch (cause: unknown) {
         if (!isGooglePayCancel(cause)) {

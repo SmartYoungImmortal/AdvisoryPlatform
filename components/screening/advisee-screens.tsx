@@ -128,7 +128,7 @@ export function ScreeningDeclinedScreen() {
 
         <ScreenSpacer />
         <ScreenActions>
-          <PrimaryButton href="/matching/results">{t("findOthers")}</PrimaryButton>
+          <PrimaryButton href="/matching">{t("findOthers")}</PrimaryButton>
           <NeutralButton href="/profile">{t("backHome")}</NeutralButton>
         </ScreenActions>
       </ScreenBody>

@@ -87,9 +87,12 @@ export function HomeHero({
             It overhangs the band by 16px on every side, more than its 10px of
             travel, so the drift never shows an edge; the flat ground still
             shows where it is not drawn (`.dark` sets `--hero-photo` to none).
-            Drawn a tenth taller than the band so there is width to spare, and
-            that spare spent on the left: the room sits a little left of
-            centre, keeping its chair out from under the search field. */}
+            From `lg` it is drawn a tenth taller than the band and its 2rem of
+            overhang, so 1.76 times that height wide, and its chair (at 50.9%
+            of the 3200 × 2000 photograph's width, 0.9% of the drawn width
+            right of its middle) is drawn that much left: the chair stands on
+            the screen's centre line at every shape of screen. A fixed 85%
+            only put it there on a 1710 × 985; a 1440 × 900 had it 44px left. */}
         <div aria-hidden className="pointer-events-none absolute inset-0 -z-10 overflow-hidden">
           <div
             // Below `lg` the band is a tall full screen, where the 110% height
@@ -106,7 +109,7 @@ export function HomeHero({
             // A phone draws it a little smaller, at 60%: the chair's 0.9% is
             // then 0.864dvh and its fade runs from 40% to 55%. An upright
             // tablet at 61%: 0.878dvh, fading from 39% to 54%.
-            className="absolute -inset-4 bg-hero-photo bg-[length:auto_60%] bg-[position:calc(50%-0.864dvh-0.28px)_calc(100%-4rem)] bg-no-repeat [mask-image:linear-gradient(to_bottom,transparent_calc(40%-4rem),black_calc(55%-4rem))] md:bg-[length:auto_61%] md:bg-[position:calc(50%-0.878dvh-0.28px)_calc(100%-3.5rem)] md:[mask-image:linear-gradient(to_bottom,transparent_calc(39%-3.5rem),black_calc(54%-3.5rem))] lg:bg-[length:auto_110%] lg:bg-[position:85%_center] lg:[mask-image:none]"
+            className="absolute -inset-4 bg-hero-photo bg-[length:auto_60%] bg-[position:calc(50%-0.864dvh-0.28px)_calc(100%-4rem)] bg-no-repeat [mask-image:linear-gradient(to_bottom,transparent_calc(40%-4rem),black_calc(55%-4rem))] md:bg-[length:auto_61%] md:bg-[position:calc(50%-0.878dvh-0.28px)_calc(100%-3.5rem)] md:[mask-image:linear-gradient(to_bottom,transparent_calc(39%-3.5rem),black_calc(54%-3.5rem))] lg:bg-[length:auto_110%] lg:bg-[position:calc(50%-1.584dvh-0.5px)_center] lg:[mask-image:none]"
             data-slot="home-hero-photo"
           />
         </div>

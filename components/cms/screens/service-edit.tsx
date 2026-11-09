@@ -5,6 +5,7 @@ import { ExternalLink } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { useCallback } from "react";
 
+import { liveServiceHref } from "@/components/bookings/booking-flow";
 import { CmsApiError, CmsDetailSkeleton } from "@/components/cms/api";
 import { CmsSection } from "@/components/cms/card";
 import { CmsLinkButton } from "@/components/cms/fields";
@@ -112,7 +113,7 @@ function ServiceRecord({ service }: { readonly service: AdminService }) {
           actions={
             <CmsLinkButton
               block
-              href={`/service/${service.id}`}
+              href={liveServiceHref(service.id)}
               icon={ExternalLink}
               size="lg"
               variant="secondary"

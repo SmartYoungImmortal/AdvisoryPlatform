@@ -2,7 +2,7 @@
 
 import { ArrowLeft } from "lucide-react";
 import Link from "next/link";
-import { useCallback, useEffect, useState, useSyncExternalStore, type FormEvent } from "react";
+import { useCallback, useEffect, useState, useSyncExternalStore, type FormEvent, type ReactNode } from "react";
 import { useTranslations } from "next-intl";
 
 import { getBooking } from "@/lib/api/resources";
@@ -26,6 +26,7 @@ import {
   type PayMethod,
 } from "./checkout-parts";
 import { GooglePayButton, useGooglePay } from "./checkout-googlepay";
+import { CheckoutOutcomePopup } from "./checkout-outcome";
 import { methodState, payWith, type Payments } from "./checkout-methods";
 import { BankList, useMobileBanking, useOnPhone } from "./checkout-mobile-banking";
 import { PromptPayDialog, usePromptPay } from "./checkout-promptpay";
@@ -248,6 +249,7 @@ function CheckoutReady({ booking }: { readonly booking: ApiBooking }) {
           payments={payments}
         />
         <PromptPayDialog promptPay={promptPay} />
+        <CheckoutOutcomePopup bookingId={booking.id} />
       </>
     );
   }
@@ -255,6 +257,7 @@ function CheckoutReady({ booking }: { readonly booking: ApiBooking }) {
   return (
     <>
       <PromptPayDialog promptPay={promptPay} />
+      <CheckoutOutcomePopup bookingId={booking.id} />
       <TopBar />
       <div className={cn(COLUMN, "relative")}>
         {/* The round way back hangs in the margin, centred on the title's
@@ -288,11 +291,81 @@ function CheckoutReady({ booking }: { readonly booking: ApiBooking }) {
   );
 }
 
+/**
+ * The checkout's frame. Its own white and hairlines (`.checkout-surface`): on
+ * the frame for what it draws, on <body> while it is mounted for the popups,
+ * which portal out of it.
+ */
+function CheckoutFrame({ children }: { readonly children: ReactNode }) {
+  useEffect(() => {
+    document.body.classList.add(SURFACE);
+    return () => document.body.classList.remove(SURFACE);
+  }, []);
+
+  return (
+    <MobileScreen className={cn(SURFACE, "pb-0")} wide="tablet">
+      <ScreenBody>{children}</ScreenBody>
+    </MobileScreen>
+  );
+}
+
+/**
+ * While the booking loads, or if there is none to show: the site's bar from
+ * 744, the phone's bar with its way back below it.
+ */
+function CheckoutHead() {
+  const c = useTranslations("common");
+  const wide = useWideCheckout();
+  return wide ? <TopBar /> : <ScreenTopBar href="/search" label={c("back")} />;
+}
+
+/** No booking to show: what went wrong, and the way to the reader's bookings. */
+function CheckoutProblem({
+  title,
+  error,
+  onRetry,
+}: {
+  readonly title: string;
+  readonly error: Error;
+  readonly onRetry?: () => void;
+}) {
+  const t = useTranslations("payment");
+  return (
+    <>
+      <CheckoutHead />
+      <div className={COLUMN}>
+        <ApiErrorCard
+          error={error}
+          extra={
+            <NeutralButton className="w-auto shrink-0" href="/bookings" size="sm">
+              {t("viewBooking")}
+            </NeutralButton>
+          }
+          onRetry={onRetry}
+          title={title}
+        />
+      </div>
+    </>
+  );
+}
+
+/**
+ * `/checkout/card` without `?bookingId=`: nothing is held to pay for. The
+ * card a booking that cannot be read shows, without the retry, since asking
+ * again cannot find one.
+ */
+export function CheckoutWithoutBooking() {
+  const t = useTranslations("payment");
+  return (
+    <CheckoutFrame>
+      <CheckoutProblem error={new Error(t("missingBookingBody"))} title={t("missingBookingTitle")} />
+    </CheckoutFrame>
+  );
+}
+
 export function LiveCheckoutScreen({ bookingId }: { readonly bookingId: string }) {
   const t = useTranslations("payment");
-  const c = useTranslations("common");
   const s = useTranslations("search");
-  const wide = useWideCheckout();
 
   const fetcher = useCallback(
     (signal: AbortSignal) => getBooking(bookingId, signal),
@@ -300,23 +373,11 @@ export function LiveCheckoutScreen({ bookingId }: { readonly bookingId: string }
   );
   const booking = useResource<ApiBooking>(`bookings/${bookingId}`, fetcher);
 
-  // The checkout's own white and hairlines (`.checkout-surface`): on the
-  // frame for what it draws, on <body> while it is mounted for the popups,
-  // which portal out of it.
-  useEffect(() => {
-    document.body.classList.add(SURFACE);
-    return () => document.body.classList.remove(SURFACE);
-  }, []);
-
-  // While the booking loads, or if it cannot: the site's bar from 744, the
-  // phone's bar with its way back below it.
-  const head = wide ? <TopBar /> : <ScreenTopBar href="/search" label={c("back")} />;
-
   let body;
   if (booking.loading) {
     body = (
       <>
-        {head}
+        <CheckoutHead />
         <div className={cn(COLUMN, "flex flex-col gap-6")}>
           <div className="h-9 w-2/5 rounded-md bg-muted" />
           <div className="flex flex-col gap-8 min-[59.375rem]:grid min-[59.375rem]:grid-cols-[386px_332px] min-[59.375rem]:gap-x-16 min-[70.5rem]:grid-cols-[440px_368px] min-[70.5rem]:gap-x-20 min-[90rem]:grid-cols-[524px_372px]">
@@ -328,29 +389,15 @@ export function LiveCheckoutScreen({ bookingId }: { readonly bookingId: string }
     );
   } else if (booking.error || !booking.data) {
     body = (
-      <>
-        {head}
-        <div className={COLUMN}>
-          <ApiErrorCard
-            error={booking.error ?? new Error(t("orderSummary"))}
-            extra={
-              <NeutralButton className="w-auto shrink-0" href="/bookings" size="sm">
-                {t("viewBooking")}
-              </NeutralButton>
-            }
-            onRetry={booking.reload}
-            title={s("loadFailedTitle")}
-          />
-        </div>
-      </>
+      <CheckoutProblem
+        error={booking.error ?? new Error(t("orderSummary"))}
+        onRetry={booking.reload}
+        title={s("loadFailedTitle")}
+      />
     );
   } else {
     body = <CheckoutReady booking={booking.data} />;
   }
 
-  return (
-    <MobileScreen className={cn(SURFACE, "pb-0")} wide="tablet">
-      <ScreenBody>{body}</ScreenBody>
-    </MobileScreen>
-  );
+  return <CheckoutFrame>{body}</CheckoutFrame>;
 }

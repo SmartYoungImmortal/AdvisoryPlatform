@@ -3,7 +3,7 @@
 รายการหน้าที่ยังต้อง redesign เรียงตามลำดับที่ควรทำ แต่ละข้อเป็นหนึ่ง ticket
 ติ๊ก `[x]` เมื่อพี่ดูแล้ว **ผ่าน** ไม่ใช่แค่เขียนโค้ดเสร็จ
 
-อัปเดตล่าสุด: 2 พฤศจิกายน 2569
+อัปเดตล่าสุด: 9 พฤศจิกายน 2569
 
 ## หลักที่ใช้กับทุกหน้า
 
@@ -35,6 +35,7 @@
 - [x] RD-13 หน้า auth ที่เหลือ: `/reset-password`, `/verification-sent`, `/email-verified` ผ่าน 1 พ.ย.
 - [x] RD-18 Toast: `components/mobile/toast.tsx` และ `components/notifications/notification-toaster.tsx` เป็นแบบเดียวกันแล้ว ผ่าน 1 พ.ย.
 - [x] RD-04 checkout: `/checkout/card`, `/checkout/card/saved` (บัตรผ่าน Omise, PromptPay, Google Pay, mobile banking, คูปอง) ผ่าน 1 พ.ย.
+- [x] RD-03 จับคู่ผู้เชี่ยวชาญ: `/matching` หน้าเดียว (หน้าแรกพิมพ์ปัญหา แล้วเป็นแชทกับ AI, ผลพร้อมแพ็กเกจที่แนะนำ, การ์ดรายละเอียดขวาบน desktop) ผ่าน 9 พ.ย. (#139, web #185, API #112 #113) แทน `/matching/searching` และ `/matching/results` เดิม
 
 ## ทำแล้วแต่ยังไม่ผ่าน
 
@@ -53,7 +54,8 @@
 - [ ] `/advisors/[advisorId]`, `/about`, `/services`, `/reviews`: ทำใหม่ 30 ต.ค. navbar ของเว็บ + ปุ่มย้อนกลับ การ์ดแบบหน้าค้นหา รีวิวแบบหน้าบริการ แท็บ About
 
 ### RD-04 · จองและชำระเงิน
-- [ ] `/checkout/processing`, `/checkout/success`, `/checkout/failed`, `/checkout/slot-taken`, `/checkout/unconfirmed`: success อ่านใบเสร็จจริง ที่เหลือใช้ component เดียวกัน
+- [ ] `/checkout/success` อ่านใบเสร็จจริง; ชำระไม่สำเร็จ / ธนาคารยังไม่ยืนยัน เป็น popup บน `/checkout/card` (`checkout-outcome.tsx`), เวลาถูกจองแล้วเป็น popup บนตัวเลือกเวลาของหน้าบริการ
+- [ ] `/bookings/refund?bookingId=` (ขอยกเลิก/คืนเงินพร้อมหลักฐาน จาก #91) + FE #114: redesign 4 พ.ย. ตาม brief เจลลี่ การ์ดใบเดียวแบบใบเสร็จ หัวการ์ดเปลี่ยนตามกรณี (ยกเลิกและขอคืนเงิน / แจ้งปัญหาและขอคืนเงิน / คำขอคืนเงิน) ทุกทางออกกลับไป popup บน `/bookings`; popup การจองที่ชำระแล้วมีทางออกทางเดียว (`components/bookings/booking-exit.ts`); ลำดับความปลอดภัยของคำขอไม่ได้แตะ รอเจลลี่ตรวจ
 
 ### RD-09 · รีวิวหลังคุย
 - [ ] `/reviews/session`, `/reviews/session/submitted`: ต้องมี `?booking=<id>` ของนัดที่จบแล้วของบัญชีที่ล็อกอิน เปิดเปล่าๆ จะขึ้นว่าไม่มีนัดให้รีวิว
@@ -98,12 +100,8 @@
 - [ ] `/advisor/services/manage`, `/manage/delete`, `/new/limit`, `/new/no-profile`, `/[serviceId]/*` (ของเก่าก่อน editor ใหม่)
 - [ ] `/advisor/profile`: โหมดผู้ให้คำปรึกษารวมเข้า `/profile` แล้ว ยังไม่ได้ตัดสินว่าจะเก็บ route นี้ไหม
 
-### RD-03 · จับคู่ผู้เชี่ยวชาญ
-- [ ] `/matching`, `/matching/searching`, `/matching/results`
-
 ### RD-04 · จองและชำระเงิน (ที่เหลือ)
 - [ ] ข้างในของ `/bookings` (กรอบทำแล้ว ดู RD-01)
-- [ ] `/bookings/refund`: หน้าใหม่ที่ Taj ทำใน #91 (ขอยกเลิก/คืนเงินพร้อมหลักฐาน) อยู่บน `dev` ยังไม่ได้ redesign
 
 ### RD-09 · รีวิวของผู้ให้คำปรึกษา
 - [ ] `/reviews`, `/reviews/empty`, `/reviews/replying`, `/reviews/reply-failed`
@@ -114,7 +112,7 @@
 `/landing` ลบแล้ว (30 ต.ค.): พี่บอกว่าหน้านี้ไม่ใช่แล้ว ลิงก์ "คำถามที่พบบ่อย" / "ศูนย์ช่วยเหลือ" ไปที่ `/#faq` (home แสดงครบ 8 ข้อ), "ราคาและค่าบริการ" ไปที่ `/#pricing`, "วิธีใช้งาน" ไปที่ `/about`
 
 ### RD-15 · สถานะระบบ
-- [ ] `/status/no-connection`, `/status/not-found`, `/status/server-error`
+- [x] หน้า `/status/*` ลบแล้ว: 404 ขึ้นจริงที่ทุก path ที่ไม่มี (`app/not-found.tsx`), 500 ขึ้นจริงเมื่อหน้าพัง (`app/error.tsx`), ไม่มีเน็ตขึ้นทับทุกหน้าเมื่อ browser ออฟไลน์ (`components/errors/offline-gate.tsx`)
 
 ### RD-16 · Admin console
 - [ ] `/admin`, `/admin/login`, `/admin/dashboard`
@@ -141,8 +139,7 @@ redesign แล้ว (28 ต.ค.) รอพี่ดู: กรอบเดี
 `/settings/email/in-use`, `/settings/delete/blocked`, `/profile/edit/photo-rejected`,
 `/advisor-onboarding/stage-1/errors`, `/advisor-onboarding/stage-2/uploaded`,
 `/advisor-onboarding/stage-2/rejected`, `/advisor-onboarding/stage-3/missing-proof`,
-`/checkout/card/errors`, `/notifications/empty`, `/availability/profiles/empty`,
-`/matching/results/no-results`
+`/checkout/card/errors`, `/notifications/empty`, `/availability/profiles/empty`
 
 `/settings/delete` ลบแล้ว (28 ต.ค.): ลบบัญชีเป็น popup ในหน้า `/settings`
 

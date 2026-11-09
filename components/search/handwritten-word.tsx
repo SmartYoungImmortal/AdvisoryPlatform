@@ -3,7 +3,7 @@
 import { useGSAP } from "@gsap/react";
 import gsap from "gsap";
 import { useLocale } from "next-intl";
-import { useRef } from "react";
+import { useId, useRef } from "react";
 
 import { HAND_ASCENT, HAND_DESCENT, HAND_WORDS } from "@/components/search/hand-words";
 
@@ -22,20 +22,33 @@ const em = (units: number) => `${units / 1000}em`;
  * width as it is written, so the quotes stay against the letters.
  *
  * The page's own language goes first, so the heading reads as a sentence before
- * the loop starts. Without motion the first word just stays, already inked. The
- * whole span is `aria-hidden`: the heading carries the plain title for screen
- * readers.
+ * the loop starts; a heading written in one language whatever the page's
+ * passes that language as `locale`. Without motion the first word just stays,
+ * already inked. The whole span is `aria-hidden`: the heading carries the plain
+ * title for screen readers.
  */
-export function HandwrittenWord() {
-  const locale = useLocale();
+export function HandwrittenWord({ locale: fixed, colors }: {
+  readonly locale?: string;
+  /**
+   * Inks the word with these colours, evenly spaced across it from its first
+   * letter to its last, and the quotes with the colour at their end; without
+   * them, the text colour.
+   */
+  readonly colors?: readonly string[];
+} = {}) {
+  const page = useLocale();
+  const locale = fixed ?? page;
   // Remounted on a language switch: the words reorder, and a timeline built for
   // the old order left two of them drawn over each other.
-  return <WordLoop key={locale} locale={locale} />;
+  return <WordLoop colors={colors} key={locale} locale={locale} />;
 }
 
-function WordLoop({ locale }: { readonly locale: string }) {
+function WordLoop({ locale, colors }: { readonly locale: string; readonly colors?: readonly string[] }) {
   const root = useRef<HTMLSpanElement>(null);
   const box = useRef<HTMLSpanElement>(null);
+  // A gradient's id is referenced from CSS-like `url(#…)`, where React's
+  // colons would end the reference early.
+  const gradient = useId().replace(/:/g, "");
   const start = Math.max(0, HAND_WORDS.findIndex((w) => w.lang === locale));
   const words = [...HAND_WORDS.slice(start), ...HAND_WORDS.slice(0, start)];
 
@@ -70,7 +83,7 @@ function WordLoop({ locale }: { readonly locale: string }) {
 
   return (
     <span aria-hidden className="inline-flex items-baseline font-hand" ref={root}>
-      <span>“</span>
+      <span style={colors ? { color: colors[0] } : undefined}>“</span>
       {/* No text inside, so its baseline is its bottom edge: each word's own
           baseline (y = 0) is placed there. */}
       <span className="relative inline-block h-[1em]" ref={box} style={{ width: em(words[0].advance) }}>
@@ -86,13 +99,23 @@ function WordLoop({ locale }: { readonly locale: string }) {
             }}
             viewBox={`0 ${-HAND_ASCENT} ${word.advance} ${HAND_ASCENT + HAND_DESCENT}`}
           >
+            {colors ? (
+              <defs>
+                {/* Across this word's own width, so the colours run over the whole word, not each letter. */}
+                <linearGradient gradientUnits="userSpaceOnUse" id={`${gradient}-${i}`} x1={0} x2={word.advance} y1={0} y2={0}>
+                  {colors.map((color, c) => (
+                    <stop key={color} offset={colors.length > 1 ? c / (colors.length - 1) : 0} stopColor={color} />
+                  ))}
+                </linearGradient>
+              </defs>
+            ) : null}
             {word.glyphs.map((d) => (
               <path
                 d={d}
-                fill="currentColor"
+                fill={colors ? `url(#${gradient}-${i})` : "currentColor"}
                 key={d}
                 pathLength={1}
-                stroke="currentColor"
+                stroke={colors ? `url(#${gradient}-${i})` : "currentColor"}
                 strokeDasharray="1 1"
                 strokeLinecap="round"
                 strokeLinejoin="round"
@@ -104,7 +127,7 @@ function WordLoop({ locale }: { readonly locale: string }) {
           </svg>
         ))}
       </span>
-      <span>”</span>
+      <span style={colors ? { color: colors.at(-1) } : undefined}>”</span>
     </span>
   );
 }

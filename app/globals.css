@@ -498,6 +498,16 @@ html:not(.dark) .checkout-surface {
   font-family: var(--font-sans);
 }
 
+/* Google's own Google Pay button draws its words as one picture sized to the
+   button's height less 9px each side, so in the 48 the other buttons have its
+   "ชำระด้วย G Pay" stood 30 tall, a step bigger than their 16px labels. 14px
+   each side brings it down to their size; the button keeps its 48. One class
+   more than Google's own rule, whose sheet is added after ours. */
+.checkout-surface .gpay-button-fill > .gpay-button.pay {
+  padding-top: 14px;
+  padding-bottom: 14px;
+}
+
 /* Admin console — the site's own family rather than a theme of its own: the
    service page's neutral greys (a grey ground round one white panel), ink for
    every solid action as the home hero's button has it, and the site's radius
@@ -730,11 +740,7 @@ html:not(.dark) .checkout-surface {
 /* A landscape tablet (under 1440 wide, no wider than 3:2): the frame fitted as
    if it were 1400 × 820 rather than 1710 × 985, so the hero is about a fifth
    larger than the desktop scaled down (0.73 on a 1024 × 768 iPad, 0.84 on an
-   1180 × 820), the band cropping the frame's edges. And the room centred:
-   drawn at 110% of the band and its 2rem overhang, the photograph is 1.76 times
-   that wide, and its chair stands 0.9% of that width right of its middle
-   (50.9% across the 3200 × 2000 original), so it is drawn that much left. The
-   desktop's 85% put the chair about 110px left of centre on a 1024. */
+   1180 × 820), the band cropping the frame's edges. */
 @media (width >= 1024px) and (width < 1440px) and (orientation: landscape) and (aspect-ratio <= 3/2) {
   .hero-stage {
     --hero-k: min(tan(atan2(100vw, 1400px)), tan(atan2(100dvh, 820px)));
@@ -745,10 +751,6 @@ html:not(.dark) .checkout-surface {
      ring's own rule further down. */
   .hero-stage .hero-ring {
     top: calc(50% + 2.75rem + 326.25px);
-  }
-
-  [data-slot="home-hero-photo"] {
-    background-position: calc(50% - 1.584dvh - 0.5px) center;
   }
 }
 
@@ -1131,4 +1133,162 @@ html:not(.dark) .checkout-surface {
 @utility animate-toast-countdown {
   transform-origin: left;
   animation: toast-countdown linear forwards;
+}
+
+/* ── matching ── */
+/* The matching page's own light, kept to that page: sky blue, the brand's
+   blue, lavender and peach in one band, blurred 54 into a glow behind its
+   message box. The band's angle and where each colour stands are animated
+   (registered below so they can be), so over 18 seconds the light turns and
+   its colours slide through each other instead of the band just moving. It
+   fades in once the page has settled. Still, at its first frame, for a reader
+   who asked for less motion. */
+@property --matching-glow-angle {
+  syntax: "<angle>";
+  inherits: false;
+  initial-value: 90deg;
+}
+@property --matching-glow-s0 {
+  syntax: "<percentage>";
+  inherits: false;
+  initial-value: 0%;
+}
+@property --matching-glow-s1 {
+  syntax: "<percentage>";
+  inherits: false;
+  initial-value: 30%;
+}
+@property --matching-glow-s2 {
+  syntax: "<percentage>";
+  inherits: false;
+  initial-value: 75%;
+}
+@property --matching-glow-s3 {
+  syntax: "<percentage>";
+  inherits: false;
+  initial-value: 100%;
+}
+
+@keyframes matching-glow-in {
+  to {
+    opacity: 0.9;
+  }
+}
+
+@keyframes matching-glow-move {
+  0%,
+  100% {
+    --matching-glow-angle: 90deg;
+    --matching-glow-s0: 0%;
+    --matching-glow-s1: 30%;
+    --matching-glow-s2: 75%;
+    --matching-glow-s3: 100%;
+  }
+  10% {
+    --matching-glow-angle: 16.76deg;
+    --matching-glow-s0: 17.81%;
+    --matching-glow-s1: 9.12%;
+    --matching-glow-s2: 36.04%;
+    --matching-glow-s3: 68.24%;
+  }
+  32% {
+    --matching-glow-angle: -75.2deg;
+    --matching-glow-s0: 6.39%;
+    --matching-glow-s1: 24.01%;
+    --matching-glow-s2: 64.96%;
+    --matching-glow-s3: 81%;
+  }
+  72% {
+    --matching-glow-angle: 122.36deg;
+    --matching-glow-s0: 0.63%;
+    --matching-glow-s1: 24.71%;
+    --matching-glow-s2: 52.61%;
+    --matching-glow-s3: 77.9%;
+  }
+}
+
+@utility matching-glow {
+  background-image: linear-gradient(
+    var(--matching-glow-angle),
+    #84b5ff var(--matching-glow-s0),
+    #0569ff var(--matching-glow-s1),
+    #ae8eff var(--matching-glow-s2),
+    #ffcca5 var(--matching-glow-s3)
+  );
+  filter: blur(54px);
+  opacity: 0;
+  animation:
+    matching-glow-in 0.6s ease-out 0.5s forwards,
+    matching-glow-move 18s cubic-bezier(0.55, 0, 0.45, 1) 0.5s infinite;
+}
+
+/* The same colours drawn round the landing box's edge once, as it opens: a
+   1.5 line that runs in, holds, and fades. */
+@keyframes matching-edge-draw {
+  0% {
+    stroke-dashoffset: 100;
+    opacity: 0;
+  }
+  6% {
+    opacity: 1;
+  }
+  40%,
+  64% {
+    stroke-dashoffset: 0;
+    opacity: 1;
+  }
+  100% {
+    stroke-dashoffset: 0;
+    opacity: 0;
+  }
+}
+
+@utility matching-edge {
+  stroke-dasharray: 100 100;
+  stroke-dashoffset: 100;
+  opacity: 0;
+  animation: matching-edge-draw 2.5s ease-in-out 0.6s forwards;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .matching-glow {
+    opacity: 0.9;
+    animation: none;
+  }
+  .matching-edge {
+    animation: none;
+  }
+}
+
+/* The page's ground: the light grey, with the glow's colours lit softly from
+   its edges (sky blue from the top left, lavender from the top right, peach
+   from the foot), so the boxes' frosted white has something to sit on. */
+@utility matching-ground {
+  background-color: var(--background);
+  background-image:
+    radial-gradient(60% 50% at 8% 0%, rgb(132 181 255 / 10%), transparent 70%),
+    radial-gradient(55% 45% at 92% 6%, rgb(174 142 255 / 8%), transparent 70%),
+    radial-gradient(70% 45% at 50% 100%, rgb(255 204 165 / 9%), transparent 70%);
+  background-repeat: no-repeat;
+}
+
+/* The matching page on a landscape screen narrower than 1710 (a landscape
+   tablet, a small laptop): the desktop itself, drawn at its 1710 size and
+   zoomed down by the width, rather than the same pixels crowding a smaller
+   screen. Held at 1 from 1710 up. On the parts under the bar; the bar zooms
+   itself (`doc-scale` in `TopBar`). */
+@media (width >= 1024px) and (orientation: landscape) {
+  .matching-scale {
+    zoom: min(1, tan(atan2(100vw, 1710px)));
+  }
+}
+
+/* The message boxes' frosted white: thinner at the left, where the glow
+   shows through most. */
+@utility matching-glass {
+  background-image: linear-gradient(91deg, rgb(255 255 255 / 72%) 4%, rgb(255 255 255 / 90%) 99%);
+}
+
+@utility matching-glass-landing {
+  background-image: linear-gradient(95deg, rgb(241 241 241 / 72%) 4%, rgb(255 255 255 / 90%) 99%);
 }

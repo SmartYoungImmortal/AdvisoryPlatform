@@ -9,6 +9,7 @@ import { useRef, useState, useSyncExternalStore, type ReactNode } from "react";
 import { useLevelText } from "@/components/advisor-public/level-badge";
 import { authPill } from "@/components/auth/auth-split";
 import { HeroSearch } from "@/components/home/hero-search";
+import { VerifiedTick } from "@/components/home/parts";
 import { SiteFooter } from "@/components/marketing/site-footer";
 import { MobileScreen, ScreenBody } from "@/components/mobile/screen";
 import { HandwrittenWord } from "@/components/search/handwritten-word";
@@ -22,9 +23,8 @@ import { Switch } from "@/components/ui/switch";
 import {
   DEFAULT_FILTERS,
   activeCount,
-  applyFilters,
   categoryOptionsOf,
-  matchQuery,
+  serviceQuery,
   type CategoryOption,
   type Filters,
   type LengthBand,
@@ -32,7 +32,13 @@ import {
   type PriceBand,
   type SortKey,
 } from "@/lib/catalogue/filters";
-import { useLiveCatalogue, useOpenToday, type LiveService } from "@/lib/catalogue/live";
+import {
+  localDate,
+  useCatalogueSearch,
+  useLiveCatalogue,
+  type CatalogueSearch,
+  type LiveService,
+} from "@/lib/catalogue/live";
 import { cn } from "@/lib/utils";
 
 /** The terms the empty state offers back, from the `search` namespace. */
@@ -294,7 +300,11 @@ function FilterPanel({
 }
 
 /** The score, or "new" for an advisor nobody has reviewed yet. */
-function Rating({ item }: { readonly item: LiveService }) {
+export function Rating({ item, count = true }: {
+  readonly item: LiveService;
+  /** Whether the number of reviews follows the score. */
+  readonly count?: boolean;
+}) {
   const t = useTranslations("search");
   if (item.rating === null) {
     return <span aria-hidden className="h-4 w-14 animate-pulse rounded-md bg-muted" />;
@@ -312,13 +322,13 @@ function Rating({ item }: { readonly item: LiveService }) {
     <span className="flex items-center gap-1 text-xs">
       <Star aria-hidden className="size-3.5 fill-primary text-primary" />
       <span className="font-latin font-semibold text-foreground tabular-nums">{item.rating.toFixed(1)}</span>
-      <span className="text-muted-foreground tabular-nums">({item.reviews})</span>
+      {count ? <span className="text-muted-foreground tabular-nums">({item.reviews})</span> : null}
     </span>
   );
 }
 
 /** The advisor's face from their ring card, or their initial on the muted step. */
-function AdvisorFace({ item }: { readonly item: LiveService }) {
+export function AdvisorFace({ item }: { readonly item: LiveService }) {
   const face = "size-6 shrink-0 rounded-full";
   if (item.face) return <Image alt="" className={cn(face, "object-cover")} src={item.face} />;
   return (
@@ -333,33 +343,51 @@ function AdvisorFace({ item }: { readonly item: LiveService }) {
 
 /**
  * A result. What a client weighs, in the order they weigh it, and only what
- * the API actually knows: who (face, name, the verified mark every listed
- * advisor has earned, their line of work), what (the service, two lines),
+ * the API actually knows: who (face, name, and the verified mark where the
+ * API says they have earned it), what (the service, two lines),
  * how it has gone (score and reviews) and what it costs for how long.
  * Nothing invented to fill the card: there is no reply time or sales count
- * behind it, so neither is drawn. The whole card is the link to the service.
+ * behind it, so neither is drawn. The whole card is the link to the service,
+ * or, given `onSelect`, a button that does that instead.
  */
-export function ResultCard({ item }: { readonly item: LiveService }) {
+export function ResultCard({ item, quote, onSelect, selected = false, reviewCount = true, badge }: {
+  readonly item: LiveService;
+  /** A tag laid on the photo's top-left corner, such as "best fit". */
+  readonly badge?: ReactNode;
+  /** Whether the number of reviews follows the score. */
+  readonly reviewCount?: boolean;
+  /** A price and length to quote over the service's own: the package an answer suggests. */
+  readonly quote?: { readonly price: number; readonly minutes: number };
+  /** Makes the card a button that does this (shows it in a panel beside it), in place of the link to the service. */
+  readonly onSelect?: () => void;
+  /** Rings the photo: the card a panel beside it is showing. */
+  readonly selected?: boolean;
+}) {
   const t = useTranslations("search");
   const format = useFormatter();
   const levelText = useLevelText();
-  return (
-    <Link
-      className="group flex flex-col gap-3 rounded-2xl outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
-      href={item.href}
-    >
+  const shape = "group flex flex-col gap-3 rounded-2xl outline-none focus-visible:ring-3 focus-visible:ring-ring/50";
+  const body = (
+    <>
       {/* The hero ring cards' own 2px shadow: just enough to lift the photo off white. */}
-      <span className="overflow-hidden rounded-2xl bg-muted shadow-hero-card transition-shadow duration-200 group-hover:shadow-hero-card-hover">
+      <span
+        className={cn(
+          "relative overflow-hidden rounded-2xl bg-muted shadow-hero-card ring-offset-2 ring-offset-background transition-shadow duration-200 group-hover:shadow-hero-card-hover",
+          selected && "ring-2 ring-foreground/70",
+        )}
+      >
         <Image
           alt=""
           className="aspect-[4/3] w-full object-cover transition-transform duration-300 group-hover:scale-[1.03]"
           src={item.cover}
         />
+        {badge ? <span className="absolute top-2 left-2">{badge}</span> : null}
       </span>
       <span className="flex min-w-0 flex-1 flex-col gap-2 px-0.5">
         <span className="flex min-w-0 items-center gap-2">
           <AdvisorFace item={item} />
           <span className="truncate text-xs font-medium text-foreground">{item.advisorName}</span>
+          {item.verified ? <VerifiedTick /> : null}
           {/* The name comes first: on a narrow card the level is what gets cut. */}
           {item.advisorLevel ? (
             <span className="min-w-0 shrink-[2] truncate text-xs text-muted-foreground">
@@ -376,15 +404,34 @@ export function ResultCard({ item }: { readonly item: LiveService }) {
           <span className="line-clamp-2 min-h-10 text-xs leading-5 text-muted-foreground">{item.description}</span>
         </span>
         <span className="mt-auto flex flex-wrap items-end justify-between gap-x-2 gap-y-1 pt-1">
-          <Rating item={item} />
+          <Rating count={reviewCount} item={item} />
           <span className="flex items-baseline gap-1 whitespace-nowrap">
             <span className="font-latin text-sm font-bold text-foreground tabular-nums md:text-base">
-              {format.number(item.price, { style: "currency", currency: "THB", maximumFractionDigits: 0 })}
+              {format.number(quote?.price ?? item.price, { style: "currency", currency: "THB", maximumFractionDigits: 0 })}
             </span>
-            <span className="text-xs text-muted-foreground">{t("perSession", { minutes: item.minutes })}</span>
+            <span className="text-xs text-muted-foreground">{t("perSession", { minutes: quote?.minutes ?? item.minutes })}</span>
           </span>
         </span>
       </span>
+    </>
+  );
+  return onSelect ? (
+    <Button
+      aria-pressed={selected}
+      // The card's own type and layout, not the primitive's: bare, top-left, wrapping.
+      className={cn(
+        shape,
+        "h-auto items-stretch justify-start border-0 p-0 text-start font-normal whitespace-normal select-auto hover:bg-transparent active:not-aria-[haspopup]:translate-y-0",
+      )}
+      onClick={onSelect}
+      type="button"
+      variant="ghost"
+    >
+      {body}
+    </Button>
+  ) : (
+    <Link className={shape} href={item.href}>
+      {body}
     </Link>
   );
 }
@@ -444,7 +491,7 @@ function EmptyResults({
   const t = useTranslations("search");
 
   return (
-    <div className="flex flex-col items-center gap-5 px-6 py-16 text-center lg:py-32">
+    <div className="flex flex-col items-center gap-5 px-6 py-20 text-center lg:py-40">
       {/* A plain glyph on the muted step, not an illustration: the page around
           it is photographs and type, and a drawn scene read as another site. */}
       <span className="flex size-14 items-center justify-center rounded-full bg-muted">
@@ -578,42 +625,83 @@ function SortSelect({ value, onChange }: { readonly value: SortKey; readonly onC
 
 /** What the results area shows: failed, loading, results, or none. */
 function ResultsBody({
-  catalogue,
-  results,
+  search,
+  page,
+  onPage,
   query,
   filtered,
   onClear,
 }: {
-  readonly catalogue: ReturnType<typeof useLiveCatalogue>;
-  readonly results: readonly LiveService[];
+  readonly search: CatalogueSearch;
+  readonly page: number;
+  readonly onPage: (page: number) => void;
   readonly query: string;
   readonly filtered: boolean;
   readonly onClear: () => void;
 }) {
-  if (catalogue.error) return <LoadFailed message={catalogue.error.message} onRetry={catalogue.reload} />;
-  if (catalogue.loading && catalogue.items.length === 0) return <ResultsSkeleton />;
-  if (results.length === 0) return <EmptyResults filtered={filtered} onClear={onClear} query={query} />;
-  // Keyed by what is listed, so a new search, filter or sort starts at page one.
-  return <PagedResults key={results.map((item) => item.id).join(",")} results={results} />;
+  if (search.error) return <LoadFailed message={search.error.message} onRetry={search.reload} />;
+  if (search.loading && search.items.length === 0) return <ResultsSkeleton />;
+  if (search.items.length === 0) return <EmptyResults filtered={filtered} onClear={onClear} query={query} />;
+  return (
+    <PagedResults
+      onPage={onPage}
+      page={page}
+      pages={Math.max(1, search.totalPages)}
+      total={search.total}
+      visible={search.items}
+    />
+  );
 }
 
 /**
- * The results twelve to a page, with numbered pages under the grid. Changing
- * page brings the top of the results back into view, so the reader starts the
- * new page at its first card rather than at the bottom of the old one. The
- * results are already narrowed and sorted on this page, so a new search or
- * filter remounts this (see `key` in `ResultsBody`) and starts again at one.
+ * The page numbers to draw: every page up to seven of them; past that the
+ * first, the last and the ones beside the current page, with a gap ("…")
+ * where pages are skipped. Near either end, that end's first five, so the row
+ * keeps its length. A gap of a single page draws the page instead.
  */
-function PagedResults({ results }: { readonly results: readonly LiveService[] }) {
+function pageItems(page: number, pages: number): readonly (number | "gap")[] {
+  if (pages <= 7) return Array.from({ length: pages }, (_, i) => i + 1);
+  const shown = new Set([1, pages, page - 1, page, page + 1].filter((n) => n >= 1 && n <= pages));
+  if (page <= 4) for (let n = 1; n <= 5; n++) shown.add(n);
+  if (page >= pages - 3) for (let n = pages - 4; n <= pages; n++) shown.add(n);
+  const sorted = [...shown].toSorted((a, b) => a - b);
+  const items: (number | "gap")[] = [];
+  sorted.forEach((n, i) => {
+    const before = sorted[i - 1];
+    if (before !== undefined && n - before === 2) items.push(n - 1);
+    else if (before !== undefined && n - before > 2) items.push("gap");
+    items.push(n);
+  });
+  return items;
+}
+
+/**
+ * One page of the results, twelve to a page, with numbered pages under the
+ * grid (`pageItems`). The server narrows, sorts and pages them (`useCatalogueSearch`), and a
+ * new search, filter or sort starts again at one (`SearchScreen`). Changing
+ * page brings the top of the results back into view, so the reader starts the
+ * new page at its first card rather than at the bottom of the old one.
+ */
+function PagedResults({
+  visible,
+  page,
+  pages,
+  total,
+  onPage,
+}: {
+  readonly visible: readonly LiveService[];
+  readonly page: number;
+  readonly pages: number;
+  /** Every match, across all pages. */
+  readonly total: number;
+  readonly onPage: (page: number) => void;
+}) {
   const t = useTranslations("search");
-  const [page, setPage] = useState(1);
   const top = useRef<HTMLDivElement>(null);
-  const pages = Math.max(1, Math.ceil(results.length / PAGE_SIZE));
   const start = (page - 1) * PAGE_SIZE;
-  const visible = results.slice(start, start + PAGE_SIZE);
 
   const go = (next: number) => {
-    setPage(next);
+    onPage(next);
     top.current?.scrollIntoView({ behavior: "smooth", block: "start" });
   };
 
@@ -626,10 +714,10 @@ function PagedResults({ results }: { readonly results: readonly LiveService[] })
       </div>
       <div className="flex flex-col items-center gap-4 pt-10">
         {pages > 1 ? (
-          <nav aria-label={t("pagination")} className="flex items-center gap-1">
+          <nav aria-label={t("pagination")} className="flex items-center gap-0.5 md:gap-1">
             <Button
               aria-label={t("previousPage")}
-              className="size-10 rounded-full"
+              className="size-9 rounded-full md:size-10"
               disabled={page === 1}
               onClick={() => go(page - 1)}
               size="icon"
@@ -638,27 +726,33 @@ function PagedResults({ results }: { readonly results: readonly LiveService[] })
             >
               <ChevronLeft aria-hidden />
             </Button>
-            {Array.from({ length: pages }, (_, i) => i + 1).map((n) => (
-              <Button
-                aria-current={n === page ? "page" : undefined}
-                className={cn(
-                  "size-10 rounded-full font-latin text-sm tabular-nums",
-                  n === page
-                    ? "bg-hero-action text-hero-action-foreground hover:bg-hero-action/85 hover:text-hero-action-foreground"
-                    : "text-foreground",
-                )}
-                key={n}
-                onClick={() => go(n)}
-                size="icon"
-                type="button"
-                variant="ghost"
-              >
-                {n}
-              </Button>
-            ))}
+            {pageItems(page, pages).map((n, index) =>
+              n === "gap" ? (
+                <span aria-hidden className="flex size-9 items-center justify-center text-sm text-muted-foreground md:size-10" key={`gap-${index}`}>
+                  …
+                </span>
+              ) : (
+                <Button
+                  aria-current={n === page ? "page" : undefined}
+                  className={cn(
+                    "size-9 rounded-full font-latin text-sm tabular-nums md:size-10",
+                    n === page
+                      ? "bg-hero-action text-hero-action-foreground hover:bg-hero-action/85 hover:text-hero-action-foreground"
+                      : "text-foreground",
+                  )}
+                  key={n}
+                  onClick={() => go(n)}
+                  size="icon"
+                  type="button"
+                  variant="ghost"
+                >
+                  {n}
+                </Button>
+              ),
+            )}
             <Button
               aria-label={t("nextPage")}
-              className="size-10 rounded-full"
+              className="size-9 rounded-full md:size-10"
               disabled={page === pages}
               onClick={() => go(page + 1)}
               size="icon"
@@ -670,7 +764,7 @@ function PagedResults({ results }: { readonly results: readonly LiveService[] })
           </nav>
         ) : null}
         <p className="text-sm text-muted-foreground">
-          {t("showingOf", { from: start + 1, to: start + visible.length, total: results.length })}
+          {t("showingOf", { from: start + 1, to: start + visible.length, total })}
         </p>
       </div>
     </>
@@ -678,9 +772,9 @@ function PagedResults({ results }: { readonly results: readonly LiveService[] })
 }
 
 /**
- * `/search`: the live catalogue (`GET /services`, joined to advisors,
- * categories and ratings in `useLiveCatalogue`), matched against `?q=`,
- * narrowed by the filters and ordered by the sort, all on this page.
+ * `/search`: `GET /services` asked for `?q=`, the filters and the sort, a page
+ * at a time (`useCatalogueSearch`), as the catalogue's cards. The categories
+ * under the field are the whole catalogue's (`useLiveCatalogue`), busiest first.
  *
  * Built like the home hero, because that is the page people already know how
  * to use: one heading, one search field in the middle, the categories under
@@ -705,9 +799,12 @@ export function SearchScreen({
   const [sort, setSort] = useState<SortKey>("recommended");
   const catalogue = useLiveCatalogue();
 
-  const matched = matchQuery(catalogue.items, query);
-  const openToday = useOpenToday(filters.today);
-  const results = applyFilters(matched, filters, sort, openToday);
+  const asked = serviceQuery(query, filters, sort, localDate());
+  // The page belongs to one search: a new query, filter or sort starts again at one.
+  const searchId = JSON.stringify([asked, filters.length]);
+  const [paging, setPaging] = useState({ searchId, page: 1 });
+  const page = paging.searchId === searchId ? paging.page : 1;
+  const search = useCatalogueSearch(asked, filters.length, page, PAGE_SIZE);
   const categories = categoryOptionsOf(catalogue.items);
   const filtered = activeCount(filters) > 0;
   const clear = () => setFilters(DEFAULT_FILTERS);
@@ -762,14 +859,14 @@ export function SearchScreen({
             <div className="flex items-center justify-between gap-3">
               <p className="min-w-0 truncate text-sm text-muted-foreground">
                 {/* The query is in the field right above; repeating it here is noise. */}
-                <span className="font-medium text-foreground">{t("count", { count: results.length })}</span>
+                <span className="font-medium text-foreground">{t("count", { count: search.total })}</span>
               </p>
               <div className="flex shrink-0 items-center gap-2">
                 <FilterSheet
                   categories={categories}
                   filters={filters}
                   onChange={setFilters}
-                  resultCount={results.length}
+                  resultCount={search.total}
                 />
                 <SortSelect onChange={setSort} value={sort} />
               </div>
@@ -778,11 +875,12 @@ export function SearchScreen({
             <ActiveFilters filters={filters} onChange={setFilters} />
 
             <ResultsBody
-              catalogue={catalogue}
               filtered={filtered}
               onClear={clear}
+              onPage={(next) => setPaging({ searchId, page: next })}
+              page={page}
               query={query}
-              results={results}
+              search={search}
             />
           </section>
         </div>

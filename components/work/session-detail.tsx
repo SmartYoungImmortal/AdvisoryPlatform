@@ -169,6 +169,7 @@ function SessionView({ booking, profile }: { readonly booking: AdvisorBookingDet
               </Button>
             </div>
             {opensAt ? <p className="text-sm text-muted-foreground lg:text-frame-meta">{s("opensAt", { time: opensAt })}</p> : null}
+            {call.ended ? <p className="text-sm text-muted-foreground lg:text-frame-meta">{s("ended")}</p> : null}
             {call.problem ? (
               <p className="text-sm text-destructive lg:text-frame-meta" role="alert">
                 {call.problem}

@@ -22,7 +22,7 @@ import {
 } from "@/components/mobile/screen";
 import { Surface } from "@/components/mobile/surface";
 import { asUuid, useQueryValue } from "@/components/bookings/booking-flow";
-import { LiveCheckoutScreen } from "@/components/payment/checkout-live";
+import { CheckoutWithoutBooking, LiveCheckoutScreen } from "@/components/payment/checkout-live";
 import { BODY_GRID, PAGE_HEAD_BAND } from "@/components/payment/invoice-screens";
 import { FootNote } from "@/components/screening/parts";
 import { TopBar } from "@/components/topbar";
@@ -133,11 +133,14 @@ export function CardDetailsScreen({
   const err = state === "errors";
   const saved = state === "saved";
   // A booking that `POST /bookings` has already held — the slot chips on
-  // `/service/…` send the reader here with its id. Without one this is the
-  // fixture screen it has always been.
+  // `/service/…` send the reader here with its id. Without one there is
+  // nothing to pay for, and `/checkout/card` says so. The design states keep
+  // their frames on the fixture: `saved` because the API has no route to a
+  // reader's cards yet (`SAVED_CARD`).
   const booking = asUuid(useQueryValue("bookingId"));
 
   if (booking) return <LiveCheckoutScreen bookingId={booking} />;
+  if (state === "default") return <CheckoutWithoutBooking />;
 
   return (
     <MobileScreen wide>
@@ -284,7 +287,7 @@ export function CardDetailsScreen({
                 {t("pay")}
               </PrimaryButton>
             ) : (
-              <PrimaryButton block className="lg:h-11" href="/checkout/processing">
+              <PrimaryButton block className="lg:h-11">
                 {t("pay")}
               </PrimaryButton>
             )}

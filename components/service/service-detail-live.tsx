@@ -153,7 +153,8 @@ function photosOf(item: LiveService | undefined, service: ApiPublicService): rea
   // holds them before the save): the same ones its editor, its card and its owner's list show. Only a
   // service with none wears its card's picture.
   if (service.images && service.images.length > 0) return service.images;
-  return item ? [item.cover.src] : [];
+  if (item) return [item.cover.src];
+  return service.cover ? [service.cover] : [];
 }
 
 /**

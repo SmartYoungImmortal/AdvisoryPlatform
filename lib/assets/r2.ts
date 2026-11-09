@@ -50,20 +50,6 @@ export const documentPreview: StaticImageData = {
   height: 640,
 };
 
-/** `assets/illustrations/error-no-connection` — 303x263. */
-export const errorNoConnection: StaticImageData = {
-  src: `${R2_BASE}/illustrations/error-no-connection.5c82dd75.svg`,
-  width: 303,
-  height: 263,
-};
-
-/** `assets/illustrations/error-not-found` — 276x264. */
-export const errorNotFound: StaticImageData = {
-  src: `${R2_BASE}/illustrations/error-not-found.e2eeb9a3.svg`,
-  width: 276,
-  height: 264,
-};
-
 /** `assets/illustrations/error-search` — 257x247. */
 export const errorSearch: StaticImageData = {
   src: `${R2_BASE}/illustrations/error-search.fdb54670.svg`,
@@ -282,20 +268,6 @@ export const thaiNationalId: StaticImageData = {
   src: `${R2_BASE}/onboarding/thai-national-id.3964db40.png`,
   width: 700,
   height: 466,
-};
-
-/** `assets/illustrations/wallet-failed` — 280x280. */
-export const walletFailed: StaticImageData = {
-  src: `${R2_BASE}/illustrations/wallet-failed.204b0c76.svg`,
-  width: 280,
-  height: 280,
-};
-
-/** `assets/illustrations/wallet-success` — 280x280. */
-export const walletSuccess: StaticImageData = {
-  src: `${R2_BASE}/illustrations/wallet-success.03df6fb7.svg`,
-  width: 280,
-  height: 280,
 };
 
 /**
