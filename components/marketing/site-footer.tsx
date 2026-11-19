@@ -1,3 +1,7 @@
+"use client";
+
+// A client component so it follows the language the reader picks: on a server
+// page (`/about`) it was rendered once, in Thai, at export.
 import { Globe } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";

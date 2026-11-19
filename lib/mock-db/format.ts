@@ -1,28 +1,45 @@
+import { getRequestLocale } from "@/lib/api/client";
+
 /**
- * How the console prints fixture values: Thai dates on the Buddhist calendar in
- * Bangkok time (Nexus pins its CMS to UTC+7 too), and whole baht from satang.
+ * How the console prints fixture values: dates in the reader's language (Thai
+ * on the Buddhist calendar, English on the Gregorian) in Bangkok time (Nexus
+ * pins its CMS to UTC+7 too), and whole baht from satang.
  */
-const DATE = new Intl.DateTimeFormat("th-TH", {
+const DATE_OPTIONS: Intl.DateTimeFormatOptions = {
   day: "numeric",
   month: "short",
   year: "numeric",
   timeZone: "Asia/Bangkok",
-});
+};
 
-const DATE_TIME = new Intl.DateTimeFormat("th-TH", {
+const DATE_TIME_OPTIONS: Intl.DateTimeFormatOptions = {
   day: "numeric",
   month: "short",
   year: "2-digit",
   hour: "2-digit",
   minute: "2-digit",
   timeZone: "Asia/Bangkok",
-});
+};
 
-const TIME = new Intl.DateTimeFormat("th-TH", {
+const TIME_OPTIONS: Intl.DateTimeFormatOptions = {
   hour: "2-digit",
   minute: "2-digit",
   timeZone: "Asia/Bangkok",
-});
+};
+
+/** One formatter per language and shape, made the first time it is asked for. */
+const made = new Map<string, Intl.DateTimeFormat>();
+
+function inLocale(shape: string, options: Intl.DateTimeFormatOptions): Intl.DateTimeFormat {
+  const tag = getRequestLocale() === "en" ? "en-GB" : "th-TH";
+  const key = `${shape}:${tag}`;
+  let formatter = made.get(key);
+  if (!formatter) {
+    formatter = new Intl.DateTimeFormat(tag, options);
+    made.set(key, formatter);
+  }
+  return formatter;
+}
 
 const BAHT = new Intl.NumberFormat("th-TH", {
   style: "currency",
@@ -42,16 +59,16 @@ const STAMP = new Intl.DateTimeFormat("en-GB", {
 });
 
 export function formatDate(iso: string | null): string {
-  return iso ? DATE.format(new Date(iso)) : "-";
+  return iso ? inLocale("date", DATE_OPTIONS).format(new Date(iso)) : "-";
 }
 
 export function formatDateTime(iso: string | null): string {
-  return iso ? DATE_TIME.format(new Date(iso)) : "-";
+  return iso ? inLocale("dateTime", DATE_TIME_OPTIONS).format(new Date(iso)) : "-";
 }
 
 /** The clock alone, `14:38`, Bangkok time: a list's date column prints it under the day. */
 export function formatTime(iso: string | null): string {
-  return iso ? TIME.format(new Date(iso)) : "";
+  return iso ? inLocale("time", TIME_OPTIONS).format(new Date(iso)) : "";
 }
 
 /**

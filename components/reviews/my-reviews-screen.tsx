@@ -15,7 +15,7 @@ import {
   Stars,
 } from "@/components/reviews/review-parts";
 import { listOwnAdvisorReviews, replyToReview } from "@/components/reviews/reviews-data";
-import type { Paginated } from "@/lib/api/client";
+import { getRequestLocale, type Paginated } from "@/lib/api/client";
 import { getAdvisorRatingSummary } from "@/lib/api/resources";
 import type { ApiRatingSummary, ApiReview } from "@/lib/api/types";
 import { invalidate, useResource } from "@/lib/api/use-resource";
@@ -72,9 +72,10 @@ function DistributionRow({ label, fill }: { readonly label: string; readonly fil
   );
 }
 
-/** Thai short date, e.g. "28 ก.ค." — the card's date column is that narrow. */
+/** A short date in the reader's language, e.g. "28 ก.ค." or "28 Jul" — the card's date column is that narrow. */
 function shortDate(iso: string): string {
-  return new Date(iso).toLocaleDateString("th-TH", { day: "numeric", month: "short" });
+  const tag = getRequestLocale() === "en" ? "en-GB" : "th-TH";
+  return new Date(iso).toLocaleDateString(tag, { day: "numeric", month: "short" });
 }
 
 /** A card-shaped skeleton, so the list does not reflow when the reviews land. */
