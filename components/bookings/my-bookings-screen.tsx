@@ -166,6 +166,7 @@ function BookingRow({
         </Link>
         <span className="max-w-full truncate text-xs text-muted-foreground lg:text-frame-meta">
           {advisor ? `${advisor.displayName} · ` : null}
+          {booking.type === "TRIAL" ? `${t("trialMark")} · ` : null}
           <span className={standing.ink}>{standing.label}</span>
         </span>
         {wayIn("mt-2 lg:hidden")}

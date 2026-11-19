@@ -23,7 +23,9 @@ import {
   FailedNotice,
   PILL_LG,
   useSelection,
+  type Picker,
 } from "@/components/service/service-booking";
+import { useQueryValue } from "@/components/bookings/booking-flow";
 import { ServiceIntro } from "@/components/service/service-head";
 import {
   AdvisorSection,
@@ -413,6 +415,20 @@ export type OwnerSlots = {
   readonly footer?: ReactNode;
 };
 
+/**
+ * `?trial=1` (the chat's "pick a trial time") opens the panel on the free
+ * trial's times, once, for a service that offers one. The owner's preview
+ * never does.
+ */
+function useTrialLink(service: ApiPublicService, picker: Picker, enabled: boolean): void {
+  const asked = useQueryValue("trial") === "1";
+  const offered = service.trialEnabled && service.trialDurationMinutes !== null;
+  const { showTrialTimes } = picker;
+  useEffect(() => {
+    if (enabled && asked && offered) showTrialTimes();
+  }, [enabled, asked, offered, showTrialTimes]);
+}
+
 /** The loaded service, with everything around it; with `owner`, the owner's view of it. */
 export function ServiceView({ service, owner }: { readonly service: ApiPublicService; readonly owner?: OwnerSlots }) {
   const t = useTranslations("service");
@@ -421,6 +437,7 @@ export function ServiceView({ service, owner }: { readonly service: ApiPublicSer
   const rating = useRatingSummary(service.advisorId);
   const selection = useSelection();
   const picker = usePicker();
+  useTrialLink(service, picker, !owner);
 
   const item = catalogue.items.find((entry) => entry.id === service.id);
   const name = item?.advisorName ?? advisor?.displayName ?? "";

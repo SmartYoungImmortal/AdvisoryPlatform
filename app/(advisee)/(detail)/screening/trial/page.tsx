@@ -1,5 +1,5 @@
-import { TrialConsultationScreen } from "@/components/screening/advisee-screens";
+import { ScreeningTrialRoute } from "@/components/screening/screening-routes";
 
 export default function TrialConsultationPage() {
-  return <TrialConsultationScreen />;
+  return <ScreeningTrialRoute />;
 }
