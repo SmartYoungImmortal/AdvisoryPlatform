@@ -76,11 +76,12 @@ export function ScreenSpacer({ className }: { readonly className?: string }) {
  */
 export function ScreenTopBar({
   href,
-  label = "ย้อนกลับ",
+  label,
   className,
 }: {
   readonly href?: string;
-  readonly label?: string;
+  /** The back button's name for screen readers, in the page's language (`common.back`). */
+  readonly label: string;
   readonly className?: string;
 }) {
   // `before` widens the tap target past the 28px glyph without moving any pixels.

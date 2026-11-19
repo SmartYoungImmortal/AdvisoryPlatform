@@ -222,6 +222,11 @@ export function setRequestLocale(locale: "th" | "en"): void {
   requestLocale = locale;
 }
 
+/** The language the reader chose, for code outside React that writes words or dates in it. */
+export function getRequestLocale(): "th" | "en" {
+  return requestLocale;
+}
+
 async function request<T>(
   method: "GET" | "POST" | "PATCH" | "PUT" | "DELETE",
   path: string,
