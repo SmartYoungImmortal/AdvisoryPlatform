@@ -37,7 +37,10 @@ export type NotificationType =
   | "SCREENING_EXPIRED"
   | "REVIEW_REPLIED"
   | "REPORT_RESOLVED"
-  | "PAYMENT_FAILED";
+  | "PAYMENT_FAILED"
+  /** Free trial: the advisor's when an advisee asks, the advisee's when it is granted or declined. `resourceId` is the chat room. */
+  | "TRIAL_REQUESTED"
+  | "TRIAL_DECIDED";
 
 /** `NotificationResponseDto` */
 export interface ApiNotification {
@@ -131,6 +134,9 @@ export function notificationHref(notification: ApiNotification): string | null {
   const id = notification.resourceId;
   switch (notification.type) {
     case "NEW_MESSAGE":
+    case "TRIAL_REQUESTED":
+    case "TRIAL_DECIDED":
+      // The trial's card is in the room, with its answer or the way on.
       return id ? `/chat/room?id=${id}` : "/chat";
     case "SESSION_REMINDER":
       return "/bookings";
@@ -191,6 +197,8 @@ export function notificationAction(
   const id = notification.resourceId;
   switch (notification.type) {
     case "NEW_MESSAGE":
+    case "TRIAL_REQUESTED":
+    case "TRIAL_DECIDED":
       return { href: id ? `/chat/room?id=${id}` : "/chat", label: "actionChat" };
     case "BOOKING_CONFIRMED":
     case "SESSION_REMINDER":
@@ -289,6 +297,8 @@ const CATEGORY: Partial<Record<NotificationType, NotificationCategory>> = {
   BOOKING_RESCHEDULED: "booking",
   SESSION_REMINDER: "booking",
   NEW_MESSAGE: "message",
+  TRIAL_REQUESTED: "message",
+  TRIAL_DECIDED: "message",
   PAYMENT_SUCCEEDED: "payment",
   PAYMENT_FAILED: "payment",
   PAYOUT_SENT: "payment",

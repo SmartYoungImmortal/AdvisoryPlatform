@@ -11,10 +11,11 @@ import type {
   ApiChatRoom,
   ApiChatRoomCounterpart,
 } from "@/components/chat/chat-data";
+import type { ApiTrialRequest } from "@/components/trials/trial-data";
 
 /* ------------------------------------------------------------------ timeline */
 
-/** A message or a file, on one timeline. */
+/** A message, a file or a free-trial request, on one timeline. */
 export type ThreadEntry =
   | {
       readonly kind: "message";
@@ -29,18 +30,28 @@ export type ThreadEntry =
       readonly at: number;
       readonly senderId: string;
       readonly file: ApiChatFile;
+    }
+  | {
+      readonly kind: "trial";
+      readonly id: string;
+      readonly at: number;
+      /** The advisee who asked: the card sits on their side of the room. */
+      readonly senderId: string;
+      readonly trial: ApiTrialRequest;
     };
 
 /**
- * Messages and files, oldest first.
+ * Messages, files and free-trial requests, oldest first.
  *
- * A file is not a message (`POST .../files` never writes `chat_messages`), so
- * the two lists are read separately and interleaved by `createdAt`. Ties fall
- * back to the id so the order never flickers between two reads.
+ * A file is not a message (`POST .../files` never writes `chat_messages`), and
+ * neither is a trial request (its own route lists a room's), so the lists are
+ * read separately and interleaved by `createdAt`. Ties fall back to the id so
+ * the order never flickers between two reads.
  */
 export function toTimeline(
   messages: readonly ApiChatMessage[],
   files: readonly ApiChatFile[],
+  trials: readonly ApiTrialRequest[] = [],
 ): ThreadEntry[] {
   const entries: ThreadEntry[] = [
     ...messages.map(
@@ -59,6 +70,15 @@ export function toTimeline(
         at: Date.parse(file.createdAt),
         senderId: file.senderUserId,
         file,
+      }),
+    ),
+    ...trials.map(
+      (trial): ThreadEntry => ({
+        kind: "trial",
+        id: `trial-${trial.id}`,
+        at: Date.parse(trial.createdAt),
+        senderId: trial.adviseeId,
+        trial,
       }),
     ),
   ];

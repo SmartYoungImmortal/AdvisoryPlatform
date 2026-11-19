@@ -6,6 +6,7 @@ import {
   ChevronRight,
   CircleX,
   Clock3,
+  Gift,
   MessageSquare,
   Video,
   X,
@@ -314,7 +315,7 @@ function SheetHeader({
 /**
  * What was paid and how it stands, with the way to its receipt. With no
  * invoice to show, the service's price now: the appointment itself records
- * no amount.
+ * no amount. A free trial says it is free.
  */
 function PaymentLine({
   booking,
@@ -361,6 +362,8 @@ function PaymentLine({
       </Line>
     );
   }
+  // A free trial has no invoice and nothing to pay; the service's price would read as owed.
+  if (booking.type === "TRIAL") return <Line icon={Gift}>{t("detailsTrialFree")}</Line>;
   if (!service) return null;
   return (
     <Line icon={Banknote}>

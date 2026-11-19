@@ -5,6 +5,7 @@ import {
   ChevronLeft,
   CircleCheckBig,
   Clock,
+  Gift,
   Hourglass,
   type LucideIcon,
 } from "lucide-react";
@@ -16,6 +17,7 @@ import { useCallback, useEffect, useState, type ReactNode } from "react";
 import { authPill } from "@/components/auth/auth-split";
 import { liveServiceHref } from "@/components/bookings/booking-flow";
 import { PersonAvatar } from "@/components/chat/chat-avatar";
+import { chatHref } from "@/components/chat/chat-data";
 import { PILL_LG, SHEET_W } from "@/components/payment/invoice-screens";
 import { PaidFrame } from "@/components/payment/payment-result-screens";
 import {
@@ -29,6 +31,9 @@ import {
   type ScreeningErrorKey,
 } from "@/components/screening/screening-data";
 import { ApiErrorCard } from "@/components/service/parts";
+import { trialPickHref } from "@/components/trials/trial-card";
+import { getServiceTrial, trialKeys, type ApiServiceTrial } from "@/components/trials/trial-data";
+import { useAskTrial } from "@/components/trials/trial-offer";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { DESK_BONE } from "@/components/work/desk-parts";
@@ -423,8 +428,14 @@ export function LiveScreeningOutcome({
   readonly outcome: "submitted" | "accepted" | "declined";
 }) {
   const t = useTranslations("screening");
+  const tr = useTranslations("trial");
   const context = useScreeningContext(serviceId);
   useScreeningRedirect(serviceId, context.data);
+  // Only the accepted page uses it; a failed read just leaves the trial's link out.
+  const trial = useResource<ApiServiceTrial>(
+    trialKeys.service(serviceId),
+    useCallback((signal: AbortSignal) => getServiceTrial(serviceId, signal), [serviceId]),
+  );
 
   if (context.loading) return <ScreeningSkeleton mark />;
   if (context.error || !context.data) {
@@ -453,8 +464,12 @@ export function LiveScreeningOutcome({
   }
 
   if (outcome === "accepted") {
-    // The free-trial button comes later with the Trial flow. For now the only
-    // next step is booking a paid time on the service.
+    // Booking a paid time is the way on; a service with a free trial the
+    // advisee has not asked for yet offers that too, independent of screening.
+    const trialOffer =
+      trial.data?.trialEnabled && trial.data.trialDurationMinutes !== null && !trial.data.request
+        ? trial.data.trialDurationMinutes
+        : null;
     return (
       <PaidFrame>
         <Head mark={{ icon: CircleCheckBig, tone: "bg-success/10 text-success" }} title={t("acceptedTitle")}>
@@ -465,6 +480,11 @@ export function LiveScreeningOutcome({
           <PillLink href={liveServiceHref(serviceId)} primary>
             {t("bookFull")}
           </PillLink>
+          {trialOffer ? (
+            <PillLink href={`/screening/trial?serviceId=${serviceId}`}>
+              {tr("screenAsk", { minutes: trialOffer })}
+            </PillLink>
+          ) : null}
           <PillLink href="/">{t("backHome")}</PillLink>
         </Next>
       </PaidFrame>
@@ -490,6 +510,102 @@ export function LiveScreeningOutcome({
           {t("findOthers")}
         </PillLink>
         <PillLink href="/">{t("backHome")}</PillLink>
+      </Next>
+    </PaidFrame>
+  );
+}
+
+/* --------------------------------------------------------------- free trial */
+
+/**
+ * `/screening/trial?serviceId=`: the service's free trial, as the page its
+ * Figma flow draws ("Trial consultation"): what the trial is, who it is with,
+ * and the way to ask for it, which opens the chat with the advisor where the
+ * request waits for their answer. Once asked, where it stands and the way on:
+ * the chat, or, granted, the trial's own times on the service's page.
+ *
+ * Screening does not gate a trial, so this page never redirects by the
+ * screening request's status.
+ */
+export function LiveTrialScreen({ serviceId }: { readonly serviceId: string }) {
+  const t = useTranslations("trial");
+  const s = useTranslations("screening");
+  const context = useScreeningContext(serviceId);
+  const trial = useResource<ApiServiceTrial>(
+    trialKeys.service(serviceId),
+    useCallback((signal: AbortSignal) => getServiceTrial(serviceId, signal), [serviceId]),
+  );
+  const { asking, failure, ask } = useAskTrial(serviceId, `/screening/trial?serviceId=${serviceId}`, trial.reload);
+
+  if (context.loading || trial.loading) return <ScreeningSkeleton mark />;
+  const error = context.error ?? trial.error;
+  if (error || !context.data || !trial.data) {
+    const retry = () => {
+      context.reload();
+      trial.reload();
+    };
+    return <LoadFailed error={error ?? new Error(s("errorNotAvailable"))} onRetry={retry} />;
+  }
+
+  const name = context.data.advisor?.displayName ?? "";
+  const minutes = trial.data.trialEnabled ? trial.data.trialDurationMinutes : null;
+  const request = trial.data.request;
+  const lead = "mt-2 text-sm text-muted-foreground lg:mt-3 lg:text-frame-body";
+  const back = <PillLink href={liveServiceHref(serviceId)}>{t("screenBack")}</PillLink>;
+
+  if (!request && !minutes) {
+    return (
+      <PaidFrame>
+        <Head mark={{ icon: Gift, tone: "bg-muted text-muted-foreground" }} title={t("screenNone")} />
+        <RequestCard context={context.data} />
+        <Next>{back}</Next>
+      </PaidFrame>
+    );
+  }
+
+  let status: string | null = null;
+  if (request?.status === "PENDING") status = t("requested");
+  else if (request?.status === "GRANTED") status = request.trialBookingId ? t("rowBooked") : t("rowGranted");
+  else if (request?.status === "DECLINED") status = t("rowDeclined");
+
+  return (
+    <PaidFrame>
+      <Head
+        mark={{ icon: Gift, tone: "bg-primary/10 text-primary" }}
+        title={minutes ? t("screenTitle", { minutes }) : t("cardTitleNoLength")}
+      >
+        <p className={lead}>{t("screenLead", { name })}</p>
+        {status ? <p className="mt-3 text-sm font-medium text-foreground lg:text-frame-body">{status}</p> : null}
+        {failure ? (
+          <p className="mt-3 text-sm text-destructive lg:text-frame-body" role="alert">
+            {failure}
+          </p>
+        ) : null}
+      </Head>
+      <RequestCard context={context.data} />
+      <Next>
+        {request ? null : (
+          <Button
+            aria-busy={asking || undefined}
+            className={cn(authPill(true), "md:h-11 md:text-sm", PILL_LG)}
+            disabled={asking}
+            onClick={() => void ask()}
+            type="button"
+          >
+            {asking ? t("requesting") : t("request")}
+          </Button>
+        )}
+        {request?.status === "GRANTED" && !request.trialBookingId ? (
+          <PillLink href={trialPickHref(serviceId)} primary>
+            {t("pickTime")}
+          </PillLink>
+        ) : null}
+        {request ? (
+          <PillLink href={chatHref(request.chatRoomId)} primary={request.status !== "GRANTED" || Boolean(request.trialBookingId)}>
+            {t("openChat")}
+          </PillLink>
+        ) : null}
+        {back}
       </Next>
     </PaidFrame>
   );

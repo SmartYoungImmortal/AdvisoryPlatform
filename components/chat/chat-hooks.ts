@@ -16,7 +16,9 @@ import {
   type ApiChatMessage,
   type ApiChatRoom,
 } from "@/components/chat/chat-data";
+import { useRoomLiveTrials } from "@/components/chat/chat-live";
 import { newestOf, resolveCounterpart, type Counterpart } from "@/components/chat/chat-logic";
+import { listRoomTrials, mergeTrials, trialKeys, type ApiTrialRequest } from "@/components/trials/trial-data";
 
 /**
  * The reads the chat screens share, one cache key each so the list, the open
@@ -129,6 +131,23 @@ export function useRoomTimeline(roomId: string): {
     useCallback((signal: AbortSignal) => listChatFiles(roomId, { limit: 50 }, signal), [roomId]),
   );
   return { messages, files };
+}
+
+const NO_TRIALS: readonly ApiTrialRequest[] = [];
+
+/**
+ * One room's free-trial cards, each in its newest state: the room's list from
+ * the API with the cards changed since put in their place (`noteTrial`). A
+ * failed read shows no card rather than failing the conversation.
+ */
+export function useRoomTrials(roomId: string): readonly ApiTrialRequest[] {
+  const listed = useResource<readonly ApiTrialRequest[]>(
+    trialKeys.room(roomId),
+    useCallback((signal: AbortSignal) => listRoomTrials(roomId, signal), [roomId]),
+  );
+  const live = useRoomLiveTrials(roomId);
+  const base = listed.data ?? NO_TRIALS;
+  return live.length === 0 ? base : mergeTrials(base, live);
 }
 
 /**

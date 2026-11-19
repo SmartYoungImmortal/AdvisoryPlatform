@@ -7,12 +7,14 @@ import { asUuid, useQueryValue } from "@/components/bookings/booking-flow";
 import {
   LiveScreeningOutcome,
   LiveScreeningQuestions,
+  LiveTrialScreen,
   ScreeningQuestionsLoading,
 } from "@/components/screening/advisee-live";
 import {
   ScreeningAcceptedScreen,
   ScreeningDeclinedScreen,
   ScreeningSubmittedScreen,
+  TrialConsultationScreen,
 } from "@/components/screening/advisee-screens";
 import {
   LiveReviewAnswers,
@@ -61,6 +63,12 @@ export function ScreeningOutcomeRoute({
   if (outcome === "accepted") return <ScreeningAcceptedScreen />;
   if (outcome === "declined") return <ScreeningDeclinedScreen />;
   return <ScreeningSubmittedScreen />;
+}
+
+/** `/screening/trial?serviceId=`: the service's free trial; without one, the sample screen. */
+export function ScreeningTrialRoute() {
+  const serviceId = asUuid(useQueryValue("serviceId"));
+  return serviceId ? <LiveTrialScreen serviceId={serviceId} /> : <TrialConsultationScreen />;
 }
 
 /** The list needs no id, so it uses the API whenever the build has one. */

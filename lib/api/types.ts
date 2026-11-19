@@ -213,6 +213,8 @@ export interface ApiSlotQuery {
   readonly to: string;
   /** Cuts the slots to this package's length; the service's own without it. */
   readonly packageId?: string;
+  /** The caller's granted free trial: its times at the trial's length. Never with `packageId`. */
+  readonly trial?: boolean;
 }
 
 /** `ReviewResponseDto` — reviews/dtos */
@@ -317,6 +319,8 @@ export interface ApiBooking {
   readonly packageId?: string | null;
   readonly advisorId: string;
   readonly adviseeId: string;
+  /** `TRIAL` for a free trial: no package, no invoice, booked without payment. Absent from an older API. */
+  readonly type?: "CONSULTATION" | "TRIAL";
   readonly startTime: string;
   readonly endTime: string;
   readonly unavailableUntil: string;
@@ -346,6 +350,8 @@ export interface ApiBookingInput {
   readonly startTime: string;
   /** The package to book, when the service is sold in packages; its length sets the end. */
   readonly packageId?: string;
+  /** Books the caller's granted free trial: free, confirmed at once, no package. */
+  readonly trial?: boolean;
 }
 
 /* ------------------------------------------------------------- own reviews */

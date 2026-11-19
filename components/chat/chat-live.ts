@@ -10,6 +10,7 @@ import {
   type ApiChatMessage,
   type ApiChatRead,
 } from "@/components/chat/chat-data";
+import type { ApiTrialRequest } from "@/components/trials/trial-data";
 
 /**
  * The chat, live: one Socket.IO connection to the API's `/chat` namespace, and
@@ -56,6 +57,8 @@ type SocketError = { readonly statusCode: number; readonly message: string };
 interface ServerEvents {
   "chat:message": (message: ApiChatMessage) => void;
   "chat:read": (read: ApiChatRead) => void;
+  /** A free-trial card in the room was sent, granted or declined. */
+  "chat:trial": (request: ApiTrialRequest) => void;
   exception: (error: SocketError) => void;
 }
 
@@ -123,6 +126,9 @@ const connection = createStore<Connection>(IDLE);
 
 /** Lines that arrived after REST was read, by room, in arrival order. */
 const liveMessages = createStore<ReadonlyMap<string, readonly ApiChatMessage[]>>(new Map());
+
+/** Free-trial cards that changed after REST was read, by room, newest state of each. */
+const liveTrials = createStore<ReadonlyMap<string, readonly ApiTrialRequest[]>>(new Map());
 
 /** How far I have read each room (an instant, from the API's `lastReadAt`). */
 const readMarks = createStore<ReadonlyMap<string, number>>(new Map());
@@ -280,6 +286,7 @@ function acquire(): void {
   created.on("connect_error", onConnectError);
   created.on("chat:message", (message) => addLiveMessages([message]));
   created.on("chat:read", onRead);
+  created.on("chat:trial", noteTrial);
   created.on("exception", onException);
   socket = created;
   setStatus("connecting");
@@ -489,6 +496,24 @@ export function useLiveMessages(): ReadonlyMap<string, readonly ApiChatMessage[]
 /** One room's live lines, for its thread. */
 export function useRoomLiveMessages(roomId: string): readonly ApiChatMessage[] {
   return useLiveMessages().get(roomId) ?? NO_LINES;
+}
+
+/**
+ * A free-trial card in its new state: from the socket, or from this tab's own
+ * grant or decline, which shows at once rather than waiting for the echo.
+ */
+export function noteTrial(request: ApiTrialRequest): void {
+  const current = liveTrials.get();
+  const others = (current.get(request.chatRoomId) ?? []).filter((item) => item.id !== request.id);
+  liveTrials.set(new Map(current).set(request.chatRoomId, [...others, request]));
+}
+
+const NO_LIVE_TRIAL_ROOMS: ReadonlyMap<string, readonly ApiTrialRequest[]> = new Map();
+const NO_TRIALS: readonly ApiTrialRequest[] = [];
+
+export function useRoomLiveTrials(roomId: string): readonly ApiTrialRequest[] {
+  const all = useSyncExternalStore(liveTrials.subscribe, liveTrials.get, () => NO_LIVE_TRIAL_ROOMS);
+  return all.get(roomId) ?? NO_TRIALS;
 }
 
 const NO_READS: ReadonlyMap<string, number> = new Map();

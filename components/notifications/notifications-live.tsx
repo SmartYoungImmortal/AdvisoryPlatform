@@ -11,6 +11,7 @@ import {
   CircleAlert,
   CreditCard,
   FileText,
+  Gift,
   MessageSquare,
   MessageSquareQuote,
   ReceiptText,
@@ -85,6 +86,8 @@ const ICON: Record<NotificationType, LucideIcon> = {
   REVIEW_REPLIED: MessageSquareQuote,
   REPORT_RESOLVED: ShieldCheck,
   PAYMENT_FAILED: CircleAlert,
+  TRIAL_REQUESTED: Gift,
+  TRIAL_DECIDED: Gift,
 };
 
 /**

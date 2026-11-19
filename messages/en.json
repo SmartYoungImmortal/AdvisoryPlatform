@@ -977,7 +977,9 @@
     "cancellationChecking": "Checking the latest booking status…",
     "cancellationCheck": "Check status",
     "cancellationLogin": "Sign in again",
-    "detailCalendar": "Add to calendar"
+    "detailCalendar": "Add to calendar",
+    "detailsTrialFree": "Free trial · nothing to pay",
+    "trialMark": "Free trial"
   },
   "service": {
     "advisorLabel": "Advisor",
@@ -1102,7 +1104,9 @@
     "answerQuestions": "Answer the questions",
     "trustEscrow": "Payment held until the session ends",
     "panelLabel": "Book this service",
-    "loadFailedTitle": "Couldn't load this service"
+    "loadFailedTitle": "Couldn't load this service",
+    "free": "Free",
+    "trialTimesClosed": "Your free trial times aren't open to book any more"
   },
   "about": {
     "metaTitle": "Our story",
@@ -3442,5 +3446,44 @@
       "failTitle": "Record the transfer to {name} as failed?",
       "failed": "Transfer to {name} recorded as failed"
     }
+  },
+  "trial": {
+    "cardTitle": "Free {minutes}-minute trial request",
+    "cardTitleNoLength": "Free trial request",
+    "pendingMine": "Waiting for the expert to answer",
+    "pendingTheirs": "Answer this request",
+    "grant": "Approve",
+    "granting": "Approving…",
+    "decline": "Decline",
+    "grantedMine": "Approved. Pick a time for your trial.",
+    "grantedTheirs": "Approved. Waiting for them to pick a time.",
+    "booked": "Trial booked",
+    "declined": "Declined",
+    "pickTime": "Pick a trial time",
+    "viewBooking": "View booking",
+    "alreadyDecided": "This request has already been answered.",
+    "answerFailed": "That didn't work. Try again.",
+    "declineTitle": "Decline this free trial request?",
+    "declineBody": "They'll see that it was declined, and can still book a paid session.",
+    "declineMessageLabel": "Message to them (optional)",
+    "declinePlaceholder": "For example: I'm fully booked for now, but you can book a regular session.",
+    "declineConfirm": "Decline request",
+    "declining": "Declining…",
+    "offerBody": "Ask in chat. Once the expert approves, you can pick a time.",
+    "request": "Ask for a free trial",
+    "requesting": "Sending…",
+    "requested": "Asked. Waiting for the expert to answer.",
+    "rowGranted": "Approved. Pick a time for your trial.",
+    "rowBooked": "Trial booked",
+    "rowDeclined": "Your free trial request was declined",
+    "openChat": "Open chat",
+    "requestFailed": "Couldn't send the request. Try again.",
+    "rowPicking": "Your free {minutes}-minute trial: pick a time below",
+    "paidTimes": "Paid times",
+    "screenTitle": "Free {minutes}-minute trial",
+    "screenLead": "Talk with {name} on video before you book. It's free, and you can ask once per service.",
+    "screenNone": "This service has no free trial",
+    "screenBack": "Back to the service",
+    "screenAsk": "Ask for a free {minutes}-minute trial"
   }
 }

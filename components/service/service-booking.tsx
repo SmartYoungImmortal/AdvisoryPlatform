@@ -20,7 +20,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } fro
 import { ApiError } from "@/lib/api/client";
 import { bookSlot, listServiceSlots } from "@/lib/api/resources";
 import type { ApiPublicService, ApiServicePackage, ApiSlot } from "@/lib/api/types";
-import { useResource } from "@/lib/api/use-resource";
+import { invalidate, useResource } from "@/lib/api/use-resource";
 import { useSession } from "@/lib/session";
 import { authPill } from "@/components/auth/auth-split";
 import { baht, isoDay, liveServiceHref } from "@/components/bookings/booking-flow";
@@ -29,6 +29,8 @@ import { OutcomeDialog } from "@/components/payment/checkout-outcome";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogClose, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { Sheet, SheetClose, SheetContent, SheetTitle } from "@/components/ui/sheet";
+import { TrialOffer } from "@/components/trials/trial-offer";
+import { trialKeys } from "@/components/trials/trial-data";
 import { cn } from "@/lib/utils";
 
 /**
@@ -127,6 +129,11 @@ export type Picker = {
   readonly showTimes: () => void;
   readonly setDetail: (open: boolean) => void;
   readonly setTimes: (open: boolean) => void;
+  /** The panel shows the advisee's granted free trial: its times, free, instead of the paid ones. */
+  readonly trial: boolean;
+  /** Opens the panel of times on the free trial's. */
+  readonly showTrialTimes: () => void;
+  readonly setTrial: (on: boolean) => void;
   /** The time someone else took first, while its popup is up; null otherwise. */
   readonly slotTaken: string | null;
   /** Someone took `time` first: both layers close and the popup says so, alone over the page. */
@@ -157,7 +164,29 @@ export function usePicker(): Picker {
     setSlotTaken(time);
   }, []);
   const dismissSlot = useCallback(() => setSlotTaken(null), []);
-  return { ...layers, showDetail, showTimes, setDetail, setTimes, slotTaken, takeSlot, dismissSlot };
+  // The price card and the bar open the paid times; only the trial's own way in opens its times.
+  const [trial, setTrial] = useState(false);
+  const openTimes = useCallback(() => {
+    setTrial(false);
+    showTimes();
+  }, [showTimes]);
+  const showTrialTimes = useCallback(() => {
+    setTrial(true);
+    showTimes();
+  }, [showTimes]);
+  return {
+    ...layers,
+    showDetail,
+    showTimes: openTimes,
+    setDetail,
+    setTimes,
+    trial,
+    showTrialTimes,
+    setTrial,
+    slotTaken,
+    takeSlot,
+    dismissSlot,
+  };
 }
 
 /** Who the booking is with, for the lines that name them. */
@@ -309,13 +338,14 @@ function SlotsNotice({
 
 /**
  * Booking a taken time: `POST /bookings` holds the slot as `PENDING_PAYMENT`
- * and opens the checkout. A slot taken meanwhile (409) reads the times again
+ * and opens the checkout. A free trial (`trial`) is booked outright and opens
+ * the booking instead. A slot taken meanwhile (409) reads the times again
  * and hands the time that went to `onTaken`, which closes the picker for its
  * popup; a time the route offered but the booking refused (400: the rules
  * moved under it) reads the times again (`onRejected`) and says so, for
  * another to be taken. Nothing is charged here.
  */
-function useBook(serviceId: string, onRejected: () => void, onTaken: (time: string) => void) {
+function useBook(serviceId: string, onRejected: () => void, onTaken: (time: string) => void, trial = false) {
   const t = useTranslations("service");
   const router = useRouter();
   const session = useSession();
@@ -331,8 +361,18 @@ function useBook(serviceId: string, onRejected: () => void, onTaken: (time: stri
     }
     setBooking(true);
     setFailure(null);
-    void bookSlot({ serviceId, startTime: time, packageId: packageId ?? undefined })
-      .then((created) => router.push(`/checkout/card?bookingId=${created.id}`))
+    const input = trial ? { serviceId, startTime: time, trial: true } : { serviceId, startTime: time, packageId: packageId ?? undefined };
+    void bookSlot(input)
+      .then((created) => {
+        if (!trial) {
+          router.push(`/checkout/card?bookingId=${created.id}`);
+          return;
+        }
+        // Nothing to pay: the trial is booked. Its row and the bookings list are out of date.
+        invalidate(trialKeys.service(serviceId));
+        invalidate("bookings");
+        router.push(`/bookings/detail?bookingId=${created.id}`);
+      })
       .catch((cause: unknown) => {
         if (cause instanceof ApiError && cause.status === 401) {
           signIn();
@@ -767,6 +807,8 @@ function monthsBetween(first: string, last: string): readonly string[] {
 /** One row of the panel: a package (or the service itself) and its open times by day, in the viewer's zone. */
 type Lane = {
   readonly pack: ApiServicePackage | null;
+  /** The advisee's free trial: the service at its trial length, free. */
+  readonly trial: boolean;
   readonly byDay: ReadonlyMap<string, readonly ApiSlot[]>;
 };
 
@@ -780,25 +822,26 @@ type Lane = {
  * and the cache outlives signing in: without the viewer in the key, someone
  * who signs in and comes back would still be shown the visitor's answer.
  */
-function useServiceSlots(service: ApiPublicService, today: string, last: string) {
+function useServiceSlots(service: ApiPublicService, today: string, last: string, trial = false) {
   const session = useSession();
   const viewer = session.status === "authenticated" ? session.account.id : "guest";
   const fetcher = useCallback(
     (signal: AbortSignal) => {
+      if (trial) return Promise.all([listServiceSlots(service.id, { from: today, to: last, trial: true }, signal)]);
       const packs = service.packages && service.packages.length > 0 ? service.packages : [null];
       return Promise.all(
         packs.map((pack) => listServiceSlots(service.id, { from: today, to: last, packageId: pack?.id }, signal)),
       );
     },
-    [service, today, last],
+    [service, today, last, trial],
   );
   const ids = (service.packages ?? []).map((item) => item.id).join(",");
   const slots = useResource<readonly (readonly ApiSlot[])[]>(
-    `services/${service.id}/slots?from=${today}&to=${last}&packages=${ids}&viewer=${viewer}`,
+    `services/${service.id}/slots?from=${today}&to=${last}&packages=${trial ? "trial" : ids}&viewer=${viewer}`,
     fetcher,
   );
   const { lanes, openDays } = useMemo(() => {
-    const packs = service.packages && service.packages.length > 0 ? service.packages : [null];
+    const packs = !trial && service.packages && service.packages.length > 0 ? service.packages : [null];
     const open = new Set<string>();
     const built = packs.map((pack, i): Lane => {
       const days = new Map<string, ApiSlot[]>();
@@ -809,10 +852,10 @@ function useServiceSlots(service: ApiPublicService, today: string, last: string)
         if (list) list.push(slot);
         else days.set(key, [slot]);
       }
-      return { pack, byDay: days };
+      return { pack, trial, byDay: days };
     });
     return { lanes: built, openDays: open };
-  }, [service.packages, slots.data]);
+  }, [service.packages, slots.data, trial]);
   return { slots, lanes, openDays };
 }
 
@@ -828,6 +871,7 @@ function useServiceSlots(service: ApiPublicService, today: string, last: string)
 const WIDE = {
   // The leading again: the dialog's title primitive sets `leading-none`.
   title: "px-[28.5px] pt-[61.75px] pr-19 text-frame-headline leading-[1.1538] font-semibold text-foreground",
+  trial: "mx-[28.5px] mt-[19px]",
   monthRow: "mt-9.5 flex items-center justify-between gap-[19px] px-[28.5px]",
   monthLabel: "text-frame-body leading-[1.25] font-medium text-foreground",
   calendar: "size-9.5 rounded-full",
@@ -863,6 +907,7 @@ const WIDE = {
 
 const NARROW: typeof WIDE = {
   title: "px-6 pt-13 pr-14 text-display-sm font-semibold text-foreground",
+  trial: "mx-6 mt-4",
   monthRow: "mt-8 flex items-center justify-between gap-4 px-6",
   monthLabel: "text-base font-medium text-foreground",
   calendar: "size-8 rounded-full",
@@ -908,7 +953,9 @@ type TitleSlot = (props: { readonly className?: string; readonly children: React
  * ahead, one under another, to pick a day from; its button turns it back.
  *
  * Every answer of the slots route other than a list is its notice; the
- * advisor's own service says whose it is.
+ * advisor's own service says whose it is. A service with a free trial shows
+ * it under the title (`TrialOffer`), above the paid times or their notice:
+ * screening does not gate a trial.
  */
 function Schedule({
   service,
@@ -918,6 +965,8 @@ function Schedule({
   sizes: S,
   Title,
   onTaken,
+  trial,
+  onTrial,
 }: Party & {
   readonly selection: Selection;
   readonly photos: readonly string[];
@@ -925,13 +974,16 @@ function Schedule({
   readonly Title: TitleSlot;
   /** Someone took the time first: the picker closes for the popup that says so (`Picker.takeSlot`). */
   readonly onTaken: (time: string) => void;
+  /** The free trial's times rather than the paid ones (`Picker.trial`). */
+  readonly trial: boolean;
+  readonly onTrial: (on: boolean) => void;
 }) {
   const t = useTranslations("service");
   const format = useFormatter();
   const { dayLabel, hour } = useCalendarFormat();
   const today = useMemo(() => isoDay(new Date()), []);
   const last = addDays(today, SLOT_DAYS - 1);
-  const { slots, lanes, openDays } = useServiceSlots(service, today, last);
+  const { slots, lanes, openDays } = useServiceSlots(service, today, last, trial);
   const { booking, failure, book } = useBook(
     service.id,
     () => {
@@ -939,8 +991,15 @@ function Schedule({
       slots.reload();
     },
     onTaken,
+    trial,
   );
+  // A time taken in one set of times is not one of the other's.
+  const switchTrial = (on: boolean) => {
+    selection.clearTime();
+    onTrial(on);
+  };
   const [view, setView] = useState<"week" | "month">("week");
+  const own = useOwnService(service.advisorId);
   const weeks = useMemo(() => weeksBetween(today, last), [today, last]);
 
   const firstOpen = useMemo(() => [...openDays].sort((a, b) => a.localeCompare(b))[0] ?? null, [openDays]);
@@ -966,6 +1025,9 @@ function Schedule({
       {/* A column only while it holds a notice: the week strip scrolls sideways, and a flex item that scrolls may shrink. */}
       <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain has-[[data-notice]]:flex has-[[data-notice]]:flex-col">
         <Title className={S.title}>{t("book")}</Title>
+        {own ? null : (
+          <TrialOffer className={S.trial} onTrial={switchTrial} service={service} trialMode={trial} />
+        )}
         <ScheduleBody
           advisorName={advisorName}
           calendar={calendar}
@@ -977,6 +1039,7 @@ function Schedule({
           sizes={S}
           slots={slots}
           taken={taken}
+          trial={trial}
           weeks={weeks}
         />
       </div>
@@ -989,7 +1052,9 @@ function Schedule({
         <div className={S.footer}>
           <p className="flex min-w-0 flex-wrap items-baseline gap-x-2">
             <span className={S.footPrice}>
-              {format.number(baht(taken.lane.pack?.priceSatang ?? service.priceSatang), "baht")}
+              {taken.lane.trial
+                ? t("free")
+                : format.number(baht(taken.lane.pack?.priceSatang ?? service.priceSatang), "baht")}
             </span>
             <span className={S.footNote}>{`${dayLabel(taken.day)} · ${hour(taken.time)}`}</span>
           </p>
@@ -1069,10 +1134,12 @@ function ScheduleBody({
   calendar,
   taken,
   onCalendar,
+  trial,
 }: Party & {
   readonly selection: Selection;
   readonly photos: readonly string[];
   readonly sizes: typeof WIDE;
+  readonly trial: boolean;
   readonly slots: ReturnType<typeof useServiceSlots>["slots"];
   readonly lanes: readonly Lane[];
   readonly weeks: readonly (readonly string[])[];
@@ -1095,7 +1162,12 @@ function ScheduleBody({
   if (slots.error) {
     return (
       <div className={S.notice} data-notice>
-        <SlotsNotice advisorName={advisorName} error={slots.error} onRetry={slots.reload} service={service} />
+        {/* The trial's times answer 400 once it is no longer the advisee's to book; the row above says why. */}
+        {trial && slots.error instanceof ApiError && slots.error.status === 400 ? (
+          <Notice icon={CalendarX2}>{t("trialTimesClosed")}</Notice>
+        ) : (
+          <SlotsNotice advisorName={advisorName} error={slots.error} onRetry={slots.reload} service={service} />
+        )}
       </div>
     );
   }
@@ -1373,7 +1445,8 @@ function LaneTimes({
   const format = useFormatter();
   const { hour } = useCalendarFormat();
   const laneId = lane.pack?.id ?? null;
-  const name = lane.pack?.name ?? service.name;
+  const trialMinutes = lane.trial ? (service.trialDurationMinutes ?? 0) : 0;
+  const name = lane.trial ? t("trialFree", { minutes: trialMinutes }) : (lane.pack?.name ?? service.name);
   const times = lane.byDay.get(day) ?? [];
   const photo = lane.pack ? packagePhoto(service, photos, lane.pack) : (photos[0] ?? null);
 
@@ -1387,9 +1460,9 @@ function LaneTimes({
           <h3 className={S.laneName}>{name}</h3>
           <p className={S.lanePrice}>
             <span className="font-latin font-semibold text-foreground tabular-nums">
-              {format.number(baht(lane.pack?.priceSatang ?? service.priceSatang), "baht")}
+              {lane.trial ? t("free") : format.number(baht(lane.pack?.priceSatang ?? service.priceSatang), "baht")}
             </span>
-            {` · ${s("durationMinutes", { count: lane.pack?.durationMinutes ?? service.durationMinutes })}`}
+            {` · ${s("durationMinutes", { count: lane.trial ? trialMinutes : (lane.pack?.durationMinutes ?? service.durationMinutes) })}`}
           </p>
         </div>
       </div>
@@ -1464,8 +1537,10 @@ function TimesDialog({ service, advisorName, selection, picker, photos }: LayerP
             photos={photos}
             selection={selection}
             onTaken={picker.takeSlot}
+            onTrial={picker.setTrial}
             service={service}
             sizes={WIDE}
+            trial={picker.trial}
             Title={DialogTitle}
           />
           {/* On the title's line, not a row above it: centred on its first line (61.75 down, 35.6 tall). */}
@@ -1502,8 +1577,10 @@ function TimesSheet({ service, advisorName, selection, picker, photos }: LayerPr
           photos={photos}
           selection={selection}
           onTaken={picker.takeSlot}
+          onTrial={picker.setTrial}
           service={service}
           sizes={NARROW}
+          trial={picker.trial}
           Title={SheetTitle}
         />
         {/* On the title's line: centred on its first line (52 down, 39 tall). */}

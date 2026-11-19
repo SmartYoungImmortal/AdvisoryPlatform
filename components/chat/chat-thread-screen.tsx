@@ -33,6 +33,7 @@ import {
   useDesktop,
   useInbox,
   useRoomTimeline,
+  useRoomTrials,
   useSentFiles,
 } from "@/components/chat/chat-hooks";
 import { CHAT_LIST_PANE, ChatList } from "@/components/chat/chat-inbox-screen";
@@ -72,6 +73,7 @@ import {
   TextBubble,
   ThreadSkeleton,
 } from "@/components/chat/messages";
+import { TrialCard } from "@/components/trials/trial-card";
 import { cn } from "@/lib/utils";
 
 /**
@@ -579,6 +581,7 @@ function ThreadPane({ roomId, state }: { readonly roomId: string; readonly state
   const readMarks = useReadMarks();
   const visible = useDocumentVisible();
   const { messages, files } = useRoomTimeline(roomId);
+  const trials = useRoomTrials(roomId);
   const live = useRoomLiveMessages(roomId);
   const pending = usePendingSends(roomId);
   const sent = useSentFiles(roomId);
@@ -600,7 +603,7 @@ function ThreadPane({ roomId, state }: { readonly roomId: string; readonly state
   const listedIds = new Set(listed.map((file) => file.id));
   const allFiles = [...listed, ...sent.filter((file) => !listedIds.has(file.id))];
   const allMessages = mergeMessages(firstPage?.items ?? [], earlier.items, live);
-  const entries = toTimeline(allMessages, allFiles);
+  const entries = toTimeline(allMessages, allFiles, trials);
   const senders = [...new Set(entries.map((entry) => entry.senderId))];
   const counterpart = counterpartFor(room, senders, people);
   const days = groupThread(entries, me, timeZone);
@@ -898,8 +901,10 @@ function Run({
                   />
                 ) : null}
               </Fragment>
-            ) : (
+            ) : entry.kind === "file" ? (
               <FileBubble file={entry.file} first={first} key={entry.id} mine={mine} now={now} />
+            ) : (
+              <TrialCard key={entry.id} mine={mine} trial={entry.trial} />
             ),
           )}
         </div>
